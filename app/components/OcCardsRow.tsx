@@ -1,3 +1,4 @@
+'use client';
 import type { OcRadarData, IndicatorStatus } from '@/app/lib/types';
 
 function ocStatus(cumplimiento: number, meta: number): IndicatorStatus {
@@ -22,23 +23,40 @@ function statusLabel(status: IndicatorStatus): string {
   return 'Sin datos';
 }
 
-export default function OcCardsRow({ ocData }: { ocData: OcRadarData[] }) {
+export default function OcCardsRow({
+  ocData,
+  selected,
+  onSelect,
+}: {
+  ocData: OcRadarData[];
+  selected?: string | null;
+  onSelect?: (codigo: string | null) => void;
+}) {
   if (ocData.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 mb-6">
+    <div className="flex flex-col gap-2">
       {ocData.map(oc => {
         const status = ocStatus(oc.cumplimiento, oc.meta);
         const color = statusColor(status);
-        const desc = oc.label.split(' - ').slice(1).join(' - ');
+        const desc = oc.label.split(' - ').slice(1).join(' - ') || oc.label;
         const barWidth = oc.meta > 0
           ? `${Math.min((oc.cumplimiento / oc.meta) * 100, 100).toFixed(1)}%`
           : '0%';
+        const isSelected = selected === oc.codigo;
+        const isDimmed = selected !== null && selected !== undefined && !isSelected;
 
         return (
           <div
             key={oc.codigo}
-            className="min-w-[200px] bg-white rounded-xl shadow-sm border border-slate-50 p-3 flex flex-col gap-1.5"
+            onClick={() => onSelect?.(isSelected ? null : oc.codigo)}
+            className={`bg-white rounded-xl shadow-sm border p-3 flex flex-col gap-1.5 cursor-pointer transition-all ${
+              isSelected
+                ? 'border-[#1B3A8A] ring-2 ring-[#1B3A8A]/20 shadow-md'
+                : isDimmed
+                ? 'border-slate-50 opacity-40'
+                : 'border-slate-50 hover:border-slate-200 hover:shadow-md'
+            }`}
           >
             <div className="flex items-center gap-1.5">
               <span

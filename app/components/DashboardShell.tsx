@@ -23,9 +23,14 @@ export default function DashboardShell({
   year: string;
 }) {
   const [processFilter, setProcessFilter] = useState<string | null>(null);
+  const [ocFilter, setOcFilter] = useState<string | null>(null);
 
   function handleProcessSelect(nombre: string | null) {
     setProcessFilter(prev => (prev === nombre ? null : nombre));
+  }
+
+  function handleOcSelect(codigo: string | null) {
+    setOcFilter(prev => (prev === codigo ? null : codigo));
   }
 
   const ocData = computeOcRadarData(indicadores, objetivosCalidad, processFilter);
@@ -41,17 +46,28 @@ export default function DashboardShell({
         selectedProcess={processFilter}
         onProcessSelect={handleProcessSelect}
       />
-      <ProcessGrid
-        procesos={procesos}
-        selected={processFilter}
-        onSelect={handleProcessSelect}
-      />
-      <OcCardsRow ocData={ocData} />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="col-span-2">
+          <ProcessGrid
+            procesos={procesos}
+            selected={processFilter}
+            onSelect={handleProcessSelect}
+          />
+        </div>
+        <div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+            Objetivos de Calidad
+          </p>
+          <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
+        </div>
+      </div>
       <IndicatorsTable
         indicadores={indicadores}
         objetivosCalidad={objetivosCalidad}
         processFilter={processFilter}
         onProcessFilterChange={setProcessFilter}
+        ocFilter={ocFilter}
+        onOcFilterChange={setOcFilter}
       />
     </div>
   );
