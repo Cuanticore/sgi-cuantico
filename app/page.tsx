@@ -59,7 +59,6 @@ export default async function DashboardPage({
       <Nav
         year={year}
         initials={initials}
-        fetchedAt={data.fetchedAt}
         matrixUrl={
           year === '2026'
             ? process.env.SHAREPOINT_MATRIX_URL_2026!

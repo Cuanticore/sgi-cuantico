@@ -7,12 +7,10 @@ import UserMenu from './UserMenu';
 export default function Nav({
   year,
   initials,
-  fetchedAt,
   matrixUrl,
 }: {
   year: string;
   initials: string;
-  fetchedAt: string;
   matrixUrl: string;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
