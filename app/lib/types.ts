@@ -38,6 +38,13 @@ export interface QualityObjective {
   cumplimiento: number | null;
 }
 
+export interface OcRadarData {
+  codigo: string;        // "OC1"
+  label: string;         // "OC1 - Satisfacción del cli…"
+  cumplimiento: number;  // promedio de resultado de los indicadores del OC
+  meta: number;          // promedio de meta parseada de los indicadores del OC
+}
+
 export interface MonthlyMeasure {
   v1: number | null;
   v2: number | null;
