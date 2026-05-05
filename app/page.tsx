@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from './api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/lib/auth';
 import { getIndicatorsData } from '@/app/lib/data';
 import type { IndicatorYear } from '@/app/lib/sharepoint';
 import Nav from './components/Nav';
