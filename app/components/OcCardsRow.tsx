@@ -22,13 +22,38 @@ function statusLabel(status: IndicatorStatus): string {
   return 'Sin datos';
 }
 
-function TrafficLight({ status }: { status: IndicatorStatus }) {
+function StatusIcon({ status }: { status: IndicatorStatus }) {
+  const color = statusColor(status);
+  if (status === 'en_meta') {
+    return (
+      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+        <circle cx="10" cy="10" r="10" />
+        <path d="M6 10.5l3 3 5-5.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </svg>
+    );
+  }
+  if (status === 'alerta') {
+    return (
+      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+        <circle cx="10" cy="10" r="10" />
+        <path d="M10 6v5" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <circle cx="10" cy="14" r="1" fill="white" />
+      </svg>
+    );
+  }
+  if (status === 'critico') {
+    return (
+      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+        <circle cx="10" cy="10" r="10" />
+        <path d="M7 7l6 6M13 7l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      </svg>
+    );
+  }
   return (
-    <div className="flex flex-col gap-[3px] items-center">
-      <div className={`w-2 h-2 rounded-full ${status === 'en_meta' ? 'bg-green-500' : 'bg-green-100'}`} />
-      <div className={`w-2 h-2 rounded-full ${status === 'alerta' ? 'bg-amber-400' : 'bg-amber-100'}`} />
-      <div className={`w-2 h-2 rounded-full ${status === 'critico' ? 'bg-red-500' : 'bg-red-100'}`} />
-    </div>
+    <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+      <circle cx="10" cy="10" r="10" />
+      <path d="M7 10h6" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
   );
 }
 
@@ -52,21 +77,17 @@ export default function OcCardsRow({
       <table className="w-full border-collapse h-full">
         <thead>
           <tr className="border-b border-slate-100">
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-6" />
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-2 py-2 text-left w-8">OC</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-8">OC</th>
             <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left">Objetivo</th>
             <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-right w-14">%</th>
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-24">Progreso</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-center w-16">Estado</th>
           </tr>
         </thead>
         <tbody>
           {ocData.map(oc => {
             const status = ocStatus(oc.cumplimiento, oc.meta);
-            const color = statusColor(status);
             const desc = descMap[oc.codigo] ?? oc.label.split(' - ').slice(1).join(' - ') ?? oc.label;
-            const barWidth = oc.meta > 0
-              ? `${Math.min((oc.cumplimiento / oc.meta) * 100, 100).toFixed(1)}%`
-              : '0%';
+            const color = statusColor(status);
             const isSelected = selected === oc.codigo;
             const isDimmed = selected != null && !isSelected;
 
@@ -83,9 +104,6 @@ export default function OcCardsRow({
                 }`}
               >
                 <td className="px-3 py-2">
-                  <TrafficLight status={status} />
-                </td>
-                <td className="px-2 py-2">
                   <span className="text-[11px] font-bold text-slate-700">{oc.codigo}</span>
                 </td>
                 <td className="px-3 py-2">
@@ -96,17 +114,12 @@ export default function OcCardsRow({
                   <span className="text-sm font-bold tabular-nums" style={{ color }}>
                     {oc.cumplimiento}%
                   </span>
+                  <p className="text-[9px] text-slate-400 tabular-nums">meta {oc.meta}%</p>
                 </td>
                 <td className="px-3 py-2">
-                  <div className="bg-slate-100 rounded-full h-1.5 w-full mb-0.5">
-                    <div
-                      className="h-1.5 rounded-full"
-                      style={{ width: barWidth, background: color }}
-                    />
+                  <div className="flex justify-center">
+                    <StatusIcon status={status} />
                   </div>
-                  <p className="text-[9px] text-slate-400 tabular-nums">
-                    meta {oc.meta}%
-                  </p>
                 </td>
               </tr>
             );
