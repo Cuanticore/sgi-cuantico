@@ -38,6 +38,5 @@ jobs:
 
       - name: Trigger Coolify deploy
         run: |
-          curl -s --resolve automatizaciones.cuantico.com:443:98.83.132.206 \
-            "https://automatizaciones.cuantico.com/api/v1/deploy?uuid=j5xsvy58kdohun5rkdaxa4tk&force=true" \
+          curl -s "https://stack.cuanticore.com/api/v1/deploy?uuid=smpid01mza9yuq6qerii1peq&force=true" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
