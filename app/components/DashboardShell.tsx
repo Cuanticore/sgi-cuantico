@@ -58,7 +58,14 @@ export default function DashboardShell({
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
             Objetivos de Calidad
           </p>
-          <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
+          <div className="flex-1 min-h-0">
+            <OcCardsRow
+              ocData={ocData}
+              objetivosCalidad={objetivosCalidad}
+              selected={ocFilter}
+              onSelect={handleOcSelect}
+            />
+          </div>
         </div>
       </div>
       <IndicatorsTable
