@@ -21,7 +21,7 @@ function SvgGauge({ pct, color }: { pct: number | null; color: string }) {
   const dash = pct === null ? 0 : Math.min((pct / 100) * circ, circ);
   const label = pct === null ? 'S/D' : `${pct}%`;
   return (
-    <svg viewBox="0 0 50 50" className="w-[50px] h-[50px] flex-shrink-0">
+    <svg viewBox="0 0 50 50" className="w-[64px] h-[64px] flex-shrink-0">
       <circle cx="25" cy="25" r={r} fill="none" stroke="#f1f5f9" strokeWidth="5" />
       <circle
         cx="25" cy="25" r={r} fill="none" stroke={color} strokeWidth="5"
@@ -69,7 +69,7 @@ export default function ProcessGrid({
             <div
               key={p.nombre}
               onClick={() => onSelect?.(p.nombre)}
-              className={`bg-white rounded-xl p-4 shadow-sm border flex items-center gap-3.5 cursor-pointer transition-all ${
+              className={`bg-white rounded-xl p-3 shadow-sm border flex items-center gap-2.5 cursor-pointer transition-all ${
                 isSelected
                   ? 'border-[#1B3A8A] ring-2 ring-[#1B3A8A]/20 shadow-md'
                   : isDimmed
