@@ -38,7 +38,7 @@ export async function GET() {
     }
 
     // Helper para extraer resultado de fórmulas igual que el parser
-    function cv(ws: typeof cuadro, r: number, c: number) {
+    const cv = (ws: typeof cuadro, r: number, c: number) => {
       if (!ws) return null;
       const v = ws.getRow(r).getCell(c).value;
       if (v !== null && typeof v === 'object' && 'formula' in (v as object)) {
