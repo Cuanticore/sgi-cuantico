@@ -3,6 +3,8 @@ import axios from 'axios';
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 
+export type IndicatorYear = '2025' | '2026';
+
 async function getToken(): Promise<string> {
   const res = await axios.post(
     `https://login.microsoftonline.com/${process.env.SHAREPOINT_TENANT_ID}/oauth2/v2.0/token`,
@@ -31,16 +33,27 @@ async function getDriveId(token: string, siteId: string): Promise<string> {
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const drives: { id: string; name: string }[] = res.data.value;
-  // The default library is "Documents" (internal name), shown in UI as "Shared Documents"
   const drive = drives.find(d => d.name === 'Documents' || d.name === 'Shared Documents') ?? drives[0];
   return drive.id;
 }
 
-export async function fetchIndicatorsBuffer(): Promise<Buffer> {
+const FILE_CONFIG: Record<IndicatorYear, { path: string; file: string }> = {
+  '2026': {
+    path: process.env.SHAREPOINT_INDICATORS_PATH!,
+    file: process.env.SHAREPOINT_INDICATORS_FILE!,
+  },
+  '2025': {
+    path: process.env.SHAREPOINT_INDICATORS_PATH_2025!,
+    file: process.env.SHAREPOINT_INDICATORS_FILE_2025!,
+  },
+};
+
+export async function fetchIndicatorsBuffer(year: IndicatorYear = '2026'): Promise<Buffer> {
   const token = await getToken();
   const siteId = await getSiteId(token);
   const driveId = await getDriveId(token, siteId);
-  const filePath = `${process.env.SHAREPOINT_INDICATORS_PATH}/${process.env.SHAREPOINT_INDICATORS_FILE}`;
+  const { path, file } = FILE_CONFIG[year];
+  const filePath = `${path}/${file}`;
 
   const res = await axios.get(
     `${GRAPH}/sites/${siteId}/drives/${driveId}/root:/${encodeURIComponent(filePath).replace(/%2F/g, '/')}:/content`,
