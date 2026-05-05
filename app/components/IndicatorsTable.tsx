@@ -74,7 +74,7 @@ export default function IndicatorsTable({
   return (
     <>
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50 mb-8">
-        <div className="flex justify-between items-center mb-4 gap-4">
+        <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
               Todos los Indicadores
@@ -109,7 +109,7 @@ export default function IndicatorsTable({
             )}
           </div>
 
-          <div className="flex gap-1.5 flex-shrink-0">
+          <div className="flex gap-1.5 flex-wrap">
             {STATUS_TABS.map(tab => (
               <button
                 key={tab.key}
@@ -138,7 +138,8 @@ export default function IndicatorsTable({
           </div>
         )}
 
-        <table className="w-full border-collapse">
+        <div className="overflow-x-auto -mx-6 px-6">
+          <table className="w-full min-w-[640px] border-collapse">
           <thead>
             <tr>
               {['Indicador', 'Proceso', 'Objetivo', 'Líder', 'Frecuencia', 'Meta', 'Resultado', 'Estado'].map(h => (
@@ -212,6 +213,7 @@ export default function IndicatorsTable({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <IndicatorModal indicator={selected} onClose={() => setSelected(null)} />
