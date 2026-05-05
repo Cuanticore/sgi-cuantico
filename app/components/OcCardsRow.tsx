@@ -34,50 +34,67 @@ export default function OcCardsRow({
   if (ocData.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      {ocData.map(oc => {
-        const status = ocStatus(oc.cumplimiento, oc.meta);
-        const color = statusColor(status);
-        const desc = oc.label.split(' - ').slice(1).join(' - ') || oc.label;
-        const barWidth = oc.meta > 0
-          ? `${Math.min((oc.cumplimiento / oc.meta) * 100, 100).toFixed(1)}%`
-          : '0%';
-        const isSelected = selected === oc.codigo;
-        const isDimmed = selected !== null && selected !== undefined && !isSelected;
+    <div className="bg-white rounded-xl shadow-sm border border-slate-50 overflow-hidden">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b border-slate-100">
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-10">OC</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left">Objetivo</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-28">Progreso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ocData.map(oc => {
+            const status = ocStatus(oc.cumplimiento, oc.meta);
+            const color = statusColor(status);
+            const desc = oc.label.split(' - ').slice(1).join(' - ') || oc.label;
+            const barWidth = oc.meta > 0
+              ? `${Math.min((oc.cumplimiento / oc.meta) * 100, 100).toFixed(1)}%`
+              : '0%';
+            const isSelected = selected === oc.codigo;
+            const isDimmed = selected != null && !isSelected;
 
-        return (
-          <div
-            key={oc.codigo}
-            onClick={() => onSelect?.(isSelected ? null : oc.codigo)}
-            className={`bg-white rounded-xl shadow-sm border p-2 flex flex-col gap-1 cursor-pointer transition-all ${
-              isSelected
-                ? 'border-[#1B3A8A] ring-2 ring-[#1B3A8A]/20 shadow-md'
-                : isDimmed
-                ? 'border-slate-50 opacity-40'
-                : 'border-slate-50 hover:border-slate-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ background: color }}
-              />
-              <span className="text-[11px] font-bold text-slate-900">{oc.codigo}</span>
-              <span className="text-[9px] text-slate-400 ml-auto">{statusLabel(status)}</span>
-            </div>
-            <p className="text-[10px] text-slate-600 truncate">{desc}</p>
-            <div className="bg-slate-100 rounded-full h-1 w-full">
-              <div
-                className="h-1 rounded-full"
-                style={{ width: barWidth, background: color }}
-              />
-            </div>
-            <p className="text-[9px] text-slate-400">
-              {oc.cumplimiento}% / meta {oc.meta}%
-            </p>
-          </div>
-        );
-      })}
+            return (
+              <tr
+                key={oc.codigo}
+                onClick={() => onSelect?.(isSelected ? null : oc.codigo)}
+                className={`cursor-pointer border-b border-slate-50 transition-all last:border-0 ${
+                  isSelected
+                    ? 'bg-[#1B3A8A]/5 border-l-2 border-l-[#1B3A8A]'
+                    : isDimmed
+                    ? 'opacity-35'
+                    : 'hover:bg-slate-50'
+                }`}
+              >
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: color }}
+                    />
+                    <span className="text-[11px] font-bold text-slate-900">{oc.codigo}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <p className="text-[10px] text-slate-600 truncate">{desc}</p>
+                  <p className="text-[9px] text-slate-400">{statusLabel(status)}</p>
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="bg-slate-100 rounded-full h-1 w-full mb-0.5">
+                    <div
+                      className="h-1 rounded-full"
+                      style={{ width: barWidth, background: color }}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 tabular-nums">
+                    {oc.cumplimiento}% / meta {oc.meta}%
+                  </p>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -58,9 +58,7 @@ export default function DashboardShell({
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
             Objetivos de Calidad
           </p>
-          <div className="overflow-y-auto max-h-[280px]">
-            <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
-          </div>
+          <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
         </div>
       </div>
       <IndicatorsTable
