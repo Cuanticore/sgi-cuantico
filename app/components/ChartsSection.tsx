@@ -1,7 +1,7 @@
-// app/components/ChartsSection.tsx
-import type { Process, MonthlyData, Quarter, IndicatorStatus } from '@/app/lib/types';
+import type { Process, MonthlyData, Quarter, OcRadarData, IndicatorStatus } from '@/app/lib/types';
 import BarChart from './charts/BarChart';
 import LineChart from './charts/LineChart';
+import RadarChart from './charts/RadarChart';
 
 function quarterBorder(status: IndicatorStatus): string {
   if (status === 'en_meta') return 'border-green-500';
@@ -13,6 +13,7 @@ export default function ChartsSection({
   procesos,
   mensual,
   trimestres,
+  ocData,
   year,
   selectedProcess,
   onProcessSelect,
@@ -20,6 +21,7 @@ export default function ChartsSection({
   procesos: Process[];
   mensual: MonthlyData[];
   trimestres: Quarter[];
+  ocData: OcRadarData[];
   year: string;
   selectedProcess?: string | null;
   onProcessSelect?: (nombre: string | null) => void;
@@ -29,7 +31,7 @@ export default function ChartsSection({
       <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
         Análisis de Desempeño
       </p>
-      <div className="grid grid-cols-[1.4fr_1fr] gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Cumplimiento por Proceso</h3>
           <p className="text-xs text-slate-400 mb-5">
@@ -61,6 +63,14 @@ export default function ChartsSection({
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
+          <h3 className="text-sm font-bold text-slate-900 mb-1">Cumplimiento por OC</h3>
+          <p className="text-xs text-slate-400 mb-5">
+            Real vs. meta por Objetivo de Calidad · {year}
+          </p>
+          <RadarChart ocData={ocData} />
         </div>
       </div>
     </div>

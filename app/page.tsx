@@ -56,6 +56,7 @@ export default async function DashboardPage({
         mensual={data.mensual}
         trimestres={data.trimestres}
         indicadores={data.indicadores}
+        objetivosCalidad={data.objetivosCalidad}
         year={year}
       />
       <footer className="bg-slate-50 border-t border-slate-200 px-8 py-4 flex justify-between items-center">
