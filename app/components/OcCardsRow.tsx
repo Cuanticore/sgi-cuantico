@@ -26,7 +26,7 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   const color = statusColor(status);
   if (status === 'en_meta') {
     return (
-      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M6 10.5l3 3 5-5.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       </svg>
@@ -34,7 +34,7 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   }
   if (status === 'alerta') {
     return (
-      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M10 6v5" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
         <circle cx="10" cy="14" r="1" fill="white" />
@@ -43,14 +43,14 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   }
   if (status === 'critico') {
     return (
-      <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M7 7l6 6M13 7l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" fill="none" />
       </svg>
     );
   }
   return (
-    <svg viewBox="0 0 20 20" className="w-5 h-5 flex-shrink-0" fill={color}>
+    <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
       <circle cx="10" cy="10" r="10" />
       <path d="M7 10h6" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
@@ -108,8 +108,10 @@ export default function OcCardsRow({
                   <span className="text-[11px] font-bold text-slate-700">{oc.codigo}</span>
                 </td>
                 <td className="px-2 py-1.5">
-                  <p className="text-[10px] text-slate-700 leading-snug">{desc}</p>
-                  <p className="text-[9px] text-slate-400">{statusLabel(status)}</p>
+                  <p className="text-[10px] text-slate-700 leading-snug truncate">
+                    {desc}
+                    <span className="text-[9px] text-slate-400 ml-1.5">{statusLabel(status)}</span>
+                  </p>
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <span className="text-[11px] font-semibold tabular-nums text-slate-500">

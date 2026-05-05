@@ -22,7 +22,7 @@ export default function Nav({
     <nav className="bg-gradient-to-r from-slate-900 via-[#1B3A8A] to-[#0c2461] px-8 h-[60px] flex items-center justify-between sticky top-0 z-[100] shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
       <div className="flex items-center gap-3">
         <Image
-          src="/logo.png"
+          src="/logo.jpeg"
           alt="Cuantico"
           width={44}
           height={44}

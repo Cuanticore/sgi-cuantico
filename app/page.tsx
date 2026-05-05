@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { getIndicatorsData } from '@/app/lib/data';
+import { computeOcRadarData } from '@/app/lib/oc-utils';
 import type { IndicatorYear } from '@/app/lib/sharepoint';
 import Nav from './components/Nav';
 import HeroBanner from './components/HeroBanner';
@@ -22,9 +23,15 @@ export default async function DashboardPage({
       .toUpperCase()
       .slice(0, 2) || 'U';
 
+  const otherYear: IndicatorYear = year === '2026' ? '2025' : '2026';
+
   let data;
+  let otherData;
   try {
-    data = await getIndicatorsData(year);
+    [data, otherData] = await Promise.all([
+      getIndicatorsData(year),
+      getIndicatorsData(otherYear).catch(() => null),
+    ]);
   } catch {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -37,6 +44,15 @@ export default async function DashboardPage({
       </div>
     );
   }
+
+  const srcData2025 = year === '2025' ? data : otherData;
+  const srcData2026 = year === '2026' ? data : otherData;
+  const ocData2025 = srcData2025
+    ? computeOcRadarData(srcData2025.indicadores, srcData2025.objetivosCalidad, null)
+    : [];
+  const ocData2026 = srcData2026
+    ? computeOcRadarData(srcData2026.indicadores, srcData2026.objetivosCalidad, null)
+    : [];
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -58,6 +74,8 @@ export default async function DashboardPage({
         indicadores={data.indicadores}
         objetivosCalidad={data.objetivosCalidad}
         year={year}
+        ocData2025={ocData2025}
+        ocData2026={ocData2026}
       />
       <footer className="bg-slate-50 border-t border-slate-200 px-8 py-4 flex justify-between items-center">
         <span className="text-xs text-slate-400">

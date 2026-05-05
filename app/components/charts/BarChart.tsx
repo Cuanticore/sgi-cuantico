@@ -1,13 +1,13 @@
 'use client';
 import ReactECharts from 'echarts-for-react';
-import type { Process } from '@/app/lib/types';
+import type { Process, IndicatorStatus } from '@/app/lib/types';
 
-function barColor(v: number | null, selected: boolean, anySelected: boolean): string {
+function barColor(status: IndicatorStatus, selected: boolean, anySelected: boolean): string {
   if (anySelected && !selected) return '#cbd5e1';
-  if (v === null) return '#94a3b8';
-  if (v >= 90) return '#22c55e';
-  if (v >= 70) return '#f59e0b';
-  return '#ef4444';
+  if (status === 'en_meta') return '#22c55e';
+  if (status === 'alerta') return '#f59e0b';
+  if (status === 'critico') return '#ef4444';
+  return '#94a3b8';
 }
 
 export default function BarChart({
@@ -37,6 +37,7 @@ export default function BarChart({
     yAxis: {
       type: 'category',
       data: names,
+      inverse: true,
       axisLabel: { fontSize: 10, color: '#64748b' },
       axisTick: { show: false },
       axisLine: { show: false },
@@ -50,7 +51,7 @@ export default function BarChart({
           value: p.cumplimiento ?? 0,
           itemStyle: {
             color: barColor(
-              p.cumplimiento,
+              p.status,
               selectedProcess === p.nombre,
               anySelected,
             ),

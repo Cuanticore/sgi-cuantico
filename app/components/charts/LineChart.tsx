@@ -19,7 +19,7 @@ export default function LineChart({ mensual }: { mensual: MonthlyData[] }) {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 100,
+      max: 110,
       axisLabel: { formatter: '{value}%', fontSize: 9, color: '#94a3b8' },
       splitLine: { lineStyle: { color: '#f8fafc' } },
       axisLine: { show: false },
