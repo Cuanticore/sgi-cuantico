@@ -60,7 +60,7 @@ export default function ProcessGrid({
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
         {procesos.map(p => {
           const color = statusColor(p.status);
           const isSelected = selected === p.nombre;
