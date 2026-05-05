@@ -54,11 +54,13 @@ export default function DashboardShell({
             onSelect={handleProcessSelect}
           />
         </div>
-        <div>
+        <div className="flex flex-col">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
             Objetivos de Calidad
           </p>
-          <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
+          <div className="overflow-y-auto max-h-[280px]">
+            <OcCardsRow ocData={ocData} selected={ocFilter} onSelect={handleOcSelect} />
+          </div>
         </div>
       </div>
       <IndicatorsTable

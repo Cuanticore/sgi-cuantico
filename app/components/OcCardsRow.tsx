@@ -3,9 +3,8 @@ import type { OcRadarData, IndicatorStatus } from '@/app/lib/types';
 
 function ocStatus(cumplimiento: number, meta: number): IndicatorStatus {
   if (meta === 0) return 'sin_datos';
-  const ratio = cumplimiento / meta;
-  if (ratio >= 0.95) return 'en_meta';
-  if (ratio >= 0.85) return 'alerta';
+  if (cumplimiento >= meta) return 'en_meta';
+  if (cumplimiento / meta >= 0.85) return 'alerta';
   return 'critico';
 }
 
@@ -50,7 +49,7 @@ export default function OcCardsRow({
           <div
             key={oc.codigo}
             onClick={() => onSelect?.(isSelected ? null : oc.codigo)}
-            className={`bg-white rounded-xl shadow-sm border p-3 flex flex-col gap-1.5 cursor-pointer transition-all ${
+            className={`bg-white rounded-xl shadow-sm border p-2 flex flex-col gap-1 cursor-pointer transition-all ${
               isSelected
                 ? 'border-[#1B3A8A] ring-2 ring-[#1B3A8A]/20 shadow-md'
                 : isDimmed
@@ -60,20 +59,20 @@ export default function OcCardsRow({
           >
             <div className="flex items-center gap-1.5">
               <span
-                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
                 style={{ background: color }}
               />
-              <span className="text-xs font-bold text-slate-900">{oc.codigo}</span>
-              <span className="text-[10px] text-slate-400 ml-auto">{statusLabel(status)}</span>
+              <span className="text-[11px] font-bold text-slate-900">{oc.codigo}</span>
+              <span className="text-[9px] text-slate-400 ml-auto">{statusLabel(status)}</span>
             </div>
-            <p className="text-[11px] text-slate-600 truncate">{desc}</p>
-            <div className="bg-slate-100 rounded-full h-1.5 w-full">
+            <p className="text-[10px] text-slate-600 truncate">{desc}</p>
+            <div className="bg-slate-100 rounded-full h-1 w-full">
               <div
-                className="h-1.5 rounded-full"
+                className="h-1 rounded-full"
                 style={{ width: barWidth, background: color }}
               />
             </div>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[9px] text-slate-400">
               {oc.cumplimiento}% / meta {oc.meta}%
             </p>
           </div>
