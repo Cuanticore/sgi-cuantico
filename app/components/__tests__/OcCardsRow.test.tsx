@@ -47,3 +47,8 @@ test('renders nothing when ocData is empty', () => {
   const { container } = render(<OcCardsRow ocData={[]} />);
   expect(container.firstChild).toBeNull();
 });
+
+test('shows "Sin datos" when meta is 0', () => {
+  render(<OcCardsRow ocData={[{ codigo: 'OC1', label: 'OC1 - X', cumplimiento: 0, meta: 0 }]} />);
+  expect(screen.getByText('Sin datos')).toBeInTheDocument();
+});

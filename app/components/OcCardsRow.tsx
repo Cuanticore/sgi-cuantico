@@ -1,5 +1,4 @@
-import type { OcRadarData } from '@/app/lib/types';
-import type { IndicatorStatus } from '@/app/lib/types';
+import type { OcRadarData, IndicatorStatus } from '@/app/lib/types';
 
 function ocStatus(cumplimiento: number, meta: number): IndicatorStatus {
   if (meta === 0) return 'sin_datos';
