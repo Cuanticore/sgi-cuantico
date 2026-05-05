@@ -4,9 +4,7 @@ import { getIndicatorsData } from '@/app/lib/data';
 import type { IndicatorYear } from '@/app/lib/sharepoint';
 import Nav from './components/Nav';
 import HeroBanner from './components/HeroBanner';
-import ChartsSection from './components/ChartsSection';
-import ProcessGrid from './components/ProcessGrid';
-import IndicatorsTable from './components/IndicatorsTable';
+import DashboardShell from './components/DashboardShell';
 
 export default async function DashboardPage({
   searchParams,
@@ -42,18 +40,24 @@ export default async function DashboardPage({
 
   return (
     <main className="min-h-screen bg-slate-100">
-      <Nav year={year} initials={initials} fetchedAt={data.fetchedAt} />
+      <Nav
+        year={year}
+        initials={initials}
+        fetchedAt={data.fetchedAt}
+        matrixUrl={
+          year === '2026'
+            ? process.env.SHAREPOINT_MATRIX_URL_2026!
+            : process.env.SHAREPOINT_MATRIX_URL_2025!
+        }
+      />
       <HeroBanner summary={data.summary} year={year} />
-      <div className="px-8 mt-6">
-        <ChartsSection
-          procesos={data.procesos}
-          mensual={data.mensual}
-          trimestres={data.trimestres}
-          year={year}
-        />
-        <ProcessGrid procesos={data.procesos} />
-        <IndicatorsTable indicadores={data.indicadores} />
-      </div>
+      <DashboardShell
+        procesos={data.procesos}
+        mensual={data.mensual}
+        trimestres={data.trimestres}
+        indicadores={data.indicadores}
+        year={year}
+      />
       <footer className="bg-slate-50 border-t border-slate-200 px-8 py-4 flex justify-between items-center">
         <span className="text-xs text-slate-400">
           Cuantico · Sistema de Gestión de Calidad ISO 9001 · {year}

@@ -49,6 +49,14 @@ const FILE_CONFIG: Record<IndicatorYear, { path: string; file: string }> = {
 };
 
 export async function fetchIndicatorsBuffer(year: IndicatorYear = '2026'): Promise<Buffer> {
+  // Dev: read from local filesystem if path is configured
+  const localEnvKey = year === '2026' ? 'LOCAL_INDICATORS_FILE_2026' : 'LOCAL_INDICATORS_FILE_2025';
+  const localPath = process.env[localEnvKey];
+  if (localPath) {
+    const fs = await import('fs');
+    return fs.readFileSync(localPath);
+  }
+
   const token = await getToken();
   const siteId = await getSiteId(token);
   const driveId = await getDriveId(token, siteId);

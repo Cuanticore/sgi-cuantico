@@ -38,6 +38,12 @@ export interface QualityObjective {
   cumplimiento: number | null;
 }
 
+export interface MonthlyMeasure {
+  v1: number | null;
+  v2: number | null;
+  resultado: number | null;
+}
+
 export interface Indicator {
   numero: number;
   proceso: string;
@@ -45,9 +51,20 @@ export interface Indicator {
   lider: string;
   frecuencia: string;
   meta: string;              // kept as string (can be "90%", "≥ 2", "≥ 12 meses")
-  resultado: number | null;  // percentage value or null
+  resultado: number | null;  // best available result (latest quarter/semester/month)
   status: IndicatorStatus;
   oc: string;                // "OC1", "OC5", etc.
+  // detail fields
+  formula?: string;
+  tipo?: string;             // Eficacia / Eficiencia / Efectividad
+  objetivo?: string;
+  nivelEstandar?: string;
+  nivelMedio?: string;
+  nivelCritico?: string;
+  // time-series data
+  datosMensuales: MonthlyMeasure[];      // 12 entries Ene→Dic
+  datosTrimestrales: (number | null)[];  // [Q1, Q2, Q3, Q4]
+  datosSemestrales: (number | null)[];   // [S1, S2]
 }
 
 export interface IndicatorsData {

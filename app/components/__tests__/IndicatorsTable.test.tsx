@@ -3,21 +3,28 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import IndicatorsTable from '../IndicatorsTable';
 import type { Indicator } from '@/app/lib/types';
 
+const emptyMonthly = Array(12).fill({ v1: null, v2: null, resultado: null });
+const emptyQ = [null, null, null, null];
+const emptyS = [null, null];
+
 const mockIndicators: Indicator[] = [
   {
     numero: 1, proceso: 'P1', nombre: 'Ind A', lider: 'L1',
     frecuencia: 'Anual', meta: '90%', resultado: 95,
     status: 'en_meta', oc: 'OC1',
+    datosMensuales: emptyMonthly, datosTrimestrales: emptyQ, datosSemestrales: emptyS,
   },
   {
     numero: 2, proceso: 'P2', nombre: 'Ind B', lider: 'L2',
     frecuencia: 'Trimestral', meta: '90%', resultado: 50,
     status: 'critico', oc: 'OC2',
+    datosMensuales: emptyMonthly, datosTrimestrales: emptyQ, datosSemestrales: emptyS,
   },
   {
     numero: 3, proceso: 'P3', nombre: 'Ind C', lider: 'L3',
     frecuencia: 'Mensual', meta: '90%', resultado: null,
     status: 'sin_datos', oc: 'OC3',
+    datosMensuales: emptyMonthly, datosTrimestrales: emptyQ, datosSemestrales: emptyS,
   },
 ];
 

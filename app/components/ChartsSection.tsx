@@ -14,11 +14,15 @@ export default function ChartsSection({
   mensual,
   trimestres,
   year,
+  selectedProcess,
+  onProcessSelect,
 }: {
   procesos: Process[];
   mensual: MonthlyData[];
   trimestres: Quarter[];
   year: string;
+  selectedProcess?: string | null;
+  onProcessSelect?: (nombre: string | null) => void;
 }) {
   return (
     <div className="mb-6">
@@ -31,7 +35,11 @@ export default function ChartsSection({
           <p className="text-xs text-slate-400 mb-5">
             Comparativo de todos los procesos · {year}
           </p>
-          <BarChart procesos={procesos} />
+          <BarChart
+            procesos={procesos}
+            selectedProcess={selectedProcess}
+            onProcessSelect={onProcessSelect}
+          />
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">

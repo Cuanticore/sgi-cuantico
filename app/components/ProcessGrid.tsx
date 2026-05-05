@@ -1,4 +1,4 @@
-// app/components/ProcessGrid.tsx
+'use client';
 import type { Process, IndicatorStatus } from '@/app/lib/types';
 
 function statusColor(status: IndicatorStatus): string {
@@ -36,19 +36,46 @@ function SvgGauge({ pct, color }: { pct: number | null; color: string }) {
   );
 }
 
-export default function ProcessGrid({ procesos }: { procesos: Process[] }) {
+export default function ProcessGrid({
+  procesos,
+  selected,
+  onSelect,
+}: {
+  procesos: Process[];
+  selected?: string | null;
+  onSelect?: (nombre: string | null) => void;
+}) {
   return (
     <div className="mb-6">
-      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
-        Indicadores por Proceso
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+          Indicadores por Proceso
+        </p>
+        {selected && (
+          <button
+            onClick={() => onSelect?.(null)}
+            className="text-[11px] text-sky-600 font-semibold hover:text-sky-800 flex items-center gap-1"
+          >
+            <span className="text-base leading-none">×</span> Limpiar filtro
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-3.5">
         {procesos.map(p => {
           const color = statusColor(p.status);
+          const isSelected = selected === p.nombre;
+          const isDimmed = selected !== null && !isSelected;
           return (
             <div
               key={p.nombre}
-              className="bg-white rounded-xl p-4 shadow-sm border border-slate-50 flex items-center gap-3.5"
+              onClick={() => onSelect?.(p.nombre)}
+              className={`bg-white rounded-xl p-4 shadow-sm border flex items-center gap-3.5 cursor-pointer transition-all ${
+                isSelected
+                  ? 'border-[#1B3A8A] ring-2 ring-[#1B3A8A]/20 shadow-md'
+                  : isDimmed
+                  ? 'border-slate-50 opacity-40'
+                  : 'border-slate-50 hover:border-slate-200 hover:shadow-md'
+              }`}
             >
               <SvgGauge pct={p.cumplimiento} color={color} />
               <div>

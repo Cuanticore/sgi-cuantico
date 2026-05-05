@@ -14,7 +14,7 @@ export async function getIndicatorsData(year: IndicatorYear = '2026'): Promise<I
   }
 
   const buffer = await fetchIndicatorsBuffer(year);
-  const parsed = await parseExcelBuffer(buffer);
+  const parsed = await parseExcelBuffer(buffer, year);
   const data: IndicatorsData = { ...parsed, fetchedAt: new Date().toISOString() };
   caches[year] = { data, timestamp: Date.now() };
   return data;

@@ -26,7 +26,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
+.env.*
 .env*.local
+!.env.example
 
 # vercel
 .vercel
@@ -38,3 +41,11 @@ next-env.d.ts
 # superpowers
 .superpowers/
 docs/superpowers/
+
+# temp / debug scripts
+tmp_verify*.mjs
+read-excel-*.js
+auth-test.ts
+
+# claude local settings
+.claude/

@@ -1,16 +1,24 @@
-// app/components/charts/BarChart.tsx
 'use client';
 import ReactECharts from 'echarts-for-react';
 import type { Process } from '@/app/lib/types';
 
-function barColor(v: number | null): string {
+function barColor(v: number | null, selected: boolean, anySelected: boolean): string {
+  if (anySelected && !selected) return '#cbd5e1';
   if (v === null) return '#94a3b8';
   if (v >= 90) return '#22c55e';
   if (v >= 70) return '#f59e0b';
   return '#ef4444';
 }
 
-export default function BarChart({ procesos }: { procesos: Process[] }) {
+export default function BarChart({
+  procesos,
+  selectedProcess,
+  onProcessSelect,
+}: {
+  procesos: Process[];
+  selectedProcess?: string | null;
+  onProcessSelect?: (nombre: string | null) => void;
+}) {
   const names = procesos.map(p =>
     p.nombre
       .replace('Gestión de ', 'Gest. ')
@@ -18,9 +26,11 @@ export default function BarChart({ procesos }: { procesos: Process[] }) {
       .replace('Servicio al Cliente', 'Serv. Cliente')
   );
 
+  const anySelected = !!selectedProcess;
+
   const option = {
     animation: true,
-    animationDuration: 1200,
+    animationDuration: 600,
     animationEasing: 'cubicOut',
     grid: { left: 110, right: 55, top: 8, bottom: 8, containLabel: false },
     xAxis: { type: 'value', max: 130, show: false },
@@ -38,7 +48,13 @@ export default function BarChart({ procesos }: { procesos: Process[] }) {
         borderRadius: 5,
         data: procesos.map(p => ({
           value: p.cumplimiento ?? 0,
-          itemStyle: { color: barColor(p.cumplimiento) },
+          itemStyle: {
+            color: barColor(
+              p.cumplimiento,
+              selectedProcess === p.nombre,
+              anySelected,
+            ),
+          },
         })),
         label: {
           show: true,
@@ -53,5 +69,18 @@ export default function BarChart({ procesos }: { procesos: Process[] }) {
     ],
   };
 
-  return <ReactECharts option={option} style={{ height: 280 }} />;
+  const onEvents = {
+    click: (params: { dataIndex: number }) => {
+      const nombre = procesos[params.dataIndex]?.nombre ?? null;
+      onProcessSelect?.(nombre);
+    },
+  };
+
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height: 280, cursor: 'pointer' }}
+      onEvents={onEvents}
+    />
+  );
 }
