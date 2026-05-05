@@ -23,10 +23,9 @@ test('shows description from label (part after " - ")', () => {
 
 test('shows cumplimiento percentage and meta', () => {
   render(<OcCardsRow ocData={mockOcData} />);
-  // % shown as prominent separate column; meta shown below progress bar
   expect(screen.getByText('92%')).toBeInTheDocument();
   // all three OCs share meta 90%, so multiple elements are expected
-  expect(screen.getAllByText('meta 90%').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('90%').length).toBeGreaterThan(0);
 });
 
 test('shows "En meta" for cumplimiento >= 95% of meta', () => {

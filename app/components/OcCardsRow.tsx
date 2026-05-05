@@ -73,21 +73,22 @@ export default function OcCardsRow({
   const descMap = Object.fromEntries(objetivosCalidad.map(o => [o.codigo, o.descripcion]));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-50 overflow-hidden h-full">
-      <table className="w-full border-collapse h-full">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-50 overflow-hidden h-full flex flex-col">
+      <table className="w-full border-collapse flex-1">
         <thead>
           <tr className="border-b border-slate-100">
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left w-8">OC</th>
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-left">Objetivo</th>
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-right w-14">%</th>
-            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-2 text-center w-16">Estado</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-1.5 text-left w-10">OC</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-2 py-1.5 text-left">Objetivo</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-2 py-1.5 text-right w-14">Meta</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-2 py-1.5 text-right w-14">Result.</th>
+            <th className="text-[9px] font-bold text-slate-400 uppercase tracking-wide px-3 py-1.5 text-center w-12">Estado</th>
           </tr>
         </thead>
         <tbody>
           {ocData.map(oc => {
             const status = ocStatus(oc.cumplimiento, oc.meta);
-            const desc = descMap[oc.codigo] ?? oc.label.split(' - ').slice(1).join(' - ') ?? oc.label;
             const color = statusColor(status);
+            const desc = descMap[oc.codigo] ?? oc.label.split(' - ').slice(1).join(' - ') ?? oc.label;
             const isSelected = selected === oc.codigo;
             const isDimmed = selected != null && !isSelected;
 
@@ -103,20 +104,24 @@ export default function OcCardsRow({
                     : 'hover:bg-slate-50'
                 }`}
               >
-                <td className="px-3 py-2">
+                <td className="px-3 py-1.5">
                   <span className="text-[11px] font-bold text-slate-700">{oc.codigo}</span>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-1.5">
                   <p className="text-[10px] text-slate-700 leading-snug">{desc}</p>
                   <p className="text-[9px] text-slate-400">{statusLabel(status)}</p>
                 </td>
-                <td className="px-3 py-2 text-right">
-                  <span className="text-sm font-bold tabular-nums" style={{ color }}>
+                <td className="px-2 py-1.5 text-right">
+                  <span className="text-[11px] font-semibold tabular-nums text-slate-500">
+                    {oc.meta}%
+                  </span>
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color }}>
                     {oc.cumplimiento}%
                   </span>
-                  <p className="text-[9px] text-slate-400 tabular-nums">meta {oc.meta}%</p>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-1.5">
                   <div className="flex justify-center">
                     <StatusIcon status={status} />
                   </div>
