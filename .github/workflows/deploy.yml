@@ -25,13 +25,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build, push and load image
+      - name: Build and push image
         run: |
           docker buildx build \
             --cache-from type=local,src=/home/ubuntu/docker-cache/sgi-cuantico \
             --cache-to type=local,dest=/home/ubuntu/docker-cache/sgi-cuantico,mode=max \
             --tag ghcr.io/cuanticore/sgi-cuantico:latest \
-            --push --load \
+            --push \
             .
 
       - name: Deploy on server
@@ -40,6 +40,10 @@ jobs:
           host: ec2-98-83-132-206.compute-1.amazonaws.com
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GITHUB_TOKEN,GITHUB_ACTOR
           script: |
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
+            docker compose pull
             docker compose up -d --force-recreate --remove-orphans
+            docker logout ghcr.io
