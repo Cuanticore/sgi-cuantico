@@ -25,13 +25,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build, push and reload container
+      - name: Build and push image
         run: |
           docker buildx build \
             --cache-from type=local,src=/home/ubuntu/docker-cache/sgi-cuantico \
             --cache-to type=local,dest=/home/ubuntu/docker-cache/sgi-cuantico,mode=max \
             --tag ghcr.io/cuanticore/sgi-cuantico:latest \
-            --push --load \
+            --push \
             .
-          curl -s "https://automatizaciones.cuantico.com/api/v1/deploy?uuid=xkl6pdbfpctlsilc52de07xi&force=true" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
+
+      - name: Deploy container
+        run: |
+          cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
+          docker compose pull
+          docker compose up -d --remove-orphans --force-recreate
