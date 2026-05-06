@@ -144,7 +144,6 @@ export function parseQualityObjectives(ws: AnyWorksheet): QualityObjective[] {
 
 export function parseIndicators(ws: AnyWorksheet): Indicator[] {
   const indicators: Indicator[] = [];
-  // Data starts at row 18 in the 2026 structure (row 17 = headers)
   for (let row = 18; row <= 200; row++) {
     const numero = cellValue(ws, row, 1);
     if (!numero) break;
