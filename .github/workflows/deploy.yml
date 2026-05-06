@@ -34,17 +34,10 @@ jobs:
             --push \
             .
 
-      - name: Write env file
-        run: echo "${{ secrets.DEPLOY_ENV }}" > .env
-
-      - name: Deploy container
+      - name: Deploy via Coolify compose
         run: |
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml up -d --force-recreate
-
-      - name: Stop old Coolify container
-        run: |
-          OLD=$(docker ps -q --filter "label=coolify.name=xkl6pdbfpctlsilc52de07xi" --filter "name=xkl6pdbfpctlsilc52de07xi")
-          if [ -n "$OLD" ]; then
-            docker stop $OLD && docker rm $OLD
-          fi
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@localhost \
+            "cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi && docker compose pull && docker compose up -d --force-recreate"
+          rm -f /tmp/deploy_key
