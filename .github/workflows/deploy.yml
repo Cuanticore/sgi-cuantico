@@ -34,18 +34,8 @@ jobs:
             --push \
             .
 
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ec2-98-83-132-206.compute-1.amazonaws.com
-          username: ubuntu
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GITHUB_TOKEN,GITHUB_ACTOR
-          script: |
-            DOCKER_CONFIG=$(mktemp -d)
-            AUTH=$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 -w 0)
-            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$AUTH" > "$DOCKER_CONFIG/config.json"
-            cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
-            DOCKER_CONFIG="$DOCKER_CONFIG" docker compose pull
-            docker compose up -d --force-recreate --remove-orphans
-            rm -rf "$DOCKER_CONFIG"
+      - name: Deploy
+        run: |
+          cd /home/ubuntu/sgi-cuantico
+          docker compose pull
+          docker compose up -d --force-recreate --remove-orphans
