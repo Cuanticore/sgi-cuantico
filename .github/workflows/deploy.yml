@@ -42,8 +42,11 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: GITHUB_TOKEN,GITHUB_ACTOR
           script: |
-            export DOCKER_CONFIG=$(mktemp -d)
-            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            DOCKER_CONFIG=$(mktemp -d)
+            AUTH=$(echo -n "$GITHUB_ACTOR:$GITHUB_TOKEN" | base64 -w 0)
+            cat > "$DOCKER_CONFIG/config.json" <<JSON
+            {"auths":{"ghcr.io":{"auth":"$AUTH"}}}
+            JSON
             cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
             DOCKER_CONFIG=$DOCKER_CONFIG docker compose pull
             docker compose up -d --force-recreate --remove-orphans
