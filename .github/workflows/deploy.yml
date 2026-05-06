@@ -24,21 +24,15 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/cuanticore/sgi-cuantico:latest
-          cache-from: type=local,src=/home/ubuntu/docker-cache/sgi-cuantico
-          cache-to: type=local,dest=/home/ubuntu/docker-cache/sgi-cuantico,mode=max
-
-      - name: Deploy new image
+      - name: Build, push and reload container
         run: |
-          docker pull ghcr.io/cuanticore/sgi-cuantico:latest
+          docker buildx build \
+            --cache-from type=local,src=/home/ubuntu/docker-cache/sgi-cuantico \
+            --cache-to type=local,dest=/home/ubuntu/docker-cache/sgi-cuantico,mode=max \
+            --tag ghcr.io/cuanticore/sgi-cuantico:latest \
+            --push --load \
+            .
           docker restart xkl6pdbfpctlsilc52de07xi-225406509711
           curl -s "https://stack.cuanticore.com/api/v1/deploy?uuid=smpid01mza9yuq6qerii1peq&force=true" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
