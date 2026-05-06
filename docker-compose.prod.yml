@@ -1,0 +1,34 @@
+services:
+  sgi-cuantico-prod:
+    image: 'ghcr.io/cuanticore/sgi-cuantico:latest'
+    container_name: sgi-cuantico-prod
+    restart: unless-stopped
+    expose:
+      - '3004'
+    networks:
+      coolify:
+        aliases:
+          - sgi-cuantico-prod
+    env_file:
+      - .env
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.entryPoints=http
+      - traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.middlewares=redirect-to-https
+      - 'traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.rule=Host(`sig.cuantico.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.service=http-0-xkl6pdbfpctlsilc52de07xi
+      - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.entryPoints=https
+      - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.middlewares=gzip
+      - 'traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.rule=Host(`sig.cuantico.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.service=https-0-xkl6pdbfpctlsilc52de07xi
+      - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.tls.certresolver=letsencrypt
+      - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.tls=true
+      - traefik.http.services.http-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004
+      - traefik.http.services.https-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004
+
+networks:
+  coolify:
+    external: true
+    name: coolify
