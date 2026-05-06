@@ -34,10 +34,44 @@ jobs:
             --push \
             .
 
-      - name: Deploy via Coolify compose
+      - name: Write env file
+        run: echo "${{ secrets.DEPLOY_ENV }}" > .env
+
+      - name: Deploy container
         run: |
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@localhost \
-            "cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi && docker compose pull && docker compose up -d --force-recreate"
-          rm -f /tmp/deploy_key
+          docker pull ghcr.io/cuanticore/sgi-cuantico:latest
+
+          CURRENT=$(docker ps -q --filter "label=coolify.name=xkl6pdbfpctlsilc52de07xi")
+          CONTAINER_NAME=$(docker inspect "$CURRENT" --format '{{.Name}}' | tr -d '/')
+
+          docker stop "$CURRENT"
+          docker rm "$CURRENT"
+
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --restart unless-stopped \
+            --network coolify \
+            --network-alias "$CONTAINER_NAME" \
+            --expose 3004 \
+            --env-file .env \
+            --label "traefik.enable=true" \
+            --label "traefik.http.middlewares.gzip.compress=true" \
+            --label "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" \
+            --label "traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.entryPoints=http" \
+            --label "traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.middlewares=redirect-to-https" \
+            --label "traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.rule=Host(\`sig.cuantico.com\`) && PathPrefix(\`/\`)" \
+            --label "traefik.http.routers.http-0-xkl6pdbfpctlsilc52de07xi.service=http-0-xkl6pdbfpctlsilc52de07xi" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.entryPoints=https" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.middlewares=gzip" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.rule=Host(\`sig.cuantico.com\`) && PathPrefix(\`/\`)" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.service=https-0-xkl6pdbfpctlsilc52de07xi" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.tls=true" \
+            --label "traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.tls.certresolver=letsencrypt" \
+            --label "traefik.http.services.http-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004" \
+            --label "traefik.http.services.https-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004" \
+            --label "coolify.managed=true" \
+            --label "coolify.name=xkl6pdbfpctlsilc52de07xi" \
+            --label "coolify.applicationId=7" \
+            --label "coolify.type=application" \
+            --label "coolify.resourceName=sgi-cuantico-prod" \
+            ghcr.io/cuanticore/sgi-cuantico:latest
