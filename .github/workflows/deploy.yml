@@ -36,6 +36,6 @@ jobs:
 
       - name: Deploy container
         run: |
-          cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
-          docker compose pull
-          docker compose up -d --remove-orphans --force-recreate
+          COMPOSE=/data/coolify/applications/xkl6pdbfpctlsilc52de07xi/docker-compose.yaml
+          sudo docker compose -f $COMPOSE pull
+          sudo docker compose -f $COMPOSE up -d --remove-orphans --force-recreate
