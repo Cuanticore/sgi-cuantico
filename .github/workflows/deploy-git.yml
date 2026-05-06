@@ -16,6 +16,7 @@ jobs:
           host: ec2-98-83-132-206.compute-1.amazonaws.com
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
           envs: GITHUB_TOKEN,GITHUB_ACTOR
           script: |
             BUILDDIR=$(mktemp -d)
