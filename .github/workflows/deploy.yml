@@ -34,7 +34,10 @@ jobs:
             --push \
             .
 
+      - name: Write env file
+        run: echo "${{ secrets.DEPLOY_ENV }}" > .env
+
       - name: Deploy container
         run: |
-          docker compose -f /home/ubuntu/sgi-cuantico/docker-compose.yaml pull
-          docker compose -f /home/ubuntu/sgi-cuantico/docker-compose.yaml up -d --remove-orphans --force-recreate
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans --force-recreate
