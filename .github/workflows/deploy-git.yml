@@ -1,0 +1,28 @@
+name: Deploy via Git (local build)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ec2-98-83-132-206.compute-1.amazonaws.com
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GITHUB_TOKEN,GITHUB_ACTOR
+          script: |
+            BUILDDIR=$(mktemp -d)
+            git clone --depth 1 \
+              "https://$GITHUB_ACTOR:$GITHUB_TOKEN@github.com/Cuanticore/sgi-cuantico.git" \
+              "$BUILDDIR"
+            docker build -t ghcr.io/cuanticore/sgi-cuantico:latest "$BUILDDIR"
+            cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
+            docker compose up -d --force-recreate --remove-orphans
+            rm -rf "$BUILDDIR"
