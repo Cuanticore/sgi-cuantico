@@ -36,7 +36,9 @@ jobs:
           cache-from: type=local,src=/home/ubuntu/docker-cache/sgi-cuantico
           cache-to: type=local,dest=/home/ubuntu/docker-cache/sgi-cuantico,mode=max
 
-      - name: Trigger Coolify deploy
+      - name: Deploy new image
         run: |
+          docker pull ghcr.io/cuanticore/sgi-cuantico:latest
+          docker restart xkl6pdbfpctlsilc52de07xi-225406509711
           curl -s "https://stack.cuanticore.com/api/v1/deploy?uuid=smpid01mza9yuq6qerii1peq&force=true" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
