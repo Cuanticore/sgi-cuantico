@@ -41,8 +41,10 @@ jobs:
         run: |
           docker pull ghcr.io/cuanticore/sgi-cuantico:latest
 
-          CURRENT=$(docker ps -q --filter "label=coolify.name=xkl6pdbfpctlsilc52de07xi")
+          CURRENT=$(docker ps -q --filter "name=xkl6pdbfpctlsilc52de07xi")
+          echo "Container found: $CURRENT"
           CONTAINER_NAME=$(docker inspect "$CURRENT" --format '{{.Name}}' | tr -d '/')
+          echo "Container name: $CONTAINER_NAME"
 
           docker stop "$CURRENT"
           docker rm "$CURRENT"
