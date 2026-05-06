@@ -36,6 +36,5 @@ jobs:
 
       - name: Deploy container
         run: |
-          COMPOSE=/data/coolify/applications/xkl6pdbfpctlsilc52de07xi/docker-compose.yaml
-          sudo docker compose -f $COMPOSE pull
-          sudo docker compose -f $COMPOSE up -d --remove-orphans --force-recreate
+          docker compose -f /home/ubuntu/sgi-cuantico/docker-compose.yaml pull
+          docker compose -f /home/ubuntu/sgi-cuantico/docker-compose.yaml up -d --remove-orphans --force-recreate
