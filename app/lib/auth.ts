@@ -9,7 +9,16 @@ export const authOptions: AuthOptions = {
       tenantId: process.env.AZURE_AD_TENANT_ID!,
     }),
   ],
+  pages: {
+    signIn: '/auth/signin',
+  },
   callbacks: {
+    async jwt({ token, account }) {
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
+      return token;
+    },
     async session({ session, token }) {
       if (session.user) {
         session.user.name = (token.name as string) ?? session.user.name;
