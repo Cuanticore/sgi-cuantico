@@ -33,5 +33,5 @@ jobs:
             --tag ghcr.io/cuanticore/sgi-cuantico:latest \
             --push --load \
             .
-          curl -s "https://stack.cuanticore.com/api/v1/deploy?uuid=smpid01mza9yuq6qerii1peq&force=true" \
+          curl -s "https://automatizaciones.cuantico.com/api/v1/deploy?uuid=xkl6pdbfpctlsilc52de07xi&force=true" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
