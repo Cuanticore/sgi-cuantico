@@ -41,20 +41,49 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# `output: standalone` traces the application's imports but not the schema, the
-# migrations or the Prisma CLI. All three are needed on the server: the schema and the
-# engine at runtime, and the migrations because the deploy applies them before the
-# container starts serving.
+# `output: standalone` traces the application's imports but not the schema or the engine,
+# and both are needed at runtime.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-# prisma.config.ts imports `dotenv/config`, and dotenv is a devDependency. In the
-# container the variables already come from the compose env_file, but the import is
-# evaluated all the same when the CLI loads the config — without this the migration step
-# fails on a missing module, at deploy time, on the server.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
+
+# The CLI tree, kept OUT of /app on purpose.
+#
+# This used to hand-pick `prisma`, `@prisma` and `dotenv` into /app/node_modules, and it
+# did not work. Two failures, in order:
+#
+#   sh: prisma: not found          — npx resolves through node_modules/.bin, which was
+#                                    never copied, so the binary did not exist.
+#   Cannot find module 'effect'    — and once invoked directly, the CLI still died: in
+#                                    Prisma 7 `@prisma/config` pulls c12, deepmerge-ts,
+#                                    effect and empathic, and `prisma` pulls @prisma/dev,
+#                                    @prisma/studio-core, mysql2 and postgres. Each has
+#                                    its own tree.
+#
+# Adding those by hand is rebuilding, by hand, a dependency graph npm already resolved in
+# package-lock.json — and every miss is a deploy that fails on the server. So the whole
+# resolved tree is copied from `deps` instead. It costs image size; it cannot be
+# incomplete.
+#
+# It lives in /opt/cli rather than /app so the runtime keeps the lean standalone tree and
+# the application can never accidentally import a devDependency that is absent in a
+# future build.
+#
+# `lib` is here because prisma/seed.ts imports ../lib/sgsi/riesgos — `generarRiesgos` is
+# the single writer of the four derived decimals, so the seed cannot run without it. That
+# is why the seed had to be run from a throwaway container the first time.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules /opt/cli/node_modules
+# Overlaid on top of the deps tree, and the order matters. `deps` runs npm ci WITHOUT
+# prisma.config.ts, so the @prisma/client postinstall never produces a client — which is
+# the same silent skip the deps stage comment warns about, and why `builder` runs
+# `prisma generate` explicitly. Without this line the seed dies on
+# `Cannot find module '.prisma/client/default'`.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma /opt/cli/node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma /opt/cli/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts /opt/cli/prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/lib /opt/cli/lib
+COPY --from=builder --chown=nextjs:nodejs /app/package.json /opt/cli/package.json
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json /opt/cli/tsconfig.json
 
 USER nextjs
 EXPOSE 3004

@@ -132,7 +132,10 @@ jobs:
           # THE GATE. `migrate deploy` applies pending migrations and never generates or
           # resets. If it fails the job stops here and the old container keeps serving:
           # a deployment that half-applies a schema is worse than one that does not happen.
-          dc run --rm --no-deps sgi-cuantico-prod \
+          #
+          # `-w /opt/cli`: the CLI and its full dependency tree live there, not in /app.
+          # Run from /app this fails with `sh: prisma: not found` — see the Dockerfile.
+          dc run --rm --no-deps -w /opt/cli sgi-cuantico-prod \
             npx prisma migrate deploy
 
           # Scoped to the application, and `--wait`.
