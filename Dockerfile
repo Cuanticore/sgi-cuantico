@@ -32,6 +32,17 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3004
+# The standalone server binds to $HOSTNAME, and Docker sets HOSTNAME to the container id.
+# Left alone it therefore listens on the container's own address and NOTHING else — so
+# `fetch('http://127.0.0.1:3004/...')` is refused, the healthcheck in
+# docker-compose.prod.yml never passes, and Traefik's docker provider drops an unhealthy
+# container from the load balancer. The application answers 200 on its own IP while the
+# domain serves 503.
+#
+# That is not hypothetical: it took sig.cuantico.com down for five minutes on the deploy
+# that introduced the healthcheck. The old compose had no healthcheck, so the same binding
+# was harmless — which is why nothing caught it before.
+ENV HOSTNAME=0.0.0.0
 
 RUN apk add --no-cache openssl libc6-compat
 RUN addgroup --system --gid 1001 nodejs
