@@ -13,9 +13,17 @@ export const authOptions: AuthOptions = {
     signIn: '/auth/signin',
   },
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       if (account?.access_token) {
         token.accessToken = account.access_token;
+      }
+      // Directory group membership, from which every permission derives. The claim only
+      // arrives if the app registration is configured to emit it; when it is absent the
+      // role falls back to SGI_ROL_POR_DEFECTO and the interface says so, rather than
+      // silently behaving as if nobody had permissions.
+      const grupos = (profile as { groups?: unknown } | undefined)?.groups;
+      if (Array.isArray(grupos)) {
+        token.grupos = grupos.filter((g): g is string => typeof g === 'string');
       }
       return token;
     },
@@ -23,6 +31,7 @@ export const authOptions: AuthOptions = {
       if (session.user) {
         session.user.name = (token.name as string) ?? session.user.name;
         session.user.email = (token.email as string) ?? session.user.email;
+        session.user.grupos = (token.grupos as string[] | undefined) ?? undefined;
       }
       return session;
     },

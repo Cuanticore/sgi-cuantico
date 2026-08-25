@@ -17,7 +17,7 @@ function Top5Card({
   const dotColor = variant === 'green' ? 'bg-green-500' : 'bg-red-500';
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50 flex flex-col">
+    <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50 flex flex-col">
       <h3 className="text-sm font-bold text-slate-900 mb-1">{title}</h3>
       <p className="text-xs text-slate-400 mb-4">{subtitle}</p>
       {indicators.length === 0 ? (
@@ -82,7 +82,7 @@ export default function OcComparisonSection({
         Comparativo Anual
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
+        <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50">
           <h3 className="text-sm font-bold text-slate-900 mb-1">
             Cumplimiento por OC
           </h3>

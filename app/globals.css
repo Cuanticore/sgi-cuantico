@@ -1,27 +1,308 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* ===========================================================================
+   Design tokens — handoff v2.1 (docs/handoff_v2/README.md § Design Tokens)
+   ===========================================================================
+
+   Two layers on purpose:
+
+   1. `--hf-*` — the literal handoff token set. These never change meaning, so a
+      value can always be traced back to the table in the handoff.
+   2. `@theme` — exposes them to Tailwind 4 as utilities (bg-surface, text-muted,
+      border-hairline …). Tailwind 4 is CSS-first, so the tokens ARE the config;
+      there is no tailwind.config.js.
+
+   The green accent is the system's; the blue brand family is the corporate one.
+   Blue carries navigation, header, login and filters. Green is reserved for good
+   state: maturity L4-L5 and low risk.
+
+   THE BLUES ARE THE REAL ONES. The handoff reconstructed the header, the login and
+   the Indicadores screen from screenshots and says so:
+
+     "Al integrar, tomar los tokens reales (azules, tipografía, logo) del código
+      existente y sustituir los valores aproximados de la tabla brand/*."
+
+   So brand/700 and brand/900 below come from Nav.tsx, HeroBanner.tsx and
+   auth/signin — not from the handoff's approximation.
+   =========================================================================== */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Surfaces ------------------------------------------------------------ */
+  --hf-bg-app: #f5f7f6;
+  --hf-bg-surface: #ffffff;
+  --hf-bg-subtle: #fbfcfb;
+
+  /* --- Borders and hairlines, highest to lowest contrast ------------------- */
+  --hf-border-default: #e2e6e3;
+  --hf-border-field: #d7dcd9;
+  --hf-hairline-strong: #eceeed;
+  --hf-hairline: #f2f4f3;
+  --hf-hairline-faint: #f5f7f6;
+
+  /* --- Text ---------------------------------------------------------------- */
+  --hf-text-primary: #1a211e;
+  --hf-text-secondary: #3a443f;
+  --hf-text-secondary-soft: #4a544f;
+  --hf-text-muted: #6b7570;
+  --hf-text-faint: #8a938e;
+  --hf-text-label: #a3aca7;
+  --hf-text-placeholder: #b6bdb9;
+  --hf-text-placeholder-soft: #c3cac6;
+
+  /* --- Accent (green): the system's own colour ---------------------------- */
+  --hf-accent-800: #0b3d2e;
+  --hf-accent-700: #0b5c44;
+  --hf-accent-500: #0f7a5a;
+  --hf-accent-300: #7fd8b4;
+  --hf-accent-100: #e8f4ef;
+  --hf-accent-50: #f7fbf9;
+  --hf-accent-border: #c9e3d8;
+
+  /* --- Brand (blue): the corporate colour, taken from the live app --------- */
+  --hf-brand-900: #0c2461; /* real, was #061a3d in the handoff */
+  --hf-brand-700: #1b3a8a; /* real, was #0d2f6b */
+  --hf-brand-500: #2b52b8; /* lightened from brand-700 for the header gradient */
+  --hf-brand-nav: #12437f;
+  --hf-brand-100: #e9f0fb;
+  --hf-brand-100-soft: #eef2f8;
+  --hf-brand-border: #d3dceb;
+  --hf-brand-300: #7fb0f0;
+  --hf-brand-300-soft: #9dc0ea;
+  --hf-brand-gold: #c8a86a;
+
+  /* --- Warn: the orange band and the exception mark ----------------------- */
+  --hf-warn-500: #ef8020;
+  --hf-warn-100: #fff3e6;
+  --hf-warn-border: #f2b473;
+  --hf-warn-text: #8a4407;
+  --hf-warn-text-soft: #a05512;
+  --hf-warn-text-deep: #7d4a15;
+
+  /* --- Risk levels: background and foreground always travel together ------ */
+  --hf-risk-critico-bg: #a52016;
+  --hf-risk-critico-fg: #ffffff;
+  --hf-risk-alto-bg: #c25a1e;
+  --hf-risk-alto-fg: #ffffff;
+  --hf-risk-medio-bg: #e0b93c;
+  --hf-risk-medio-fg: #3a2c05;
+  --hf-risk-bajo-bg: #dfe8e2;
+  --hf-risk-bajo-fg: #3d5648;
+
+  /* --- CMM traffic light: L0-L1 red, L2-L3 orange, L4-L5 green ------------
+     L3 is ORANGE, not green. A defined process is not yet the target. */
+  --hf-cmm-rojo-fg: #a52016;
+  --hf-cmm-rojo-bg: #fdeeeb;
+  --hf-cmm-rojo-bd: #f2cdc6;
+  --hf-cmm-naranja-fg: #8a4407;
+  --hf-cmm-naranja-bg: #fff3e6;
+  --hf-cmm-naranja-bd: #f2b473;
+  --hf-cmm-verde-fg: #0b5c44;
+  --hf-cmm-verde-bg: #e6efe9;
+  --hf-cmm-verde-bd: #c9e3d8;
+  --hf-cmm-nulo-fg: #a3aca7;
+  --hf-cmm-nulo-bg: #f5f7f6;
+  --hf-cmm-nulo-bd: #e2e6e3;
+
+  /* --- Value badges, Muy Alto down to Muy Bajo ---------------------------- */
+  --hf-level-5-bg: #f7dcd9;
+  --hf-level-5-fg: #8a1f16;
+  --hf-level-4-bg: #fbe6d2;
+  --hf-level-4-fg: #8a4407;
+  --hf-level-3-bg: #faf1d3;
+  --hf-level-3-fg: #6b5410;
+  --hf-level-2-bg: #e6efe9;
+  --hf-level-2-fg: #3d5648;
+  --hf-level-1-bg: #eef1ef;
+  --hf-level-1-fg: #5a635e;
+
+  /* --- Row backgrounds ----------------------------------------------------- */
+  --hf-row-rojo: #fdeeeb;
+  --hf-row-rojo-hover: #fbe2dd;
+  --hf-row-verde: #eef7f1;
+  --hf-row-verde-hover: #e3f1e8;
+  --hf-row-blanco: #ffffff;
+  --hf-row-blanco-hover: #f7fbf9;
+
+  /* --- Destructive actions -------------------------------------------------- */
+  --hf-danger-text: #a52016;
+  --hf-danger-border: #e6d3d1;
+  --hf-danger-bg: #fdeceb;
+
+  /* --- Miscellaneous -------------------------------------------------------- */
+  --hf-code-bg: #1a211e;
+  --hf-overlay: rgba(20, 28, 24, 0.42);
+  --hf-nav-hover: #eef2f0;
+  --hf-modal-shadow: 0 24px 60px rgba(12, 24, 18, 0.28);
+
+  /* --- Shape ----------------------------------------------------------------
+     3 swatch · 4 badge · 6 field and button · 10 card · 12 modal · 20 chip */
+  --hf-radio-swatch: 3px;
+  --hf-radio-badge: 4px;
+  --hf-radio-campo: 6px;
+  --hf-radio-tarjeta: 10px;
+  --hf-radio-modal: 12px;
+  --hf-radio-chip: 20px;
+
+  /* --- Layout --------------------------------------------------------------- */
+  --hf-header-alto: 58px;
+  --hf-sidebar-ancho: 244px;
+  --hf-sidebar-colapsado: 64px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme inline {
+  /* Typography. Two families: Libre Franklin for text, JetBrains Mono for codes,
+     figures and uppercase labels. */
+  --font-sans: var(--font-libre-franklin), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* The handoff's scale, in px because the design is specified in px and a
+     rem-based reinterpretation drifts by a rounding at every step. */
+  --text-8_5: 8.5px;
+  --text-9: 9px;
+  --text-9_5: 9.5px;
+  --text-10: 10px;
+  --text-10_5: 10.5px;
+  --text-11: 11px;
+  --text-11_5: 11.5px;
+  --text-12: 12px;
+  --text-12_5: 12.5px;
+  --text-13: 13px;
+  --text-13_5: 13.5px;
+  --text-14: 14px;
+  --text-14_5: 14.5px;
+  --text-15: 15px;
+  --text-16: 16px;
+  --text-17: 17px;
+  --text-19: 19px;
+  --text-20: 20px;
+  --text-22: 22px;
+  --text-23: 23px;
+  --text-24: 24px;
+  --text-26: 26px;
+  --text-32: 32px;
+  --text-34: 34px;
+  --text-46: 46px;
+
+  /* Surfaces, borders, text */
+  --color-app: var(--hf-bg-app);
+  --color-surface: var(--hf-bg-surface);
+  --color-subtle: var(--hf-bg-subtle);
+  --color-border-default: var(--hf-border-default);
+  --color-border-field: var(--hf-border-field);
+  --color-hairline-strong: var(--hf-hairline-strong);
+  --color-hairline: var(--hf-hairline);
+  --color-hairline-faint: var(--hf-hairline-faint);
+  --color-primary: var(--hf-text-primary);
+  --color-secondary: var(--hf-text-secondary);
+  --color-secondary-soft: var(--hf-text-secondary-soft);
+  --color-muted: var(--hf-text-muted);
+  --color-faint: var(--hf-text-faint);
+  --color-label: var(--hf-text-label);
+  --color-placeholder: var(--hf-text-placeholder);
+
+  /* Accent */
+  --color-accent-800: var(--hf-accent-800);
+  --color-accent-700: var(--hf-accent-700);
+  --color-accent-500: var(--hf-accent-500);
+  --color-accent-300: var(--hf-accent-300);
+  --color-accent-100: var(--hf-accent-100);
+  --color-accent-50: var(--hf-accent-50);
+  --color-accent-border: var(--hf-accent-border);
+
+  /* Brand */
+  --color-brand-900: var(--hf-brand-900);
+  --color-brand-700: var(--hf-brand-700);
+  --color-brand-500: var(--hf-brand-500);
+  --color-brand-nav: var(--hf-brand-nav);
+  --color-brand-100: var(--hf-brand-100);
+  --color-brand-border: var(--hf-brand-border);
+  --color-brand-300: var(--hf-brand-300);
+  --color-brand-gold: var(--hf-brand-gold);
+
+  /* Warn */
+  --color-warn-500: var(--hf-warn-500);
+  --color-warn-100: var(--hf-warn-100);
+  --color-warn-border: var(--hf-warn-border);
+  --color-warn-text: var(--hf-warn-text);
+
+  /* Risk */
+  --color-risk-critico: var(--hf-risk-critico-bg);
+  --color-risk-alto: var(--hf-risk-alto-bg);
+  --color-risk-medio: var(--hf-risk-medio-bg);
+  --color-risk-bajo: var(--hf-risk-bajo-bg);
+
+  /* Rows and destructive actions */
+  --color-row-rojo: var(--hf-row-rojo);
+  --color-row-verde: var(--hf-row-verde);
+  --color-danger-text: var(--hf-danger-text);
+  --color-danger-border: var(--hf-danger-border);
+  --color-danger-bg: var(--hf-danger-bg);
+
+  /* Radii */
+  --radius-swatch: var(--hf-radio-swatch);
+  --radius-badge: var(--hf-radio-badge);
+  --radius-campo: var(--hf-radio-campo);
+  --radius-tarjeta: var(--hf-radio-tarjeta);
+  --radius-modal: var(--hf-radio-modal);
+  --radius-chip: var(--hf-radio-chip);
+}
+
+/* Tailwind 4 emits everything inside @layer, and unlayered CSS outranks any layered
+   rule regardless of specificity. A bare `body { background: … }` would therefore
+   override every utility, including the bg-* class on <body>. Base styles must be
+   layered explicitly. */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    color: var(--hf-text-primary);
+  }
+
+  /* Tailwind 4 preflight sets buttons to `cursor: default`. */
+  button:not(:disabled) {
+    cursor: pointer;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
+@layer components {
+  /* Field labels: mono, uppercase, wide tracking, the faintest readable grey. */
+  .etiqueta-campo {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--hf-text-label);
+  }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* Page titles. */
+  .titulo-pagina {
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--hf-text-primary);
+  }
+
+  /* Large figures: mono, tight, so the digits line up between cards. */
+  .cifra {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Paragraphs: measured, and never wider than is comfortable to read. */
+  .parrafo {
+    font-size: 13px;
+    line-height: 1.6;
+    text-wrap: pretty;
+    max-width: 74ch;
+    color: var(--hf-text-secondary);
+  }
+
+  /* A wide table must scroll inside its own container. Cards with overflow:hidden
+     cannot own the horizontal overflow — the handoff marks this as the rule that
+     caused repeated defects. The min-width goes on the inner element and must be at
+     least the sum of the columns plus the row padding. */
+  .tabla-ancha {
+    overflow-x: auto;
   }
 }

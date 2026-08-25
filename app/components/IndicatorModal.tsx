@@ -263,7 +263,7 @@ export default function IndicatorModal({ indicator: ind, onClose }: Props) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[860px] max-h-[92vh] overflow-y-auto">
@@ -276,7 +276,7 @@ export default function IndicatorModal({ indicator: ind, onClose }: Props) {
                 #{ind.numero} · {ind.proceso}
               </span>
               {ind.tipo && ind.tipo !== 'undefined' && (
-                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded font-medium">{ind.tipo}</span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-sm font-medium">{ind.tipo}</span>
               )}
             </div>
             <h2 className="text-[15px] font-bold text-slate-900 leading-snug">{ind.nombre}</h2>
@@ -350,7 +350,7 @@ export default function IndicatorModal({ indicator: ind, onClose }: Props) {
               {ind.formula && ind.formula !== 'undefined' && (
                 <div className="flex gap-2 col-span-2">
                   <span className="text-slate-400 w-14 shrink-0">Fórmula</span>
-                  <span className="text-slate-600 font-mono text-[10px] bg-slate-50 px-2 py-0.5 rounded leading-relaxed">{ind.formula}</span>
+                  <span className="text-slate-600 font-mono text-[10px] bg-slate-50 px-2 py-0.5 rounded-sm leading-relaxed">{ind.formula}</span>
                 </div>
               )}
             </div>

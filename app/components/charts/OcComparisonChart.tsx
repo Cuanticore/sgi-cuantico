@@ -88,7 +88,7 @@ export default function OcComparisonChart({
     },
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'shadow' },
+      axisPointer: { type: 'shadow-sm' },
       formatter: (params: Array<{ seriesName: string; value: number | null; name: string }>) => {
         const label = params[0]?.name ?? '';
         const lines = params.map(

@@ -1,0 +1,52 @@
+[
+  {
+    "prefijo": "EST",
+    "nombre": "Gestión Estratégica",
+    "orden": 1
+  },
+  {
+    "prefijo": "COM",
+    "nombre": "Gestión Comercial",
+    "orden": 2
+  },
+  {
+    "prefijo": "PRY",
+    "nombre": "Gestión de Proyectos",
+    "orden": 3
+  },
+  {
+    "prefijo": "SAC",
+    "nombre": "Soporte y Servicio al Cliente",
+    "orden": 4
+  },
+  {
+    "prefijo": "TAL",
+    "nombre": "Talento Humano",
+    "orden": 5
+  },
+  {
+    "prefijo": "LEG",
+    "nombre": "Gestión Legal y Compras",
+    "orden": 6
+  },
+  {
+    "prefijo": "TEC",
+    "nombre": "Gestión Tecnológica",
+    "orden": 7
+  },
+  {
+    "prefijo": "SIG",
+    "nombre": "Sistema Integrado de Gestión",
+    "orden": 8
+  },
+  {
+    "prefijo": "FIN",
+    "nombre": "Gestión Financiera",
+    "orden": 9
+  },
+  {
+    "prefijo": "TRA",
+    "nombre": "Transversal",
+    "orden": 10
+  }
+]

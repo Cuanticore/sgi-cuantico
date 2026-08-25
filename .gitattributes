@@ -1,0 +1,14 @@
+# Development happens on Windows, the container runs Alpine Linux. Normalise
+# text to LF in the repository so tooling that rewrites files in place cannot
+# turn a one-line edit into a whole-file diff.
+* text=auto eol=lf
+
+*.woff binary
+*.woff2 binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.xlsx binary
+*.docx binary
+*.pptx binary

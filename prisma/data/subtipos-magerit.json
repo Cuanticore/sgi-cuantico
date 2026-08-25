@@ -1,0 +1,687 @@
+[
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[files]",
+    "nombre": "Archivos"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[backup]",
+    "nombre": "Copias de respaldo"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[conf]",
+    "nombre": "Datos de configuración"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[int]",
+    "nombre": "Datos de gestión interna"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[password]",
+    "nombre": "Credenciales (contraseñas)"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[auth]",
+    "nombre": "Datos de validación de credenciales"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[acl]",
+    "nombre": "Datos de control de acceso"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[log]",
+    "nombre": "Registro de actividad (log)"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[source]",
+    "nombre": "Código fuente"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[exe]",
+    "nombre": "Código ejecutable"
+  },
+  {
+    "tipoCodigo": "[D]",
+    "codigo": "[test]",
+    "nombre": "Datos de prueba"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[info]",
+    "nombre": "Protección de la información"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[encrypt]",
+    "nombre": "Claves de cifra"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[shared_secret]",
+    "nombre": "Secreto compartido (clave simétrica)"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[public_encryption]",
+    "nombre": "Clave pública de cifra"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[public_decryption]",
+    "nombre": "Clave privada de descifrado"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[sign]",
+    "nombre": "Claves de firma"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[public_signature]",
+    "nombre": "Clave privada de firma"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[public_verification]",
+    "nombre": "Clave pública de verificación de firma"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[com]",
+    "nombre": "Protección de las comunicaciones"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[channel]",
+    "nombre": "Claves de cifrado del canal"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[authentication]",
+    "nombre": "Claves de autenticación"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[verification]",
+    "nombre": "Claves de verificación de autenticación"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[disk]",
+    "nombre": "Cifrado de soportes de información"
+  },
+  {
+    "tipoCodigo": "[K]",
+    "codigo": "[x509]",
+    "nombre": "Certificados de clave pública"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[anon]",
+    "nombre": "Anónimo (sin requerir identificación)"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[pub]",
+    "nombre": "Al público en general"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[ext]",
+    "nombre": "A usuarios externos bajo una relación contractual"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[int]",
+    "nombre": "Interno (a usuarios de la organización)"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[www]",
+    "nombre": "World Wide Web"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[telnet]",
+    "nombre": "Acceso remoto a cuenta local"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[email]",
+    "nombre": "Correo electrónico"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[file]",
+    "nombre": "Almacenamiento de ficheros"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[ftp]",
+    "nombre": "Transferencia de ficheros"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[edi]",
+    "nombre": "Intercambio electrónico de datos"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[dir]",
+    "nombre": "Servicio de directorio"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[idm]",
+    "nombre": "Gestión de identidades"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[ipm]",
+    "nombre": "Gestión de privilegios"
+  },
+  {
+    "tipoCodigo": "[S]",
+    "codigo": "[pki]",
+    "nombre": "Infraestructura de clave pública (PKI)"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[prp]",
+    "nombre": "Desarrollo propio (in house)"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[sub]",
+    "nombre": "Desarrollo a medida (subcontratado)"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[std]",
+    "nombre": "Estándar (off the shelf)"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[browser]",
+    "nombre": "Navegador web"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[www]",
+    "nombre": "Servidor de presentación"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[app]",
+    "nombre": "Servidor de aplicaciones"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[email_client]",
+    "nombre": "Cliente de correo electrónico"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[email_server]",
+    "nombre": "Servidor de correo electrónico"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[file]",
+    "nombre": "Servidor de ficheros"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[dbms]",
+    "nombre": "Sistema de gestión de bases de datos"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[tm]",
+    "nombre": "Monitor transaccional"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[office]",
+    "nombre": "Ofimática"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[av]",
+    "nombre": "Antivirus"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[os]",
+    "nombre": "Sistema operativo"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[hypervisor]",
+    "nombre": "Gestor de máquinas virtuales"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[ts]",
+    "nombre": "Servidor de terminales"
+  },
+  {
+    "tipoCodigo": "[SW]",
+    "codigo": "[backup]",
+    "nombre": "Sistema de backup"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[host]",
+    "nombre": "Grandes equipos"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[mid]",
+    "nombre": "Equipos medios"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[pc]",
+    "nombre": "Informática personal"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[mobile]",
+    "nombre": "Informática móvil"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[pda]",
+    "nombre": "Agendas electrónicas"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[vhost]",
+    "nombre": "Equipo virtual"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[backup]",
+    "nombre": "Equipamiento de respaldo"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[peripheral]",
+    "nombre": "Periféricos"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[print]",
+    "nombre": "Medios de impresión"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[scan]",
+    "nombre": "Escáneres"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[crypto]",
+    "nombre": "Dispositivos criptográficos"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[bp]",
+    "nombre": "Dispositivo de frontera (bastion host)"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[network]",
+    "nombre": "Soporte de la red"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[modem]",
+    "nombre": "Módems"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[hub]",
+    "nombre": "Concentradores"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[switch]",
+    "nombre": "Conmutadores"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[router]",
+    "nombre": "Encaminadores"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[bridge]",
+    "nombre": "Pasarelas"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[firewall]",
+    "nombre": "Cortafuegos"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[wap]",
+    "nombre": "Punto de acceso inalámbrico"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[pabx]",
+    "nombre": "Centralita telefónica"
+  },
+  {
+    "tipoCodigo": "[HW]",
+    "codigo": "[ipphone]",
+    "nombre": "Teléfono IP"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[PSTN]",
+    "nombre": "Red telefónica"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[ISDN]",
+    "nombre": "RDSI (red digital)"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[X25]",
+    "nombre": "Red de datos X25"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[ADSL]",
+    "nombre": "ADSL"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[pp]",
+    "nombre": "Punto a punto"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[radio]",
+    "nombre": "Comunicaciones por radio"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[wifi]",
+    "nombre": "Red inalámbrica"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[mobile]",
+    "nombre": "Telefonía móvil"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[sat]",
+    "nombre": "Comunicaciones por satélite"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[LAN]",
+    "nombre": "Red local"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[MAN]",
+    "nombre": "Red metropolitana"
+  },
+  {
+    "tipoCodigo": "[COM]",
+    "codigo": "[Internet]",
+    "nombre": "Internet"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[electronic]",
+    "nombre": "Electrónicos"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[disk]",
+    "nombre": "Discos"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[vdisk]",
+    "nombre": "Discos virtuales"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[san]",
+    "nombre": "Almacenamiento en red"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[disquette]",
+    "nombre": "Disquetes"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[cd]",
+    "nombre": "CD-ROM"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[usb]",
+    "nombre": "Memorias USB"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[dvd]",
+    "nombre": "DVD"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[tape]",
+    "nombre": "Cintas magnéticas"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[mc]",
+    "nombre": "Tarjetas de memoria"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[ic]",
+    "nombre": "Tarjetas inteligentes"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[non_electronic]",
+    "nombre": "No electrónicos"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[printed]",
+    "nombre": "Material impreso"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[film]",
+    "nombre": "Microfilm"
+  },
+  {
+    "tipoCodigo": "[Media]",
+    "codigo": "[cards]",
+    "nombre": "Tarjetas perforadas"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[power]",
+    "nombre": "Fuentes de alimentación"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[ups]",
+    "nombre": "Sistemas de alimentación ininterrumpida"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[gen]",
+    "nombre": "Generadores eléctricos"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[ac]",
+    "nombre": "Equipos de climatización"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[cabling]",
+    "nombre": "Cableado"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[wire]",
+    "nombre": "Cable eléctrico"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[fiber]",
+    "nombre": "Fibra óptica"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[robot]",
+    "nombre": "Robots (cintas / discos)"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[supply]",
+    "nombre": "Suministros esenciales"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[destroy]",
+    "nombre": "Equipos de destrucción de soportes"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[furniture]",
+    "nombre": "Mobiliario"
+  },
+  {
+    "tipoCodigo": "[AUX]",
+    "codigo": "[safe]",
+    "nombre": "Cajas fuertes"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[site]",
+    "nombre": "Recinto"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[building]",
+    "nombre": "Edificio"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[local]",
+    "nombre": "Cuarto"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[mobile]",
+    "nombre": "Plataformas móviles"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[car]",
+    "nombre": "Vehículo terrestre"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[plane]",
+    "nombre": "Vehículo aéreo"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[ship]",
+    "nombre": "Vehículo marítimo"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[shelter]",
+    "nombre": "Contenedor / caseta"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[channel]",
+    "nombre": "Canalización"
+  },
+  {
+    "tipoCodigo": "[L]",
+    "codigo": "[backup]",
+    "nombre": "Instalaciones de respaldo"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[ue]",
+    "nombre": "Usuarios externos"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[ui]",
+    "nombre": "Usuarios internos"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[op]",
+    "nombre": "Operadores"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[adm]",
+    "nombre": "Administradores de sistemas"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[com]",
+    "nombre": "Administradores de comunicaciones"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[dba]",
+    "nombre": "Administradores de bases de datos"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[sec]",
+    "nombre": "Administradores de seguridad"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[des]",
+    "nombre": "Desarrolladores / programadores"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[sub]",
+    "nombre": "Subcontratas"
+  },
+  {
+    "tipoCodigo": "[P]",
+    "codigo": "[prov]",
+    "nombre": "Proveedores"
+  }
+]

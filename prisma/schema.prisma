@@ -1,0 +1,849 @@
+// prisma/schema.prisma
+//
+// SGSI domain: MAGERIT v3.0 asset and risk analysis + ISO/IEC 27001:2022 Annex A
+// control maturity. Built from, in authority order:
+//
+//   1. docs/handoff_v2/requisitos/MET-SIG-01 Metodologia v3.docx   the approved method
+//   2. docs/handoff_v2/requisitos/REQ-SIG-01-requerimiento.txt     the tool requirement
+//   3. docs/handoff_v2/requisitos/MATRIZ MAGERIT ... v2.xlsx       the formula layer
+//   4. docs/handoff_v2/requisitos/SPEC-herramienta-riesgos-v2.md   field names and enums
+//
+// Domain names are Spanish because the method, the workbook and the auditors are.
+//
+// TWO RULES THIS SCHEMA ENFORCES STRUCTURALLY
+//
+// 1. No residual impact exists. Control efficacy reduces FREQUENCY, never impact.
+//    Controls that limit damage lower the THREAT's degradation instead, so there is
+//    one judgement per row and not two (MET-SIG-01 section 7.4). There is no column
+//    for it anywhere, and there must never be one.
+//
+// 2. Levels, bands, zones, counts and matrices are classified at READ time. The four
+//    derived decimals on Riesgo are the only computed values that persist, they have
+//    exactly one writer, and every calculation is frozen in RiesgoCalculo. Precooked
+//    matrices are what produced contradictory figures in v1.
+//
+// Operational rows reference the LEVEL, never the number: every valuation, degradation,
+// frequency and maturity is a foreign key into its scale table. That is what lets the
+// organisation return to five dimensions or a 0-10 scale without a deployment
+// (REQ-SIG-01 line 129).
+//
+// Single tenant by design. No organizationId: this instance serves Cuantico only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// Scales and thresholds — parametrizable, never constants in code
+// ============================================================================
+
+/// MAGERIT defines five security dimensions. Cuantico declares a deviation and works
+/// with the first three (MET-SIG-01 section 5.2). A and T are modelled but inactive so
+/// the decision is reversible without a migration.
+model Dimension {
+  id     Int     @id @default(autoincrement())
+  codigo String  @unique @db.Char(1) // D, I, C, A, T
+  nombre String
+  activa Boolean @default(true)
+  orden  Int
+
+  valoresActivo      ActivoValor[]
+  degradacionAmenaza AmenazaDegradacion[]
+  degradacionRiesgo  RiesgoDegradacion[]
+
+  @@map("dimension")
+}
+
+/// Asset value in one dimension. Declared deviation: 0-5 rather than MAGERIT's 0-10,
+/// with impact, risk and zone thresholds rescaled in the same proportion.
+model EscalaValor {
+  id       Int    @id @default(autoincrement())
+  etiqueta String @unique // "5 — Muy Alto" … "0 — Irrelevante"
+  valor    Int    @unique // 5..0
+  orden    Int
+
+  valoresActivo ActivoValor[]
+
+  @@map("escala_valor")
+}
+
+/// Fraction of the asset's value a threat destroys in one dimension.
+model EscalaDegradacion {
+  id      Int     @id @default(autoincrement())
+  nombre  String  @unique // Muy alta, Alta, Media, Baja, Muy baja, No aplica
+  factor  Decimal @db.Decimal(4, 2) // 1.00, 0.80, 0.50, 0.20, 0.05, 0.00
+  lectura String?
+  orden   Int     @unique
+
+  degradacionAmenaza AmenazaDegradacion[]
+  degradacionRiesgo  RiesgoDegradacion[]
+
+  @@map("escala_degradacion")
+}
+
+/// Expected annual rate of occurrence.
+model EscalaFrecuencia {
+  id       Int     @id @default(autoincrement())
+  nombre   String  @unique // "Muy alta — ocurre a diario" …
+  vecesAno Decimal @map("veces_ano") @db.Decimal(8, 4) // 100, 10, 1, 0.1, 0.01
+  orden    Int     @unique
+
+  amenazas Amenaza[]
+  riesgos  Riesgo[]
+
+  @@map("escala_frecuencia")
+}
+
+/// CMM maturity to efficacy, per PILAR (CCN-CERT). The big jump is L2 to L3, from 50%
+/// to 90%: what changes risk is moving from "everyone does it their own way" to
+/// "there is a defined process" (MET-SIG-01 section 8).
+model EscalaMadurez {
+  id       Int     @id @default(autoincrement())
+  nivel    Int     @unique // 0..5
+  nombre   String // Inexistente, Inicial / ad hoc, …
+  eficacia Decimal @db.Decimal(4, 3) // 0.000, 0.100, 0.500, 0.900, 0.950, 1.000
+  lectura  String?
+
+  controlesBase     Control[]    @relation("ControlLineaBase")
+  controlesActual   Control[]    @relation("ControlActual")
+  controlesObjetivo Control[]    @relation("ControlObjetivo")
+  riesgos           Riesgo[]
+  accionesAlcanzada AccionPlan[] @relation("AccionMadurezAlcanzada")
+  accionesObjetivo  AccionPlan[] @relation("AccionMadurezObjetivo")
+
+  @@map("escala_madurez")
+}
+
+/// Band boundaries for accumulated impact. Read-time classification only.
+model UmbralImpacto {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique // Muy alto, Alto, Medio, Bajo, Despreciable
+  desde  Decimal @db.Decimal(9, 4)
+  hasta  Decimal @db.Decimal(9, 4)
+  orden  Int     @unique
+
+  @@map("umbral_impacto")
+}
+
+/// Band boundaries for potential and residual risk. Read-time classification only.
+model UmbralRiesgo {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique // Crítico, Alto, Medio, Bajo
+  desde  Decimal @db.Decimal(12, 4)
+  hasta  Decimal @db.Decimal(12, 4)
+  orden  Int     @unique
+
+  criterio CriterioAceptacion?
+
+  @@map("umbral_riesgo")
+}
+
+/// Weight of a control within the set that mitigates a threat (MET-SIG-01 section 7.4).
+/// The cap is the essential part of the rule: secondary controls accompany the
+/// principal one, they do not replace it.
+model RelevanciaControl {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique // Principal, Complementario, De apoyo
+  peso        Int // 3, 2, 1
+  esPrincipal Boolean @default(false) @map("es_principal")
+  criterio    String
+  orden       Int
+
+  controlesAmenaza ControlAmenaza[]
+
+  @@map("relevancia_control")
+}
+
+/// What the Committee decides for each risk band, and within what deadline.
+/// MET-SIG-01 marks the deadlines as pending ratification.
+model CriterioAceptacion {
+  id             Int     @id @default(autoincrement())
+  umbralRiesgoId Int     @unique @map("umbral_riesgo_id")
+  decision       String
+  plazoPlan      String  @map("plazo_plan")
+  plazoEjecucion String  @map("plazo_ejecucion")
+  aprueba        String
+  ratificado     Boolean @default(false)
+
+  umbralRiesgo UmbralRiesgo @relation(fields: [umbralRiesgoId], references: [id])
+
+  @@map("criterio_aceptacion")
+}
+
+/// Single key/value store for tunables: umbral_valoracion (4), delta_techo_eficacia
+/// (0.05), metrica_indice, periodicidades, zona_horaria, borrado_fisico (false).
+model Parametro {
+  clave       String   @id
+  valor       String
+  descripcion String?
+  actualizado DateTime @updatedAt
+
+  @@map("parametro")
+}
+
+// ============================================================================
+// Organisation — closed lists. Free text degraded in production elsewhere:
+// "Líder del SIG" against "Lider del SIG", and person names in a role column.
+// ============================================================================
+
+/// Process or responsible area. Shared with the SGC indicators domain, which groups by
+/// the same processes: two parallel lists drift apart. `prefijo` feeds the asset code.
+model Area {
+  id           Int     @id @default(autoincrement())
+  prefijo      String  @unique @db.Char(3) // EST, COM, PRY, SOP, TAL, LEG, TEC, SIG, FIN, TRA
+  nombre       String  @unique
+  liderCargoId Int?    @map("lider_cargo_id")
+  activa       Boolean @default(true)
+  orden        Int
+
+  liderCargo CargoResponsable? @relation("AreaLider", fields: [liderCargoId], references: [id])
+  activos    Activo[]
+  contadores ContadorCodigo[]
+
+  @@map("area")
+}
+
+model CargoResponsable {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  activo Boolean @default(true)
+  orden  Int
+
+  /// Which of the asset sheet's two role lists this position appears in.
+  ///
+  /// REQ-SIG-01:212 has ONE list feed owner, custodian and treatment responsible, and the
+  /// client's own workbook agrees — `LstCargo` is a single named range with no
+  /// LstPropietario or LstCustodio beside it. The client then asked for the two lists to be
+  /// separate, and these flags are how: one row per POSITION, two independently curated
+  /// views of it.
+  ///
+  /// Two tables would have been the other way, and worse. `CargoResponsable` is pointed at
+  /// by SEVEN foreign keys — area lead, control responsible, asset owner, asset custodian,
+  /// risk responsible, and the action plan's responsible and approver — so splitting it
+  /// means migrating every one of them, and
+  /// the day somebody renames a position in one table and not the other there are two
+  /// truths about the same position. That is how «Líder del SIG» and «Lider del SIG» ended
+  /// up coexisting in production.
+  ///
+  /// Both default TRUE so the migration changes nothing on the screen: every position stays
+  /// offered in both lists until somebody curates them. The application cannot know which
+  /// positions may own an asset and which may safeguard it — that is the organisation's
+  /// call, and now it has the control to make it.
+  esPropietario Boolean @default(true) @map("es_propietario")
+  esCustodio    Boolean @default(true) @map("es_custodio")
+
+  areasLideradas      Area[]       @relation("AreaLider")
+  activosPropietario  Activo[]     @relation("ActivoPropietario")
+  activosCustodio     Activo[]     @relation("ActivoCustodio")
+  controles           Control[]
+  riesgos             Riesgo[]
+  accionesResponsable AccionPlan[] @relation("AccionResponsable")
+  accionesAprueba     AccionPlan[] @relation("AccionAprueba")
+
+  @@map("cargo_responsable")
+}
+
+/// Editable catalogue. The protected value "No aplica" cannot be deleted; the flag
+/// lives on the row rather than being keyed off the name.
+model Proveedor {
+  id        Int     @id @default(autoincrement())
+  nombre    String  @unique
+  protegido Boolean @default(false)
+  activo    Boolean @default(true)
+
+  activos Activo[]
+
+  @@map("proveedor")
+}
+
+model Ubicacion {
+  id        Int     @id @default(autoincrement())
+  nombre    String  @unique
+  protegido Boolean @default(false)
+  activo    Boolean @default(true)
+
+  activos Activo[]
+
+  @@map("ubicacion")
+}
+
+model Entorno {
+  id        Int     @id @default(autoincrement())
+  nombre    String  @unique
+  protegido Boolean @default(false)
+  activo    Boolean @default(true)
+
+  activos Activo[]
+
+  @@map("entorno")
+}
+
+// ============================================================================
+// MAGERIT catalogue
+// ============================================================================
+
+model TipoMagerit {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique // [D], [SW], [HW], [COM], [K], [S], [Media], [AUX], [L], [P]
+  nombre      String
+  abreviatura String  @unique @db.Char(3) // DAT, APP, EQU, RED, CLA, SER, SOP, AUX, INS, PER
+  esNormativo Boolean @default(true) @map("es_normativo")
+  activo      Boolean @default(true)
+  orden       Int
+
+  subtipos   SubtipoMagerit[]
+  activos    Activo[]
+  amenazas   AmenazaTipo[]
+  contadores ContadorCodigo[]
+
+  @@map("tipo_magerit")
+}
+
+model SubtipoMagerit {
+  id          Int     @id @default(autoincrement())
+  tipoId      Int     @map("tipo_id")
+  codigo      String // [files], [backup], …
+  nombre      String
+  esNormativo Boolean @default(true) @map("es_normativo")
+  activo      Boolean @default(true)
+
+  tipo    TipoMagerit @relation(fields: [tipoId], references: [id])
+  activos Activo[]
+
+  @@unique([tipoId, codigo])
+  @@map("subtipo_magerit")
+}
+
+/// 57 threats. Codes carry a LITERAL asterisk (N.*, I.* are real catalogue entries,
+/// not placeholders), which is why lookups sanitise it to a dash.
+model Amenaza {
+  id             Int     @id @default(autoincrement())
+  codigo         String  @unique // E.1, A.30, I.8, N.*
+  nombre         String
+  grupo          String // [N] Desastres naturales, [I] Industrial, [E] Errores…, [A] Ataques…
+  frecuenciaId   Int     @map("frecuencia_id")
+  notaAplicacion String? @map("nota_aplicacion")
+  activa         Boolean @default(true)
+
+  frecuencia  EscalaFrecuencia     @relation(fields: [frecuenciaId], references: [id])
+  tipos       AmenazaTipo[]
+  degradacion AmenazaDegradacion[]
+  controles   ControlAmenaza[]
+  riesgos     Riesgo[]
+
+  @@map("amenaza")
+}
+
+/// Pre-classification that GENERATES the risks: a risk is the cartesian product of the
+/// asset by the threats applicable to its type. Asset CATEGORY is deliberately absent
+/// from the key — including it made the same pair exist several times and a control
+/// counted twice in its own average.
+model AmenazaTipo {
+  amenazaId Int     @map("amenaza_id")
+  tipoId    Int     @map("tipo_id")
+  aplica    Boolean @default(true)
+
+  amenaza Amenaza     @relation(fields: [amenazaId], references: [id])
+  tipo    TipoMagerit @relation(fields: [tipoId], references: [id])
+
+  @@id([amenazaId, tipoId])
+  @@map("amenaza_tipo")
+}
+
+/// Degradation is an attribute of the THREAT, not of the individual risk. Controls that
+/// limit damage are reflected here (MET-SIG-01 section 7.4).
+model AmenazaDegradacion {
+  amenazaId       Int     @map("amenaza_id")
+  dimensionId     Int     @map("dimension_id")
+  degradacionId   Int     @map("degradacion_id")
+  /// Records the declared deviation: E.3, A.3, A.5 and A.13 are reassigned from
+  /// Autenticidad or Trazabilidad to Integridad so their risk does not vanish.
+  reasignadaDesde String? @map("reasignada_desde") @db.Char(1)
+
+  amenaza     Amenaza           @relation(fields: [amenazaId], references: [id])
+  dimension   Dimension         @relation(fields: [dimensionId], references: [id])
+  degradacion EscalaDegradacion @relation(fields: [degradacionId], references: [id])
+
+  @@id([amenazaId, dimensionId])
+  @@map("amenaza_degradacion")
+}
+
+// ============================================================================
+// ISO/IEC 27001:2022 Annex A
+// ============================================================================
+
+model DominioAnexoA {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique // Organizacional, Personas, Físico, Tecnológico
+  orden  Int
+
+  controles Control[]
+
+  @@map("dominio_anexo_a")
+}
+
+/// The 15 operational capabilities of ISO/IEC 27002:2022. The radar is built on these,
+/// not on the four domains: four axes show nothing, fifteen give the resolution needed
+/// to see where the imbalance is (MET-SIG-01 section 8.3).
+model CapacidadOperativa {
+  id          Int    @id @default(autoincrement())
+  nombre      String @unique
+  /// Narrow columns and radar axes cannot fit the full name.
+  nombreCorto String @map("nombre_corto")
+  orden       Int
+
+  controles Control[]
+
+  @@map("capacidad_operativa")
+}
+
+/// The 93 Annex A controls. Maturity levels are null exactly when the control does not
+/// apply; a non-applicable control is excluded from every average, and letting a single
+/// zero into a mean is the bug that constraint exists to prevent.
+model Control {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique // A.5.1 … A.8.34
+  nombre         String
+  dominioId      Int       @map("dominio_id")
+  capacidadId    Int       @map("capacidad_id")
+  aplica         Boolean   @default(true)
+  lineaBaseId    Int?      @map("linea_base_id")
+  actualId       Int?      @map("actual_id")
+  objetivoId     Int?      @map("objetivo_id")
+  /// Evidence of the rating, or, when the control does not apply, the written
+  /// justification the Committee approves and an auditor will review.
+  evidencia      String
+  responsableId  Int?      @map("responsable_id")
+  fechaObjetivo  DateTime? @map("fecha_objetivo") @db.Date
+  /// Present and unused for now: preventiva, disuasoria, deteccion, correctiva,
+  /// recuperacion, concienciacion. Composition is not implemented.
+  funcionControl String?   @map("funcion_control")
+
+  dominio     DominioAnexoA      @relation(fields: [dominioId], references: [id])
+  capacidad   CapacidadOperativa @relation(fields: [capacidadId], references: [id])
+  lineaBase   EscalaMadurez?     @relation("ControlLineaBase", fields: [lineaBaseId], references: [id])
+  actual      EscalaMadurez?     @relation("ControlActual", fields: [actualId], references: [id])
+  objetivo    EscalaMadurez?     @relation("ControlObjetivo", fields: [objetivoId], references: [id])
+  responsable CargoResponsable?  @relation(fields: [responsableId], references: [id])
+  amenazas    ControlAmenaza[]
+  evidencias  Evidencia[]
+  acciones    AccionPlan[]
+
+  @@map("control")
+}
+
+/// 272 pairs: which controls mitigate which threat.
+///
+/// They come from the AVERAGE formulas of the AX column of «Amenazas MAGERIT» in the MAGERIT
+/// workbook, extracted by `prisma/extraer-pares.ts`; the `am` field of the ISO control file
+/// carries the same mapping and the seed cross-checks the two.
+///
+/// `relevanciaId` used to be NOT NULL, on the reasoning that a nullable column is how the
+/// reference implementation ended up applying one hardcoded value to 263 pairs and computing
+/// the plain mean the methodology condemns. The reasoning was right about the risk and wrong
+/// about the remedy — see the field's own comment below.
+model ControlAmenaza {
+  amenazaId Int @map("amenaza_id")
+  controlId Int @map("control_id")
+  /// NULLABLE, and that is the whole point.
+  ///
+  /// The PAIR is data the workbook already holds: the AX column of «Amenazas MAGERIT»
+  /// averages an explicit list of control cells, and that list IS this mapping — 272 pairs
+  /// over 57 threats. The RELEVANCE (Principal / Complementario / De apoyo, weights 3/2/1
+  /// with the δ cap) is what MET-SIG-01 v3 §7.4 ADDS on top, to replace the workbook's
+  /// plain average.
+  ///
+  /// It was NOT NULL first, and that made relevance a precondition for recording the pair
+  /// at all: the table stayed empty, every threat read as "no controls mapped", efficacy
+  /// came back null, and all 2256 residual risks rendered "sin calcular". A refinement had
+  /// been turned into a blocker.
+  ///
+  /// Null means "aggregate this pair the way the workbook does": weight 1, no principal,
+  /// hence a plain mean. Assigning relevance upgrades the threat to the v3 rule without
+  /// touching anything else.
+  relevanciaId Int? @map("relevancia_id")
+
+  amenaza    Amenaza            @relation(fields: [amenazaId], references: [id])
+  control    Control            @relation(fields: [controlId], references: [id])
+  relevancia RelevanciaControl? @relation(fields: [relevanciaId], references: [id])
+
+  @@id([amenazaId, controlId])
+  @@map("control_amenaza")
+}
+
+/// Per Control, never per risk. Without evidence the level does not hold up to an
+/// auditor (MET-SIG-01 section 8.4).
+model Evidencia {
+  id        Int           @id @default(autoincrement())
+  controlId Int           @map("control_id")
+  tipo      TipoEvidencia
+  texto     String
+  /// The base evidence carried over from the control's own justification cannot be
+  /// removed from the list.
+  esBase    Boolean       @default(false) @map("es_base")
+  orden     Int           @default(0)
+  creadaEn  DateTime      @default(now()) @map("creada_en")
+  creadaPor String?       @map("creada_por")
+
+  control Control @relation(fields: [controlId], references: [id])
+
+  @@map("evidencia")
+}
+
+enum TipoEvidencia {
+  ENLACE
+  ARCHIVO
+  NOTA
+
+  @@map("tipo_evidencia")
+}
+
+// ============================================================================
+// Assets
+// ============================================================================
+
+/// Ternary answers keep "not yet decided" distinguishable from "no", which matters for
+/// a personal-data question under Ley 1581.
+enum Ternario {
+  SI
+  NO
+  POR_DEFINIR
+
+  @@map("ternario")
+}
+
+model Activo {
+  id             Int     @id @default(autoincrement())
+  /// AAA-TTT-NNNN. System generated, immutable and never reused. Nullable only while
+  /// an asset is being created.
+  codigo         String? @unique @db.VarChar(12)
+  /// The identifier the asset carried in the workbook (LCO-01, TEC-008, GH-023), kept
+  /// so traceability with already issued documents is not lost.
+  codigoHeredado String? @map("codigo_heredado") @db.VarChar(50)
+  nombre         String
+  descripcion    String?
+  areaId         Int     @map("area_id")
+  tipoId         Int     @map("tipo_id")
+  subtipoId      Int     @map("subtipo_id")
+  /// Nullable against the specification, on purpose: the workbook's "Propietario del
+  /// activo" column is empty for all 234 assets and the custodian is missing on two.
+  /// Requiring them here would mean inventing an owner for every asset in the
+  /// migration. The application requires both when an asset is created.
+  propietarioId  Int?    @map("propietario_id")
+  custodioId     Int?    @map("custodio_id")
+  ubicacionId    Int?    @map("ubicacion_id")
+  entornoId      Int?    @map("entorno_id")
+  proveedorId    Int?    @map("proveedor_id")
+  superiorId     Int?    @map("superior_id")
+
+  datosCliente     Ternario @default(POR_DEFINIR) @map("datos_cliente")
+  datosPersonales  Ternario @default(POR_DEFINIR) @map("datos_personales")
+  expuestoInternet Ternario @default(POR_DEFINIR) @map("expuesto_internet")
+
+  cantidad Int       @default(1)
+  activo   Boolean   @default(true)
+  bajaEn   DateTime? @map("baja_en")
+  creadoEn DateTime  @default(now()) @map("creado_en")
+
+  area         Area             @relation(fields: [areaId], references: [id])
+  tipo         TipoMagerit      @relation(fields: [tipoId], references: [id])
+  subtipo      SubtipoMagerit   @relation(fields: [subtipoId], references: [id])
+  propietario  CargoResponsable? @relation("ActivoPropietario", fields: [propietarioId], references: [id])
+  custodio     CargoResponsable? @relation("ActivoCustodio", fields: [custodioId], references: [id])
+  ubicacion    Ubicacion?       @relation(fields: [ubicacionId], references: [id])
+  entorno      Entorno?         @relation(fields: [entornoId], references: [id])
+  proveedor    Proveedor?       @relation(fields: [proveedorId], references: [id])
+  superior     Activo?          @relation("ActivoJerarquia", fields: [superiorId], references: [id])
+  dependientes Activo[]         @relation("ActivoJerarquia")
+  valores      ActivoValor[]
+  riesgos      Riesgo[]
+
+  @@index([areaId])
+  @@index([tipoId])
+  @@map("activo")
+}
+
+/// The asset's value is the greatest of its per-dimension values: one critical
+/// dimension is enough to make the asset critical. It is DERIVED, never captured.
+model ActivoValor {
+  activoId    Int @map("activo_id")
+  dimensionId Int @map("dimension_id")
+  valorId     Int @map("valor_id")
+
+  activo    Activo      @relation(fields: [activoId], references: [id])
+  dimension Dimension   @relation(fields: [dimensionId], references: [id])
+  valor     EscalaValor @relation(fields: [valorId], references: [id])
+
+  @@id([activoId, dimensionId])
+  @@map("activo_valor")
+}
+
+/// The consecutive runs independently per (area, type). Codes are immutable and never
+/// reused, and deletes are logical, so MAX()+1 would hand out a retired number: this
+/// counter is incremented with an atomic upsert-and-return instead.
+model ContadorCodigo {
+  areaId      Int @map("area_id")
+  tipoId      Int @map("tipo_id")
+  ultimoValor Int @default(0) @map("ultimo_valor")
+
+  area Area        @relation(fields: [areaId], references: [id])
+  tipo TipoMagerit @relation(fields: [tipoId], references: [id])
+
+  @@id([areaId, tipoId])
+  @@map("contador_codigo")
+}
+
+// ============================================================================
+// Risk
+// ============================================================================
+
+enum OrigenRiesgo {
+  /// Produced by the cartesian product of the asset by its type's threats.
+  GENERADO
+  /// Added by hand as an exception outside the type's parameterisation.
+  EXCEPCION
+
+  @@map("origen_riesgo")
+}
+
+/// One row per (asset, threat).
+///
+/// The four decimals below are DERIVED. They persist because 2256 risks aggregated
+/// server-side cannot be recomputed on every read, and because sorting, filtering and
+/// paging need them indexable. They are safe only under three conditions, all of which
+/// hold here: a single writer service, an input snapshot in RiesgoCalculo, and no
+/// stored band, level, zone or count anywhere.
+///
+/// `madurezId` is a nullable OVERRIDE. Left null, efficacy comes from the threat's
+/// aggregated control efficacy. Two independent levers on the same number is exactly
+/// the contradictory-figures failure.
+///
+/// There is no residual impact column, and there must never be one.
+model Riesgo {
+  id        Int          @id @default(autoincrement())
+  codigo    String       @unique // R-0001
+  activoId  Int          @map("activo_id")
+  amenazaId Int          @map("amenaza_id")
+  origen    OrigenRiesgo @default(GENERADO)
+
+  // Human decisions
+  madurezId     Int?    @map("madurez_id")
+  frecuenciaId  Int?    @map("frecuencia_id")
+  tratamientoId Int?    @map("tratamiento_id")
+  estadoId      Int?    @map("estado_id")
+  responsableId Int?    @map("responsable_id")
+  observacion   String?
+  /// An exception without a written reason cannot be stored.
+  justificacion String?
+
+  // Scope
+  obsoleto   Boolean   @default(false)
+  obsoletoEn DateTime? @map("obsoleto_en")
+  /// Distinguishes "out of scope because the parameterisation no longer includes it"
+  /// from "a person removed this threat from this asset, with a reason". Without the
+  /// distinction the generator would resurrect every hand-made removal on its next run,
+  /// because a pair the parameterisation still covers looks like one that came back.
+  excluidoManual Boolean @default(false) @map("excluido_manual")
+
+  // Derived — written only by the calculation service
+  impacto            Decimal?  @db.Decimal(9, 4)
+  riesgoPotencial    Decimal?  @map("riesgo_potencial") @db.Decimal(12, 4)
+  frecuenciaResidual Decimal?  @map("frecuencia_residual") @db.Decimal(9, 4)
+  riesgoResidual     Decimal?  @map("riesgo_residual") @db.Decimal(12, 4)
+  calculadoEn        DateTime? @map("calculado_en")
+
+  activo      Activo              @relation(fields: [activoId], references: [id])
+  amenaza     Amenaza             @relation(fields: [amenazaId], references: [id])
+  madurez     EscalaMadurez?      @relation(fields: [madurezId], references: [id])
+  frecuencia  EscalaFrecuencia?   @relation(fields: [frecuenciaId], references: [id])
+  tratamiento TratamientoRiesgo?  @relation(fields: [tratamientoId], references: [id])
+  estado      EstadoTratamiento?  @relation(fields: [estadoId], references: [id])
+  responsable CargoResponsable?   @relation(fields: [responsableId], references: [id])
+  degradacion RiesgoDegradacion[]
+  calculos    RiesgoCalculo[]
+
+  @@unique([activoId, amenazaId])
+  @@index([obsoleto])
+  @@index([riesgoResidual])
+  @@map("riesgo")
+}
+
+/// Overrides only — the baseline lives in amenaza_degradacion. Whether this table
+/// should exist at all is an open question: the methodology says the limiting effect
+/// belongs to the threat, so that there is one judgement per row and not two.
+model RiesgoDegradacion {
+  riesgoId      Int    @map("riesgo_id")
+  dimensionId   Int    @map("dimension_id")
+  degradacionId Int    @map("degradacion_id")
+  /// Required: an exception with no reason is not an exception, it is an error.
+  justificacion String
+
+  riesgo      Riesgo            @relation(fields: [riesgoId], references: [id])
+  dimension   Dimension         @relation(fields: [dimensionId], references: [id])
+  degradacion EscalaDegradacion @relation(fields: [degradacionId], references: [id])
+
+  @@id([riesgoId, dimensionId])
+  @@map("riesgo_degradacion")
+}
+
+/// Freezes the exact inputs of each calculation, so a figure can always be explained.
+model RiesgoCalculo {
+  id                 BigInt   @id @default(autoincrement())
+  riesgoId           Int      @map("riesgo_id")
+  entrada            Json
+  impacto            Decimal  @db.Decimal(9, 4)
+  riesgoPotencial    Decimal  @map("riesgo_potencial") @db.Decimal(12, 4)
+  frecuenciaResidual Decimal  @map("frecuencia_residual") @db.Decimal(9, 4)
+  riesgoResidual     Decimal  @map("riesgo_residual") @db.Decimal(12, 4)
+  calculadoEn        DateTime @default(now()) @map("calculado_en")
+
+  riesgo Riesgo @relation(fields: [riesgoId], references: [id])
+
+  @@index([riesgoId])
+  @@map("riesgo_calculo")
+}
+
+/// The decision taken on a risk. A catalogue rather than an enum: membership is
+/// contested between the sources and the Committee may change it.
+model TratamientoRiesgo {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique // Mitigar, Transferir, Evitar, Aceptar y monitorear
+  activo Boolean @default(true)
+  orden  Int
+
+  riesgos Riesgo[]
+
+  @@map("tratamiento_riesgo")
+}
+
+model EstadoTratamiento {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique // No iniciado, En ejecución, Implementado, Cerrado
+  activo Boolean @default(true)
+  orden  Int
+
+  riesgos Riesgo[]
+
+  @@map("estado_tratamiento")
+}
+
+// ============================================================================
+// Treatment plan — one row per improvement to a CONTROL, never per risk
+// ============================================================================
+
+enum TipoAccion {
+  MITIGAR
+  TRANSFERIR
+  EVITAR
+  ACEPTAR
+
+  @@map("tipo_accion")
+}
+
+enum EstadoAccion {
+  NO_INICIADA
+  EN_EJECUCION
+  EN_VERIFICACION
+  CERRADA
+  CANCELADA
+
+  @@map("estado_accion")
+}
+
+enum VerificacionEficacia {
+  PENDIENTE
+  VERIFICADA_EFICAZ
+  VERIFICADA_NO_EFICAZ
+  NO_APLICA
+
+  @@map("verificacion_eficacia")
+}
+
+/// The "risks it moves" counts are derived from the control's threat mappings at read
+/// time, never stored, and are recomputed against the real inventory rather than
+/// imported from the prototype's sample.
+model AccionPlan {
+  id                 Int                  @id @default(autoincrement())
+  codigo             String               @unique // PT-001
+  accion             String
+  tipo               TipoAccion
+  /// Required when tipo is MITIGAR.
+  controlId          Int?                 @map("control_id")
+  /// Why this action exists — the ISO 27001 6.1.3 rationale.
+  origen             String
+  responsableId      Int                  @map("responsable_id")
+  /// The risk owner who approves. Distinct from the executor: ISO 27001 6.1.3 requires
+  /// the owner's approval, so the two-person rule is structural.
+  apruebaId          Int                  @map("aprueba_id")
+  fechaAprobacion    DateTime?            @map("fecha_aprobacion") @db.Date
+  fechaObjetivo      DateTime?            @map("fecha_objetivo") @db.Date
+  recursos           String?
+  estado             EstadoAccion         @default(NO_INICIADA)
+  avance             Int                  @default(0)
+  evidencia          String?
+  fechaCierre        DateTime?            @map("fecha_cierre") @db.Date
+  madurezAlcanzadaId Int?                 @map("madurez_alcanzada_id")
+  madurezObjetivoId  Int?                 @map("madurez_objetivo_id")
+  verificacion       VerificacionEficacia @default(PENDIENTE)
+  observacion        String?
+
+  // Conditional blocks
+  instrumento             String?   @map("instrumento")
+  riesgoRemanente         String?   @map("riesgo_remanente")
+  justificacionAceptacion String?   @map("justificacion_aceptacion")
+  fechaRevisionAceptacion DateTime? @map("fecha_revision_aceptacion") @db.Date
+
+  activa Boolean   @default(true)
+  bajaEn DateTime? @map("baja_en")
+
+  control          Control?         @relation(fields: [controlId], references: [id])
+  responsable      CargoResponsable @relation("AccionResponsable", fields: [responsableId], references: [id])
+  aprueba          CargoResponsable @relation("AccionAprueba", fields: [apruebaId], references: [id])
+  madurezAlcanzada EscalaMadurez?   @relation("AccionMadurezAlcanzada", fields: [madurezAlcanzadaId], references: [id])
+  madurezObjetivo  EscalaMadurez?   @relation("AccionMadurezObjetivo", fields: [madurezObjetivoId], references: [id])
+
+  @@index([controlId])
+  @@map("accion_plan")
+}
+
+// ============================================================================
+// Traceability
+// ============================================================================
+
+/// Append only. `registroId` is text so one table can span every entity.
+/// `motivo` is present because every change records author, date, previous value and
+/// REASON — the reference implementation promised it in the interface and never had
+/// the column.
+model Bitacora {
+  id            BigInt   @id @default(autoincrement())
+  tabla         String
+  registroId    String   @map("registro_id")
+  campo         String?
+  valorAnterior String?  @map("valor_anterior")
+  valorNuevo    String?  @map("valor_nuevo")
+  motivo        String?
+  usuario       String
+  ocurridoEn    DateTime @default(now()) @map("ocurrido_en")
+
+  @@index([tabla, registroId])
+  @@index([ocurridoEn])
+  @@map("bitacora")
+}
+
+/// Maturity is re-assessed every six months and before the management review. Each cut
+/// keeps the previous rating as its baseline, so progress is demonstrable rather than
+/// an impression.
+model LineaBase {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique // "2026-Q3"
+  fecha     DateTime @db.Date
+  creadaPor String   @map("creada_por")
+  snapshot  Json
+  creadaEn  DateTime @default(now()) @map("creada_en")
+
+  @@map("linea_base")
+}

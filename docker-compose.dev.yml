@@ -1,0 +1,31 @@
+# Local development database only.
+#
+# Production Postgres is NOT defined here: docker-compose.prod.yml only ships the
+# app container, and the production database is provisioned outside this repo.
+# Never point DATABASE_URL at production from this file.
+
+services:
+  sgi-postgres:
+    image: postgres:17-alpine
+    container_name: sgi-postgres
+    restart: unless-stopped
+    ports:
+      # Host port 5437: 5432 may be taken by a local Postgres install and
+      # 5436 is already used by another project on this machine.
+      - '5437:5432'
+    environment:
+      POSTGRES_DB: sgi_sgsi
+      POSTGRES_USER: sgi
+      POSTGRES_PASSWORD: ${SGI_POSTGRES_PASSWORD:-sgi_dev_password}
+    volumes:
+      - sgi-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sgi -d sgi_sgsi']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  sgi-postgres-data:
+    name: sgi-postgres-data

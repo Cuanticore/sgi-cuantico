@@ -40,7 +40,6 @@ next-env.d.ts
 
 # superpowers
 .superpowers/
-docs/superpowers/
 
 # temp / debug scripts
 tmp_verify*.mjs
@@ -49,3 +48,9 @@ auth-test.ts
 
 # claude local settings
 .claude/
+
+# Skill registry cache — tooling metadata, machine-local
+/.atl/
+
+# Bounded-review artifacts — produced per review, never part of the change
+/.review/

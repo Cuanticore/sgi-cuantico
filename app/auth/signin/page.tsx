@@ -38,8 +38,10 @@ function SignInContent() {
               <h1 className="text-2xl font-black tracking-widest text-slate-900 uppercase">
                 Cuantico
               </h1>
+              {/* The module is no longer a separate application: it lives inside the
+                  Sistema Integrado de Gestión and shares this session. */}
               <p className="mt-1 text-xs text-slate-400 font-medium tracking-widest uppercase">
-                Cuadro de Mando de Indicadores
+                Sistema Integrado de Gestión
               </p>
             </div>
           </div>
@@ -59,6 +61,13 @@ function SignInContent() {
 
           <p className="text-center text-xs text-slate-400">
             Acceso exclusivo para colaboradores de Cuantico
+          </p>
+
+          {/* The application stores no passwords: permissions derive from Directory
+              group membership. Saying so here is what an auditor looks for. */}
+          <p className="text-center text-[11px] leading-relaxed text-slate-400">
+            Autenticación integrada con el Directorio Activo. Los permisos se derivan de la
+            pertenencia a grupos de AD.
           </p>
         </div>
       </div>

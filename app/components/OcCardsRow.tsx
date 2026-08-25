@@ -26,7 +26,7 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   const color = statusColor(status);
   if (status === 'en_meta') {
     return (
-      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M6 10.5l3 3 5-5.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       </svg>
@@ -34,7 +34,7 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   }
   if (status === 'alerta') {
     return (
-      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M10 6v5" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
         <circle cx="10" cy="14" r="1" fill="white" />
@@ -43,14 +43,14 @@ function StatusIcon({ status }: { status: IndicatorStatus }) {
   }
   if (status === 'critico') {
     return (
-      <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
+      <svg viewBox="0 0 20 20" className="w-4 h-4 shrink-0" fill={color}>
         <circle cx="10" cy="10" r="10" />
         <path d="M7 7l6 6M13 7l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" fill="none" />
       </svg>
     );
   }
   return (
-    <svg viewBox="0 0 20 20" className="w-4 h-4 flex-shrink-0" fill={color}>
+    <svg viewBox="0 0 20 20" className="w-4 h-4 shrink-0" fill={color}>
       <circle cx="10" cy="10" r="10" />
       <path d="M7 10h6" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
@@ -73,7 +73,7 @@ export default function OcCardsRow({
   const descMap = Object.fromEntries(objetivosCalidad.map(o => [o.codigo, o.descripcion]));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-50 overflow-hidden h-full flex flex-col">
+    <div className="bg-white rounded-xl shadow-xs border border-slate-50 overflow-hidden h-full flex flex-col">
       <table className="w-full border-collapse flex-1">
         <thead>
           <tr className="border-b border-slate-100">

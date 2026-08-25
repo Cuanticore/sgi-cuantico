@@ -1,0 +1,147 @@
+'use client';
+
+// app/components/sgsi/HeaderCorporativo.tsx
+//
+// The 58px bar over the whole application, ported from the prototype's own markup.
+//
+// The blues are the REAL corporate ones, taken from the existing app. The handoff
+// reconstructed this bar from a screenshot and says so outright: "Al integrar, tomar los
+// tokens reales (azules, tipografía, logo) del código existente y sustituir los valores
+// aproximados de la tabla brand/*." Everything else — the gradient's three stops at 96°,
+// the white CQ tile with dark blue type, the sizes, the tab weights — is the prototype's.
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+interface Props {
+  usuario: string;
+  /// Empty string hides the line. The methodology role name ("Líder del SIG") is a row in
+  /// the permission table, not a title the person holds, so the bar no longer prints it.
+  rol: string;
+  cuenta: string;
+}
+
+const PESTANAS = [
+  { etiqueta: 'Indicadores', href: '/' },
+  { etiqueta: 'SGSI', href: '/sgsi' },
+] as const;
+
+export default function HeaderCorporativo({ usuario, rol, cuenta }: Props) {
+  const ruta = usePathname();
+  // The SGSI tab owns everything that is not the indicators screen, exactly as the
+  // prototype does: `s.screen !== 'indicadores'`.
+  const enIndicadores = ruta === '/';
+
+  return (
+    <header
+      className="sticky top-0 z-50 flex items-center"
+      style={{
+        gap: 18,
+        padding: '0 22px',
+        height: 'var(--hf-header-alto)',
+        background:
+          'linear-gradient(96deg, var(--hf-brand-900) 0%, var(--hf-brand-700) 46%, var(--hf-brand-500) 100%)',
+        borderBottom: '1px solid #0a2350',
+      }}
+    >
+      <Link href="/" className="flex items-center" style={{ gap: 11 }}>
+        <span
+          className="flex flex-none items-center justify-center rounded-campo font-mono font-bold"
+          style={{
+            width: 30,
+            height: 30,
+            background: '#ffffff',
+            color: 'var(--hf-brand-700)',
+            fontSize: 10,
+          }}
+          aria-hidden
+        >
+          CQ
+        </span>
+        <span className="flex flex-col" style={{ lineHeight: 1.1 }}>
+          <span
+            className="font-bold text-white"
+            style={{ fontSize: 14, letterSpacing: '0.06em' }}
+          >
+            CUANTICO
+          </span>
+          <span
+            className="font-mono"
+            style={{ fontSize: 9, letterSpacing: '0.16em', color: 'var(--hf-brand-300)' }}
+          >
+            SIG
+          </span>
+        </span>
+      </Link>
+
+      <nav className="flex items-center" style={{ gap: 4, marginLeft: 14 }}>
+        {PESTANAS.map((p) => {
+          const activa = p.href === '/' ? enIndicadores : !enIndicadores;
+          return (
+            <Link
+              key={p.href}
+              href={p.href}
+              aria-current={activa ? 'page' : undefined}
+              className="rounded-[7px] transition-colors focus:outline-hidden focus:ring-2 focus:ring-white/50"
+              style={{
+                fontSize: 12.5,
+                fontWeight: activa ? 600 : 500,
+                padding: '7px 13px',
+                background: activa ? 'rgba(255,255,255,0.18)' : 'transparent',
+                color: activa ? '#ffffff' : '#bcd4f5',
+              }}
+              onMouseEnter={(e) => {
+                if (!activa) e.currentTarget.style.background = 'rgba(255,255,255,0.16)';
+              }}
+              onMouseLeave={(e) => {
+                if (!activa) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              {p.etiqueta}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="ml-auto flex items-center" style={{ gap: 10 }}>
+        {/* The account is always shown; the role line only when there is one. An empty
+            line would leave the account floating half a row above where it belongs. */}
+        <span className="hidden flex-col items-end sm:flex" style={{ lineHeight: 1.2 }}>
+          {rol.trim() !== '' && (
+            <span className="font-semibold text-white" style={{ fontSize: 12 }}>
+              {rol}
+            </span>
+          )}
+          <span className="font-mono" style={{ fontSize: 9.5, color: 'var(--hf-brand-300)' }}>
+            {cuenta}
+          </span>
+        </span>
+
+        <span
+          className="flex flex-none items-center justify-center rounded-full font-bold text-white"
+          style={{
+            width: 30,
+            height: 30,
+            fontSize: 11,
+            background: 'rgba(255,255,255,0.16)',
+            border: '1px solid rgba(255,255,255,0.3)',
+          }}
+          title={usuario}
+        >
+          {iniciales(usuario)}
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function iniciales(nombre: string): string {
+  return (
+    nombre
+      .split(/\s+/)
+      .map((parte) => parte[0] ?? '')
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'U'
+  );
+}

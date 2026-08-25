@@ -1,29 +1,57 @@
-name: Deploy via Git (local build)
+name: Deploy via Git (legacy Coolify path — DISABLED)
+
+# SUPERSEDED, AND DISARMED ON PURPOSE.
+#
+# This is the path that existed before `ci: deploy directo a servidor sin Coolify`. It builds
+# the current image and runs `docker compose up -d --force-recreate` in
+# /data/coolify/applications/xkl6pdbfpctlsilc52de07xi.
+#
+# That was harmless while the application had NO state: every figure came from SharePoint on
+# each start, so recreating a container lost nothing. It is not harmless now. The app owns a
+# Postgres database, and this path has:
+#
+#   · no preflight check for DATABASE_URL / SGI_POSTGRES_PASSWORD,
+#   · no `prisma migrate deploy` gate — so the new code starts against whatever schema is
+#     there, which on that stack is no schema at all,
+#   · no backup step,
+#   · no healthcheck wait, so it reports success regardless.
+#
+# It pushes the SAME image tag as the real pipeline and its compose file declares the same
+# `container_name`, so running it takes the container away from the deploy in
+# `deploy.yml`. One click, from a menu, with no warning.
+#
+# It is kept rather than deleted because it is the only record of how the Coolify deployment
+# worked, and deleting somebody's fallback path is not a call a review correction should make.
+# So it is disarmed instead: it now requires a typed confirmation and stops with an
+# explanation. Deleting the file remains the right end state — that is the maintainer's
+# decision, not this change's.
 
 on:
   workflow_dispatch:
+    inputs:
+      confirmacion:
+        description: 'Escribí EXACTAMENTE: entiendo-que-no-migra-ni-respalda'
+        required: true
+        default: ''
 
 jobs:
-  deploy:
-    runs-on: self-hosted
-    permissions:
-      contents: read
-
+  rechazar:
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ec2-98-83-132-206.compute-1.amazonaws.com
-          username: ubuntu
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 30m
-          envs: GITHUB_TOKEN,GITHUB_ACTOR
-          script: |
-            BUILDDIR=$(mktemp -d)
-            git clone --depth 1 \
-              "https://$GITHUB_ACTOR:$GITHUB_TOKEN@github.com/Cuanticore/sgi-cuantico.git" \
-              "$BUILDDIR"
-            docker build -t ghcr.io/cuanticore/sgi-cuantico:latest "$BUILDDIR"
-            cd /data/coolify/applications/xkl6pdbfpctlsilc52de07xi
-            docker compose up -d --force-recreate --remove-orphans
-            rm -rf "$BUILDDIR"
+      - name: Este camino está deshabilitado
+        run: |
+          echo "::error::deploy-git.yml está deshabilitado. Usá el pipeline de deploy.yml (push a main), que trae preflight de variables, gate de migración, respaldo y espera de healthcheck."
+          echo ""
+          echo "Este workflow desplegaba al directorio de Coolify SIN aplicar migraciones y SIN respaldar."
+          echo "Con la base de datos del SGSI en juego, eso puede arrancar la aplicación contra un esquema que no le corresponde."
+          echo ""
+          echo "Si de verdad necesitás el camino viejo, recuperalo del historial de git y agregale"
+          echo "el gate de migración y el respaldo antes de correrlo."
+          exit 1
+
+      - name: Nota sobre la confirmación
+        if: ${{ inputs.confirmacion == 'entiendo-que-no-migra-ni-respalda' }}
+        run: |
+          echo "::warning::La confirmación es correcta, pero el paso anterior igual detiene el job."
+          echo "Eso es deliberado: la confirmación existe para que quede registrado quién lo intentó y cuándo,"
+          echo "no para habilitar un despliegue sin migración ni respaldo."
