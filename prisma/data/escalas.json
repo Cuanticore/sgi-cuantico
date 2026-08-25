@@ -1,0 +1,168 @@
+{
+  "valor": [
+    {
+      "etiqueta": "5 — Muy Alto",
+      "valor": 5
+    },
+    {
+      "etiqueta": "4 — Alto",
+      "valor": 4
+    },
+    {
+      "etiqueta": "3 — Medio",
+      "valor": 3
+    },
+    {
+      "etiqueta": "2 — Bajo",
+      "valor": 2
+    },
+    {
+      "etiqueta": "1 — Muy Bajo",
+      "valor": 1
+    },
+    {
+      "etiqueta": "0 — Irrelevante",
+      "valor": 0
+    }
+  ],
+  "degradacion": [
+    {
+      "grado": "Muy alta",
+      "fraccion": 1,
+      "lectura": "El activo queda inservible en esa dimensión"
+    },
+    {
+      "grado": "Alta",
+      "fraccion": 0.8,
+      "lectura": "Daño muy significativo"
+    },
+    {
+      "grado": "Media",
+      "fraccion": 0.5,
+      "lectura": "Daño moderado"
+    },
+    {
+      "grado": "Baja",
+      "fraccion": 0.2,
+      "lectura": "Daño pequeño"
+    },
+    {
+      "grado": "Muy baja",
+      "fraccion": 0.05,
+      "lectura": "Daño mínimo"
+    },
+    {
+      "grado": "No aplica",
+      "fraccion": 0,
+      "lectura": "La amenaza no afecta esta dimensión"
+    }
+  ],
+  "frecuencia": [
+    {
+      "etiqueta": "Muy alta — ocurre a diario",
+      "vecesPorAno": 100,
+      "lectura": "Prácticamente permanente"
+    },
+    {
+      "etiqueta": "Alta — ocurre cada mes",
+      "vecesPorAno": 10,
+      "lectura": "Varias veces al año"
+    },
+    {
+      "etiqueta": "Media — ocurre una vez al año",
+      "vecesPorAno": 1,
+      "lectura": "Frecuencia típica"
+    },
+    {
+      "etiqueta": "Baja — ocurre cada varios años",
+      "vecesPorAno": 0.1,
+      "lectura": "Poco frecuente"
+    },
+    {
+      "etiqueta": "Muy baja — excepcional, cada muchos años",
+      "vecesPorAno": 0.01,
+      "lectura": "Prácticamente improbable"
+    }
+  ],
+  "madurez": [
+    {
+      "nivel": "L0 — Inexistente",
+      "eficacia": 0,
+      "lectura": "No existe el control"
+    },
+    {
+      "nivel": "L1 — Inicial / ad hoc",
+      "eficacia": 0.1,
+      "lectura": "Se hace, pero sin método ni constancia"
+    },
+    {
+      "nivel": "L2 — Reproducible pero intuitivo",
+      "eficacia": 0.5,
+      "lectura": "Se repite, sin estar documentado"
+    },
+    {
+      "nivel": "L3 — Proceso definido",
+      "eficacia": 0.9,
+      "lectura": "Documentado, comunicado y aplicado"
+    },
+    {
+      "nivel": "L4 — Gestionado y medible",
+      "eficacia": 0.95,
+      "lectura": "Se mide su desempeño y se corrige"
+    },
+    {
+      "nivel": "L5 — Optimizado",
+      "eficacia": 1,
+      "lectura": "Mejora continua sobre la medición"
+    }
+  ],
+  "umbralImpacto": [
+    {
+      "nivel": "Muy alto",
+      "desde": 4.5,
+      "hasta": 5
+    },
+    {
+      "nivel": "Alto",
+      "desde": 3,
+      "hasta": 4.499
+    },
+    {
+      "nivel": "Medio",
+      "desde": 1.5,
+      "hasta": 2.999
+    },
+    {
+      "nivel": "Bajo",
+      "desde": 0.5,
+      "hasta": 1.499
+    },
+    {
+      "nivel": "Despreciable",
+      "desde": 0,
+      "hasta": 0.499
+    }
+  ],
+  "umbralRiesgo": [
+    {
+      "nivel": "Crítico",
+      "desde": 25,
+      "hasta": 100000
+    },
+    {
+      "nivel": "Alto",
+      "desde": 5,
+      "hasta": 24.999
+    },
+    {
+      "nivel": "Medio",
+      "desde": 0.5,
+      "hasta": 4.999
+    },
+    {
+      "nivel": "Bajo",
+      "desde": 0,
+      "hasta": 0.499
+    }
+  ]
+}

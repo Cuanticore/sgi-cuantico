@@ -96,11 +96,14 @@ describe('parseQualityObjectives', () => {
 });
 
 describe('parseIndicators', () => {
-  it('parses indicator rows from row 19 until col 1 is empty', () => {
+  // The workbook keeps two header rows at 16 and 17 and the first indicator at 18,
+  // verified against the live "Indicadores Gestión" sheet. The mock used to start at
+  // 19, so the parser hit an empty column 1 on its first row and broke out at once.
+  it('parses indicator rows from row 18 until col 1 is empty', () => {
     const ws = mockWs({
-      19: { 1: 1, 2: 'Gestión Estratégica', 3: 'Cumplimiento sostenibilidad', 4: 'Daniel Medina', 9: 'OC5', 13: 'Anual', 14: '90%', 20: 0.34 },
-      20: { 1: 2, 2: 'Gestión Estratégica', 3: 'Ingresos compañía', 4: 'Daniel Medina', 9: 'OC5', 13: 'Anual', 14: '90%', 20: 0 },
-      21: { 1: null },
+      18: { 1: 1, 2: 'Gestión Estratégica', 3: 'Cumplimiento sostenibilidad', 4: 'Daniel Medina', 9: 'OC5', 13: 'Anual', 14: '90%', 20: 0.34 },
+      19: { 1: 2, 2: 'Gestión Estratégica', 3: 'Ingresos compañía', 4: 'Daniel Medina', 9: 'OC5', 13: 'Anual', 14: '90%', 20: 0 },
+      20: { 1: null },
     });
     const result = parseIndicators(ws as any);
     expect(result).toHaveLength(2);

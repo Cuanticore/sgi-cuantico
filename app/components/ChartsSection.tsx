@@ -32,7 +32,7 @@ export default function ChartsSection({
         Análisis de Desempeño
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
+        <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Cumplimiento por Proceso</h3>
           <p className="text-xs text-slate-400 mb-5">
             Comparativo de todos los procesos · {year}
@@ -44,7 +44,7 @@ export default function ChartsSection({
           />
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
+        <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Evolución Mensual {year}</h3>
           <p className="text-xs text-slate-400 mb-5">Cumplimiento promedio por mes</p>
           <LineChart mensual={mensual} />
@@ -65,7 +65,7 @@ export default function ChartsSection({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
+        <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Cumplimiento por OC</h3>
           <p className="text-xs text-slate-400 mb-5">
             Real vs. meta por Objetivo de Calidad · {year}

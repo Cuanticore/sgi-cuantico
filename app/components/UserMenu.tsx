@@ -22,7 +22,7 @@ export default function UserMenu({ initials }: { initials: string }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-[34px] h-[34px] rounded-full overflow-hidden border-2 border-white/20 hover:opacity-80 transition-opacity flex items-center justify-center bg-gradient-to-br from-sky-400 to-[#1B3A8A]"
+        className="w-[34px] h-[34px] rounded-full overflow-hidden border-2 border-white/20 hover:opacity-80 transition-opacity flex items-center justify-center bg-linear-to-br from-sky-400 to-[#1B3A8A]"
       >
         {!photoFailed ? (
           <img

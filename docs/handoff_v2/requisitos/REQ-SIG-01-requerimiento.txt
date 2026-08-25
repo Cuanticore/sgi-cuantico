@@ -1,0 +1,404 @@
+
+
+
+
+
+
+
+
+REQUERIMIENTO PARA EL DESARROLLO
+DE LA HERRAMIENTA DE GESTIÓN DE ACTIVOS Y RIESGOS
+MAGERIT v3.0  ·  ISO/IEC 27001:2022
+
+
+Campo
+Contenido
+Código
+REQ-SIG-01
+Versión
+1.0
+Fecha de emisión
+Agosto de 2026
+Solicitante
+Líder del Sistema Integrado de Gestión
+Destinatario
+Equipo de desarrollo — especificación para ejecución asistida con Claude Code
+Clasificación
+Privado
+Fuente funcional
+MET-SIG-01 Metodología de análisis y valoración de riesgos v2.0 · MATRIZ MAGERIT — Activos y Riesgos (libro de Excel, prototipo funcional y fuente de datos de la migración)
+
+TABLA DE CONTENIDO
+ TOC \o "1-3" \h \z \u Haga clic aquí y pulse F9 para actualizar la tabla de contenido.
+
+1. Objetivo del desarrollo
+Construir una aplicación web que reemplace el libro de Excel «MATRIZ MAGERIT — Activos y Riesgos» como sistema de registro del inventario de activos y del análisis de riesgos de seguridad de la información de Cuántico, conservando íntegramente el método definido en MET-SIG-01 y eliminando las limitaciones propias de una hoja de cálculo: concurrencia, trazabilidad de cambios, control de acceso por rol, y crecimiento del volumen de riesgos.
+El Excel actual no es un borrador: es un prototipo funcional completo, con 234 activos, 57 amenazas, 93 controles y 2.256 riesgos calculados. La herramienta debe reproducir sus resultados con exactitud antes de considerarse terminada.
+2. Alcance
+2.1 Dentro del alcance
+Inventario de activos con la taxonomía MAGERIT de 10 tipos y 137 subtipos.
+Generación automática de los riesgos como producto de cada activo por las amenazas que la norma asigna a su tipo.
+Valoración de impacto y riesgo, potencial y residual, con las fórmulas del capítulo 7 de MET-SIG-01.
+Plan de tratamiento con responsable, fechas, evidencia y estado.
+Tablero de indicadores filtrable por área o proceso, y matrices de riesgo inherente y residual.
+Parametrización completa de catálogos, escalas y umbrales, sin necesidad de tocar código.
+Importación inicial desde el libro de Excel y exportación a Excel y PDF.
+Bitácora de auditoría y líneas base comparables entre periodos.
+2.2 Fuera del alcance en esta fase
+Descubrimiento automático de activos por integración con AWS, Microsoft 365 o GitHub. Se contempla como fase posterior; el modelo de datos debe dejarlo preparado.
+Gestión de incidentes de seguridad.
+Gestión documental del SIG.
+Firma electrónica de aprobaciones.
+3. Regla de codificación de activos por área
+Este es el requisito con más consecuencias sobre el modelo de datos, y por eso se especifica primero. Todo activo lleva un código único generado por el sistema, compuesto por el área responsable, el tipo MAGERIT y un consecutivo.
+3.1 Formato
+AAA-TTT-NNNN
+Expresión regular de validación:   ^[A-Z]{3}-[A-Z]{3}-[0-9]{4}$
+Ejemplos:   TEC-APP-0007   ·   FIN-DAT-0031   ·   TAL-PER-0004   ·   TEC-CLA-0012
+AAA es el prefijo del área o proceso responsable, TTT la abreviatura del tipo MAGERIT y NNNN un consecutivo de cuatro dígitos que corre de forma independiente para cada combinación de área y tipo.
+3.2 Prefijos de área
+Los prefijos son parametrizables: dar de alta un área nueva implica registrar su prefijo, que el sistema valida como único y de exactamente tres letras mayúsculas. Estos son los valores iniciales.
+Prefijo
+Área o proceso
+EST
+Gestión Estratégica
+COM
+Gestión Comercial
+PRY
+Gestión de Proyectos
+SAC
+Soporte y Servicio al Cliente
+TAL
+Talento Humano
+LEG
+Gestión Legal y Compras
+TEC
+Gestión Tecnológica
+SIG
+Sistema Integrado de Gestión
+FIN
+Gestión Financiera
+TRA
+Transversal — activos compartidos por varias áreas
+3.3 Abreviaturas de tipo de activo
+Código MAGERIT
+Tipo de activo
+Abreviatura
+[D]
+Datos / Información
+DAT
+[K]
+Claves criptográficas
+CLA
+[S]
+Servicios
+SER
+[SW]
+Aplicaciones (software)
+APP
+[HW]
+Equipamiento informático
+EQU
+[COM]
+Redes de comunicaciones
+RED
+[Media]
+Soportes de información
+SOP
+[AUX]
+Equipamiento auxiliar
+AUX
+[L]
+Instalaciones
+INS
+[P]
+Personal
+PER
+3.4 Reglas de comportamiento
+El código lo genera el sistema. Nunca se escribe a mano ni se permite editarlo desde la interfaz.
+El consecutivo es por combinación de área y tipo: el primer activo de datos de Talento Humano es TAL-DAT-0001, independientemente de cuántos activos de datos existan en Tecnología.
+El código es inmutable. Si el activo cambia de área o de tipo, el código se conserva y el cambio queda registrado en la bitácora. El área y el tipo son atributos consultables; el código es solo un identificador.
+El código no se reutiliza. Al dar de baja un activo, su código queda retirado de forma permanente y el consecutivo no retrocede.
+El código es único a nivel global, no solo dentro del área.
+Cada activo conserva además su código heredado del Excel —LCO-01, TEC-008, GH-023— en un campo aparte, para que la trazabilidad con los documentos ya emitidos no se pierda.
+La generación debe ser segura frente a concurrencia: dos altas simultáneas en la misma área y tipo no pueden obtener el mismo consecutivo.
+Nota de migración: los 234 activos del Excel se cargan con su código heredado y reciben un código nuevo según esta regla. La equivalencia entre ambos debe quedar consultable y exportable.
+
+4. Parametrización de entidades y configuraciones
+El principio rector es que ningún catálogo, escala, umbral ni regla de clasificación puede quedar escrito en el código fuente. Todo lo que en el Excel vive en las hojas «Escalas MAGERIT», «Listas», «Amenazas MAGERIT» y «Tipos de Activo» debe ser una tabla administrable desde la interfaz, con historial de cambios.
+La razón es concreta: la metodología ya cambió una vez de escala 0–10 a 0–5, y la organización se reserva la posibilidad de volver a las cinco dimensiones de la norma. Ninguno de esos cambios debe requerir un despliegue.
+Entidad
+Nombre funcional
+Contenido
+¿Parametrizable?
+area
+Área o proceso
+Prefijo de 3 letras, nombre, líder responsable, activa/inactiva, orden de presentación.
+Sí
+tipo_activo
+Tipo de activo MAGERIT
+Código de la norma, nombre, abreviatura de 3 letras para el código de activo, orden, activo/inactivo.
+Sí
+subtipo_activo
+Subtipo de activo
+Código, nombre y tipo padre. 137 registros iniciales del Libro II.
+Sí
+dimension
+Dimensión de seguridad
+Código, nombre, activa/inactiva. Permite volver a las cinco de la norma sin tocar código.
+Sí
+escala_valor
+Escala de valor del activo
+Nivel, etiqueta que se muestra, valor numérico, criterio y color. Hoy 0 a 5.
+Sí
+escala_degradacion
+Escala de degradación
+Etiqueta, fracción del valor que se pierde, lectura y color.
+Sí
+escala_frecuencia
+Escala de frecuencia
+Etiqueta, veces por año, lectura y color.
+Sí
+escala_madurez
+Escala de madurez de controles
+Nivel CMM, nombre, eficacia y lectura.
+Sí
+umbral_impacto
+Umbrales de nivel de impacto
+Nivel, desde, hasta y color.
+Sí
+umbral_riesgo
+Umbrales de nivel de riesgo
+Nivel, desde, hasta y color.
+Sí
+zona_riesgo
+Zonas de riesgo
+Nombre, condición sobre impacto y frecuencia, color.
+Sí
+amenaza
+Catálogo de amenazas
+Código, nombre, grupo, nota de aplicación y frecuencia base. 57 registros del Libro II.
+Sí
+amenaza_tipo
+Aplicabilidad amenaza-tipo
+Qué amenazas aplican a qué tipos de activo. Es la regla que genera los riesgos.
+Sí
+amenaza_degradacion
+Degradación por amenaza y dimensión
+Grado de degradación que cada amenaza causa en cada dimensión.
+Sí
+control
+Catálogo de controles
+Código, nombre y dominio. 93 controles del Anexo A de ISO/IEC 27001:2022.
+Sí
+amenaza_control
+Mapeo amenaza-control
+Qué controles mitigan cada amenaza. Alimenta la columna de controles sugeridos.
+Sí
+ubicacion
+Ubicaciones
+Física, Nube, Local, No aplica.
+Sí
+entorno
+Entornos
+Producción, Staging, Desarrollo, No aplica.
+Sí
+proveedor
+Proveedores y subencargados
+Nombre, tipo de servicio, país de tratamiento, contrato asociado.
+Sí
+cargo
+Cargos y roles responsables
+Alimenta propietario, custodio y responsable del tratamiento.
+Sí
+clasificacion
+Clasificación de la información
+Público, Privado, Confidencial.
+Sí
+tratamiento
+Opciones de tratamiento
+Mitigar, Transferir, Evitar, Aceptar y monitorear.
+Sí
+estado_tratamiento
+Estados del plan
+No iniciado, En ejecución, Implementado, Cerrado.
+Sí
+criterio_aceptacion
+Criterios de aceptación
+Por nivel de riesgo residual: decisión, plazo de plan, plazo de ejecución y quién aprueba.
+Sí
+parametro
+Parámetros globales
+Umbral de entrada a valoración, periodicidad de revisión, formato del código de activo, datos de la organización.
+Sí
+activo
+Activo
+Registro maestro del inventario con todos sus atributos y su valoración por dimensión.
+No
+activo_dependencia
+Dependencias entre activos
+Relación activo superior — activo inferior.
+No
+riesgo
+Riesgo
+Par activo × amenaza con su valoración, madurez del control y resultado.
+No
+plan_tratamiento
+Plan de tratamiento
+Acciones, responsable, fechas, evidencia y estado.
+No
+linea_base
+Línea base
+Fotografía completa del análisis en una fecha, congelada para comparar entre periodos.
+No
+bitacora
+Bitácora de auditoría
+Quién cambió qué, cuándo y con qué valor anterior. Inmutable.
+No
+usuario
+Usuarios y roles
+Identidad federada con Microsoft 365 y rol asignado.
+No
+4.1 Reglas sobre la parametrización
+Cambiar una escala no altera lo ya valorado: los registros guardan la referencia al nivel, no el número. Si mañana «Alto» pasa de 4 a 8, todos los cálculos se actualizan sin reescribir datos.
+Toda escala tiene orden, etiqueta visible, valor numérico y color. La interfaz muestra siempre la etiqueta completa, nunca el número suelto ni una sigla sin descripción.
+Desactivar una dimensión no borra su historial: los riesgos ya calculados conservan el valor y dejan de recalcularse en esa dimensión.
+Las escalas y umbrales se versionan. Un cambio de umbral obliga a registrar el motivo y queda asociado a la línea base siguiente.
+Los catálogos de amenazas y controles se cargan con los 57 y 93 registros oficiales y admiten registros propios marcados como «no normativos», para que un auditor distinga lo que viene de la norma de lo que añadió la organización.
+5. Reglas de negocio del motor de riesgos
+Estas reglas no son negociables ni deben inferirse: son las que garantizan que la herramienta reproduzca la metodología aprobada.
+Regla
+Definición
+Valor del activo
+Es el mayor de sus valores en las dimensiones activas. Se calcula, no se captura.
+Entrada a valoración
+Un activo entra al análisis de riesgos si su valor es mayor o igual al umbral parametrizado. Hoy el umbral es 4.
+Generación de riesgos
+Los riesgos de un activo son el producto del activo por todas las amenazas que la norma asigna a su tipo. No se eligen a mano ni se permite añadir amenazas sueltas.
+Impacto por dimensión
+Valor de la dimensión multiplicado por la fracción de degradación de la amenaza en esa dimensión.
+Impacto acumulado
+El mayor de los impactos por dimensión.
+Riesgo potencial
+Impacto acumulado multiplicado por las veces por año de la amenaza.
+Frecuencia residual
+Veces por año multiplicadas por uno menos la eficacia de la madurez del control preventivo registrado.
+Riesgo residual
+Impacto acumulado multiplicado por la frecuencia residual. El impacto no se reduce: los controles que limitan el daño se reflejan bajando la degradación de la amenaza.
+Cambio de tipo de activo
+Al cambiar el tipo, el sistema recalcula el conjunto de riesgos: agrega los que faltan, marca como obsoletos los que dejan de aplicar y conserva la valoración de los que se mantienen.
+Cambio de degradación o frecuencia
+Se hace sobre la amenaza, no sobre el riesgo individual, y se propaga a todos los riesgos de esa amenaza.
+Sobrescritura puntual
+Un riesgo puede sobrescribir la degradación o la frecuencia heredada de la amenaza. El sistema marca visiblemente esas filas como excepción y exige justificación.
+Tratamiento sugerido
+Se deriva del nivel de riesgo residual según los criterios de aceptación parametrizados, y puede sobrescribirse con aprobación del Comité.
+Advertencia heredada del Excel: cuatro códigos de amenaza contienen asterisco —N.* e I.*—. En base de datos no representan problema, pero cualquier exportación a Excel debe sanearlos, porque allí el asterisco actúa como comodín y rompe las búsquedas.
+
+6. Módulos funcionales
+Módulo
+Alcance funcional
+Inventario de activos
+Alta, edición y baja con el código generado automáticamente. Clasificación por tipo y subtipo con listas dependientes. Atributos: área, propietario, custodio, ubicación, entorno, si contiene datos de cliente, si contiene datos personales bajo la Ley 1581, si está expuesto a Internet, proveedor o subencargado, y dependencia del activo superior. Valoración en las dimensiones activas. Detección de posibles duplicados por nombre y proveedor al crear.
+Generador de riesgos
+Equivalente a la hoja «1.1 Agregar Activo». Muestra por área, tipo y subtipo qué activos requieren valoración y cuántas filas de riesgo les faltan, y permite generarlas con una acción. Debe indicar el estado: completo, incompleto con el número de filas faltantes, o no requiere valoración.
+Valoración y tratamiento
+Edición de la madurez del control por riesgo, cálculo en vivo del residual, asignación de responsable, plan de acción, fechas objetivo, evidencia adjunta y estado. Edición masiva por filtro.
+Tablero
+Indicadores filtrables por área o proceso: activos, activos valorados, riesgos evaluados, riesgos Alto y Crítico inherentes y residuales, distribución por tipo de activo, por grupo de amenaza y por madurez de control, y las diez amenazas con más riesgos altos.
+Matrices de riesgo
+Mapas de calor inherente y residual sobre los ejes de nivel de impacto y frecuencia, con el conteo por casilla y el color derivado de los umbrales parametrizados. Cada casilla debe permitir abrir la lista de riesgos que contiene.
+Administración de parámetros
+Interfaz para las 25 entidades parametrizables de la sección 4, con validación, historial y posibilidad de restaurar los valores normativos de fábrica.
+Importación y exportación
+Importación inicial desde el libro de Excel con validación previa y reporte de diferencias. Exportación a Excel con la misma estructura de hojas que el libro actual, y a PDF para el Comité. Exportación de la Declaración de Aplicabilidad a partir del mapeo amenaza-control y del estado de implementación.
+Auditoría y líneas base
+Bitácora inmutable de todo cambio con usuario, fecha, valor anterior y valor nuevo. Creación de líneas base que congelan el análisis completo en una fecha, y comparación entre dos líneas base.
+Usuarios y permisos
+Autenticación federada con Microsoft 365 y control de acceso por rol.
+6.1 Roles y permisos
+Rol
+Qué hace
+Nivel de acceso
+Administrador
+Configura parámetros y catálogos. No aprueba riesgos.
+Todo excepto aprobación
+Líder del SIG
+Mantiene inventario y valoración, genera riesgos, consolida.
+Lectura y escritura en todo el módulo de riesgos
+Propietario de activo
+Valora sus activos en las tres dimensiones y propone tratamiento.
+Escritura sobre sus activos
+Custodio
+Registra la madurez de los controles de sus activos.
+Escritura limitada
+Comité del SIG
+Aprueba tratamientos y aceptaciones de riesgo Alto y Crítico.
+Aprobación y lectura total
+Auditor
+Consulta y exporta. No modifica nada.
+Solo lectura, incluida la bitácora
+7. Requisitos no funcionales
+Aspecto
+Requisito
+Seguridad
+Autenticación federada con Microsoft 365 mediante OpenID Connect. Control de acceso por rol en el servidor, no solo en la interfaz. Cifrado en tránsito y en reposo. Registro de accesos.
+Trazabilidad
+Bitácora inmutable, sin borrado físico de registros. Toda baja es lógica.
+Rendimiento
+El tablero y las matrices deben responder en menos de dos segundos con 20.000 riesgos. El recálculo masivo tras un cambio de escala, en menos de treinta segundos.
+Disponibilidad y respaldo
+Respaldo diario con retención de treinta días y prueba de restauración documentada.
+Idioma y formato
+Interfaz en español de Colombia. Separador decimal coma, fechas dd/mm/aaaa, zona horaria America/Bogotá.
+Accesibilidad
+Contraste suficiente en los mapas de calor: el color nunca es el único portador de información, siempre acompañado del texto del nivel.
+Despliegue
+Contenedores Docker desplegables en la infraestructura propia de Cuántico. Configuración por variables de entorno, sin secretos en el repositorio.
+Pruebas
+Cobertura de pruebas automatizadas sobre el motor de cálculo, la generación de códigos y las reglas de generación de riesgos.
+8. Criterios de aceptación
+La herramienta se considera terminada cuando supera estas verificaciones, que son comprobables contra el libro de Excel entregado como fuente.
+Criterio
+Verificación
+Paridad de datos
+Tras la importación, el sistema contiene 234 activos y los mismos 2.256 riesgos que el Excel, con idéntica distribución por nivel de riesgo.
+Paridad de cálculo
+Para una muestra de cincuenta riesgos elegidos al azar, el impacto acumulado, el riesgo potencial y el riesgo residual coinciden con el Excel hasta dos decimales.
+Códigos
+Los 234 activos tienen código nuevo válido según la expresión regular, único, y conservan su código heredado.
+Generación de riesgos
+Al crear un activo con valor 4 o superior, el sistema genera exactamente las filas correspondientes a las amenazas de su tipo, ni una más ni una menos.
+Parametrización
+Cambiar la escala de valor de 0–5 a 0–10 desde la interfaz recalcula todo el análisis sin desplegar código y sin perder datos.
+Trazabilidad
+Todo cambio sobre un activo, un riesgo o un parámetro queda en la bitácora con usuario, fecha y valor anterior.
+Permisos
+Un usuario con rol Auditor no puede modificar ningún registro, comprobado también por llamada directa a la interfaz de programación.
+Exportación
+El Excel exportado se abre sin errores y sus fórmulas y listas desplegables funcionan.
+9. Entrega por fases
+Fase
+Contenido
+Resultado verificable
+1 · Cimientos
+Modelo de datos, catálogos normativos cargados, generación de códigos, autenticación y roles.
+Los 57 amenazas, 93 controles y 137 subtipos consultables. Código de activo generado correctamente.
+2 · Inventario
+Módulo de activos completo con importación desde Excel.
+234 activos migrados con código nuevo y heredado.
+3 · Motor de riesgos
+Generación automática de riesgos y cálculo potencial y residual.
+Paridad de cálculo con el Excel.
+4 · Tratamiento y tablero
+Plan de tratamiento, tablero filtrable y matrices de riesgo.
+Los indicadores coinciden con el Dashboard del Excel.
+5 · Administración y auditoría
+Parametrización desde la interfaz, bitácora, líneas base y exportaciones.
+Cambio de escala en caliente y comparación entre dos líneas base.
+10. Insumos que se entregan con este requerimiento
+MET-SIG-01 Metodología de análisis y valoración de riesgos v2.0: define el método y es la fuente de las fórmulas y escalas.
+MATRIZ MAGERIT — Activos y Riesgos: libro de Excel con los datos reales y las fórmulas implementadas. Es a la vez prototipo funcional, juego de datos de prueba y criterio de aceptación.
+SPEC-herramienta-riesgos.md: la misma especificación en formato Markdown, con el esquema de datos propuesto, pensada para colocarse en la raíz del repositorio y ser leída por el asistente de desarrollo.
+
+Recomendación de ejecución: cargar en el repositorio el archivo SPEC-herramienta-riesgos.md y el libro de Excel antes de la primera instrucción, y pedir al asistente que trabaje fase por fase, verificando cada criterio de aceptación antes de avanzar. La paridad numérica con el Excel es la mejor prueba de regresión disponible y conviene automatizarla desde la fase 3.

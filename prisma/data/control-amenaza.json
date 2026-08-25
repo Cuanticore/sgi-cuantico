@@ -1,0 +1,1090 @@
+[
+ {
+  "amenaza": "A.10",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.10",
+  "control": "A.8.26"
+ },
+ {
+  "amenaza": "A.10",
+  "control": "A.8.29"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.5.15"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.5.23"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.5.24"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.8.3"
+ },
+ {
+  "amenaza": "A.11",
+  "control": "A.8.5"
+ },
+ {
+  "amenaza": "A.12",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "A.12",
+  "control": "A.8.22"
+ },
+ {
+  "amenaza": "A.12",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.13",
+  "control": "A.5.28"
+ },
+ {
+  "amenaza": "A.13",
+  "control": "A.5.31"
+ },
+ {
+  "amenaza": "A.13",
+  "control": "A.8.15"
+ },
+ {
+  "amenaza": "A.13",
+  "control": "A.8.17"
+ },
+ {
+  "amenaza": "A.13",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.14",
+  "control": "A.6.7"
+ },
+ {
+  "amenaza": "A.14",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "A.14",
+  "control": "A.8.21"
+ },
+ {
+  "amenaza": "A.14",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.15",
+  "control": "A.5.33"
+ },
+ {
+  "amenaza": "A.15",
+  "control": "A.8.15"
+ },
+ {
+  "amenaza": "A.15",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.15",
+  "control": "A.8.3"
+ },
+ {
+  "amenaza": "A.18",
+  "control": "A.5.26"
+ },
+ {
+  "amenaza": "A.18",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "A.18",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "A.18",
+  "control": "A.8.3"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.5.13"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.5.31"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.5.32"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.5.34"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.6.6"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.8.12"
+ },
+ {
+  "amenaza": "A.19",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.5.21"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.25"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.27"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.28"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.30"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.31"
+ },
+ {
+  "amenaza": "A.22",
+  "control": "A.8.4"
+ },
+ {
+  "amenaza": "A.23",
+  "control": "A.7.2"
+ },
+ {
+  "amenaza": "A.23",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "A.23",
+  "control": "A.7.9"
+ },
+ {
+  "amenaza": "A.23",
+  "control": "A.8.1"
+ },
+ {
+  "amenaza": "A.24",
+  "control": "A.5.26"
+ },
+ {
+  "amenaza": "A.24",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "A.24",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "A.24",
+  "control": "A.8.6"
+ },
+ {
+  "amenaza": "A.25",
+  "control": "A.7.10"
+ },
+ {
+  "amenaza": "A.25",
+  "control": "A.7.2"
+ },
+ {
+  "amenaza": "A.25",
+  "control": "A.7.9"
+ },
+ {
+  "amenaza": "A.25",
+  "control": "A.8.1"
+ },
+ {
+  "amenaza": "A.25",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "A.26",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "A.26",
+  "control": "A.7.1"
+ },
+ {
+  "amenaza": "A.26",
+  "control": "A.7.2"
+ },
+ {
+  "amenaza": "A.26",
+  "control": "A.7.4"
+ },
+ {
+  "amenaza": "A.27",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "A.27",
+  "control": "A.7.1"
+ },
+ {
+  "amenaza": "A.27",
+  "control": "A.7.2"
+ },
+ {
+  "amenaza": "A.27",
+  "control": "A.7.6"
+ },
+ {
+  "amenaza": "A.28",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "A.28",
+  "control": "A.5.4"
+ },
+ {
+  "amenaza": "A.28",
+  "control": "A.6.4"
+ },
+ {
+  "amenaza": "A.28",
+  "control": "A.6.5"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.5.26"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.5.5"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.6.2"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.6.3"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.6.4"
+ },
+ {
+  "amenaza": "A.29",
+  "control": "A.6.6"
+ },
+ {
+  "amenaza": "A.3",
+  "control": "A.5.28"
+ },
+ {
+  "amenaza": "A.3",
+  "control": "A.5.33"
+ },
+ {
+  "amenaza": "A.3",
+  "control": "A.8.15"
+ },
+ {
+  "amenaza": "A.3",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.5.14"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.5.17"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.5.6"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.5.7"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.6.3"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.6.8"
+ },
+ {
+  "amenaza": "A.30",
+  "control": "A.8.5"
+ },
+ {
+  "amenaza": "A.4",
+  "control": "A.8.16"
+ },
+ {
+  "amenaza": "A.4",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "A.4",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "A.4",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "A.5",
+  "control": "A.5.16"
+ },
+ {
+  "amenaza": "A.5",
+  "control": "A.5.17"
+ },
+ {
+  "amenaza": "A.5",
+  "control": "A.6.3"
+ },
+ {
+  "amenaza": "A.5",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "A.5",
+  "control": "A.8.5"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.5.18"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.5.3"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.8.16"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.8.18"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "A.6",
+  "control": "A.8.34"
+ },
+ {
+  "amenaza": "A.7",
+  "control": "A.5.10"
+ },
+ {
+  "amenaza": "A.7",
+  "control": "A.5.36"
+ },
+ {
+  "amenaza": "A.7",
+  "control": "A.8.19"
+ },
+ {
+  "amenaza": "A.7",
+  "control": "A.8.23"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.5.24"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.5.26"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.5.27"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.5.7"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.8.19"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.8.7"
+ },
+ {
+  "amenaza": "A.8",
+  "control": "A.8.8"
+ },
+ {
+  "amenaza": "A.9",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "A.9",
+  "control": "A.8.21"
+ },
+ {
+  "amenaza": "A.9",
+  "control": "A.8.22"
+ },
+ {
+  "amenaza": "A.9",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.5.1"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.5.10"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.5.12"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.6.2"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.6.3"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.8.12"
+ },
+ {
+  "amenaza": "E.1",
+  "control": "A.8.5"
+ },
+ {
+  "amenaza": "E.10",
+  "control": "A.5.8"
+ },
+ {
+  "amenaza": "E.10",
+  "control": "A.8.25"
+ },
+ {
+  "amenaza": "E.10",
+  "control": "A.8.27"
+ },
+ {
+  "amenaza": "E.10",
+  "control": "A.8.29"
+ },
+ {
+  "amenaza": "E.10",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.5.13"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.5.14"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.5.8"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.7.7"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.8.11"
+ },
+ {
+  "amenaza": "E.14",
+  "control": "A.8.12"
+ },
+ {
+  "amenaza": "E.15",
+  "control": "A.5.33"
+ },
+ {
+  "amenaza": "E.15",
+  "control": "A.5.35"
+ },
+ {
+  "amenaza": "E.15",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "E.15",
+  "control": "A.8.3"
+ },
+ {
+  "amenaza": "E.15",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "E.18",
+  "control": "A.5.33"
+ },
+ {
+  "amenaza": "E.18",
+  "control": "A.8.10"
+ },
+ {
+  "amenaza": "E.18",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "E.18",
+  "control": "A.8.3"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.5.14"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.5.31"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.5.34"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.8.11"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.8.12"
+ },
+ {
+  "amenaza": "E.19",
+  "control": "A.8.33"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.5.3"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.5.9"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.8.15"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.8.2"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.8.34"
+ },
+ {
+  "amenaza": "E.2",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.25"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.27"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.28"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.29"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.30"
+ },
+ {
+  "amenaza": "E.20",
+  "control": "A.8.8"
+ },
+ {
+  "amenaza": "E.21",
+  "control": "A.8.19"
+ },
+ {
+  "amenaza": "E.21",
+  "control": "A.8.31"
+ },
+ {
+  "amenaza": "E.21",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "E.21",
+  "control": "A.8.8"
+ },
+ {
+  "amenaza": "E.23",
+  "control": "A.7.13"
+ },
+ {
+  "amenaza": "E.23",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "E.23",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "E.24",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "E.24",
+  "control": "A.8.16"
+ },
+ {
+  "amenaza": "E.24",
+  "control": "A.8.6"
+ },
+ {
+  "amenaza": "E.25",
+  "control": "A.5.11"
+ },
+ {
+  "amenaza": "E.25",
+  "control": "A.7.10"
+ },
+ {
+  "amenaza": "E.25",
+  "control": "A.7.9"
+ },
+ {
+  "amenaza": "E.25",
+  "control": "A.8.1"
+ },
+ {
+  "amenaza": "E.25",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.5.2"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.5.8"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.6.1"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.6.2"
+ },
+ {
+  "amenaza": "E.28",
+  "control": "A.6.5"
+ },
+ {
+  "amenaza": "E.3",
+  "control": "A.5.24"
+ },
+ {
+  "amenaza": "E.3",
+  "control": "A.5.25"
+ },
+ {
+  "amenaza": "E.3",
+  "control": "A.8.15"
+ },
+ {
+  "amenaza": "E.3",
+  "control": "A.8.16"
+ },
+ {
+  "amenaza": "E.3",
+  "control": "A.8.17"
+ },
+ {
+  "amenaza": "E.4",
+  "control": "A.8.31"
+ },
+ {
+  "amenaza": "E.4",
+  "control": "A.8.32"
+ },
+ {
+  "amenaza": "E.4",
+  "control": "A.8.8"
+ },
+ {
+  "amenaza": "E.4",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.1"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.2"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.3"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.35"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.36"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.37"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.4"
+ },
+ {
+  "amenaza": "E.7",
+  "control": "A.5.9"
+ },
+ {
+  "amenaza": "E.8",
+  "control": "A.5.7"
+ },
+ {
+  "amenaza": "E.8",
+  "control": "A.6.3"
+ },
+ {
+  "amenaza": "E.8",
+  "control": "A.8.19"
+ },
+ {
+  "amenaza": "E.8",
+  "control": "A.8.23"
+ },
+ {
+  "amenaza": "E.8",
+  "control": "A.8.7"
+ },
+ {
+  "amenaza": "E.9",
+  "control": "A.8.20"
+ },
+ {
+  "amenaza": "E.9",
+  "control": "A.8.21"
+ },
+ {
+  "amenaza": "E.9",
+  "control": "A.8.22"
+ },
+ {
+  "amenaza": "E.9",
+  "control": "A.8.9"
+ },
+ {
+  "amenaza": "I.*",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "I.*",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "I.*",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.*",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "I.1",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "I.1",
+  "control": "A.7.11"
+ },
+ {
+  "amenaza": "I.1",
+  "control": "A.7.3"
+ },
+ {
+  "amenaza": "I.1",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.1",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "I.10",
+  "control": "A.7.10"
+ },
+ {
+  "amenaza": "I.10",
+  "control": "A.7.14"
+ },
+ {
+  "amenaza": "I.10",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "I.11",
+  "control": "A.7.12"
+ },
+ {
+  "amenaza": "I.11",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.11",
+  "control": "A.8.24"
+ },
+ {
+  "amenaza": "I.2",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.2",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "I.2",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "I.3",
+  "control": "A.7.13"
+ },
+ {
+  "amenaza": "I.3",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.3",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "I.4",
+  "control": "A.7.12"
+ },
+ {
+  "amenaza": "I.4",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.4",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "I.5",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "I.5",
+  "control": "A.7.13"
+ },
+ {
+  "amenaza": "I.5",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "I.5",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "I.5",
+  "control": "A.8.6"
+ },
+ {
+  "amenaza": "I.6",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "I.6",
+  "control": "A.7.11"
+ },
+ {
+  "amenaza": "I.6",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "I.6",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "I.7",
+  "control": "A.7.11"
+ },
+ {
+  "amenaza": "I.7",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "I.7",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "I.8",
+  "control": "A.5.22"
+ },
+ {
+  "amenaza": "I.8",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "I.8",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "I.8",
+  "control": "A.8.21"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.5.19"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.5.20"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.5.22"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.5.23"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "I.9",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "N.*",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "N.*",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "N.*",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "N.*",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "N.*",
+  "control": "A.8.14"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.5.30"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.7.11"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.7.3"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "N.1",
+  "control": "A.8.13"
+ },
+ {
+  "amenaza": "N.2",
+  "control": "A.5.29"
+ },
+ {
+  "amenaza": "N.2",
+  "control": "A.7.5"
+ },
+ {
+  "amenaza": "N.2",
+  "control": "A.7.8"
+ },
+ {
+  "amenaza": "N.2",
+  "control": "A.8.13"
+ }
+]

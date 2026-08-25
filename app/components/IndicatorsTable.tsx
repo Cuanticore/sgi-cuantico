@@ -73,7 +73,7 @@ export default function IndicatorsTable({
 
   return (
     <>
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50 mb-8">
+      <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-50 mb-8">
         <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
@@ -82,7 +82,7 @@ export default function IndicatorsTable({
             <select
               value={processFilter ?? ''}
               onChange={e => onProcessFilterChange?.(e.target.value || null)}
-              className="text-xs border border-slate-200 rounded-full px-3 py-1 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-[#1B3A8A]/30 max-w-[220px] truncate"
+              className="text-xs border border-slate-200 rounded-full px-3 py-1 text-slate-600 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#1B3A8A]/30 max-w-[220px] truncate"
             >
               <option value="">Todos los procesos</option>
               {processos.map(p => (
@@ -92,7 +92,7 @@ export default function IndicatorsTable({
             <select
               value={ocFilter ?? ''}
               onChange={e => onOcFilterChange?.(e.target.value || null)}
-              className="text-xs border border-slate-200 rounded-full px-3 py-1 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 max-w-[260px] truncate"
+              className="text-xs border border-slate-200 rounded-full px-3 py-1 text-slate-600 bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-300 max-w-[260px] truncate"
             >
               <option value="">Todos los objetivos</option>
               {ocList.map(oc => (
@@ -185,7 +185,7 @@ export default function IndicatorsTable({
                         e.stopPropagation();
                         onOcFilterChange?.(ocFilter === ind.oc ? null : ind.oc);
                       }}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-semibold text-[10px] hover:bg-indigo-100 transition-colors text-left"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-600 font-semibold text-[10px] hover:bg-indigo-100 transition-colors text-left"
                       title={ocLabel}
                     >
                       <span className="whitespace-nowrap">{ocLabel}</span>

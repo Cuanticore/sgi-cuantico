@@ -21,10 +21,18 @@ export default function RadarChart({ ocData }: { ocData: OcRadarData[] }) {
 
       const n = ocData.length;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let cs: { cx: number; cy: number; r: number } | undefined;
       try {
-        cs = (inst.getModel().getComponent('radar', 0) as any)?.coordinateSystem;
+        // ECharts types getModel() as private, but the radar's coordinate system is the
+        // only source for where to place the dots. The access is narrowed to a local
+        // shape instead of casting the whole instance to any.
+        type ConModelo = {
+          getModel(): {
+            getComponent(tipo: string, indice: number): { coordinateSystem?: typeof cs } | null;
+          };
+        };
+        cs = (inst as unknown as ConModelo).getModel().getComponent('radar', 0)
+          ?.coordinateSystem;
       } catch {
         cs = undefined;
       }

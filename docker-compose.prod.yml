@@ -1,3 +1,13 @@
+# docker-compose.prod.yml
+#
+# The application now has state. Before this change a dead container was replaced and
+# nothing was lost, because everything was read from SharePoint on every start. Now the
+# container holds the MAGERIT model, the 234 assets, the 2256 risks and the bitácora:
+# that is backed up or it is lost.
+#
+# Postgres is defined here with a NAMED volume so a recreate never touches the data, and
+# it is NOT exposed outside the compose network.
+
 services:
   sgi-cuantico-prod:
     image: 'ghcr.io/cuanticore/sgi-cuantico:latest'
@@ -9,8 +19,27 @@ services:
       coolify:
         aliases:
           - sgi-cuantico-prod
+    depends_on:
+      sgi-postgres:
+        condition: service_healthy
     env_file:
       - .env
+    # Without this, `docker compose up --wait` has nothing to wait FOR: compose reports the
+    # container started and exits 0 even if the application crashed on boot. The deploy then
+    # goes green with the previous container already removed. The sign-in page is the right
+    # probe — it renders without a session and without touching Postgres, so it proves the
+    # server is up without asserting anything about the database.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:3004/auth/signin').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Generous: a cold Next standalone start plus the Prisma client is not instant, and a
+      # start_period too short turns a slow boot into a failed deploy.
+      start_period: 45s
     labels:
       - traefik.enable=true
       - traefik.http.middlewares.gzip.compress=true
@@ -27,6 +56,32 @@ services:
       - traefik.http.routers.https-0-xkl6pdbfpctlsilc52de07xi.tls=true
       - traefik.http.services.http-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004
       - traefik.http.services.https-0-xkl6pdbfpctlsilc52de07xi.loadbalancer.server.port=3004
+
+  sgi-postgres:
+    image: postgres:17-alpine
+    container_name: sgi-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sgi_sgsi
+      POSTGRES_USER: sgi
+      POSTGRES_PASSWORD: ${SGI_POSTGRES_PASSWORD:?falta SGI_POSTGRES_PASSWORD en el .env del servidor}
+    volumes:
+      - sgi-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sgi -d sgi_sgsi']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    # No ports: the database is reachable only from the compose network.
+    networks:
+      coolify:
+        aliases:
+          - sgi-postgres
+
+volumes:
+  sgi-postgres-data:
+    name: sgi-postgres-data
 
 networks:
   coolify:

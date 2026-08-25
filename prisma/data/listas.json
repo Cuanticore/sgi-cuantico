@@ -1,0 +1,121 @@
+{
+  "procesos": [
+    "Gestión Comercial",
+    "Gestión Financiera",
+    "Gestión Legal y Compras",
+    "Gestión Tecnológica",
+    "Talento Humano"
+  ],
+  "cargosResponsables": [
+    "CEO",
+    "Chief Commercial Officer",
+    "Chief Operating Officer",
+    "Chief Legal Officer",
+    "Operations & Services Manager",
+    "Finance and Administrative Manager",
+    "Líder del SIG",
+    "Gestión Tecnológica",
+    "Talento Humano",
+    "Por asignar"
+  ],
+  "proveedores": [
+    "Amazon Web Services",
+    "Microsoft",
+    "GitHub",
+    "Zoho",
+    "Siigo",
+    "Google",
+    "Goodady"
+  ],
+  "ubicaciones": [
+    "Nube AWS",
+    "Nube Microsoft 365",
+    "Nube otro proveedor",
+    "Equipo Colaborador",
+    "Físico",
+    "No aplica"
+  ],
+  "entornos": [
+    "Producción",
+    "Staging",
+    "Desarrollo",
+    "No aplica"
+  ],
+  "siNo": [
+    "Sí",
+    "No",
+    "Por definir"
+  ],
+  "tiposActivo": [
+    "[D] Datos / Información",
+    "[K] Claves criptográficas",
+    "[S] Servicios",
+    "[SW] Aplicaciones (software)",
+    "[HW] Equipamiento informático (hardware)",
+    "[COM] Redes de comunicaciones",
+    "[Media] Soportes de información",
+    "[AUX] Equipamiento auxiliar",
+    "[L] Instalaciones",
+    "[P] Personal"
+  ],
+  "tratamiento": [
+    "Mitigar",
+    "Transferir",
+    "Evitar",
+    "Aceptar y monitorear"
+  ],
+  "estadoTratamiento": [
+    "No iniciado",
+    "En ejecución",
+    "Implementado",
+    "Cerrado"
+  ],
+  "tipoTratamiento": [
+    "Mitigar",
+    "Transferir",
+    "Evitar",
+    "Aceptar"
+  ],
+  "estadoAccion": [
+    "No iniciada",
+    "En ejecución",
+    "En verificación",
+    "Cerrada",
+    "Cancelada"
+  ],
+  "verificacionEficacia": [
+    "Pendiente",
+    "Verificada — eficaz",
+    "Verificada — no eficaz",
+    "No aplica"
+  ],
+  "madurez": [
+    "L0 — Inexistente",
+    "L1 — Inicial / ad hoc",
+    "L2 — Reproducible pero intuitivo",
+    "L3 — Proceso definido",
+    "L4 — Gestionado y medible",
+    "L5 — Optimizado"
+  ],
+  "aplicabilidad": [
+    "Aplica",
+    "No aplica"
+  ],
+  "capacidadOperativa": [
+    "Gobierno",
+    "Gestión de activos",
+    "Protección de la información",
+    "Gestión de identidad y acceso",
+    "Seguridad de sistemas y redes",
+    "Seguridad de aplicaciones",
+    "Configuración segura",
+    "Gestión de amenazas y vulnerabilidades",
+    "Gestión de eventos de seguridad",
+    "Continuidad",
+    "Seguridad de proveedores",
+    "Seguridad de recursos humanos",
+    "Seguridad física",
+    "Legal y cumplimiento",
+    "Aseguramiento"
+  ]
+}

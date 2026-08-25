@@ -1,27 +1,20 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/auth';
 import { getIndicatorsData } from '@/app/lib/data';
 import { computeOcRadarData } from '@/app/lib/oc-utils';
 import type { IndicatorYear } from '@/app/lib/sharepoint';
-import Nav from './components/Nav';
 import HeroBanner from './components/HeroBanner';
 import DashboardShell from './components/DashboardShell';
+import ShellSig from './components/sgsi/ShellSig';
+import CabeceraIndicadores from './components/sgsi/CabeceraIndicadores';
+import AporteSgsi from './components/sgsi/AporteSgsi';
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { year?: string };
+  // Next 16: searchParams is a Promise; synchronous access was removed.
+  searchParams: Promise<{ year?: string }>;
 }) {
-  const year: IndicatorYear = searchParams.year === '2025' ? '2025' : '2026';
-  const session = await getServerSession(authOptions);
-  const userName = session?.user?.name ?? session?.user?.email ?? 'Usuario';
-  const initials =
-    userName
-      .split(' ')
-      .map((n: string) => n[0] ?? '')
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || 'U';
+  const { year: yearParam } = await searchParams;
+  const year: IndicatorYear = yearParam === '2025' ? '2025' : '2026';
 
   const otherYear: IndicatorYear = year === '2026' ? '2025' : '2026';
 
@@ -32,14 +25,21 @@ export default async function DashboardPage({
       getIndicatorsData(year),
       getIndicatorsData(otherYear).catch(() => null),
     ]);
-  } catch {
+  } catch (err) {
+    // A bare catch here hid every cause behind the same SharePoint message.
+    console.error('[dashboard] could not load indicators', err);
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="bg-white rounded-xl p-8 shadow text-center max-w-sm">
-          <p className="text-red-600 font-semibold mb-2">Error al cargar indicadores</p>
-          <p className="text-slate-500 text-sm">
-            No se pudo conectar a SharePoint. Verifica la configuración e intenta de nuevo.
+        <div className="bg-white rounded-xl p-8 shadow-sm max-w-2xl">
+          <p className="text-red-600 font-semibold mb-2 text-center">Error al cargar indicadores</p>
+          <p className="text-slate-500 text-sm text-center">
+            No se pudo cargar la matriz de indicadores. Verifica la configuración e intenta de nuevo.
           </p>
+          {process.env.NODE_ENV !== 'production' && (
+            <pre className="mt-5 max-h-80 overflow-auto rounded-sm bg-slate-900 p-4 text-xs leading-relaxed text-amber-200">
+              {err instanceof Error ? `${err.name}: ${err.message}\n\n${err.stack ?? ''}` : String(err)}
+            </pre>
+          )}
         </div>
       </div>
     );
@@ -55,17 +55,22 @@ export default async function DashboardPage({
     : [];
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <Nav
+    // The corporate bar replaces the old Nav: it carries the brand, the identity and the
+    // tabs for both domains of the SIG, so the year selector and the matrix link move
+    // down into the page header where they belong.
+    <ShellSig>
+      <CabeceraIndicadores
         year={year}
-        initials={initials}
         matrixUrl={
           year === '2026'
-            ? process.env.SHAREPOINT_MATRIX_URL_2026!
-            : process.env.SHAREPOINT_MATRIX_URL_2025!
+            ? process.env.SHAREPOINT_MATRIX_URL_2026
+            : process.env.SHAREPOINT_MATRIX_URL_2025
         }
       />
       <HeroBanner summary={data.summary} year={year} />
+      <div className="px-8 pb-2">
+        <AporteSgsi />
+      </div>
       <DashboardShell
         procesos={data.procesos}
         mensual={data.mensual}
@@ -84,6 +89,6 @@ export default async function DashboardPage({
           Datos sincronizados desde SharePoint · MAT-CAL-03 v1
         </span>
       </footer>
-    </main>
+    </ShellSig>
   );
 }

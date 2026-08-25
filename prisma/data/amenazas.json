@@ -1,0 +1,1484 @@
+[
+  {
+    "codigo": "N.1",
+    "nombre": "Fuego",
+    "grupo": "[N] Desastres naturales",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Incendio en sede u hogar del teletrabajador. Solo afecta activos con soporte físico.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "N.2",
+    "nombre": "Daños por agua",
+    "grupo": "[N] Desastres naturales",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Inundación o filtración sobre equipos, soportes o instalaciones.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "N.*",
+    "nombre": "Desastres naturales",
+    "grupo": "[N] Desastres naturales",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Sismo (Colombia, zona sísmica), tormenta, deslizamiento.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.1",
+    "nombre": "Fuego",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Incendio de causa eléctrica o industrial.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.2",
+    "nombre": "Daños por agua",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Fuga de tubería, climatización o rociadores.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.*",
+    "nombre": "Desastres industriales",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Explosión, derrumbe o contaminación química en el entorno.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.3",
+    "nombre": "Contaminación mecánica",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Vibraciones, polvo y suciedad sobre equipos.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.4",
+    "nombre": "Contaminación electromagnética",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Interferencias sobre equipos y soportes.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.5",
+    "nombre": "Avería de origen físico o lógico",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Fallo de hardware o defecto de software que deja el activo fuera de servicio.",
+    "tipos": [
+      "[SW]",
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.6",
+    "nombre": "Corte del suministro eléctrico",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Apagón en oficina o vivienda del teletrabajador.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.7",
+    "nombre": "Condiciones inadecuadas de temperatura o humedad",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Fallo de climatización en sala de equipos.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.8",
+    "nombre": "Fallo de servicios de comunicaciones",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Caída del ISP. Crítico en un modelo 100% teletrabajo.",
+    "tipos": [
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.9",
+    "nombre": "Interrupción de otros servicios y suministros esenciales",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Interrupción de suministros esenciales de los que depende la operación.",
+    "tipos": [
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.10",
+    "nombre": "Degradación de los soportes de almacenamiento",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Desgaste de discos y soportes. Mitigado con replicación y respaldo.",
+    "tipos": [
+      "[Media]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "I.11",
+    "nombre": "Emanaciones electromagnéticas",
+    "grupo": "[I] De origen industrial",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Riesgo residual en entorno corporativo civil; se documenta por completitud.",
+    "tipos": [
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Baja"
+    }
+  },
+  {
+    "codigo": "E.1",
+    "nombre": "Errores de los usuarios",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Alta — ocurre cada mes",
+    "notaAplicacion": "Clic en phishing, envío a destinatario errado, borrado o edición indebida.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[Media]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[COM]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "Media"
+    }
+  },
+  {
+    "codigo": "E.2",
+    "nombre": "Errores del administrador",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Configuración errónea en la nube (buckets públicos, security groups abiertos), permisos mal otorgados.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]"
+    ],
+    "tiposNoAplica": [
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "Alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "E.3",
+    "nombre": "Errores de monitorización (log)",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Aplica al subtipo [D][log]. Logs no recolectados o alertas mal configuradas.",
+    "tipos": [
+      "[D]"
+    ],
+    "tiposNoAplica": [
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.4",
+    "nombre": "Errores de configuración",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Aplica al subtipo [D][conf]. Parámetros incorrectos o inseguros por defecto.",
+    "tipos": [
+      "[D]"
+    ],
+    "tiposNoAplica": [
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.7",
+    "nombre": "Deficiencias en la organización",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Roles sin asignar, procesos sin dueño, ciclo de vida de credenciales sin responsable.",
+    "tipos": [
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.8",
+    "nombre": "Difusión de software dañino",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Propagación no intencionada de malware.",
+    "tipos": [
+      "[SW]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "Alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "E.9",
+    "nombre": "Errores de [re-]encaminamiento",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Tráfico o correo mal enrutado por configuración errónea de VPN o DNS.",
+    "tipos": [
+      "[S]",
+      "[SW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Media"
+    }
+  },
+  {
+    "codigo": "E.10",
+    "nombre": "Errores de secuencia",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Ejecución fuera de orden en pipelines, automatizaciones o transacciones.",
+    "tipos": [
+      "[S]",
+      "[SW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Media",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.14",
+    "nombre": "Escapes de información",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Fuga por canales no controlados: impresiones, capturas, copias locales, secretos en repositorios.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[L]",
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[AUX]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "E.15",
+    "nombre": "Alteración accidental de la información",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Modificación errónea en bases de datos productivas, documentos o registros.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[Media]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.18",
+    "nombre": "Destrucción de información",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Borrado accidental de datos, snapshots, repositorios o llaves criptográficas.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[Media]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.19",
+    "nombre": "Fugas de información",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Datos personales en entornos de prueba, compartición indebida.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[L]",
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[AUX]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "E.20",
+    "nombre": "Vulnerabilidades de los programas",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Defectos explotables en software propio o de terceros.",
+    "tipos": [
+      "[SW]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "Media"
+    }
+  },
+  {
+    "codigo": "E.21",
+    "nombre": "Errores de mantenimiento / actualización de programas",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Parches que rompen funcionalidad, actualizaciones sin pruebas.",
+    "tipos": [
+      "[SW]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.23",
+    "nombre": "Errores de mantenimiento / actualización de equipos",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Firmware mal aplicado, mantenimiento deficiente.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.24",
+    "nombre": "Caída del sistema por agotamiento de recursos",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Memoria agotada, disco lleno, cuotas de nube consumidas.",
+    "tipos": [
+      "[S]",
+      "[HW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[SW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "E.25",
+    "nombre": "Pérdida de equipos",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Extravío de portátiles, celulares o tokens de segundo factor.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "E.28",
+    "nombre": "Indisponibilidad del personal",
+    "grupo": "[E] Errores y fallos no intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Enfermedad, renuncia o vacaciones sin backup de rol.",
+    "tipos": [
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.3",
+    "nombre": "Manipulación de los registros de actividad (log)",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Aplica al subtipo [D][log]. Borrado o alteración de trazas para ocultar un acceso.",
+    "tipos": [
+      "[D]"
+    ],
+    "tiposNoAplica": [
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Muy alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.4",
+    "nombre": "Manipulación de la configuración",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Aplica al subtipo [D][conf]. Cambios maliciosos en IAM, firewall o aplicaciones.",
+    "tipos": [
+      "[D]"
+    ],
+    "tiposNoAplica": [
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "Alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.5",
+    "nombre": "Suplantación de la identidad del usuario",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Alta — ocurre cada mes",
+    "notaAplicacion": "Phishing, credential stuffing, robo de token de sesión, MFA fatigue.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.6",
+    "nombre": "Abuso de privilegios de acceso",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Insider o cuenta de servicio con permisos excesivos.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.7",
+    "nombre": "Uso no previsto",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Uso de recursos corporativos para fines ajenos (minería, alojamiento de terceros).",
+    "tipos": [
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Baja",
+      "C": "Baja"
+    }
+  },
+  {
+    "codigo": "A.8",
+    "nombre": "Difusión de software dañino",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Alta — ocurre cada mes",
+    "notaAplicacion": "Malware dirigido y ransomware — amenaza principal del sector GovTech.",
+    "tipos": [
+      "[SW]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "Muy alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.9",
+    "nombre": "[Re-]encaminamiento de mensajes",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Desvío malicioso de tráfico o correo (secuestro de DNS, reglas de reenvío ocultas).",
+    "tipos": [
+      "[S]",
+      "[SW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.10",
+    "nombre": "Alteración de secuencia",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Reenvío o reordenamiento de transacciones (replay).",
+    "tipos": [
+      "[S]",
+      "[SW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Media",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.11",
+    "nombre": "Acceso no autorizado",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Alta — ocurre cada mes",
+    "notaAplicacion": "Fuerza bruta, explotación de vulnerabilidades, compromiso de VPN o consola cloud.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.12",
+    "nombre": "Análisis de tráfico",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Inferencia de información a partir de metadatos de red.",
+    "tipos": [
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Media"
+    }
+  },
+  {
+    "codigo": "A.13",
+    "nombre": "Repudio",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Negación de acciones ejecutadas; se mitiga con trazas íntegras y firma electrónica.",
+    "tipos": [
+      "[D]",
+      "[S]"
+    ],
+    "tiposNoAplica": [
+      "[K]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.14",
+    "nombre": "Interceptación de información (escucha)",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Man-in-the-middle en WiFi pública sin VPN, captura de tráfico.",
+    "tipos": [
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.15",
+    "nombre": "Modificación deliberada de la información",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Manipulación de datos en bases, repositorios o configuraciones.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[Media]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "Muy alta",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.18",
+    "nombre": "Destrucción de información",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Ransomware, wipers y sabotaje de respaldos.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[Media]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.19",
+    "nombre": "Divulgación de información",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Filtración intencional, extorsión con datos, publicación de secretos.",
+    "tipos": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[Media]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[HW]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "No aplica",
+      "I": "No aplica",
+      "C": "Muy alta"
+    }
+  },
+  {
+    "codigo": "A.22",
+    "nombre": "Manipulación de programas",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "Puertas traseras en dependencias; ataque a la cadena de suministro de software.",
+    "tipos": [
+      "[SW]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "Muy alta",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.23",
+    "nombre": "Manipulación de los equipos",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Alteración física de equipos, implantes de hardware, keyloggers.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.24",
+    "nombre": "Denegación de servicio",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Media — ocurre una vez al año",
+    "notaAplicacion": "DDoS volumétrico o aplicacional contra las plataformas de Cuántico.",
+    "tipos": [
+      "[S]",
+      "[HW]",
+      "[COM]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[SW]",
+      "[Media]",
+      "[AUX]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.25",
+    "nombre": "Robo",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Hurto de portátiles, dispositivos móviles, soportes o tokens físicos.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[L]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.26",
+    "nombre": "Ataque destructivo",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Vandalismo o sabotaje físico de instalaciones y equipos.",
+    "tipos": [
+      "[HW]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[COM]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.27",
+    "nombre": "Ocupación enemiga",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Aplica a instalaciones propias; se documenta por completitud del catálogo.",
+    "tipos": [
+      "[L]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[P]"
+    ],
+    "degradacion": {
+      "D": "Muy alta",
+      "I": "No aplica",
+      "C": "Muy alta"
+    }
+  },
+  {
+    "codigo": "A.28",
+    "nombre": "Indisponibilidad del personal",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Baja — ocurre cada varios años",
+    "notaAplicacion": "Ausencia deliberada, huelga o abandono del puesto en funciones críticas.",
+    "tipos": [
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "degradacion": {
+      "D": "Alta",
+      "I": "No aplica",
+      "C": "No aplica"
+    }
+  },
+  {
+    "codigo": "A.29",
+    "nombre": "Extorsión",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Muy baja — excepcional, cada muchos años",
+    "notaAplicacion": "Presión sobre personal con acceso privilegiado.",
+    "tipos": [
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "Alta"
+    }
+  },
+  {
+    "codigo": "A.30",
+    "nombre": "Ingeniería social (picaresca)",
+    "grupo": "[A] Ataques intencionados",
+    "frecuencia": "Alta — ocurre cada mes",
+    "notaAplicacion": "Pretexting, vishing y fraude del CEO (BEC).",
+    "tipos": [
+      "[P]"
+    ],
+    "tiposNoAplica": [
+      "[D]",
+      "[K]",
+      "[S]",
+      "[SW]",
+      "[HW]",
+      "[COM]",
+      "[Media]",
+      "[AUX]",
+      "[L]"
+    ],
+    "degradacion": {
+      "D": "Media",
+      "I": "Media",
+      "C": "Alta"
+    }
+  }
+]

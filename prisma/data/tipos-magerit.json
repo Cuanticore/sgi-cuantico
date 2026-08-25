@@ -1,0 +1,62 @@
+[
+  {
+    "codigo": "[D]",
+    "nombre": "Datos / Información",
+    "abreviatura": "DAT",
+    "orden": 1
+  },
+  {
+    "codigo": "[K]",
+    "nombre": "Claves criptográficas",
+    "abreviatura": "CLA",
+    "orden": 2
+  },
+  {
+    "codigo": "[S]",
+    "nombre": "Servicios",
+    "abreviatura": "SER",
+    "orden": 3
+  },
+  {
+    "codigo": "[SW]",
+    "nombre": "Aplicaciones (software)",
+    "abreviatura": "APP",
+    "orden": 4
+  },
+  {
+    "codigo": "[HW]",
+    "nombre": "Equipamiento informático (hardware)",
+    "abreviatura": "EQU",
+    "orden": 5
+  },
+  {
+    "codigo": "[COM]",
+    "nombre": "Redes de comunicaciones",
+    "abreviatura": "RED",
+    "orden": 6
+  },
+  {
+    "codigo": "[Media]",
+    "nombre": "Soportes de información",
+    "abreviatura": "SOP",
+    "orden": 7
+  },
+  {
+    "codigo": "[AUX]",
+    "nombre": "Equipamiento auxiliar",
+    "abreviatura": "AUX",
+    "orden": 8
+  },
+  {
+    "codigo": "[L]",
+    "nombre": "Instalaciones",
+    "abreviatura": "INS",
+    "orden": 9
+  },
+  {
+    "codigo": "[P]",
+    "nombre": "Personal",
+    "abreviatura": "PER",
+    "orden": 10
+  }
+]

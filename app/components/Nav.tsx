@@ -17,7 +17,7 @@ export default function Nav({
 
   return (
     <>
-      <nav className="bg-gradient-to-r from-slate-900 via-[#1B3A8A] to-[#0c2461] px-4 md:px-8 h-[60px] flex items-center justify-between sticky top-0 z-[100] shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
+      <nav className="bg-linear-to-r from-slate-900 via-[#1B3A8A] to-[#0c2461] px-4 md:px-8 h-[60px] flex items-center justify-between sticky top-0 z-[100] shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <Image
@@ -91,7 +91,7 @@ export default function Nav({
 
       {/* Mobile dropdown menu */}
       <div
-        className={`${isMenuOpen ? 'flex' : 'hidden'} md:hidden flex-col bg-gradient-to-b from-slate-900 to-[#0c2461] border-t border-white/10 px-4 py-4 gap-4 sticky top-[60px] z-[99] shadow-[0_4px_12px_rgba(0,0,0,0.3)]`}
+        className={`${isMenuOpen ? 'flex' : 'hidden'} md:hidden flex-col bg-linear-to-b from-slate-900 to-[#0c2461] border-t border-white/10 px-4 py-4 gap-4 sticky top-[60px] z-[99] shadow-[0_4px_12px_rgba(0,0,0,0.3)]`}
       >
         <a
           href={matrixUrl}

@@ -44,9 +44,9 @@ function KpiCard({
         {value}
       </div>
       <div className="text-xs text-slate-400 mt-1">{sub}</div>
-      <div className="h-1 bg-slate-100 rounded mt-2.5">
+      <div className="h-1 bg-slate-100 rounded-sm mt-2.5">
         <div
-          className={`h-1 rounded ${barColors[color]}`}
+          className={`h-1 rounded-sm ${barColors[color]}`}
           style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>
@@ -64,7 +64,7 @@ export default function HeroBanner({
   const total = summary.totalIndicadores || 1;
   return (
     <>
-      <div className="bg-gradient-to-br from-[#0c2461] via-[#1B3A8A] to-[#0c2461] px-8 pt-10 pb-20 relative overflow-hidden">
+      <div className="bg-linear-to-br from-[#0c2461] via-[#1B3A8A] to-[#0c2461] px-8 pt-10 pb-20 relative overflow-hidden">
         <div className="absolute -top-16 -right-16 w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)]" />
         <div className="absolute -bottom-20 left-[10%] w-[200px] h-[200px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.12),transparent_70%)]" />
         <div className="relative z-10">

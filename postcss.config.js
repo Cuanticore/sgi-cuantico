@@ -1,7 +1,8 @@
-/** @type {import('postcss-load-config').Config} */
+// postcss.config.js
+// Tailwind 4 ships a single PostCSS plugin and vendor-prefixes internally,
+// so autoprefixer was removed.
 module.exports = {
   plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
+    '@tailwindcss/postcss': {},
   },
 };
