@@ -9,6 +9,11 @@
 //   SIG-Auditoría     read only, with access to the bitácora and the evidence
 //   Domain Users      no access: the application does not appear in the portal
 //
+// Those three are the roles. The Directory groups that map onto them are listed in
+// `ALIAS`, by display name AND by object id, because the claim carries object ids under
+// the usual `groupMembershipClaims` setting. Cuantico's `Responsables SIG` maps to
+// SIG-Seguridad.
+//
 // WHEN THE CLAIM IS NOT THERE
 //
 // Emitting the `groups` claim is a decision in the Azure app registration, and until it
@@ -77,12 +82,45 @@ export interface Rol {
 
 const SIN_ACCESO: Rol = { grupos: [], permisos: new Set(), esPorDefecto: false };
 
+/// Every identifier the Directory may present for one of the three groups, mapped to it.
+///
+/// The claim does not always carry display names. With `groupMembershipClaims` set to
+/// `SecurityGroup` — the usual setting — Azure emits group OBJECT IDS, and matching only
+/// on names silently yields no access: the token is fine, the tenant is fine, and every
+/// screen reports «Sin acceso al SGSI».
+///
+/// So identifiers are listed here explicitly rather than inferred. Nothing is derived
+/// from a pattern and nothing is matched loosely, because a wrong entry in this table
+/// grants permissions in the tool the organisation uses to govern permissions.
+///
+/// `Responsables SIG` is Cuantico's own group and carries the SIG lead's permissions:
+/// full read and write, parameterisation included. Both its display name and its object
+/// id are listed, so the mapping holds whichever form the claim takes — the alternative
+/// is a tenant that works until somebody changes the claim configuration.
+const ALIAS: Readonly<Record<string, Grupo>> = {
+  [GRUPOS.seguridad]: GRUPOS.seguridad,
+  [GRUPOS.propietarios]: GRUPOS.propietarios,
+  [GRUPOS.auditoria]: GRUPOS.auditoria,
+
+  'Responsables SIG': GRUPOS.seguridad,
+  'd04a62e7-11ce-4faf-a1b2-7e77fb7ba59b': GRUPOS.seguridad,
+};
+
 function reconocidos(valores: readonly string[]): Grupo[] {
-  const nombres = Object.values(GRUPOS) as string[];
-  // Azure can emit display names or object ids depending on how the claim is configured.
-  // Only names are matched here; mapping object ids is a tenant-specific table and
-  // guessing at it would grant permissions by accident.
-  return valores.filter((v): v is Grupo => nombres.includes(v));
+  // Object ids are case-insensitive and Azure is not consistent about the case it emits,
+  // so comparison is folded. Display names are folded with them: two of our groups
+  // differing only by case is not a distinction anyone would intend.
+  const porClave = new Map<string, Grupo>(
+    Object.entries(ALIAS).map(([clave, grupo]) => [clave.toLowerCase(), grupo]),
+  );
+  // De-duplicated: a token that presents both the name and the object id of the same
+  // group must not list it twice, or the header prints «Líder del SIG · Líder del SIG».
+  const vistos = new Set<Grupo>();
+  for (const v of valores) {
+    const g = porClave.get(v.trim().toLowerCase());
+    if (g) vistos.add(g);
+  }
+  return [...vistos];
 }
 
 /// Derives the role from the token's groups, falling back to the environment variable
