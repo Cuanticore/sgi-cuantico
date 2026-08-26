@@ -11,12 +11,14 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   eficaciaDeNivel,
+  esAplicable,
   media,
   mediana,
   metricasMadurez,
   type ControlMadurez,
+  type EstadoSoa,
 } from '@/lib/sgsi/madurez';
-import { guardarMadurez } from '@/app/sgsi/acciones/controles';
+import { cambiarEstadoSoa, guardarMadurez } from '@/app/sgsi/acciones/controles';
 import PopupControl from './PopupControl';
 
 export interface ControlVista {
@@ -25,7 +27,7 @@ export interface ControlVista {
   dominio: string;
   capacidad: string;
   capacidadCorta: string;
-  aplica: boolean;
+  soa: EstadoSoa;
   lineaBase: number | null;
   actual: number | null;
   objetivo: number | null;
@@ -39,13 +41,18 @@ export interface ControlVista {
   }[];
   amenazas: { codigo: string; nombre: string }[];
   accion: { codigo: string; estado: string } | null;
-  justificacion: string | null;
+  justificacionSoa: string | null;
+  soaActualizadoPor: string | null;
+  soaActualizadoEn: string | null;
 }
 
 interface Props {
   controles: ControlVista[];
   capacidades: string[];
   dominios: string[];
+  filtroInicial?: string;
+  capacidadInicial?: string;
+  dominioInicial?: string;
 }
 
 /// The scale label carries its efficacy, in the select and in the distribution alike.
@@ -103,13 +110,44 @@ type Filtro =
   | { tipo: 'gestionados' }
   | { tipo: 'objetivo' }
   | { tipo: 'plan' }
+  | { tipo: 'parciales' }
   | { tipo: 'noAplican' }
   | { tipo: 'dominio'; valor: string }
   | { tipo: 'capacidad'; valor: string };
 
-export default function ControlesMadurez({ controles, capacidades, dominios }: Props) {
+const ESTILO_SOA: Record<EstadoSoa, { fg: string; bg: string; bd: string }> = {
+  si: { fg: '#12437f', bg: '#f7f9fd', bd: '#d3dceb' },
+  parcial: { fg: '#8a4407', bg: '#fff3e6', bd: '#f2b473' },
+  no: { fg: '#8a938e', bg: '#f5f7f6', bd: '#e2e6e3' },
+};
+
+const ETIQUETA_SOA: Record<EstadoSoa, string> = {
+  si: 'Aplica',
+  parcial: 'Parcialmente',
+  no: 'No aplica',
+};
+
+export default function ControlesMadurez({
+  controles,
+  capacidades,
+  dominios,
+  filtroInicial,
+  capacidadInicial,
+  dominioInicial,
+}: Props) {
   const [niveles, setNiveles] = useState<Record<string, number>>({});
-  const [filtro, setFiltro] = useState<Filtro>({ tipo: 'todos' });
+  const [filtro, setFiltro] = useState<Filtro>(() => {
+    if (filtroInicial === 'noAplican' || filtroInicial === 'parciales') {
+      return { tipo: filtroInicial };
+    }
+    if (dominioInicial && dominios.includes(dominioInicial)) {
+      return { tipo: 'dominio', valor: dominioInicial };
+    }
+    if (capacidadInicial && capacidades.includes(capacidadInicial)) {
+      return { tipo: 'capacidad', valor: capacidadInicial };
+    }
+    return { tipo: 'todos' };
+  });
   const [abierto, setAbierto] = useState<string | null>(null);
   // The administration popup, addressed by control code so a refresh re-reads the row.
   const [administrando, setAdministrando] = useState<string | null>(null);
@@ -144,7 +182,7 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
     () =>
       metricasMadurez(
         conNivel.map<ControlMadurez>((c) => ({
-          aplica: c.aplica,
+          soa: c.soa,
           lineaBase: c.lineaBase,
           actual: c.actual,
           objetivo: c.objetivo,
@@ -158,7 +196,7 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
     () =>
       metricasMadurez(
         controles.map<ControlMadurez>((c) => ({
-          aplica: c.aplica,
+          soa: c.soa,
           lineaBase: c.lineaBase,
           actual: c.actual,
           objetivo: c.objetivo,
@@ -168,11 +206,16 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
   );
 
   const visibles = useMemo(() => conNivel.filter((c) => pasa(c, filtro)), [conNivel, filtro]);
-  const aplicables = conNivel.filter((c) => c.aplica);
+  const aplicables = conNivel.filter((c) => esAplicable(c.soa));
   const sinGuardar = Object.keys(niveles).length;
 
   const tarjetas = [
-    { clave: 'todos', titulo: 'Controles del Anexo A', valor: m.total, pie: `${m.aplicables} aplicables` },
+    {
+      clave: 'todos',
+      titulo: 'Controles del Anexo A',
+      valor: m.total,
+      pie: `${m.aplicables} aplicables · ${m.parciales} parciales · ${m.noAplicables} no aplican`,
+    },
     { clave: 'indice', titulo: 'Índice de madurez', valor: `${m.indice.toFixed(1)}%`, pie: 'media de la eficacia' },
     { clave: 'tipico', titulo: 'Nivel típico', valor: nivelTexto(m.nivelTipico), pie: 'mediana del nivel' },
     { clave: 'gestionados', titulo: 'Gestionados en L3+', valor: m.enL3, pie: `${m.pctL3.toFixed(1)}%` },
@@ -233,6 +276,7 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
             <option value="gestionados">Solo gestionados L3+</option>
             <option value="objetivo">Solo en objetivo</option>
             <option value="plan">Solo en el plan de tratamiento</option>
+            <option value="parciales">Solo aplicación parcial</option>
             <option value="noAplican">Solo no aplicables</option>
             <optgroup label="Dominio del Anexo A">
               {dominios.map((d) => (
@@ -249,6 +293,14 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
               ))}
             </optgroup>
           </select>
+          <a
+            href="/api/sgsi/declaracion-soa"
+            target="_blank"
+            className="rounded-campo border border-border-field px-3 py-1.5 text-12 text-secondary transition-colors hover:bg-accent-50"
+            title="Exportar la declaración de aplicabilidad (.xlsx)"
+          >
+            Exportar declaración de aplicabilidad
+          </a>
         </div>
       </header>
 
@@ -305,18 +357,38 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
 
       <div className="tabla-ancha rounded-tarjeta border border-border-default bg-surface">
         <div style={{ minWidth: 1340 }}>
-          <table className="w-full border-collapse text-12">
+          <table className="w-full border-collapse text-12" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 76 }} />
+              <col style={{ minWidth: 200 }} />
+              <col style={{ width: 118 }} />
+              <col style={{ width: 150 }} />
+              <col style={{ width: 92 }} />
+              <col style={{ width: 214 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 68 }} />
+              <col style={{ width: 108 }} />
+            </colgroup>
             <thead>
               <tr className="bg-subtle text-left">
-                <Th ancho={92}>Código</Th>
-                <Th>Control</Th>
-                <Th ancho={130}>Dominio</Th>
-                <Th ancho={164}>Capacidad</Th>
-                <Th ancho={230}>Madurez actual</Th>
-                <Th ancho={62}>Base</Th>
-                <Th ancho={72}>Objetivo</Th>
-                <Th ancho={140}>Eficacia</Th>
-                <Th ancho={190}>Evidencia</Th>
+                <Th>CÓDIGO</Th>
+                <Th>CONTROL</Th>
+                <Th>DOMINIO</Th>
+                <Th>CAPACIDAD OPERATIVA</Th>
+                <Th>
+                  <span
+                    className="block font-mono text-center"
+                    style={{ fontSize: 8.5, color: '#12437f' }}
+                  >
+                    APLICA · SOA
+                  </span>
+                </Th>
+                <Th>MADUREZ ACTUAL</Th>
+                <Th>BASE</Th>
+                <Th>OBJET.</Th>
+                <Th>EFICACIA</Th>
+                <Th>EVIDENCIA·PLAN</Th>
               </tr>
             </thead>
             <tbody>
@@ -326,9 +398,10 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
                 // Precedence: open beats non-applicable, which beats white.
                 const fondo = estaAbierto
                   ? 'var(--hf-accent-50)'
-                  : !c.aplica
-                    ? 'var(--hf-bg-subtle)'
+                  : !esAplicable(c.soa)
+                    ? '#fbfcfb'
                     : 'var(--hf-row-blanco)';
+                const soaEstilo = ESTILO_SOA[c.soa];
 
                 return (
                   <tr
@@ -341,12 +414,19 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
                       <span className="font-mono text-11 text-secondary">{c.codigo}</span>
                     </Td>
                     <Td>
-                      <span className="text-12_5 text-primary">{c.nombre}</span>
-                      {!c.aplica && (
-                        <span className="ml-2 rounded-badge bg-[var(--hf-cmm-nulo-bg)] px-1.5 py-0.5 font-mono text-9 uppercase tracking-[0.06em] text-faint">
-                          no aplica
-                        </span>
-                      )}
+                      <span
+                        className="text-12_5 text-primary"
+                        style={{
+                          color: !esAplicable(c.soa) ? '#8a938e' : undefined,
+                        }}
+                      >
+                        {c.nombre}
+                        {!esAplicable(c.soa) && (
+                          <span className="ml-2 rounded-badge bg-[var(--hf-cmm-nulo-bg)] px-1.5 py-0.5 font-mono text-9 uppercase tracking-[0.06em] text-faint">
+                            no aplica
+                          </span>
+                        )}
+                      </span>
                     </Td>
                     <Td>
                       <span className="text-11_5 text-muted">{c.dominio}</span>
@@ -357,7 +437,14 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
                       </span>
                     </Td>
                     <Td>
-                      {c.aplica ? (
+                      <SelectSoa
+                        control={c}
+                        onAviso={setAviso}
+                        onCambio={() => setAbierto(null)}
+                      />
+                    </Td>
+                    <Td>
+                      {esAplicable(c.soa) ? (
                         <select
                           value={c.actual ?? 0}
                           onClick={(e) => e.stopPropagation()}
@@ -384,7 +471,7 @@ export default function ControlesMadurez({ controles, capacidades, dominios }: P
                       <span className="font-mono text-11 text-muted">{nivelTexto(c.objetivo)}</span>
                     </Td>
                     <Td>
-                      <BarraEficacia nivel={c.actual} aplica={c.aplica} />
+                      <BarraEficacia nivel={c.actual} aplica={esAplicable(c.soa)} />
                     </Td>
                     <Td>
                       <span className="flex items-center gap-2">
@@ -561,8 +648,17 @@ function Detalle({ control }: { control: ControlVista }) {
               avance {delta(avance)} · brecha {brecha ?? '—'}
             </p>
           )}
-          {control.justificacion && (
-            <p className="parrafo mt-2 text-11 text-muted">{control.justificacion}</p>
+          {control.justificacionSoa && (
+            <p className="parrafo mt-2 text-11 text-muted">{control.justificacionSoa}</p>
+          )}
+          {(control.soaActualizadoPor || control.soaActualizadoEn) && (
+            <p className="mt-2 text-10 text-faint">
+              SOA: {ETIQUETA_SOA[control.soa]} · último cambio{' '}
+              {control.soaActualizadoPor ? `por ${control.soaActualizadoPor}` : ''}
+              {control.soaActualizadoEn
+                ? ` · ${new Date(control.soaActualizadoEn).toLocaleDateString('es-AR')}`
+                : ''}
+            </p>
           )}
         </div>
 
@@ -600,6 +696,175 @@ function Detalle({ control }: { control: ControlVista }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/// The SOA selector: three states, styled per state, and no row-expansion on click.
+/// The change flow asks for the justification and confirmation in a small dialog, so a
+/// change never lands silently — the auditor asks for both the reason and the author.
+function SelectSoa({
+  control,
+  onAviso,
+  onCambio,
+}: {
+  control: ControlVista;
+  onAviso: (a: { ok: boolean; texto: string }) => void;
+  onCambio: () => void;
+}) {
+  const [esperando, setEsperando] = useState(false);
+  const [dialogo, setDialogo] = useState<{
+    estadoPropuesto: EstadoSoa;
+    justificacion: string;
+    confirmando?: { codigo: string; nombre: string }[];
+  } | null>(null);
+  const router = useRouter();
+
+  const aplicar = async (confirmar: boolean): Promise<void> => {
+    setEsperando(true);
+    try {
+      const r = await cambiarEstadoSoa(
+        control.codigo,
+        dialogo!.estadoPropuesto,
+        dialogo!.justificacion,
+        undefined,
+        confirmar,
+      );
+      onAviso({ ok: r.ok, texto: r.mensaje });
+      if (r.ok) {
+        setDialogo(null);
+        onCambio();
+        // One refresh, no reload: the server has recomputed the risks and re-read the
+        // row, so the select value, the cards and both panels settle on the same state
+        // in the same render.
+        router.refresh();
+      } else if (r.confirmacionRequerida) {
+        // The dialog shows the affected items before the author confirms.
+        setDialogo((d) => (d ? { ...d, confirmando: r.afectados } : null));
+        setEsperando(false);
+      }
+    } finally {
+      setEsperando(false);
+    }
+  };
+
+  const estilo = ESTILO_SOA[control.soa];
+  return (
+    <>
+      <select
+        value={control.soa}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => {
+          e.stopPropagation();
+          const nuevo = e.target.value as EstadoSoa;
+          setDialogo({ estadoPropuesto: nuevo, justificacion: '' });
+        }}
+        disabled={esperando}
+        style={{
+          color: estilo.fg,
+          background: estilo.bg,
+          borderColor: estilo.bd,
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '5px 6px',
+          borderRadius: 5,
+          width: '100%',
+        }}
+        className="focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+        title={
+          control.soa === 'no'
+            ? `No aplica — ${control.justificacionSoa ?? 'sin justificación registrada'}`
+            : ETIQUETA_SOA[control.soa]
+        }
+      >
+        <option value="si">Aplica</option>
+        <option value="parcial">Parcialmente</option>
+        <option value="no">No aplica</option>
+      </select>
+
+      {dialogo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!esperando) setDialogo(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-tarjeta border border-border-default bg-surface p-5 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="etiqueta-campo">
+              Declaración de aplicabilidad · {control.codigo}
+            </p>
+            <p className="mt-1 text-12_5 text-primary">{control.nombre}</p>
+            <p className="mt-3 text-11_5 text-secondary">
+              Pasar de <span className="font-semibold">{ETIQUETA_SOA[control.soa]}</span> a{' '}
+              <span className="font-semibold">{ETIQUETA_SOA[dialogo.estadoPropuesto]}</span>
+            </p>
+
+            <label className="etiqueta-campo mt-4 block">Justificación escrita</label>
+            <textarea
+              value={dialogo.justificacion}
+              onChange={(e) =>
+                setDialogo((d) => (d ? { ...d, justificacion: e.target.value } : null))
+              }
+              rows={4}
+              placeholder={
+                dialogo.estadoPropuesto === 'no'
+                  ? 'Por qué se excluye de la declaración de aplicabilidad…'
+                  : dialogo.estadoPropuesto === 'parcial'
+                    ? 'Qué parte del alcance cubre y qué parte no…'
+                    : 'Motivo de la nueva declaración…'
+              }
+              className="mt-1 w-full rounded-campo border border-border-field bg-surface px-3 py-2 text-12 text-secondary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+            />
+
+            {'confirmando' in dialogo && dialogo.confirmando && (
+              <div className="mt-4 rounded-campo border border-[var(--hf-danger-border)] bg-[var(--hf-danger-bg)] px-3 py-2.5">
+                <p className="text-11 font-semibold text-danger-text">
+                  Confirmación requerida — {dialogo.confirmando.length} elemento
+                  {dialogo.confirmando.length === 1 ? '' : 's'} afectado
+                  {dialogo.confirmando.length === 1 ? '' : 's'}:
+                </p>
+                <ul className="mt-1.5 list-inside list-disc text-11 text-danger-text">
+                  {dialogo.confirmando.map((a) => (
+                    <li key={a.codigo}>
+                      <span className="font-mono">{a.codigo}</span> · {a.nombre}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mx-auto mt-2 text-10 leading-relaxed">
+                  Confirmá la advertencia para continuar. La decisión queda en la bitácora
+                  con tu usuario y el motivo.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDialogo(null)}
+                disabled={esperando}
+                className="rounded-campo border border-border-field px-3.5 py-2 text-12 text-muted transition-colors hover:bg-subtle disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void aplicar('confirmando' in dialogo && !!dialogo.confirmando)}
+                disabled={esperando || !dialogo.justificacion.trim()}
+                className="rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white transition-colors disabled:opacity-50"
+                style={{ background: 'var(--hf-accent-500)' }}
+              >
+                {'confirmando' in dialogo && dialogo.confirmando
+                  ? 'Confirmar exclusión'
+                  : dialogo.estadoPropuesto === 'no'
+                    ? 'Excluir control'
+                    : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -665,15 +930,17 @@ function desdeClave(clave: string): Filtro {
 function pasa(c: ControlVista, f: Filtro): boolean {
   switch (f.tipo) {
     case 'brechas':
-      return c.aplica && (c.actual ?? 0) <= 2;
+      return esAplicable(c.soa) && (c.actual ?? 0) <= 2;
     case 'gestionados':
-      return c.aplica && (c.actual ?? 0) >= 3;
+      return esAplicable(c.soa) && (c.actual ?? 0) >= 3;
     case 'objetivo':
-      return c.aplica && c.objetivo !== null && (c.actual ?? 0) >= c.objetivo;
+      return esAplicable(c.soa) && c.objetivo !== null && (c.actual ?? 0) >= c.objetivo;
     case 'plan':
       return c.accion !== null;
+    case 'parciales':
+      return c.soa === 'parcial';
     case 'noAplican':
-      return !c.aplica;
+      return c.soa === 'no';
     case 'dominio':
       return c.dominio === f.valor;
     case 'capacidad':

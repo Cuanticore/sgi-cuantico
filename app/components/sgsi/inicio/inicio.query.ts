@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import {
   eficaciaDeNivel,
+  esAplicable,
   media,
   mediana,
   metricasMadurez,
@@ -87,7 +88,7 @@ export async function leerInicio(): Promise<DatosInicio> {
   const residualCalculable = paresMapeados > 0;
 
   const paraMetricas = controles.map<ControlMadurez>((c) => ({
-    aplica: c.aplica,
+    soa: c.soa === 'PARCIAL' ? 'parcial' : c.soa === 'NO' ? 'no' : 'si',
     lineaBase: c.lineaBase?.nivel ?? null,
     actual: c.actual?.nivel ?? null,
     objetivo: c.objetivo?.nivel ?? null,
@@ -98,9 +99,9 @@ export async function leerInicio(): Promise<DatosInicio> {
   // through the same arithmetic as the current figure, so the progress bar compares
   // like with like.
   const indiceDe = (campo: 'lineaBase' | 'actual' | 'objetivo'): number =>
-    media(paraMetricas.filter((c) => c.aplica).map((c) => eficaciaDeNivel(c[campo]))) * 100;
+    media(paraMetricas.filter((c) => esAplicable(c.soa)).map((c) => eficaciaDeNivel(c[campo]))) * 100;
 
-  const aplicables = controles.filter((c) => c.aplica);
+  const aplicables = controles.filter((c) => c.soa !== 'NO');
   const porCapacidad = new Map<string, typeof aplicables>();
   for (const c of aplicables) {
     porCapacidad.set(c.capacidad.nombre, [...(porCapacidad.get(c.capacidad.nombre) ?? []), c]);

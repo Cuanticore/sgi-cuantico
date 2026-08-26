@@ -6,10 +6,17 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eficaciaAmenaza, metricasMadurez, type ControlMadurez } from '../madurez';
+import {
+  advertenciaParcialNivelAlto,
+  eficaciaAmenaza,
+  esAplicable,
+  metricasMadurez,
+  validarNuevoSoa,
+  type ControlMadurez,
+} from '../madurez';
 
 interface ControlFixture {
-  ap: number;
+  soa: 'si' | 'parcial' | 'no';
   base: number | null;
   act: number | null;
   obj: number | null;
@@ -21,7 +28,7 @@ function cargarFixture(): ControlMadurez[] {
     controles: ControlFixture[];
   };
   return controles.map((c) => ({
-    aplica: Boolean(c.ap),
+    soa: c.soa,
     lineaBase: c.base,
     actual: c.act,
     objetivo: c.obj,
@@ -35,6 +42,7 @@ describe('métricas de madurez contra las cifras del libro', () => {
     expect(m.total).toBe(93);
     expect(m.aplicables).toBe(86);
     expect(m.noAplicables).toBe(7);
+    expect(m.parciales).toBe(0);
   });
 
   it('el índice de madurez es la media de la EFICACIA', () => {
@@ -68,22 +76,72 @@ describe('métricas de madurez contra las cifras del libro', () => {
 describe('los controles no aplicables quedan fuera de los promedios', () => {
   it('no arrastran la media hacia abajo con un cero', () => {
     const controles: ControlMadurez[] = [
-      { aplica: true, lineaBase: 1, actual: 3, objetivo: 3 },
-      { aplica: true, lineaBase: 1, actual: 3, objetivo: 3 },
-      { aplica: false, lineaBase: null, actual: null, objetivo: null },
+      { soa: 'si', lineaBase: 1, actual: 3, objetivo: 3 },
+      { soa: 'si', lineaBase: 1, actual: 3, objetivo: 3 },
+      { soa: 'no', lineaBase: null, actual: null, objetivo: null },
     ];
     const m = metricasMadurez(controles);
 
     expect(m.aplicables).toBe(2);
+    expect(m.noAplicables).toBe(1);
     expect(m.indice).toBeCloseTo(90, 5);
+  });
+});
+
+describe('los controles PARCIAL cuentan como aplicables', () => {
+  it('entran en todos los indicadores y no cuentan como exclusión', () => {
+    const controles: ControlMadurez[] = [
+      { soa: 'parcial', lineaBase: 1, actual: 3, objetivo: 4 },
+      { soa: 'no', lineaBase: null, actual: null, objetivo: null },
+    ];
+    const m = metricasMadurez(controles);
+
+    expect(m.aplicables).toBe(1);
+    expect(m.parciales).toBe(1);
+    expect(m.noAplicables).toBe(1);
+    expect(m.indice).toBeCloseTo(90, 5);
+    expect(m.nivelTipico).toBe(3);
+    expect(m.enL3).toBe(1);
+    expect(m.brechas).toBe(0);
+    expect(m.brechaTotal).toBe(1);
+  });
+
+  it('la derivación es simple: aplicable = soa != no', () => {
+    expect(esAplicable('si')).toBe(true);
+    expect(esAplicable('parcial')).toBe(true);
+    expect(esAplicable('no')).toBe(false);
+  });
+});
+
+describe('validación de un cambio de SOA', () => {
+  it('no exige justificación cuando aplica', () => {
+    expect(validarNuevoSoa('si', '')).toEqual([]);
+  });
+
+  it('«no» exige justificación escrita — 6.1.3 d', () => {
+    const errores = validarNuevoSoa('no', '   ');
+    expect(errores).toHaveLength(1);
+    expect(errores[0]).toContain('justificación');
+  });
+
+  it('«parcial» exige justificación escrita', () => {
+    expect(validarNuevoSoa('parcial', '')).toHaveLength(1);
+    expect(validarNuevoSoa('parcial', 'Cubre la nube, no las instalaciones físicas.')).toEqual([]);
+  });
+
+  it('la advertencia de nivel solo se dispara en L4/L5', () => {
+    expect(advertenciaParcialNivelAlto(3)).toBe(false);
+    expect(advertenciaParcialNivelAlto(4)).toBe(true);
+    expect(advertenciaParcialNivelAlto(5)).toBe(true);
+    expect(advertenciaParcialNivelAlto(null)).toBe(false);
   });
 });
 
 describe('las brechas se cuentan, no se promedian', () => {
   it('un control en L1 es una acción concreta, no un decimal', () => {
     const controles: ControlMadurez[] = [
-      { aplica: true, lineaBase: 0, actual: 1, objetivo: 4 },
-      { aplica: true, lineaBase: 3, actual: 5, objetivo: 5 },
+      { soa: 'si', lineaBase: 0, actual: 1, objetivo: 4 },
+      { soa: 'si', lineaBase: 3, actual: 5, objetivo: 5 },
     ];
     const m = metricasMadurez(controles);
 

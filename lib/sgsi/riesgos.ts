@@ -49,8 +49,8 @@ export async function eficaciaPorAmenaza(
 
   const porAmenaza = new Map<number, { nivel: number | null; peso: number; esPrincipal: boolean }[]>();
   for (const p of pares) {
-    // A control marked as not applicable is excluded from its own average.
-    if (!p.control.aplica) continue;
+    // A control marked "no aplica" is excluded from its own average; PARCIAL counts.
+    if (p.control.soa === 'NO') continue;
     const lista = porAmenaza.get(p.amenazaId) ?? [];
     // A pair with no relevance yet aggregates the way the workbook's own AVERAGE does:
     // weight 1 and no principal, which makes the weighted mean a plain mean and leaves the

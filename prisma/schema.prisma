@@ -404,18 +404,30 @@ model CapacidadOperativa {
 /// The 93 Annex A controls. Maturity levels are null exactly when the control does not
 /// apply; a non-applicable control is excluded from every average, and letting a single
 /// zero into a mean is the bug that constraint exists to prevent.
+///
+/// The application state is the three-state SOA declaration (ISO 27001 6.1.3 d):
+/// a control is applicable when `soa != NO`, and NO/PARCIAL both carry a written
+/// justification an auditor will review.
 model Control {
-  id             Int       @id @default(autoincrement())
-  codigo         String    @unique // A.5.1 … A.8.34
+  id             Int        @id @default(autoincrement())
+  codigo         String     @unique // A.5.1 … A.8.34
   nombre         String
-  dominioId      Int       @map("dominio_id")
-  capacidadId    Int       @map("capacidad_id")
-  aplica         Boolean   @default(true)
+  dominioId      Int        @map("dominio_id")
+  capacidadId    Int        @map("capacidad_id")
+  soa            EstadoSoa  @default(SI)
+  /// Written justification, mandatory when soa is PARCIAL (which part of the scope is
+  /// covered and which is not) or NO (why the control is excluded).
+  justificacionSoa  String?  @map("justificacion_soa")
+  /// Audit trail of the last SOA change: who and when. The full history lives in the
+  /// bitácora; these two columns are the current state an auditor asks for first.
+  soaActualizadoPor String?  @map("soa_actualizado_por")
+  soaActualizadoEn  DateTime? @map("soa_actualizado_en")
   lineaBaseId    Int?      @map("linea_base_id")
   actualId       Int?      @map("actual_id")
   objetivoId     Int?      @map("objetivo_id")
-  /// Evidence of the rating, or, when the control does not apply, the written
-  /// justification the Committee approves and an auditor will review.
+  /// Evidence of the rating. The written justification of a non-applicable control now
+  /// lives in `justificacionSoa`; this column holds the evidence of the maturity level
+  /// when the control applies.
   evidencia      String
   responsableId  Int?      @map("responsable_id")
   fechaObjetivo  DateTime? @map("fecha_objetivo") @db.Date
@@ -514,6 +526,17 @@ enum Ternario {
   POR_DEFINIR
 
   @@map("ternario")
+}
+
+/// SOA declaration state per ISO/IEC 27001:2022 clause 6.1.3 d. Three states, not a
+/// boolean: PARCIAL is an applicable control whose scope coverage is partial — it counts
+/// in every indicator, but it rarely sustains L4/L5 in an audit.
+enum EstadoSoa {
+  SI
+  PARCIAL
+  NO
+
+  @@map("estado_soa")
 }
 
 model Activo {

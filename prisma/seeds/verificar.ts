@@ -28,7 +28,7 @@ export async function verificarMetricas(prisma: PrismaClient): Promise<boolean> 
   }
 
   const controles: ControlMadurez[] = filas.map((c) => ({
-    aplica: c.aplica,
+    soa: c.soa === 'PARCIAL' ? 'parcial' : c.soa === 'NO' ? 'no' : 'si',
     lineaBase: c.lineaBase?.nivel ?? null,
     actual: c.actual?.nivel ?? null,
     objetivo: c.objetivo?.nivel ?? null,

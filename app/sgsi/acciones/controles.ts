@@ -11,7 +11,14 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
+import { clasificar } from '@/lib/sgsi/clasificar';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
+import {
+  advertenciaParcialNivelAlto,
+  etiquetaSoa,
+  validarNuevoSoa,
+  type EstadoSoa as EstadoSoaDominio,
+} from '@/lib/sgsi/madurez';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
 
 export interface CambioMadurez {
@@ -20,6 +27,23 @@ export interface CambioMadurez {
 }
 
 export type TipoEvidencia = 'ENLACE' | 'ARCHIVO' | 'NOTA';
+
+export interface AdvertenciaSoa {
+  /// Text to show the user as an advertencia. Never blocks the save by itself: the
+  /// justified decision goes ahead, and the que conste quedó en la bitácora.
+  texto: string;
+}
+
+export interface ResultadoSoa extends Resultado {
+  /// Planned exclusions of risks still open: shown before the save, and the action
+  /// refuses to EXCLUDE a control that mitigates a residual Alto/Crítico without the
+  /// author confirming them in a second call.
+  advertencias: string[];
+  /// When true the caller must confirm before proceeding (rule 3/4 of the SOA change).
+  confirmacionRequerida: boolean;
+  /// The affected items the confirmation must acknowledge: open actions or risks.
+  afectados: { codigo: string; nombre: string }[];
+}
 
 /// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
 /// The prototype also splits on `|`, so that separator is honoured too.
@@ -143,7 +167,7 @@ export async function guardarMadurezObjetivo(
       include: { objetivo: true },
     });
     if (!control) throw new Error(`No existe el control ${codigoControl}`);
-    if (!control.aplica) {
+    if (control.soa === 'NO') {
       return {
         ok: false,
         mensaje: `El control ${codigoControl} no aplica, así que no lleva objetivo de madurez.`,
@@ -214,7 +238,7 @@ export async function guardarMadurez(
 
         // A control that does not apply has no level at all: its maturity is null by
         // constraint, and letting a zero in is what pollutes every average.
-        if (!control.aplica) {
+        if (control.soa === 'NO') {
           throw new Error(
             `El control ${c.codigoControl} no aplica, así que no lleva nivel de madurez.`,
           );
@@ -262,6 +286,246 @@ export async function guardarMadurez(
         ? 'No había cambios que guardar.'
         : `Se guardaron ${escritos} cambios de madurez y se recalcularon ${diagnostico.riesgosGenerados} riesgos.${nota}`,
       cambios: escritos,
+    };
+  });
+}
+
+/// Changes the SOA state of one control (ISO 27001 6.1.3 d) and everything that moves
+/// with it:
+///
+///   1. 'no' and 'parcial' demand a written justification — the auditor asks why an
+///      exclusion or a partial scope is what it is, and the interface will refuse to
+///      store a change without one.
+///   2. 'parcial' on a control rated L4/L5 is warned about: partial scope coverage
+///      rarely sustains those levels in an audit. A warning, not a veto.
+///   3. Moving a control to 'no' while it has open treatment actions requires an
+///      explicit confirmation that names the actions and what happens to them.
+///   4. Moving a control to 'no' while it mitigates threats with residual Alto/Crítico
+///      shows the impact and requires the author to confirm it.
+///   5. Only SIG-Seguridad may edit. Readers of SIG-Propietarios / SIG-Auditoría rely
+///      on the interface disabling the selector; this action enforces the same boundary.
+///
+/// The transition to 'no' also clears the maturity level: a control that does not apply
+/// has null levels by the model's own constraint (see `guardarMadurez` above), and the
+/// seed invariant asserts the same. The levels return when the control is applicable
+/// again.
+export async function cambiarEstadoSoa(
+  codigoControl: string,
+  estado: EstadoSoaDominio,
+  justificacion: string,
+  motivo?: string,
+  confirmar = false,
+): Promise<ResultadoSoa> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('sgsi:escribir');
+
+    const errores = validarNuevoSoa(estado, justificacion);
+    if (errores.length > 0) {
+      return {
+        ok: false,
+        mensaje: errores[0],
+        advertencias: [],
+        confirmacionRequerida: false,
+        afectados: [],
+      };
+    }
+
+    const control = await prisma.control.findUnique({
+      where: { codigo: codigoControl },
+      include: { actual: true, objetivo: true },
+    });
+    if (!control) throw new Error(`No existe el control ${codigoControl}`);
+
+    const soaPrevio = (control.soa === 'PARCIAL' ? 'parcial' : control.soa === 'NO' ? 'no' : 'si') as EstadoSoaDominio;
+    if (soaPrevio === estado) {
+      return {
+        ok: true,
+        mensaje: 'El estado de la declaración de aplicabilidad no cambió.',
+        advertencias: [],
+        confirmacionRequerida: false,
+        afectados: [],
+      };
+    }
+
+    const afectados: { codigo: string; nombre: string }[] = [];
+    const advertencias: string[] = [];
+
+    // Rule 2: parcial over L4/L5 deserves a warning, per the audit reasoning.
+    if (estado === 'parcial') {
+      const nivelActual = control.actual?.nivel ?? null;
+      if (advertenciaParcialNivelAlto(nivelActual)) {
+        advertencias.push(
+          `El control está calificado en L${nivelActual}: una cobertura parcial del alcance rara vez sostiene ese nivel en auditoría. ` +
+            'Revisá si la madurez debería reflejar la parte no cubierta.',
+        );
+      }
+    }
+
+    // Rule 3: open treatment actions on an exclusion, requiring confirmation.
+    if (estado === 'no') {
+      const accionesAbiertas = await prisma.accionPlan.findMany({
+        where: { controlId: control.id, activa: true, estado: { notIn: ['CERRADA', 'CANCELADA'] } },
+        select: { codigo: true, accion: true },
+        orderBy: { codigo: 'asc' },
+      });
+      if (accionesAbiertas.length > 0 && !confirmar) {
+        afectados.push(...accionesAbiertas.map((a) => ({ codigo: a.codigo, nombre: a.accion })));
+        return {
+          ok: false,
+          mensaje:
+            `El control tiene ${accionesAbiertas.length} ${accionesAbiertas.length === 1 ? 'acción abierta' : 'acciones abiertas'} en el plan de tratamiento. ` +
+            'Confirmá qué ocurre con ellas antes de excluirlo.',
+          advertencias,
+          confirmacionRequerida: true,
+          afectados,
+        };
+      }
+
+      // Rule 4: threats the control mitigates whose residual risk is Alto/Crítico.
+      const umbrales = await prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } });
+      const pares = await prisma.controlAmenaza.findMany({
+        where: { controlId: control.id },
+        select: {
+          amenaza: {
+            select: {
+              codigo: true,
+              nombre: true,
+              riesgos: {
+                where: { obsoleto: false, excluidoManual: false },
+                select: { riesgoResidual: true },
+              },
+            },
+          },
+        },
+      });
+
+      const amenazas = pares
+        .map((p) => ({
+          codigo: p.amenaza.codigo,
+          nombre: p.amenaza.nombre,
+          conResidualAlto: p.amenaza.riesgos.some(
+            (r) =>
+              r.riesgoResidual !== null &&
+              ['Crítico', 'Alto'].includes(clasificar(r.riesgoResidual.toString(), umbrales) ?? ''),
+          ),
+        }))
+        .filter((a) => a.conResidualAlto);
+      if (amenazas.length > 0 && !confirmar) {
+        afectados.push(...amenazas.filter((a) => !afectados.some((x) => x.codigo === a.codigo)).map((a) => ({ codigo: a.codigo, nombre: a.nombre })));
+        advertencias.push(
+          `Este control mitiga amenazas con riesgo residual Alto o Crítico: ${amenazas.map((a) => `${a.codigo} ${a.nombre}`).join(' · ')}. ` +
+            'Excluirlo degrada la eficacia contra esas amenazas y eleva su riesgo residual.',
+        );
+        return {
+          ok: false,
+          mensaje: 'La exclusión cambia el riesgo residual de amenazas de alto impacto. Confirmá la advertencia para continuar.',
+          advertencias,
+          confirmacionRequerida: true,
+          afectados,
+        };
+      }
+    }
+
+    // Validation passed (or was confirmed). Record and mutate in one transaction.
+    const nuevoSoa = estado === 'parcial' ? 'PARCIAL' : estado === 'no' ? 'NO' : 'SI';
+    const justificacionNueva = estado === 'si' ? null : justificacion.trim();
+
+    await prisma.$transaction(async (tx) => {
+      const entradas: Parameters<typeof registrar>[2] = [
+        {
+          tabla: 'control',
+          registroId: control.codigo,
+          campo: 'aplicación SOA',
+          anterior: etiquetaSoa(soaPrevio),
+          nuevo: etiquetaSoa(estado),
+          motivo: motivo ?? null,
+        },
+        {
+          tabla: 'control',
+          registroId: control.codigo,
+          campo: 'justificación SOA',
+          anterior: control.justificacionSoa ?? null,
+          nuevo: justificacionNueva,
+          motivo: motivo ?? null,
+        },
+      ];
+      if (estado === 'no' && (control.actualId !== null || control.objetivoId !== null)) {
+        if (control.actualId !== null) {
+          entradas.push({
+            tabla: 'control',
+            registroId: control.codigo,
+            campo: 'madurez actual',
+            anterior: control.actual ? `L${control.actual.nivel}` : null,
+            nuevo: null,
+            motivo: 'Exclusión: el control no aplica y queda sin nivel por la regla del modelo.',
+          });
+        }
+        if (control.objetivoId !== null) {
+          entradas.push({
+            tabla: 'control',
+            registroId: control.codigo,
+            campo: 'madurez objetivo',
+            anterior: control.objetivo ? `L${control.objetivo.nivel}` : null,
+            nuevo: null,
+            motivo: 'Exclusión: el control no aplica y sin madurez no hay objetivo que medir.',
+          });
+        }
+      }
+      await registrar(tx, autor, entradas);
+
+      await tx.control.update({
+        where: { id: control.id },
+        data: {
+          soa: nuevoSoa,
+          justificacionSoa: justificacionNueva,
+          soaActualizadoPor: autor,
+          soaActualizadoEn: new Date(),
+          // Exclusion clears the levels; the invariant of the model holds again.
+          actualId: estado === 'no' ? null : control.actualId,
+          objetivoId: estado === 'no' ? null : control.objetivoId,
+        },
+      });
+    });
+
+    // Something that mitigates (or stops mitigating) threats may move residual risks.
+    // The change itself is committed and audited; a failure to REGENERATE must not undo
+    // that, nor may the screen read it as a failed save. The author sees the change
+    // succeeded and is told the residual side needs a re-run, rather than a false error
+    // on an applied change.
+    let riesgosPendientes = false;
+    try {
+      await generarRiesgos(prisma);
+    } catch (error) {
+      console.error('[sgsi] cambio SOA aplicado; falló la regeneración de riesgos', error);
+      riesgosPendientes = true;
+    }
+
+    revalidatePath('/sgsi');
+    revalidatePath('/sgsi/controles');
+    revalidatePath('/sgsi/planes');
+    revalidatePath('/sgsi/matrices');
+    revalidatePath('/sgsi/inventario');
+    revalidatePath('/');
+
+    const nota =
+      advertencias.length > 0 ? ` Advertencia: ${advertencias[0]}` : '';
+    const notaRiesgos = riesgosPendientes
+      ? ' La regeneración de riesgos no se completó: los residuales quedan como están hasta que cualquier cambio de madurez vuelva a generarlos.'
+      : '';
+    const mensajeBase =
+      estado === 'no'
+        ? `El control ${codigoControl} queda excluido de la declaración de aplicabilidad. Sin madurez, no entra en ningún indicador, pero sigue visible en la grilla.`
+        : estado === 'parcial'
+          ? `El control ${codigoControl} queda parcialmente aplicable: cuenta como aplicable en todos los indicadores.`
+          : `El control ${codigoControl} vuelve a ser aplicable en su totalidad.`;
+    const justo = estado === 'si' ? '' : ` Justificación registrada${motivo ? ' y motivo en bitácora' : ''}.`;
+
+    return {
+      ok: true,
+      mensaje: mensajeBase + justo + nota + notaRiesgos,
+      advertencias,
+      confirmacionRequerida: false,
+      afectados: [],
     };
   });
 }

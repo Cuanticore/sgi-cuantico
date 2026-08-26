@@ -81,7 +81,7 @@ export default async function MetodologiaPage() {
       include: { amenaza: true, dimension: true },
     }),
     prisma.control.count(),
-    prisma.control.count({ where: { aplica: true } }),
+    prisma.control.count({ where: { soa: { not: 'NO' } } }),
     prisma.capacidadOperativa.count(),
     prisma.dominioAnexoA.findMany({ orderBy: { orden: 'asc' } }),
     prisma.activo.count({ where: { activo: true } }),

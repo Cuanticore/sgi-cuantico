@@ -109,7 +109,7 @@ export default async function ParametrosPage() {
       include: {
         controles: {
           select: {
-            aplica: true,
+            soa: true,
             actual: { select: { nivel: true, eficacia: true } },
             objetivo: { select: { nivel: true } },
           },
@@ -312,7 +312,7 @@ export default async function ParametrosPage() {
     ],
 
     capacidades: capacidades.map((c) => {
-      const aplicables = c.controles.filter((k) => k.aplica);
+      const aplicables = c.controles.filter((k) => k.soa !== 'NO');
       const eficacias = aplicables
         .map((k) => (k.actual ? n(k.actual.eficacia) : null))
         .filter((e): e is number => e !== null);

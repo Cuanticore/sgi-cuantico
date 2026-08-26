@@ -109,7 +109,7 @@ export interface ControlDeAmenaza {
   /// Current CMM level, 0–5. Null when the control has no assessment yet — which is not
   /// the same as L0 and must not be averaged as one.
   nivel: number | null;
-  aplica: boolean;
+  soa: 'si' | 'parcial' | 'no';
   peso: number;
   esPrincipal: boolean;
   /// Null while the pair has no relevance assigned. The pair still counts — it aggregates
@@ -418,7 +418,7 @@ export async function cargarAmenazas(): Promise<AmenazaCatalogo[]> {
               select: {
                 codigo: true,
                 nombre: true,
-                aplica: true,
+                soa: true,
                 evidencia: true,
                 actual: { select: { nivel: true } },
               },
@@ -453,7 +453,7 @@ export async function cargarAmenazas(): Promise<AmenazaCatalogo[]> {
         codigo: c.control.codigo,
         nombre: c.control.nombre,
         nivel: c.control.actual?.nivel ?? null,
-        aplica: c.control.aplica,
+        soa: c.control.soa === 'PARCIAL' ? 'parcial' : c.control.soa === 'NO' ? 'no' : 'si',
         // No relevance yet: weight 1 and no principal, which is the workbook's plain
         // AVERAGE. `relevancia` stays null so the sheet can say so instead of showing a
         // level nobody assigned.

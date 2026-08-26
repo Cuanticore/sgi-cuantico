@@ -13,8 +13,13 @@ import ControlesMadurez, {
 
 export const dynamic = 'force-dynamic';
 
-export default async function ControlesPage() {
-  const [controles, capacidades, dominios] = await Promise.all([
+export default async function ControlesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filtro?: string; capacidad?: string; dominio?: string }>;
+}) {
+  const [{ filtro, capacidad, dominio }, controles, capacidades, dominios] = await Promise.all([
+    searchParams,
     prisma.control.findMany({
       orderBy: { codigo: 'asc' },
       include: {
@@ -40,7 +45,7 @@ export default async function ControlesPage() {
     // The 164px column cannot fit the full ISO name, but the filter still matches on
     // the long one, so the view carries both.
     capacidadCorta: c.capacidad.nombreCorto,
-    aplica: c.aplica,
+    soa: (c.soa === 'PARCIAL' ? 'parcial' : c.soa === 'NO' ? 'no' : 'si') as ControlVista['soa'],
     lineaBase: c.lineaBase?.nivel ?? null,
     actual: c.actual?.nivel ?? null,
     objetivo: c.objetivo?.nivel ?? null,
@@ -54,7 +59,9 @@ export default async function ControlesPage() {
     })),
     amenazas: c.amenazas.map((a) => ({ codigo: a.amenaza.codigo, nombre: a.amenaza.nombre })),
     accion: c.acciones[0] ? { codigo: c.acciones[0].codigo, estado: c.acciones[0].estado } : null,
-    justificacion: c.aplica ? null : c.evidencia,
+    justificacionSoa: c.justificacionSoa,
+    soaActualizadoPor: c.soaActualizadoPor,
+    soaActualizadoEn: c.soaActualizadoEn ? c.soaActualizadoEn.toISOString() : null,
   }));
 
   return (
@@ -62,6 +69,9 @@ export default async function ControlesPage() {
       controles={vista}
       capacidades={capacidades.map((c) => c.nombre)}
       dominios={dominios.map((d) => d.nombre)}
+      filtroInicial={filtro}
+      capacidadInicial={capacidad}
+      dominioInicial={dominio}
     />
   );
 }

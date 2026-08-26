@@ -33,9 +33,10 @@ export default async function PlanesPage() {
     // figures were calculated over a 17-asset sample.
     prisma.controlAmenaza.count(),
     // The popup's control combo shows code and name together, which is the form an
-    // auditor reads.
+    // auditor reads. Only applicable controls can carry an action ("no aplica" has no
+    // maturity by constraint), and PARCIAL counts as applicable.
     prisma.control.findMany({
-      where: { aplica: true },
+      where: { soa: { not: 'NO' } },
       orderBy: { codigo: 'asc' },
       select: { id: true, codigo: true, nombre: true },
     }),

@@ -35,8 +35,43 @@ export function mediana(valores: readonly number[]): number {
   return orden.length % 2 === 0 ? (orden[medio - 1] + orden[medio]) / 2 : orden[medio];
 }
 
+export type EstadoSoa = 'si' | 'parcial' | 'no';
+
+/// SOA derivation per ISO 27001 6.1.3 d. «Parcialmente» is NOT an exclusion: the control
+/// covers part of the scope, and it counts in every indicator. Only «No aplica» excludes.
+export function esAplicable(soa: EstadoSoa): boolean {
+  return soa !== 'no';
+}
+
+/// Human label for the SOA state, used in the bitácora and the export.
+export function etiquetaSoa(soa: EstadoSoa): string {
+  return soa === 'no' ? 'No aplica' : soa === 'parcial' ? 'Parcialmente' : 'Aplica';
+}
+
+/// Pure validation of a SOA change, shared by the action and the UI so both refuse the
+/// same inputs. Returns error messages, empty when valid. Rule 6.1.3 d: NO and PARCIAL
+/// require a written justification an auditor can review.
+export function validarNuevoSoa(soa: EstadoSoa, justificacion: string): string[] {
+  const errores: string[] = [];
+  const j = justificacion.trim();
+  if ((soa === 'no' || soa === 'parcial') && j.length === 0) {
+    errores.push(
+      soa === 'no'
+        ? '«No aplica» exige justificación escrita: es la declaración de exclusión que el auditor revé.'
+        : '«Parcialmente» exige justificación escrita: qué parte del alcance cubre y qué parte no.',
+    );
+  }
+  return errores;
+}
+
+/// Rule 2: a control whose scope coverage is partial rarely sustains L4/L5 in an audit.
+/// Only an advertencia, not a rejection — the warning is shown to the author, who decides.
+export function advertenciaParcialNivelAlto(actual: number | null): boolean {
+  return actual !== null && actual >= 4;
+}
+
 export interface ControlMadurez {
-  aplica: boolean;
+  soa: EstadoSoa;
   lineaBase: number | null;
   actual: number | null;
   objetivo: number | null;
@@ -45,6 +80,7 @@ export interface ControlMadurez {
 export interface MetricasMadurez {
   total: number;
   aplicables: number;
+  parciales: number;
   noAplicables: number;
   /// Mean of efficacy, as a percentage. The headline metric.
   indice: number;
@@ -61,7 +97,8 @@ export interface MetricasMadurez {
 }
 
 export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasMadurez {
-  const aplicables = controles.filter((c) => c.aplica);
+  const aplicables = controles.filter((c) => esAplicable(c.soa));
+  const parciales = aplicables.filter((c) => c.soa === 'parcial').length;
   // A non-applicable control is excluded from every average. Letting a single zero in
   // is the defect the applicability flag exists to prevent.
   const niveles = aplicables.map((c) => c.actual ?? 0);
@@ -84,6 +121,7 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
   return {
     total: controles.length,
     aplicables: aplicables.length,
+    parciales,
     noAplicables: controles.length - aplicables.length,
     indice: media(aplicables.map((c) => eficaciaDeNivel(c.actual))) * 100,
     nivelTipico: mediana(niveles),

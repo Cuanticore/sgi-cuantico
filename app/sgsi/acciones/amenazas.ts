@@ -40,7 +40,7 @@ export interface ControlAsociado {
   codigo: string;
   nombre: string;
   nivel: number | null;
-  aplica: boolean;
+  soa: 'si' | 'parcial' | 'no';
   /// Null while the pair carries no relevance: the pair counts, aggregated as a plain mean.
   relevancia: string | null;
 }
@@ -75,9 +75,9 @@ export async function controlesDeAmenaza(codigoAmenaza: string): Promise<Control
       }),
       // Only applicable controls are offered. A control marked "no aplica" has no maturity
       // by constraint, so pairing it would enter the threat's mean as a zero and drag the
-      // efficacy down for a reason that is not real.
+      // efficacy down for a reason that is not real. PARCIAL counts as applicable.
       prisma.control.findMany({
-        where: { aplica: true },
+        where: { soa: { not: 'NO' } },
         include: { actual: true },
         orderBy: { codigo: 'asc' },
       }),
@@ -95,7 +95,7 @@ export async function controlesDeAmenaza(codigoAmenaza: string): Promise<Control
           codigo: p.control.codigo,
           nombre: p.control.nombre,
           nivel: p.control.actual?.nivel ?? null,
-          aplica: p.control.aplica,
+          soa: (p.control.soa === 'PARCIAL' ? 'parcial' : p.control.soa === 'NO' ? 'no' : 'si') as ControlAsociado['soa'],
           relevancia: p.relevancia?.nombre ?? null,
         }))
         .sort((a, b) => a.codigo.localeCompare(b.codigo)),
@@ -134,10 +134,10 @@ export async function asociarControl(
     if (!amenaza) throw new Error(`No existe la amenaza ${codigoAmenaza}.`);
     if (!control) throw new Error(`No existe el control ${codigoControl}.`);
 
-    if (!control.aplica) {
+    if (control.soa === 'NO') {
       return {
         ok: false,
-        mensaje: `${control.codigo} está marcado como «no aplica», así que no tiene madurez y no puede mitigar nada. Cambiá su aplicabilidad antes de asociarlo.`,
+        mensaje: `${control.codigo} está marcado como «no aplica», así que no tiene madurez y no puede mitigar nada. Cambiá su declaración de aplicabilidad antes de asociarlo.`,
       };
     }
 

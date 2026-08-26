@@ -9,21 +9,28 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { EstadoSoa } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 
 const DATA = join(process.cwd(), 'prisma', 'data');
+
+export type SoaSemilla = 'si' | 'parcial' | 'no';
 
 interface ControlSeed {
   c: string; // codigo
   n: string; // nombre
   dom: string; // dominio
   cap: string; // capacidad operativa
-  ap: number; // 1 aplica, 0 no aplica
+  soa: SoaSemilla; // si | parcial | no (declaración de aplicabilidad)
   base: number | null;
   act: number | null;
   obj: number | null;
-  ev: string; // evidencia, o la justificacion de no aplicabilidad
+  ev: string; // evidencia
   am: string; // codigos de amenaza separados por coma
+}
+
+function aEstadoSoa(soa: SoaSemilla): EstadoSoa {
+  return soa === 'parcial' ? 'PARCIAL' : soa === 'no' ? 'NO' : 'SI';
 }
 
 /// Narrow columns and radar axes cannot fit the full capability name.
@@ -111,7 +118,8 @@ export async function seedIso(prisma: PrismaClient): Promise<void> {
   for (const c of controles) {
     // Maturity levels are null exactly when the control does not apply. Letting a
     // single zero into an average instead is the bug this invariant prevents.
-    const aplica = Boolean(c.ap);
+    const soaEstado = aEstadoSoa(c.soa);
+    const aplica = soaEstado !== 'NO';
     if (aplica !== (c.act !== null)) {
       throw new Error(`Control ${c.c}: aplicabilidad y niveles inconsistentes`);
     }
@@ -120,7 +128,8 @@ export async function seedIso(prisma: PrismaClient): Promise<void> {
       nombre: c.n,
       dominioId: dominioPorNombre.get(c.dom)!,
       capacidadId: capacidadPorNombre.get(c.cap)!,
-      aplica,
+      soa: soaEstado,
+      justificacionSoa: soaEstado === 'SI' ? null : c.ev,
       lineaBaseId: nivel(c.base),
       actualId: nivel(c.act),
       objetivoId: nivel(c.obj),
@@ -134,7 +143,8 @@ export async function seedIso(prisma: PrismaClient): Promise<void> {
   }
 
   // The control's own text is the first, non-removable evidence entry: for a control
-  // that does not apply it IS the justification the Committee approved.
+  // that does not apply it is the justification the Committee approved, mirrored into
+  // `justificacionSoa` above so the SOA export carries it too.
   for (const c of controles) {
     const control = await prisma.control.findUnique({ where: { codigo: c.c } });
     if (!control) continue;

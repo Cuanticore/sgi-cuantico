@@ -264,7 +264,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
         select: {
           codigo: true,
           nombre: true,
-          aplica: true,
+          soa: true,
           capacidad: { select: { nombre: true, nombreCorto: true } },
           lineaBase: { select: { nivel: true } },
           actual: { select: { nivel: true } },
@@ -323,7 +323,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
   // --- Maturity, now and at the baseline rating --------------------------------------
   const paraMetricas = (usarBase: boolean) =>
     controles.map<ControlMadurez>((c) => ({
-      aplica: c.aplica,
+      soa: c.soa === 'PARCIAL' ? 'parcial' : c.soa === 'NO' ? 'no' : 'si',
       lineaBase: c.lineaBase?.nivel ?? null,
       actual: usarBase ? c.lineaBase?.nivel ?? null : c.actual?.nivel ?? null,
       objetivo: c.objetivo?.nivel ?? null,
@@ -505,7 +505,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
   const pendientesTotal = usaResidual ? candidatosResidual.length : candidatosInherente.length;
 
   // --- Gaps ---------------------------------------------------------------------------
-  const aplicables = controles.filter((c) => c.aplica);
+  const aplicables = controles.filter((c) => c.soa !== 'NO');
   const todasLasBrechas: BrechaControl[] = aplicables
     .filter((c) => (c.actual?.nivel ?? 0) <= 2)
     .map((c) => ({
@@ -705,8 +705,8 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
 
     `${metricas.noAplicables} controles del Anexo A se declaran no aplicables y quedan ` +
       `justificados en la declaración de aplicabilidad. Ninguno entra en los promedios: ` +
-      `admitir un cero por un control que no aplica es exactamente lo que la marca de ` +
-      `aplicabilidad existe para evitar.`,
+      `admitir un cero por un control que no aplica es exactamente lo que la declaración ` +
+      `de aplicabilidad existe para evitar.`,
 
     // The sentence changes shape the day the relevance assignment lands, rather than
     // asserting "ninguno" forever.

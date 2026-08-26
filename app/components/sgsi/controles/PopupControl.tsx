@@ -13,14 +13,16 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Popup, { PopupVacio } from '@/app/components/sgsi/Popup';
-import { EFICACIA_POR_NIVEL, eficaciaDeNivel } from '@/lib/sgsi/madurez';
+import { EFICACIA_POR_NIVEL, eficaciaDeNivel, esAplicable, etiquetaSoa } from '@/lib/sgsi/madurez';
 import {
   agregarEvidencias,
+  cambiarEstadoSoa,
   guardarMadurez,
   guardarMadurezObjetivo,
   quitarEvidencia,
   type TipoEvidencia,
 } from '@/app/sgsi/acciones/controles';
+import type { EstadoSoa } from '@/lib/sgsi/madurez';
 import { crearAccionDesdeControl } from '@/app/sgsi/acciones/plan';
 import type { ControlVista } from './ControlesMadurez';
 
@@ -62,9 +64,11 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 export default function PopupControl({
   control,
   onCerrar,
+  puedeEditarSoa = true,
 }: {
   control: ControlVista;
   onCerrar: () => void;
+  puedeEditarSoa?: boolean;
 }) {
   const [nivel, setNivel] = useState<number | null>(control.actual);
   const [objetivo, setObjetivo] = useState<number | null>(control.objetivo);
@@ -73,6 +77,9 @@ export default function PopupControl({
   const [motivoQuitar, setMotivoQuitar] = useState<Record<number, string>>({});
   const [verFormulas, setVerFormulas] = useState(false);
   const [verEquivalencia, setVerEquivalencia] = useState(false);
+  const [soaEditado, setSoaEditado] = useState<EstadoSoa | null>(null);
+  const [justificacionEditada, setJustificacionEditada] = useState(control.justificacionSoa ?? '');
+  const [soaAviso, setSoaAviso] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const [pendiente, iniciar] = useTransition();
   const router = useRouter();
@@ -120,7 +127,7 @@ export default function PopupControl({
           >
             Cerrar
           </button>
-          {control.aplica && (
+          {esAplicable(control.soa) && (
             <button
               onClick={() =>
                 correr(() => guardarMadurez([{ codigoControl: control.codigo, nivel: nivel! }]))
@@ -136,17 +143,100 @@ export default function PopupControl({
         </>
       }
     >
-      {!control.aplica && (
-        <div className="mb-4 rounded-campo border border-border-default bg-subtle p-3">
-          <p className="etiqueta-campo">No aplica · justificación aprobada</p>
-          <p className="parrafo mt-1 text-11_5">{control.justificacion}</p>
-          <p className="mt-2 text-11 text-faint">
-            Un control que no aplica queda excluido de todos los promedios, pero no se
-            borra: su no aplicabilidad es una decisión que el Comité aprueba y que un
-            auditor revisa.
+      {/* SOA declaration, per ISO 27001 6.1.3 d. The block explains itself for NO and
+          PARCIAL, and SIG-Seguridad alone may edit it (rule 5). */}
+      <div
+        className="mb-4 rounded-campo border p-3"
+        style={{
+          borderColor: control.soa === 'no' ? '#e2e6e3' : control.soa === 'parcial' ? '#f2b473' : '#d3dceb',
+          background: control.soa === 'no' ? '#fbfcfb' : control.soa === 'parcial' ? '#fff3e6' : '#f7f9fd',
+        }}
+      >
+        <p className="etiqueta-campo" style={{ color: control.soa === 'no' ? '#8a938e' : control.soa === 'parcial' ? '#8a4407' : '#12437f' }}>
+          Declaración de aplicabilidad · {etiquetaSoa(control.soa)}
+        </p>
+        {!esAplicable(control.soa) && (
+          <p className="parrafo mt-1 text-11_5">
+            {control.soa === 'no'
+              ? 'Un control que no aplica queda excluido de todos los promedios, pero no se borra: su no aplicabilidad es una decisión que el Comité aprueba y que un auditor revisa.'
+              : 'Parcialmente aplicable: cuenta como aplicable en todos los indicadores, pero la cobertura parcial rara vez sostiene L4/L5 en auditoría.'}
           </p>
-        </div>
-      )}
+        )}
+        {(control.soaActualizadoPor || control.soaActualizadoEn) && (
+          <p className="mt-1 text-10_5 text-faint">
+            Último cambio{control.soaActualizadoPor ? ` por ${control.soaActualizadoPor}` : ''}
+            {control.soaActualizadoEn
+              ? ` · ${new Date(control.soaActualizadoEn).toLocaleDateString('es-AR')}`
+              : ''}
+          </p>
+        )}
+        {puedeEditarSoa ? (
+          <>
+            <label className="mt-2 flex items-center gap-2">
+              <span className="text-11_5 text-secondary">Estado:</span>
+              <select
+                value={soaEditado ?? control.soa}
+                onChange={(e) => {
+                  setSoaEditado(e.target.value as EstadoSoa);
+                  setSoaAviso(null);
+                }}
+                className="rounded-campo border border-border-field bg-surface px-2 py-1 font-mono text-11 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+              >
+                <option value="si">Aplica</option>
+                <option value="parcial">Parcialmente</option>
+                <option value="no">No aplica</option>
+              </select>
+            </label>
+            <textarea
+              value={justificacionEditada}
+              onChange={(e) => {
+                setJustificacionEditada(e.target.value);
+                setSoaAviso(null);
+              }}
+              rows={3}
+              disabled={!soaEditado || (soaEditado ?? control.soa) === 'si'}
+              placeholder={
+                (soaEditado ?? control.soa) === 'no'
+                  ? 'Por qué se excluye de la declaración…'
+                  : (soaEditado ?? control.soa) === 'parcial'
+                    ? 'Qué parte del alcance cubre y qué parte no…'
+                    : 'Justificación (solo para parcial o no aplica)'
+              }
+              className="mt-2 w-full rounded-campo border border-border-field bg-surface px-2.5 py-1.5 text-11_5 text-secondary focus:outline-hidden focus:ring-2 focus:ring-accent-300 disabled:opacity-50"
+            />
+            {soaAviso && <p className="mt-1.5 text-11 text-danger-text">{soaAviso}</p>}
+            {(soaEditado !== null || justificacionEditada !== (control.justificacionSoa ?? '')) && (
+              <button
+                onClick={() =>
+                  iniciar(async () => {
+                    const r = await cambiarEstadoSoa(
+                      control.codigo,
+                      soaEditado ?? control.soa,
+                      justificacionEditada,
+                    );
+                    setAviso({ ok: r.ok, texto: r.mensaje });
+                    if (r.ok) {
+                      setSoaEditado(null);
+                      setSoaAviso(null);
+                      router.refresh();
+                    } else {
+                      setSoaAviso(r.mensaje);
+                    }
+                  })
+                }
+                disabled={pendiente}
+                className="mt-2 rounded-campo border border-accent-500 bg-accent-100 px-3 py-1.5 text-11_5 font-semibold text-accent-700 disabled:opacity-50"
+              >
+                {pendiente ? 'Guardando…' : 'Guardar la declaración'}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="parrafo mt-2 text-11_5 text-muted">
+            {control.justificacionSoa ?? 'Sin justificación registrada.'}
+          </p>
+        )}
+      </div>
 
       {/* Three cards with the CMM traffic light; the current one carries a 2px border. */}
       <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
@@ -178,7 +268,7 @@ export default function PopupControl({
         })}
       </div>
 
-      {control.aplica && (
+      {esAplicable(control.soa) && (
         <div className="mt-4 flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1">
             <span className="etiqueta-campo">Madurez actual</span>
@@ -298,7 +388,7 @@ export default function PopupControl({
           ) : (
             <div className="mt-1.5">
               <p className="text-11_5 text-faint">sin acción asociada</p>
-              {control.aplica && (
+              {esAplicable(control.soa) && (
                 <button
                   onClick={() =>
                     correr(async () => {

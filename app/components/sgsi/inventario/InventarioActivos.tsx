@@ -13,7 +13,11 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { guardarValoracion } from '@/app/sgsi/acciones/activos';
 import PopupImportacion from '@/app/components/sgsi/inventario/PopupImportacion';
-import { clasificar, type Umbral } from '@/lib/sgsi/clasificar';
+import { clasificar } from '@/lib/sgsi/clasificar';
+import {
+  nivelDeRiesgoDelActivo,
+  type NivelRiesgo,
+} from '@/lib/sgsi/riesgo-activo';
 import { valorActivo } from '@/lib/sgsi/formulas';
 
 /// One (asset, threat) row, reduced to what the inventory needs. Decimals travel as
@@ -48,12 +52,12 @@ export interface NivelValor {
 
 /// A row of `umbral_riesgo`. `orden` is 1 for the worst band, which is what turns the
 /// band into a position on the 1–5 ladder below.
-export interface BandaRiesgo extends Umbral {
+export type BandaRiesgo = {
   nombre: string;
   desde: string;
   hasta: string;
   orden: number;
-}
+};
 
 interface Props {
   activos: ActivoVista[];
@@ -64,64 +68,13 @@ interface Props {
   umbralValoracion: number;
 }
 
-export interface NivelRiesgo {
-  /// 1–5, on the same ordinal ladder as the asset value, so the row-colour rule
-  /// ("residual ≥ 4", "inherente ≤ 3") keeps the meaning the handoff gives it.
-  nivel: number;
-  /// The band's own name — Crítico, Alto, Medio, Bajo — never a number alone.
-  banda: string;
-  /// The figure the band was read from, for the cell's tooltip.
-  figura: string;
-}
-
 /// The top of the valuation scale. Both the asset value and the risk-band ladder are
 /// read against it.
 const TOPE_DE_ESCALA = 5;
 
-// ===========================================================================
-// THE UNRATIFIED RULE — README open question 2
-// ===========================================================================
-//
-// How to collapse an asset's many risks into ONE 1–5 inherent/residual level for the
-// inventory columns is undecided by the client: maximum, mean or percentile. The
-// prototype sidesteps it with a hand-written map (`RIESGO_ACTIVO`).
-//
-// MAXIMUM is implemented here as the working assumption — it is the only one of the
-// three that cannot hide a critical risk behind a mass of low ones, which is the
-// failure mode an inventory column must not have.
-//
-// THIS IS NOT RATIFIED. Swapping it for the mean or a percentile is a change to this
-// ONE function and to nothing else: every caller reads the returned level and band, and
-// no aggregate is stored anywhere.
-/// Reduces an asset's risk figures to a single level. Returns null when there is nothing
-/// to classify — no risks at all, or, as is the case for every residual today, figures
-/// that have not been calculated yet. The caller decides how to word the absence; it is
-/// never a zero.
-export function nivelDeRiesgoDelActivo(
-  figuras: readonly (string | null)[],
-  bandas: readonly BandaRiesgo[],
-): NivelRiesgo | null {
-  // The band ladder is anchored to the top of the value scale: the worst band is 5 and
-  // each step down subtracts one, floored at 1. With the four bands in use — Crítico,
-  // Alto, Medio, Bajo — that reads 5, 4, 3, 2, which is what makes "residual ≥ 4" mean
-  // "Alto or Crítico" exactly as the handoff's row-colour rule intends.
-  const nivelDeBanda = (nombre: string): number => {
-    const banda = bandas.find((b) => b.nombre === nombre);
-    if (!banda) return 1;
-    return Math.max(1, TOPE_DE_ESCALA - (banda.orden - 1));
-  };
-
-  let mayor: NivelRiesgo | null = null;
-  for (const figura of figuras) {
-    if (figura === null) continue;
-    const banda = clasificar(figura, bandas);
-    if (banda === null) continue;
-    const nivel = nivelDeBanda(banda);
-    // The aggregation. This comparison is the whole of the unratified decision.
-    if (mayor === null || nivel > mayor.nivel) mayor = { nivel, banda, figura };
-  }
-  return mayor;
-}
+// The collapse of an asset's risks into ONE level lives in lib/sgsi/riesgo-activo.ts,
+// shared by this screen and the workbook export — one rule, one module. See its header
+// for the unratified MAXIMUM assumption (README open question 2).
 
 /// The three rules the client stated, plus the case they do not cover.
 ///
@@ -450,7 +403,7 @@ export default function InventarioActivos({
               Importar desde Excel
             </button>
             <button
-              onClick={() => exportarInventario(visibles, escala, agrupar, umbralValoracion)}
+              onClick={() => exportarInventario(visibles, agrupar)}
               className="rounded-campo border border-accent-border bg-accent-100 px-3.5 py-2 text-12_5 font-semibold text-accent-700 transition-colors hover:bg-accent-border"
             >
               Exportar a Excel
@@ -953,10 +906,10 @@ function claveDeGrupo(
   return fila.nivel;
 }
 
-/// The seventeen columns the handoff lists, over the FILTERED set — what is on screen is
-/// what leaves in the file. Written as a spreadsheet-readable HTML table because the
-/// alternative is shipping a workbook writer to the browser for one button.
-function exportarInventario(
+/// The filtered set, exported as the FOR-SIG-12 form (.xlsx real, with its dropdowns),
+/// built server-side by /api/sgsi/exportar-activos — the same route that checks the
+/// session and reads the catalogues. The browser only names the codes on screen.
+async function exportarInventario(
   filas: {
     activo: ActivoVista;
     D: number;
@@ -968,47 +921,24 @@ function exportarInventario(
     residual: NivelRiesgo | null;
     entra: boolean;
   }[],
-  escala: NivelValor[],
   agrupar: string,
-  umbral: number,
-): void {
-  const etiqueta = (v: number) => escala.find((e) => e.valor === v)?.etiqueta ?? String(v);
-  const banda = (n: NivelRiesgo | null, entra: boolean, tiene: boolean) =>
-    n ? `${n.nivel} — ${n.banda}` : !entra ? 'no requiere' : tiene ? 'sin calcular' : 'sin generar';
+): Promise<void> {
+  const codigos = filas
+    .map((f) => f.activo.codigo)
+    .filter((c) => c !== '(sin código)')
+    .join(',');
+  const url = `/api/sgsi/exportar-activos${codigos ? `?codigos=${encodeURIComponent(codigos)}` : ''}`;
 
-  const encabezados = [
-    'Código', 'Código heredado', 'Activo', 'Proceso', 'Tipo MAGERIT', 'Subtipo', 'Propietario',
-    'Custodio', 'Proveedor o subencargado', 'Disponibilidad', 'Integridad', 'Confidencialidad',
-    'Valor', 'Nivel', 'Riesgo inherente', 'Riesgo residual', 'Riesgos generados',
-  ];
+  const respuesta = await fetch(url, { method: 'GET' });
+  if (!respuesta.ok) {
+    alert('No se pudo exportar el inventario. Revisá la sesión e intentá de nuevo.');
+    return;
+  }
 
-  const cuerpo = filas.map((f) => {
-    const a = f.activo;
-    const tiene = a.riesgos.length > 0;
-    return [
-      a.codigo, a.codigoHeredado ?? '', a.nombre, a.proceso, a.tipo, a.subtipo,
-      a.propietario ?? '', a.custodio ?? '', a.proveedor ?? '',
-      etiqueta(f.D), etiqueta(f.I), etiqueta(f.C), String(f.valor), f.nivel,
-      banda(f.inherente, f.entra, tiene), banda(f.residual, f.entra, tiene),
-      f.valor >= umbral ? String(a.riesgos.length) : 'no requiere',
-    ];
-  });
-
-  const escapar = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const fila = (celdas: string[], etiquetaCelda: 'th' | 'td') =>
-    `<tr>${celdas.map((c) => `<${etiquetaCelda}>${escapar(c)}</${etiquetaCelda}>`).join('')}</tr>`;
-
-  const html =
-    '<html><head><meta charset="utf-8"></head><body><table>' +
-    fila(encabezados, 'th') +
-    cuerpo.map((c) => fila(c, 'td')).join('') +
-    '</table></body></html>';
-
-  const url = URL.createObjectURL(new Blob([html], { type: 'application/vnd.ms-excel' }));
+  const blob = await respuesta.blob();
   const enlace = document.createElement('a');
-  enlace.href = url;
-  enlace.download = `Inventario de activos ${agrupar.replace('|', '-')}.xls`;
+  enlace.href = URL.createObjectURL(blob);
+  enlace.download = `FOR-SIG-12 Inventario de activos de información ${agrupar.replace('|', '-')}.xlsx`;
   enlace.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 4000);
 }

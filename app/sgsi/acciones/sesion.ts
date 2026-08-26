@@ -66,19 +66,19 @@ export interface Resultado {
 
 /// Wraps an action so a thrown error becomes a message the screen can show, instead of a
 /// stack trace the user cannot act on.
-export async function ejecutar(
-  operacion: () => Promise<Resultado>,
-): Promise<Resultado> {
+export async function ejecutar<T extends Resultado = Resultado>(
+  operacion: () => Promise<T>,
+): Promise<T> {
   try {
     return await operacion();
   } catch (error) {
     if (error instanceof SinSesionError || error instanceof SinPermisoError) {
-      return { ok: false, mensaje: error.message };
+      return { ok: false, mensaje: error.message } as T;
     }
     console.error('[sgsi] la acción falló', error);
     return {
       ok: false,
       mensaje: error instanceof Error ? error.message : 'No se pudo guardar el cambio.',
-    };
+    } as T;
   }
 }

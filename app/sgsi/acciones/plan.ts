@@ -324,7 +324,7 @@ export async function crearAccionDesdeControl(codigoControl: string): Promise<Re
       include: { actual: true, objetivo: true, responsable: true },
     });
     if (!control) return { ok: false, mensaje: `No existe el control ${codigoControl}.` };
-    if (!control.aplica) {
+    if (control.soa === 'NO') {
       return {
         ok: false,
         mensaje: `El control ${codigoControl} no aplica, así que no lleva acción de mejora.`,

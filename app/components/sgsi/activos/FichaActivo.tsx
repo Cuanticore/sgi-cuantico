@@ -637,7 +637,7 @@ export default function FichaActivo({
             nivel: madOv[`${amenaza.codigo}·${c.codigo}`] ?? c.nivel,
             efecto: efectos[`${amenaza.codigo}·${c.codigo}`] ?? 'Previene',
           }));
-        const aplicables = controles.filter((c) => c.aplica);
+        const aplicables = controles.filter((c) => c.soa !== 'no');
 
         // UNKNOWN, not zero. With no control mapped to the threat there is nothing to
         // average, and a zero here would make the residual equal the inherent.
@@ -3259,7 +3259,7 @@ function GrillaControles({
                   <span className="ml-1.5 font-mono text-9_5 text-label">
                     {c.relevancia}
                     {c.esPrincipal ? ' · techo' : ''}
-                    {c.aplica ? '' : ' · no aplica'}
+                    {c.soa === 'no' ? ' · no aplica' : ''}
                   </span>
                 </div>
                 <div className="pr-3">

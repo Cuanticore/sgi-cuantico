@@ -21,7 +21,7 @@ export default async function AporteSgsi() {
 
   const m = metricasMadurez(
     controles.map<ControlMadurez>((c) => ({
-      aplica: c.aplica,
+      soa: c.soa === 'PARCIAL' ? 'parcial' : c.soa === 'NO' ? 'no' : 'si',
       lineaBase: c.lineaBase?.nivel ?? null,
       actual: c.actual?.nivel ?? null,
       objetivo: c.objetivo?.nivel ?? null,
