@@ -123,8 +123,33 @@ function reconocidos(valores: readonly string[]): Grupo[] {
   return [...vistos];
 }
 
-/// Derives the role from the token's groups, falling back to the environment variable
-/// only when the claim is absent.
+/// The role granted to an authenticated session whose token carries NO recognised group.
+///
+/// `SGI_ACCESO_SIN_GRUPO` is the switch, and what it does is deliberately blunt: set it and
+/// the Directory stops being the gate. Anyone who can sign in to the tenant gets the role
+/// named here — the whole inventory, the whole risk register, the Ley 1581 personal-data
+/// flags, the internet-exposure flags, the custodians and the owners. Set to
+/// `SIG-Seguridad` it also grants the writes: valuing assets, recording treatment, and
+/// reparameterising the method itself.
+///
+/// It exists because the organisation asked for it, and it is a VARIABLE rather than a
+/// deleted gate for three reasons: reverting is one value, the sidebar can say out loud
+/// where the role came from, and an auditor reading this sees a decision instead of an
+/// oversight. Unset — which is the default, and what production should carry — the answer
+/// for a session with no recognised group is no access.
+///
+/// `SGI_ROL_POR_DEFECTO` is the older, narrower name: it only ever applied when the claim
+/// was absent entirely. It is still read so an existing environment keeps working, but the
+/// new name is the one that describes what actually happens.
+function accesoSinGrupo(): Grupo[] {
+  const configurado = process.env.SGI_ACCESO_SIN_GRUPO ?? process.env.SGI_ROL_POR_DEFECTO ?? '';
+  return reconocidos([configurado]);
+}
+
+/// Derives the role from the token's groups.
+///
+/// A recognised group always wins. Failing that, `SGI_ACCESO_SIN_GRUPO` decides, and the
+/// result is flagged `esPorDefecto` so the interface can say the Directory did not grant it.
 export function rolDesdeGrupos(grupos: readonly string[] | undefined | null): Rol {
   const encontrados = reconocidos(grupos ?? []);
 
@@ -132,14 +157,14 @@ export function rolDesdeGrupos(grupos: readonly string[] | undefined | null): Ro
     return { grupos: encontrados, permisos: permisosDe(encontrados), esPorDefecto: false };
   }
 
-  // A token that carries groups, none of which is ours, is a Domain Users member: the
-  // claim worked and the answer is no.
-  if ((grupos?.length ?? 0) > 0) return SIN_ACCESO;
+  // Reached both when the claim is absent AND when it carries only groups that are not
+  // ours. Those used to be different answers — the second was a flat no, on the reasoning
+  // that a working claim listing other groups IS the Directory saying no. They are the same
+  // answer now, by decision: the organisation wants every authenticated account in.
+  const sinGrupo = accesoSinGrupo();
+  if (sinGrupo.length === 0) return SIN_ACCESO;
 
-  const porDefecto = reconocidos([process.env.SGI_ROL_POR_DEFECTO ?? '']);
-  if (porDefecto.length === 0) return SIN_ACCESO;
-
-  return { grupos: porDefecto, permisos: permisosDe(porDefecto), esPorDefecto: true };
+  return { grupos: sinGrupo, permisos: permisosDe(sinGrupo), esPorDefecto: true };
 }
 
 function permisosDe(grupos: readonly Grupo[]): Set<Permiso> {

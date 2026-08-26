@@ -12,6 +12,7 @@ const OBJECT_ID_RESPONSABLES = 'd04a62e7-11ce-4faf-a1b2-7e77fb7ba59b';
 
 afterEach(() => {
   delete process.env.SGI_ROL_POR_DEFECTO;
+  delete process.env.SGI_ACCESO_SIN_GRUPO;
 });
 
 describe('grupos por nombre', () => {
@@ -81,34 +82,73 @@ describe('lo que NO debe otorgar acceso', () => {
     expect(rolDesdeGrupos(['Responsables SIG-Lectura']).grupos).toEqual([]);
   });
 
-  it('un token con grupos ignora SGI_ROL_POR_DEFECTO', () => {
-    // El respaldo es para el claim ausente, no para el claim que dice no. Si un grupo
-    // ajeno pudiera caer al respaldo, la variable otorgaría lo que el Directorio negó.
-    process.env.SGI_ROL_POR_DEFECTO = GRUPOS.seguridad;
-    const rol = rolDesdeGrupos(['Domain Users']);
-    expect(rol.grupos).toEqual([]);
-    expect(rol.esPorDefecto).toBe(false);
-  });
-
   it('sin claim y sin variable, no hay acceso', () => {
+    // The default, and what production should carry. Every «no access» case above depends
+    // on this: none of them holds once SGI_ACCESO_SIN_GRUPO is set.
     expect(rolDesdeGrupos(undefined).grupos).toEqual([]);
     expect(rolDesdeGrupos(null).grupos).toEqual([]);
     expect(rolDesdeGrupos([]).grupos).toEqual([]);
   });
 });
 
-describe('SGI_ROL_POR_DEFECTO', () => {
-  it('solo aplica cuando el claim está ausente, y se marca como respaldo', () => {
-    process.env.SGI_ROL_POR_DEFECTO = GRUPOS.auditoria;
-    const rol = rolDesdeGrupos([]);
-    expect(rol.grupos).toEqual([GRUPOS.auditoria]);
+describe('SGI_ACCESO_SIN_GRUPO — acceso abierto, por decisión', () => {
+  // This test previously asserted the OPPOSITE, and the reason it gave was right: «el
+  // respaldo es para el claim ausente, no para el claim que dice no. Si un grupo ajeno
+  // pudiera caer al respaldo, la variable otorgaría lo que el Directorio negó.»
+  //
+  // That is exactly what the variable now does, because the organisation decided the
+  // Directory should stop being the gate. The warning is kept rather than deleted: it
+  // states the consequence, and the consequence has not changed — only the decision has.
+  it('un token con grupos ajenos SÍ recibe el rol configurado', () => {
+    process.env.SGI_ACCESO_SIN_GRUPO = GRUPOS.seguridad;
+    const rol = rolDesdeGrupos(['Domain Users', 'Todos-Cuantico']);
+    expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+    expect(puede(rol, 'sgsi:escribir')).toBe(true);
+    // Flagged, so the sidebar can say the Directory did not grant this.
     expect(rol.esPorDefecto).toBe(true);
   });
 
-  it('un valor que no es un grupo conocido no otorga nada', () => {
-    process.env.SGI_ROL_POR_DEFECTO = 'administrador';
-    const rol = rolDesdeGrupos([]);
-    expect(rol.grupos).toEqual([]);
+  it('un claim ausente recibe lo mismo', () => {
+    process.env.SGI_ACCESO_SIN_GRUPO = GRUPOS.seguridad;
+    for (const claim of [undefined, null, []] as const) {
+      expect(rolDesdeGrupos(claim).grupos).toEqual([GRUPOS.seguridad]);
+    }
+  });
+
+  it('un grupo RECONOCIDO gana sobre la variable, y no se marca como respaldo', () => {
+    // The Directory still decides for anybody who is actually in a group. Otherwise an
+    // auditor could not tell a real membership from the open door.
+    process.env.SGI_ACCESO_SIN_GRUPO = GRUPOS.seguridad;
+    const rol = rolDesdeGrupos([GRUPOS.auditoria]);
+    expect(rol.grupos).toEqual([GRUPOS.auditoria]);
     expect(rol.esPorDefecto).toBe(false);
+    expect(puede(rol, 'sgsi:escribir')).toBe(false);
+  });
+
+  it('acepta un rol de menor alcance: abrir la puerta no obliga a dar todo', () => {
+    process.env.SGI_ACCESO_SIN_GRUPO = GRUPOS.auditoria;
+    const rol = rolDesdeGrupos(['Domain Users']);
+    expect(puede(rol, 'sgsi:ver')).toBe(true);
+    expect(puede(rol, 'sgsi:escribir')).toBe(false);
+    expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
+  });
+
+  it('un valor que no es un grupo conocido no otorga nada', () => {
+    // A typo must fail closed. «administrador» is not a role, so it grants nothing rather
+    // than being interpreted generously.
+    process.env.SGI_ACCESO_SIN_GRUPO = 'administrador';
+    expect(rolDesdeGrupos(['Domain Users']).grupos).toEqual([]);
+    expect(rolDesdeGrupos([]).grupos).toEqual([]);
+  });
+
+  it('SGI_ROL_POR_DEFECTO sigue funcionando, y el nombre nuevo tiene precedencia', () => {
+    // The old name kept working so an existing environment does not silently lose access
+    // on deploy.
+    process.env.SGI_ROL_POR_DEFECTO = GRUPOS.auditoria;
+    expect(rolDesdeGrupos(['Domain Users']).grupos).toEqual([GRUPOS.auditoria]);
+
+    process.env.SGI_ACCESO_SIN_GRUPO = GRUPOS.seguridad;
+    expect(rolDesdeGrupos(['Domain Users']).grupos).toEqual([GRUPOS.seguridad]);
   });
 });
+

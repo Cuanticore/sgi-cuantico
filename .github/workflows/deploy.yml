@@ -55,12 +55,16 @@ jobs:
             exit 1
           fi
 
-          # Not an error, a warning. The fallback role grants permissions the Directory
-          # never granted; absent, the fallback is no access, which is what production
-          # wants. The header already flags it on screen when it is in use.
-          if grep -Eq "^[[:space:]]*SGI_ROL_POR_DEFECTO=.+" "$archivo"; then
-            echo "::warning::SGI_ROL_POR_DEFECTO está definido en producción: cualquier sesión sin claim de grupos recibirá ese rol."
-          fi
+          # A warning, not an error: it is a supported configuration, and the organisation
+          # asked for it. But it is the one setting that removes the Directory as the gate,
+          # so every deploy that carries it says so in the log — that record is what makes
+          # it a decision somebody can point at rather than a surprise.
+          for clave in SGI_ACCESO_SIN_GRUPO SGI_ROL_POR_DEFECTO; do
+            if grep -Eq "^[[:space:]]*${clave}=.+" "$archivo"; then
+              rol="$(grep -E "^[[:space:]]*${clave}=" "$archivo" | head -1 | cut -d= -f2-)"
+              echo "::warning::${clave}=${rol} — ACCESO ABIERTO: cualquier cuenta autenticada del tenant recibe el rol ${rol}, sin pertenecer a ningún grupo del SIG. Con SIG-Seguridad eso incluye escribir el registro de riesgos y reparametrizar el método."
+            fi
+          done
 
           echo "preflight ok"
 

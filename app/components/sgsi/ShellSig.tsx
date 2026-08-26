@@ -68,8 +68,18 @@ export default async function ShellSig({ children }: { children: React.ReactNode
     // anything else on the screen. The fallback is no longer called out here: in production
     // SGI_ROL_POR_DEFECTO is unset, so the fallback is no access and the note only ever
     // appeared in development.
+    // WHERE the role came from, not only what it grants.
+    //
+    // With `SGI_ACCESO_SIN_GRUPO` set, a session gets the full role without belonging to
+    // any SIG group — and a permission the Directory did not grant must not look identical
+    // to one it did. This line is where an auditor looks first, so it says which of the two
+    // it is reading.
     permisos: rol.grupos.length
-      ? `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')} · ${
+      ? `${
+          rol.esPorDefecto
+            ? 'Acceso abierto a cualquier cuenta autenticada: el rol NO viene de un grupo del Directorio, viene de la configuración del servidor'
+            : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
+        } · ${
           puede(rol, 'sgsi:escribir')
             ? 'lectura y escritura'
             : puede(rol, 'activo:valorar')
