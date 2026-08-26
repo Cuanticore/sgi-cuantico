@@ -1,6 +1,7 @@
 import { getIndicatorsData } from '@/app/lib/data';
 import { computeOcRadarData } from '@/app/lib/oc-utils';
 import type { IndicatorYear } from '@/app/lib/sharepoint';
+import AvisoIndicadores from './components/AvisoIndicadores';
 import HeroBanner from './components/HeroBanner';
 import DashboardShell from './components/DashboardShell';
 import ShellSig from './components/sgsi/ShellSig';
@@ -28,20 +29,40 @@ export default async function DashboardPage({
   } catch (err) {
     // A bare catch here hid every cause behind the same SharePoint message.
     console.error('[dashboard] could not load indicators', err);
+
+    // Rendered INSIDE the shell. The previous version returned a bare page, which took the
+    // header and the sidebar with it — so a 404 on a SharePoint path locked the person out
+    // of the SGSI module as well, and the SGSI module never touches SharePoint. One
+    // domain's remote dependency must not be able to hide the other.
+    const estado =
+      typeof err === 'object' && err !== null && 'response' in err
+        ? ((err as { response?: { status?: number } }).response?.status ?? null)
+        : null;
+
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="bg-white rounded-xl p-8 shadow-sm max-w-2xl">
-          <p className="text-red-600 font-semibold mb-2 text-center">Error al cargar indicadores</p>
-          <p className="text-slate-500 text-sm text-center">
-            No se pudo cargar la matriz de indicadores. Verifica la configuración e intenta de nuevo.
-          </p>
-          {process.env.NODE_ENV !== 'production' && (
-            <pre className="mt-5 max-h-80 overflow-auto rounded-sm bg-slate-900 p-4 text-xs leading-relaxed text-amber-200">
-              {err instanceof Error ? `${err.name}: ${err.message}\n\n${err.stack ?? ''}` : String(err)}
-            </pre>
-          )}
-        </div>
-      </div>
+      <ShellSig>
+        <CabeceraIndicadores
+          year={year}
+          matrixUrl={
+            year === '2026'
+              ? process.env.SHAREPOINT_MATRIX_URL_2026
+              : process.env.SHAREPOINT_MATRIX_URL_2025
+          }
+        />
+        <AvisoIndicadores
+          estado={estado}
+          anio={year}
+          // A stack trace is a development aid, not something to put in front of whoever
+          // opens the dashboard in production.
+          detalle={
+            process.env.NODE_ENV !== 'production'
+              ? err instanceof Error
+                ? `${err.name}: ${err.message}\n\n${err.stack ?? ''}`
+                : String(err)
+              : null
+          }
+        />
+      </ShellSig>
     );
   }
 
