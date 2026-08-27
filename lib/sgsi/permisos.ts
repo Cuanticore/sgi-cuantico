@@ -44,7 +44,8 @@ export type Permiso =
   | 'riesgo:tratar'
   | 'parametrizacion:escribir'
   | 'bitacora:ver'
-  | 'evidencia:ver';
+  | 'evidencia:ver'
+  | 'evidencia:escribir';
 
 const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.seguridad]: [
@@ -55,6 +56,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'parametrizacion:escribir',
     'bitacora:ver',
     'evidencia:ver',
+    'evidencia:escribir',
   ],
   // Values and treats, but does not touch the parameterisation: the scales and the
   // thresholds are the Committee's, not an owner's.
@@ -66,7 +68,10 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   // group membership, not a process. Until the organisation decides how that mapping is
   // maintained, the mitigation is the bitácora: every valuation and every treatment records
   // its author, so an out-of-scope change is attributable even though it is not prevented.
-  [GRUPOS.propietarios]: ['sgsi:ver', 'activo:valorar', 'riesgo:tratar'],
+  //
+  // Evidencia: un propietario aporta notas, enlaces y anexos (evidencia del control),
+  // pero no cambia madurez ni aplicabilidad — eso sigue siendo `sgsi:escribir`.
+  [GRUPOS.propietarios]: ['sgsi:ver', 'activo:valorar', 'riesgo:tratar', 'evidencia:escribir'],
   // Reads everything and changes nothing. The log and the evidence are precisely what an
   // auditor comes for.
   [GRUPOS.auditoria]: ['sgsi:ver', 'bitacora:ver', 'evidencia:ver'],

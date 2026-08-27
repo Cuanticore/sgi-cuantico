@@ -11,6 +11,8 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
+import { correoDeMencion, enviarCorreo } from '@/lib/sgsi/notificaciones';
+import { leerDirectorio } from '@/lib/sgsi/directorio';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import {
@@ -45,6 +47,28 @@ export interface ResultadoSoa extends Resultado {
   afectados: { codigo: string; nombre: string }[];
 }
 
+/// Intenta leer el título de una página para proponerlo en el enlace (título editable
+/// después). Timeout corto y sin HTML: lo que entra es texto de un <title> sano.
+async function sugerirTitulo(url: string): Promise<string | null> {
+  try {
+    const ctl = new AbortController();
+    const tiempo = setTimeout(() => ctl.abort(), 3000);
+    const r = await fetch(url, {
+      signal: ctl.signal,
+      redirect: 'follow',
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; sgi-cuantico/1)' },
+    });
+    clearTimeout(tiempo);
+    if (!r.ok) return null;
+    const html = (await r.text()).slice(0, 300_000);
+    const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+    if (!m) return null;
+    return m[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+  } catch {
+    return null;
+  }
+}
+
 /// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
 /// The prototype also splits on `|`, so that separator is honoured too.
 export async function agregarEvidencias(
@@ -53,16 +77,35 @@ export async function agregarEvidencias(
   texto: string,
 ): Promise<Resultado> {
   return ejecutar(async () => {
-    const autor = await autorConPermiso('sgsi:escribir');
+    const autor = await autorConPermiso('evidencia:escribir');
 
     const entradas = texto
       .split(/[\n;|]+/)
       .map((t) => t.trim())
+      // Sin HTML nunca: lo que se guarda es texto y el render del cliente decide el
+      // formato (negrita `**`, cursiva `*`, lista `-`, cita `>`), nunca lo pegado.
+      .map((t) => t.replace(/<[^>]*>/g, '').slice(0, 2000))
       .filter(Boolean);
 
     if (entradas.length === 0) {
       return { ok: false, mensaje: 'Escribí al menos una evidencia.' };
     }
+
+    // Un enlace sin título intenta leer el de la página: es una propuesta, no un texto
+    // sagrado — el título queda editable en la entrada.
+    const entradasConTitulo = await Promise.all(
+      entradas.map(async (t) => {
+        if (tipo !== 'ENLACE' || !t.startsWith('{')) return t;
+        try {
+          const d = JSON.parse(t);
+          if (typeof d.url !== 'string' || (typeof d.titulo === 'string' && d.titulo !== '')) return t;
+          const titulo = (await sugerirTitulo(d.url)) ?? d.url;
+          return JSON.stringify({ url: d.url, titulo });
+        } catch {
+          return t;
+        }
+      }),
+    );
 
     const control = await prisma.control.findUnique({
       where: { codigo: codigoControl },
@@ -70,9 +113,34 @@ export async function agregarEvidencias(
     });
     if (!control) return { ok: false, mensaje: `No existe el control ${codigoControl}.` };
 
+    // Menciones `@correo` a usuarios del directorio: quedan en la bitácora como event
+    // de notificación (es el canal que un conector de correo futuro puede leer) y la
+    // nota se resalta en la pantalla del mencionado.
+    const mencionada = [
+      ...new Set(
+        (entradasConTitulo.join(' ').match(/@[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi) ?? []).map((m) =>
+          m.toLowerCase(),
+        ),
+      ),
+    ];
+    // También `@nombre` (sin dominio): se resuelve contra el directorio — @diego o
+    // @diego.munoz son el correo de Diego, no un comentario suelto.
+    const directorio = await leerDirectorio();
+    for (const token of new Set((entradasConTitulo.join(' ').match(/@[\w.+-]{2,40}/gi) ?? []).map((t) => t.slice(1)))) {
+      const persona = directorio.find((p) => {
+        const local = p.correo.split('@')[0].toLowerCase();
+        const nombre = p.nombre.toLocaleLowerCase('es').replace(/[^\p{L}\p{N}]/gu, '');
+        const tokenLimpio = token.toLocaleLowerCase('es').replace(/[^\p{L}\p{N}]/gu, '');
+        return local === token.toLowerCase() || nombre === tokenLimpio;
+      });
+      if (persona && !mencionada.includes(persona.correo.toLowerCase())) {
+        mencionada.push(persona.correo.toLowerCase());
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       let orden = control.evidencias.length;
-      for (const t of entradas) {
+      for (const t of entradasConTitulo) {
         await tx.evidencia.create({
           data: { controlId: control.id, tipo, texto: t, esBase: false, orden: orden++, creadaPor: autor },
         });
@@ -80,7 +148,7 @@ export async function agregarEvidencias(
       await registrar(
         tx,
         autor,
-        entradas.map((t) => ({
+        entradasConTitulo.map((t) => ({
           tabla: 'evidencia',
           registroId: control.codigo,
           campo: `evidencia (${tipo.toLowerCase()})`,
@@ -88,13 +156,55 @@ export async function agregarEvidencias(
           nuevo: t,
         })),
       );
+      await registrar(
+        tx,
+        autor,
+        mencionada.map((m) => ({
+          tabla: 'mencion',
+          registroId: control.codigo,
+          campo: 'notificación de mención',
+          anterior: null,
+          nuevo: m,
+          motivo: 'mencionado en una nota de evidencia',
+        })),
+      );
     });
 
     revalidatePath('/sgsi/controles');
     revalidatePath('/sgsi');
+
+    // Notificación por correo de cada mención. Fuera de la transacción: la nota ya
+    // quedó guardada (el dato es primerísimo) y un fallo de SMTP no debe revertirla —
+    // se registra qué envió y qué no, para que un auditor lo vea.
+    const notificaciones: string[] = [];
+    const cuerpo = entradasConTitulo.join('\n');
+    for (const m of mencionada) {
+      const contenido = correoDeMencion(autor, codigoControl, control.nombre, cuerpo);
+      const r = await enviarCorreo(m, contenido.asunto, contenido.texto, contenido.html);
+      await registrar(
+        { bitacora: prisma.bitacora },
+        autor,
+        [
+          {
+            tabla: 'mencion',
+            registroId: codigoControl,
+            campo: r.enviado ? 'notificación enviada' : 'notificación fallida',
+            anterior: null,
+            nuevo: m,
+            motivo: r.detalle,
+          },
+        ],
+      );
+      notificaciones.push(r.enviado ? m : `${m} (${r.detalle})`);
+    }
+
     return {
       ok: true,
-      mensaje: `Se agregaron ${entradas.length} ${entradas.length === 1 ? 'evidencia' : 'evidencias'} a ${codigoControl}.`,
+      mensaje: `Se agregaron ${entradas.length} ${entradas.length === 1 ? 'evidencia' : 'evidencias'} a ${codigoControl}.${
+        mencionada.length > 0
+          ? ` Menciones: ${notificaciones.join(', ')}.`
+          : ''
+      }`,
       cambios: entradas.length,
     };
   });
@@ -105,7 +215,7 @@ export async function agregarEvidencias(
 /// the Committee approved, not an attachment.
 export async function quitarEvidencia(id: number, motivo: string): Promise<Resultado> {
   return ejecutar(async () => {
-    const autor = await autorConPermiso('sgsi:escribir');
+    const autor = await autorConPermiso('evidencia:escribir');
 
     if (!motivo.trim()) {
       return { ok: false, mensaje: 'Quitar una evidencia necesita un motivo: queda en la bitácora.' };
@@ -135,11 +245,98 @@ export async function quitarEvidencia(id: number, motivo: string): Promise<Resul
           motivo,
         },
       ]);
-      await tx.evidencia.delete({ where: { id } });
+      // La baja es lógica para TODAS las evidencias (con deshacer): la fila sobrevive
+      // con `activo=false` — una nota retirada sigue explicando qué se dijo, y un anexo
+      // sostiene la auditoría de certificación. El deshacer la revive.
+      await tx.evidencia.update({ where: { id }, data: { activo: false } });
     });
 
     revalidatePath('/sgsi/controles');
     return { ok: true, mensaje: 'Se retiró la evidencia.', cambios: 1 };
+  });
+}
+
+/// Verificación de enlaces rotos del control: cada ENLACE activo se consulta (HEAD,
+/// timeout corto) y se devuelve el veredicto por id. No persiste nada — es un control
+/// puntual; una verificación programada puede colgarse de la misma función.
+export async function verificarEnlacesActivos(
+  codigoControl: string,
+): Promise<Resultado & { resultados?: { id: number; ok: boolean; detalle: string }[] }> {
+  return ejecutar(async () => {
+    await autorConPermiso('sgsi:ver');
+    const control = await prisma.control.findUnique({
+      where: { codigo: codigoControl },
+      include: {
+        evidencias: { where: { tipo: 'ENLACE', activo: true }, select: { id: true, texto: true } },
+      },
+    });
+    if (!control) return { ok: false, mensaje: `No existe el control ${codigoControl}.` };
+
+    const resultados: { id: number; ok: boolean; detalle: string }[] = [];
+    for (const e of control.evidencias) {
+      let url = e.texto;
+      try {
+        const d = JSON.parse(e.texto);
+        if (typeof d.url === 'string') url = d.url;
+      } catch {
+        // Texto suelto: se conserva como URL.
+      }
+      try {
+        const ctl = new AbortController();
+        const tiempo = setTimeout(() => ctl.abort(), 4000);
+        const r = await fetch(url, {
+          method: 'HEAD',
+          signal: ctl.signal,
+          redirect: 'follow',
+          headers: { 'user-agent': 'Mozilla/5.0 (compatible; sgi-cuantico/1)' },
+        });
+        clearTimeout(tiempo);
+        resultados.push({ id: e.id, ok: r.ok, detalle: r.ok ? `HTTP ${r.status}` : `HTTP ${r.status}` });
+      } catch {
+        resultados.push({ id: e.id, ok: false, detalle: 'sin respuesta (timeout o error de red)' });
+      }
+    }
+    const rotos = resultados.filter((r) => !r.ok).length;
+    return {
+      ok: true,
+      mensaje: `Verifiqué ${resultados.length} ${resultados.length === 1 ? 'enlace' : 'enlaces'} — ${rotos} ${rotos === 1 ? 'roto' : 'rotos'}.`,
+      cambios: 0,
+      resultados,
+    };
+  });
+}
+
+/// Deshacer la baja lógica: la evidencia vuelve a estar activa (misma fila, misma
+/// bitácora — el retiro queda como evento histórico y la restauración como el siguiente).
+export async function restaurarEvidencia(id: number): Promise<Resultado> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('evidencia:escribir');
+
+    const evidencia = await prisma.evidencia.findUnique({
+      where: { id },
+      include: { control: true },
+    });
+    if (!evidencia) return { ok: false, mensaje: 'Esa evidencia ya no existe.' };
+    if (evidencia.activo) {
+      return { ok: false, mensaje: 'La evidencia ya está activa: nada que restaurar.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await registrar(tx, autor, [
+        {
+          tabla: 'evidencia',
+          registroId: evidencia.control.codigo,
+          campo: 'evidencia restaurada',
+          anterior: 'retirada',
+          nuevo: 'vigente',
+          motivo: 'Se deshizo la baja',
+        },
+      ]);
+      await tx.evidencia.update({ where: { id }, data: { activo: true } });
+    });
+
+    revalidatePath('/sgsi/controles');
+    return { ok: true, mensaje: 'Se restauró la evidencia.', cambios: 1 };
   });
 }
 

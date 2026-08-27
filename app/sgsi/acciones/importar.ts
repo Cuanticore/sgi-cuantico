@@ -26,8 +26,12 @@ import {
   type Analisis,
   type FilaLeida,
 } from '@/lib/sgsi/plantilla';
-import { leerFilas, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
+import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
+
+/// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
+/// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
+import type ExcelJS from 'exceljs';
 
 /// Something wrong with the FILE, not with the code: a message the person can act on.
 class PlantillaError extends Error {}
@@ -55,13 +59,15 @@ async function catalogos(): Promise<Catalogos> {
         select: { id: true, tipoId: true, codigo: true },
       }),
       prisma.area.findMany({ where: { activa: true }, select: { id: true, nombre: true } }),
-      prisma.cargoResponsable.findMany({
-        where: { activo: true },
-        select: { id: true, nombre: true },
-      }),
-      prisma.ubicacion.findMany({ where: { activo: true }, select: { id: true, nombre: true } }),
-      prisma.entorno.findMany({ where: { activo: true }, select: { id: true, nombre: true } }),
-      prisma.proveedor.findMany({ where: { activo: true }, select: { id: true, nombre: true } }),
+      // Retirados incluidos a propósito: los valores que la organización retiró de los
+      // desplegables (p. ej. «Nube», «Jhon Tamayo», nombres de área como custodio)
+      // siguen explicando los registros vigentes y son legítimos en una importación
+      // del formato histórico FOR-SIG-12. El desplegable — y el exportador — solo
+      // ofrecen los activos.
+      prisma.cargoResponsable.findMany({ select: { id: true, nombre: true } }),
+      prisma.ubicacion.findMany({ select: { id: true, nombre: true } }),
+      prisma.entorno.findMany({ select: { id: true, nombre: true } }),
+      prisma.proveedor.findMany({ select: { id: true, nombre: true } }),
       prisma.escalaValor.findMany({
         orderBy: { orden: 'asc' },
         select: { valor: true, etiqueta: true },
@@ -87,7 +93,11 @@ async function catalogos(): Promise<Catalogos> {
   };
 }
 
-/// Opens the upload and reduces it to a matrix of cell text in template column order.
+/// Open the upload and reduce it to a matrix of cell text in template column order.
+/// Two formats accepted:
+///   1. Nuestra plantilla (hoja «Activos», encabezado fila 1, 17 columnas).
+///   2. El formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado en la
+///      fila 7 con B..U, títulos arriba) — se alinea columna por columna.
 async function abrir(datos: FormData): Promise<string[][]> {
   const archivo = datos.get('archivo');
   if (!(archivo instanceof File) || archivo.size === 0) {
@@ -100,9 +110,10 @@ async function abrir(datos: FormData): Promise<string[][]> {
   }
 
   let hoja;
+  let wb: ExcelJS.Workbook | null = null;
   try {
     const ExcelJS = (await import('exceljs')).default;
-    const wb = new ExcelJS.Workbook();
+    wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await archivo.arrayBuffer());
     hoja = wb.getWorksheet('Activos') ?? wb.worksheets[0];
   } catch (error) {
@@ -111,7 +122,77 @@ async function abrir(datos: FormData): Promise<string[][]> {
         (error instanceof Error ? `(${error.message})` : ''),
     );
   }
-  if (!hoja) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
+  if (!hoja || !wb) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
+
+  const texto = (v: unknown): string => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object') {
+      const o = v as { text?: unknown; result?: unknown; richText?: { text: string }[] };
+      if (Array.isArray(o.richText)) return o.richText.map((t) => t.text).join('').trim();
+      if (typeof o.text === 'string') return o.text.trim();
+      if (o.result !== undefined && o.result !== null) return String(o.result).trim();
+      return '';
+    }
+    return String(v).trim();
+  };
+
+  const LEGACY_ABC = 'sgsi/legacy';
+
+  // --- Formato heredado FOR-SIG-12 -------------------------------------------------
+  // El workbook histórico trae el Instructivo PRIMERO, el Dashboard en segundo y la
+  // «Matriz de Activos» después. Se busca el encabezado legacy en TODAS las hojas
+  // (primeras 12 filas de cada una); la hoja que lo tenga es la de datos.
+  let legacy: { hoja: typeof hoja; fila: number } | null = null;
+  for (const hoja2 of wb.worksheets) {
+    for (let n = 1; n <= Math.min(12, hoja2.rowCount); n++) {
+      const cruda = hoja2.getRow(n);
+      const fila: string[] = [];
+      for (let c = 1; c <= Math.max(hoja2.columnCount, 21); c++) {
+        fila.push(texto(cruda.getCell(c).value));
+      }
+      if (esFormatoLegacy(fila)) {
+        legacy = { hoja: hoja2, fila: n };
+        break;
+      }
+    }
+    if (legacy) break;
+  }
+
+  if (legacy) {
+    const { hoja: hojaDatos, fila: filaEncabezado } = legacy;
+    const orden = COLUMNAS_PLANTILLA.map((col) => col.clave);
+    const filaCruda: string[] = [];
+    for (let c = 1; c <= Math.max(hojaDatos.columnCount, 21); c++) {
+      filaCruda.push(texto(hojaDatos.getRow(filaEncabezado).getCell(c).value));
+    }
+    const indiceClave = new Map<string, number>();
+    for (let c = 0; c < filaCruda.length; c++) {
+      const clave = claveLegacy(filaCruda[c]);
+      if (clave && !indiceClave.has(clave)) indiceClave.set(clave, c);
+    }
+    const normalizar = (clave: string, v: string): string => {
+      const mapa = (clave === 'ubicacion' || clave === 'entorno' || clave === 'proveedor' || clave === 'area')
+        ? (LEGACY_NORMALIZAR[clave] as Record<string, string>)
+        : {};
+      return mapa[v] ?? v;
+    };
+    const matrizLegacy: string[][] = [orden.map(() => '')];
+    for (let filaDatos = filaEncabezado + 1; filaDatos <= hojaDatos.rowCount; filaDatos++) {
+      const cruda2 = hojaDatos.getRow(filaDatos);
+      const celdas: string[] = [];
+      for (const clave of orden) {
+        const idx = indiceClave.get(clave);
+        if (idx === undefined) {
+          celdas.push('');
+          continue;
+        }
+        celdas.push(normalizar(clave, texto(cruda2.getCell(idx + 1).value)));
+      }
+      matrizLegacy.push(celdas);
+    }
+    void LEGACY_ABC;
+    return matrizLegacy;
+  }
 
   const matriz: string[][] = [];
   for (let n = 1; n <= hoja.rowCount; n++) {

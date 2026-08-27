@@ -41,13 +41,18 @@ export async function GET() {
     nombre: c.nombre,
     dominio: c.dominio.nombre,
     capacidad: c.capacidad.nombre,
-    estado: c.soa === 'NO' ? 'No aplica' : c.soa === 'PARCIAL' ? 'Parcialmente' : 'Aplica',
+    estado:
+      c.soa === 'NO' ? 'No aplica' : c.soa === 'PARCIAL' ? 'Aplica con alcance adaptado' : 'Aplica',
+    descripcion: c.soaDescripcion ?? '',
     justificacion: c.justificacionSoa ?? '',
     responsable: c.responsable?.nombre ?? '',
     fechaCambio: c.soaActualizadoEn
       ? c.soaActualizadoEn.toLocaleDateString('es-AR')
       : '',
     madurez: c.actual ? `L${c.actual.nivel}` : '',
+    version: c.soaVersion ? `v${c.soaVersion}` : '',
+    fechaAprobacion: c.soaFecha ? c.soaFecha.toLocaleDateString('es-AR') : '',
+    aprobadoPor: c.soaAprobadoPor ?? '',
   }));
 
   const wb = await construirDeclaracion(filas);

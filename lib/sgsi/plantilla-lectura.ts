@@ -11,6 +11,71 @@
 import { COLUMNAS_PLANTILLA } from './plantilla';
 import type { FilaLeida } from './plantilla';
 
+/// Alineación del formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado
+/// en la fila 7, columnas B..U). Cada encabezado del workbook original apunta a la clave
+/// interna de la plantilla; las columnas T («Valor del activo») y U («Nivel») se ignoran
+/// porque se derivan.
+export const LEGACY_FORSIG12: Record<string, string> = {
+  'Código': 'codigoHeredado',
+  'Nombre del activo': 'nombre',
+  'Descripción': 'descripcion',
+  'Tipo de activo': 'tipo',
+  'Subtipo de activo': 'subtipo',
+  'Proceso o área': 'area',
+  'Proceso o Área': 'area',
+  'Responsable (custodio)': 'custodio',
+  'Custodio': 'custodio',
+  'Propietario del activo': 'propietario',
+  'Ubicación': 'ubicacion',
+  'Entorno': 'entorno',
+  '¿Contiene datos de cliente?': 'datosCliente',
+  '¿Contiene datos personales (Ley 1581)?': 'datosPersonales',
+  '¿Está expuesto a Internet?': 'expuestoInternet',
+  'Proveedor o subencargado': 'proveedor',
+  'Valor en Disponibilidad': 'valorD',
+  'Valor en Integridad': 'valorI',
+  'Valor en Confidencialidad': 'valorC',
+};
+
+/// Valores legacy que el workbook original escribe de otra forma a los del catálogo
+/// actual. Un solo mapeo para que el importador y el exportador digan lo mismo.
+export const LEGACY_NORMALIZAR = {
+  ubicacion: { 'N.A.': 'No aplica', 'Física': 'Físico', 'Nube Microsoft 366': 'Nube Microsoft 365' },
+  entorno: { 'N.A.': 'No aplica' },
+  proveedor: { 'Por definir': '' },
+  area: { 'Gestió de Proyectos': 'Gestión de Proyectos' },
+} as const;
+
+/// Búsqueda insensible a mayúsculas/acentos del encabezado legacy: el workbook original
+/// escribe «Proceso o Área» y la plantilla «área» — es la misma columna, no un error.
+export function claveLegacy(encabezado: string): string | undefined {
+  for (const [nombre, clave] of Object.entries(LEGACY_FORSIG12)) {
+    if (encabezado.localeCompare(nombre, 'es', { sensitivity: 'base' }) === 0) return clave;
+  }
+  return undefined;
+}
+
+/// True cuando la alineación de la fila de encabezado coincide con el formato
+/// FOR-SIG-12 heredado (col B «Código», col G «Proceso o Área», col Q valor D…).
+export function esFormatoLegacy(filaEncabezado: readonly string[]): boolean {
+  const claves = new Set<string>();
+  let reconocidas = 0;
+  for (const v of filaEncabezado) {
+    const clave = claveLegacy(v.trim());
+    if (clave) {
+      claves.add(clave);
+      reconocidas++;
+    }
+  }
+  return (
+    claves.has('codigoHeredado') &&
+    claves.has('area') &&
+    claves.has('custodio') &&
+    claves.has('valorD') &&
+    reconocidas >= 10
+  );
+}
+
 export type Ternario = 'SI' | 'NO' | 'POR_DEFINIR';
 
 export interface Catalogos {

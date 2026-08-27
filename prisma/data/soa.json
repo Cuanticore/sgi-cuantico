@@ -1,0 +1,653 @@
+[
+  {
+    "codigo": "A.5.1",
+    "nombre": "Políticas de seguridad de la información",
+    "descripcion": "La política de seguridad de la información y las políticas temáticas específicas deben definirse, ser aprobadas por la dirección, publicarse, comunicarse y ser reconocidas por el personal y las partes interesadas pertinentes, y revisarse a intervalos planificados y cuando ocurran cambios significativos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para dar dirección y respaldo de la Alta Dirección a la seguridad de la información. CUANTICO cuenta con la POL-SIG-01 de Calidad y Seguridad de la Información y con el cuerpo de políticas específicas aprobadas, publicadas en SharePoint y comunicadas a todos los colaboradores."
+  },
+  {
+    "codigo": "A.5.2",
+    "nombre": "Roles y responsabilidades de la seguridad de la información",
+    "descripcion": "Los roles y responsabilidades de seguridad de la información deben definirse y asignarse de acuerdo con las necesidades de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para asegurar que exista un responsable identificado de cada actividad del SGSI. Los roles están definidos en la POL-SIG-02 de Gobierno de Seguridad de la Información y en la caracterización del proceso."
+  },
+  {
+    "codigo": "A.5.3",
+    "nombre": "Segregación de funciones",
+    "descripcion": "Los deberes y las áreas de responsabilidad en conflicto deben segregarse.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para prevenir el fraude, el error y el uso indebido de los activos derivados de la concentración de funciones en una sola persona. CUANTICO mantiene la matriz de segregación de funciones vigente."
+  },
+  {
+    "codigo": "A.5.4",
+    "nombre": "Responsabilidades de la dirección",
+    "descripcion": "La dirección debe exigir a todo el personal la aplicación de la seguridad de la información de acuerdo con la política, las políticas temáticas y los procedimientos establecidos por la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para asegurar el liderazgo y el compromiso de la Alta Dirección con el SGSI. El Comité del Sistema Integrado de Gestión sesiona con actas y revisa periódicamente los indicadores."
+  },
+  {
+    "codigo": "A.5.5",
+    "nombre": "Contacto con las autoridades",
+    "descripcion": "La organización debe establecer y mantener contacto con las autoridades pertinentes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para garantizar un canal oportuno con las autoridades competentes en materia de seguridad de la información y protección de datos personales. CUANTICO mantiene la matriz de contactos externos MAT-SIG-06."
+  },
+  {
+    "codigo": "A.5.6",
+    "nombre": "Contacto con grupos de interés especial",
+    "descripcion": "La organización debe establecer y mantener contacto con grupos de interés especial u otros foros especializados y asociaciones profesionales en seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para acceder a información oportuna sobre nuevas tecnologías, amenazas, vulnerabilidades y buenas prácticas del sector."
+  },
+  {
+    "codigo": "A.5.7",
+    "nombre": "Inteligencia de amenazas",
+    "descripcion": "La información relativa a las amenazas de seguridad de la información debe recopilarse y analizarse para producir inteligencia de amenazas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para anticipar las amenazas relevantes al modelo de operación de CUANTICO. Se emiten informes de inteligencia de amenazas que alimentan el análisis de riesgos MAGERIT."
+  },
+  {
+    "codigo": "A.5.8",
+    "nombre": "Seguridad de la información en la gestión de proyectos",
+    "descripcion": "La seguridad de la información debe integrarse en la gestión de proyectos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque la operación de CUANTICO se ejecuta por proyectos de transformación digital para terceros. La matriz de riesgos de gestión de proyectos incorpora los criterios de seguridad desde la formulación."
+  },
+  {
+    "codigo": "A.5.9",
+    "nombre": "Inventario de información y otros activos asociados",
+    "descripcion": "Debe elaborarse y mantenerse un inventario de la información y otros activos asociados, incluyendo sus propietarios.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el inventario es la base del análisis de riesgos. CUANTICO mantiene un inventario de activos bajo la metodología establecida."
+  },
+  {
+    "codigo": "A.5.10",
+    "nombre": "Uso aceptable de la información y otros activos asociados",
+    "descripcion": "Deben identificarse, documentarse e implementarse las reglas para el uso aceptable y los procedimientos para el manejo de la información y otros activos asociados.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para fijar las reglas de uso de los activos por parte de colaboradores y contratistas. Está soportado en la POL-SIG-03 de Gestión de la Información y en los lineamientos de dispositivos personales."
+  },
+  {
+    "codigo": "A.5.11",
+    "nombre": "Devolución de activos",
+    "descripcion": "El personal y las demás partes interesadas, según corresponda, deben devolver todos los activos de la organización que estén en su poder al producirse el cambio o la terminación de su empleo, contrato o acuerdo.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar la pérdida de activos e información al terminar la relación laboral o contractual. La devolución se registra en la matriz de desvinculación."
+  },
+  {
+    "codigo": "A.5.12",
+    "nombre": "Clasificación de la información",
+    "descripcion": "La información debe clasificarse de acuerdo con las necesidades de seguridad de la información de la organización, con base en los requisitos de confidencialidad, integridad, disponibilidad y de las partes interesadas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para aplicar protección proporcional al valor de la información. El PRO-SIG-05 de clasificación está vigente y las etiquetas de sensibilidad de Microsoft Purview están desplegadas."
+  },
+  {
+    "codigo": "A.5.13",
+    "nombre": "Etiquetado de la información",
+    "descripcion": "Debe desarrollarse e implementarse un conjunto apropiado de procedimientos para el etiquetado de la información, de acuerdo con el esquema de clasificación adoptado por la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para que la clasificación sea visible y accionable. El etiquetado automático de Purview está en producción sobre los repositorios corporativos."
+  },
+  {
+    "codigo": "A.5.14",
+    "nombre": "Transferencia de información",
+    "descripcion": "Deben establecerse reglas, procedimientos o acuerdos de transferencia de información para todos los tipos de instalaciones de transferencia dentro de la organización y entre esta y otras partes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque la prestación de servicios implica el intercambio permanente de información con los clientes. Se aplican acuerdos de transferencia y políticas de prevención de fuga de datos en Purview."
+  },
+  {
+    "codigo": "A.5.15",
+    "nombre": "Control de acceso",
+    "descripcion": "Deben establecerse e implementarse reglas para controlar el acceso físico y lógico a la información y otros activos asociados, con base en los requisitos de seguridad de la información y de negocio.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para limitar el acceso a lo estrictamente necesario. Se implementa sobre Microsoft Entra ID con acceso condicional y revisiones periódicas de acceso."
+  },
+  {
+    "codigo": "A.5.16",
+    "nombre": "Gestión de identidades",
+    "descripcion": "Debe gestionarse el ciclo de vida completo de las identidades.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para asegurar la unicidad y la trazabilidad de las identidades. El alta, la modificación y la baja están ligadas al proceso de Talento Humano y se ejecutan en Entra ID."
+  },
+  {
+    "codigo": "A.5.17",
+    "nombre": "Información de autenticación",
+    "descripcion": "La asignación y la gestión de la información de autenticación deben controlarse mediante un proceso de gestión que incluya asesorar al personal sobre su manejo apropiado.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para proteger las credenciales frente al robo y el uso indebido. CUANTICO aplica autenticación multifactor obligatoria para el 100 % de los usuarios y política de credenciales gestionada por Entra ID."
+  },
+  {
+    "codigo": "A.5.18",
+    "nombre": "Derechos de acceso",
+    "descripcion": "Los derechos de acceso a la información y otros activos asociados deben otorgarse, revisarse, modificarse y retirarse de acuerdo con la política temática y las reglas de control de acceso de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar la acumulación de privilegios. Se ejecuta la recertificación periódica de accesos con evidencia registrada."
+  },
+  {
+    "codigo": "A.5.19",
+    "nombre": "Seguridad de la información en las relaciones con proveedores",
+    "descripcion": "Deben definirse e implementarse procesos y procedimientos para gestionar los riesgos de seguridad de la información asociados al uso de productos o servicios suministrados por proveedores.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque una parte sustancial de la operación de CUANTICO se apoya en proveedores de nube y de software. El PRO-LCO- 01 de selección y contratación incorpora criterios de seguridad."
+  },
+  {
+    "codigo": "A.5.20",
+    "nombre": "Tratamiento de la seguridad de la información en los acuerdos con proveedores",
+    "descripcion": "Deben establecerse y acordarse con cada proveedor los requisitos pertinentes de seguridad de la información, según el tipo de relación de suministro.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para trasladar contractualmente las obligaciones de seguridad. Los contratos vigentes incorporan cláusulas de seguridad y de confidencialidad."
+  },
+  {
+    "codigo": "A.5.21",
+    "nombre": "Gestión de la seguridad de la información en la cadena de suministro de TIC",
+    "descripcion": "Deben definirse e implementarse procesos y procedimientos para gestionar los riesgos de seguridad de la información asociados con la cadena de suministro de productos y servicios de TIC.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el software que CUANTICO entrega incorpora componentes de terceros. El análisis de composición de software se ejecuta de forma bloqueante en el pipeline de integración continua."
+  },
+  {
+    "codigo": "A.5.22",
+    "nombre": "Seguimiento, revisión y gestión de cambios de los servicios de proveedores",
+    "descripcion": "La organización debe realizar seguimiento, revisar, evaluar y gestionar de forma regular los cambios en las prácticas de seguridad de la información de los proveedores y en la prestación de sus servicios.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para mantener vigente el nivel de seguridad acordado a lo largo de la relación. El seguimiento periódico del desempeño de los proveedores tecnológicos está identificado como brecha en el plan de tratamiento."
+  },
+  {
+    "codigo": "A.5.23",
+    "nombre": "Seguridad de la información para el uso de servicios en la nube",
+    "descripcion": "Los procesos de adquisición, uso, gestión y salida de los servicios en la nube deben establecerse de acuerdo con los requisitos de seguridad de la información de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque CUANTICO opera íntegramente sobre servicios en la nube. Se archivan y revisan las certificaciones e informes de aseguramiento de AWS, Azure, GitHub, SharePoint y OneDrive."
+  },
+  {
+    "codigo": "A.5.24",
+    "nombre": "Planificación y preparación de la gestión de incidentes de seguridad de la información",
+    "descripcion": "La organización debe planificar y prepararse para gestionar los incidentes de seguridad de la información definiendo, estableciendo y comunicando los procesos, roles y responsabilidades correspondientes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para responder de forma ordenada y oportuna ante incidentes. La POL- TEC-04 define roles, clasificación y rutas de escalamiento."
+  },
+  {
+    "codigo": "A.5.25",
+    "nombre": "Evaluación y decisión sobre los eventos de seguridad de la información",
+    "descripcion": "La organización debe evaluar los eventos de seguridad de la información y decidir si deben clasificarse como incidentes de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para separar el ruido operativo de los incidentes reales. El triaje se apoya en las reglas de detección de Microsoft Sentinel."
+  },
+  {
+    "codigo": "A.5.26",
+    "nombre": "Respuesta a los incidentes de seguridad de la información",
+    "descripcion": "Debe darse respuesta a los incidentes de seguridad de la información de acuerdo con los procedimientos documentados.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para contener y erradicar los incidentes conforme a un procedimiento conocido. Los incidentes reales se gestionan de punta a punta con registro."
+  },
+  {
+    "codigo": "A.5.27",
+    "nombre": "Aprendizaje de los incidentes de seguridad de la información",
+    "descripcion": "El conocimiento obtenido de los incidentes de seguridad de la información debe utilizarse para fortalecer y mejorar los controles de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para cerrar el ciclo de mejora continua. Las lecciones aprendidas se documentan y derivan en ajustes a los controles."
+  },
+  {
+    "codigo": "A.5.28",
+    "nombre": "Recolección de evidencia",
+    "descripcion": "La organización debe establecer e implementar procedimientos para la identificación, recolección, adquisición y preservación de la evidencia relacionada con los eventos de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para preservar la evidencia con validez probatoria ante incidentes con implicaciones legales o contractuales. La retención de registros se realiza en Sentinel."
+  },
+  {
+    "codigo": "A.5.29",
+    "nombre": "Seguridad de la información durante la disrupción",
+    "descripcion": "La organización debe planificar cómo mantener la seguridad de la información en un nivel apropiado durante una disrupción.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para que la continuidad no se logre a costa de la seguridad. La política de continuidad está documentada y la ejecución de simulacros hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.5.30",
+    "nombre": "Preparación de las TIC para la continuidad del negocio",
+    "descripcion": "La preparación de las TIC debe planificarse, implementarse, mantenerse y probarse con base en los objetivos de continuidad del negocio y los requisitos de continuidad de las TIC.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque la disponibilidad de las plataformas es un compromiso contractual con los clientes. Se cuenta con redundancia en la nube y respaldos con pruebas de restauración."
+  },
+  {
+    "codigo": "A.5.31",
+    "nombre": "Requisitos legales, estatutarios, reglamentarios y contractuales",
+    "descripcion": "Deben identificarse, documentarse y mantenerse actualizados los requisitos legales, estatutarios, reglamentarios y contractuales pertinentes a la seguridad de la información, así como el enfoque de la organización para cumplirlos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control por las obligaciones derivadas de la Ley 1581 de 2012, de la contratación con entidades públicas y de los acuerdos con clientes. La matriz de requisitos legales está vigente."
+  },
+  {
+    "codigo": "A.5.32",
+    "nombre": "Derechos de propiedad intelectual",
+    "descripcion": "La organización debe implementar procedimientos apropiados para proteger los derechos de propiedad intelectual.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el objeto social de CUANTICO es el desarrollo de software. La titularidad de la propiedad intelectual se define contractualmente y se refleja en el inventario de activos."
+  },
+  {
+    "codigo": "A.5.33",
+    "nombre": "Protección de registros",
+    "descripcion": "Los registros deben protegerse contra pérdida, destrucción, falsificación, acceso no autorizado y divulgación no autorizada.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para preservar la integridad y la disponibilidad de los registros del SGSI y de los proyectos. Se aplican políticas de retención y eliminación mediante etiquetas de Purview."
+  },
+  {
+    "codigo": "A.5.34",
+    "nombre": "Privacidad y protección de la información de identificación personal (PII)",
+    "descripcion": "La organización debe identificar y cumplir los requisitos relativos a la preservación de la privacidad y la protección de la información de identificación personal, de acuerdo con las leyes y reglamentos aplicables y con los requisitos contractuales.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control por el tratamiento de datos personales propios y de los clientes. El registro de actividades de tratamiento bajo la Ley 1581 de 2012 está elaborado."
+  },
+  {
+    "codigo": "A.5.35",
+    "nombre": "Revisión independiente de la seguridad de la información",
+    "descripcion": "El enfoque de la organización para gestionar la seguridad de la información y su implementación deben revisarse de forma independiente a intervalos planificados y cuando ocurran cambios significativos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para obtener una valoración objetiva de la eficacia del SGSI. La revisión independiente se encuentra en ejecución y sus hallazgos alimentan el plan de tratamiento."
+  },
+  {
+    "codigo": "A.5.36",
+    "nombre": "Cumplimiento de las políticas, reglas y normas de seguridad de la información",
+    "descripcion": "Debe revisarse periódicamente el cumplimiento de la política de seguridad de la información, de las políticas temáticas, las reglas y las normas de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para verificar que lo definido se cumpla en la práctica. La matriz de revisión de cumplimiento está en uso y su sistematización hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.5.37",
+    "nombre": "Procedimientos operativos documentados",
+    "descripcion": "Los procedimientos operativos para las instalaciones de procesamiento de información deben documentarse y ponerse a disposición del personal que los necesite. A.6. CONTROLES DE PERSONAS",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para asegurar la operación consistente e independiente de las personas. El Sistema Integrado de Gestión mantiene los procedimientos documentados y controlados por versión."
+  },
+  {
+    "codigo": "A.6.1",
+    "nombre": "Investigación de antecedentes",
+    "descripcion": "Las verificaciones de antecedentes de todos los candidatos a ser personal deben realizarse antes de su vinculación y de forma continua, considerando las leyes, reglamentos y ética aplicables, y de manera proporcional a los requisitos del negocio, la clasificación de la información a la que se accederá y los riesgos percibidos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para reducir el riesgo de vinculación de personal no idóneo con acceso a información de clientes. La verificación está incorporada al procedimiento de selección y contratación."
+  },
+  {
+    "codigo": "A.6.2",
+    "nombre": "Términos y condiciones de empleo",
+    "descripcion": "Los acuerdos contractuales de empleo deben establecer las responsabilidades del personal y de la organización en materia de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para hacer exigibles las obligaciones de seguridad desde la vinculación. Los contratos laborales y de prestación de servicios incorporan cláusulas de seguridad de la información."
+  },
+  {
+    "codigo": "A.6.3",
+    "nombre": "Concienciación, educación y formación en seguridad de la información",
+    "descripcion": "El personal de la organización y, cuando corresponda, las partes interesadas pertinentes, deben recibir la concienciación, educación y formación apropiadas, así como actualizaciones periódicas de la política de seguridad de la información, las políticas temáticas y los procedimientos, según sea pertinente para su función.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el factor humano es el vector de ataque más frecuente. CUANTICO ejecuta capacitaciones periódicas con registro de asistencia; los simulacros de phishing y las métricas de comportamiento hacen parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.6.4",
+    "nombre": "Proceso disciplinario",
+    "descripcion": "Debe formalizarse y comunicarse un proceso disciplinario para actuar contra el personal y otras partes interesadas pertinentes que hayan cometido una violación de la política de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para dar consecuencia al incumplimiento de las políticas. El proceso disciplinario está definido y se documenta mediante actas."
+  },
+  {
+    "codigo": "A.6.5",
+    "nombre": "Responsabilidades después de la terminación o cambio de empleo",
+    "descripcion": "Las responsabilidades y deberes de seguridad de la información que permanecen vigentes después de la terminación o el cambio de empleo deben definirse, hacerse cumplir y comunicarse al personal y a las partes interesadas pertinentes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar accesos residuales y fugas de información tras la desvinculación. El procedimiento de retiro contempla la revocación de accesos y la devolución de activos."
+  },
+  {
+    "codigo": "A.6.6",
+    "nombre": "Acuerdos de confidencialidad o de no divulgación",
+    "descripcion": "Los acuerdos de confidencialidad o de no divulgación que reflejen las necesidades de la organización para la protección de la información deben identificarse, documentarse, revisarse periódicamente y ser firmados por el personal y las demás partes interesadas pertinentes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque CUANTICO maneja información sensible de sus clientes. Los acuerdos de confidencialidad se firman de forma sistemática por colaboradores y contratistas."
+  },
+  {
+    "codigo": "A.6.7",
+    "nombre": "Trabajo remoto",
+    "descripcion": "Deben implementarse medidas de seguridad cuando el personal trabaje de forma remota, para proteger la información a la que se accede, se procesa o se almacena fuera de las instalaciones de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control con carácter prioritario porque el teletrabajo es el modelo operativo único de CUANTICO. Se sostiene en los lineamientos de dispositivos personales, la gestión mediante Microsoft Intune y el acceso condicional de Entra ID."
+  },
+  {
+    "codigo": "A.6.8",
+    "nombre": "Reporte de eventos de seguridad de la información",
+    "descripcion": "La organización debe proporcionar un mecanismo para que el personal reporte los eventos de seguridad de la información observados o sospechados, a través de los canales apropiados y de manera oportuna. A.7. CONTROLES FÍSICOS",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para detectar de forma temprana los incidentes a través de las personas. El canal de reporte está definido y comunicado; la medición de su uso hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.7.1",
+    "nombre": "Perímetros de seguridad física",
+    "descripcion": "Deben definirse y utilizarse perímetros de seguridad para proteger las áreas que contienen información y otros activos asociados.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado al modelo de operación: CUANTICO presta sus servicios en modalidad de teletrabajo permanente y no dispone de sede propia, por lo que el perímetro físico de los sistemas de procesamiento recae en los centros de datos de los proveedores de nube, cuyo cumplimiento se verifica mediante los controles A.5.19 a A.5.23. En el puesto de trabajo domiciliario el perímetro se sustituye por los lineamientos de teletrabajo del control A.6.7."
+  },
+  {
+    "codigo": "A.7.2",
+    "nombre": "Controles de entrada física",
+    "descripcion": "Las áreas seguras deben estar protegidas mediante controles de entrada y puntos de acceso apropiados.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: al no existir instalaciones propias, el control de entrada física a los sistemas de procesamiento es responsabilidad de los proveedores de nube y se verifica documentalmente a través de sus certificaciones e informes de aseguramiento."
+  },
+  {
+    "codigo": "A.7.3",
+    "nombre": "Seguridad de oficinas, recintos e instalaciones",
+    "descripcion": "Debe diseñarse e implementarse la seguridad física para las oficinas, recintos e instalaciones.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: CUANTICO no posee oficinas, recintos ni salas técnicas propias. La seguridad de las instalaciones que alojan la información corresponde a los proveedores de nube y se gestiona por la vía contractual."
+  },
+  {
+    "codigo": "A.7.4",
+    "nombre": "Monitoreo de la seguridad física",
+    "descripcion": "Las instalaciones deben ser monitoreadas de forma continua para detectar el acceso físico no autorizado.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: el monitoreo físico de los centros de datos que alojan los servicios es ejecutado por los proveedores de nube y evidenciado en sus informes de aseguramiento. CUANTICO no dispone de instalaciones propias que monitorear."
+  },
+  {
+    "codigo": "A.7.5",
+    "nombre": "Protección contra amenazas físicas y ambientales",
+    "descripcion": "Debe diseñarse e implementarse protección contra amenazas físicas y ambientales, tales como desastres naturales y otras amenazas físicas intencionales o no intencionales a la infraestructura.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para cubrir tanto la infraestructura en nube, protegida por el proveedor y verificada contractualmente, como los equipos en el domicilio de los colaboradores, cubiertos mediante los lineamientos de teletrabajo. El fortalecimiento de la verificación en el puesto domiciliario hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.7.6",
+    "nombre": "Trabajo en áreas seguras",
+    "descripcion": "Deben diseñarse e implementarse medidas de seguridad para trabajar en áreas seguras.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: no existen áreas seguras físicas bajo control de CUANTICO. Las medidas equivalentes para el entorno de trabajo del colaborador se establecen en los lineamientos de teletrabajo (A.6.7) y en la política de escritorio y pantalla despejados (A.7.7)."
+  },
+  {
+    "codigo": "A.7.7",
+    "nombre": "Escritorio despejado y pantalla despejada",
+    "descripcion": "Deben definirse y aplicarse de forma apropiada reglas de escritorio despejado para papeles y medios de almacenamiento removibles, y reglas de pantalla despejada para las instalaciones de procesamiento de información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el trabajo se realiza en entornos domiciliarios compartidos con terceros no vinculados a la organización. El bloqueo automático de sesión se fuerza mediante directiva de Microsoft Intune."
+  },
+  {
+    "codigo": "A.7.8",
+    "nombre": "Ubicación y protección de los equipos",
+    "descripcion": "Los equipos deben ubicarse de forma segura y estar protegidos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para proteger los equipos de cómputo asignados. Al encontrarse en el domicilio del colaborador, el control se ejerce mediante lineamiento y se complementa con el cifrado de disco y la gestión remota del control A.7.9."
+  },
+  {
+    "codigo": "A.7.9",
+    "nombre": "Seguridad de los activos fuera de las instalaciones",
+    "descripcion": "Los activos situados fuera de las instalaciones deben ser protegidos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control con carácter prioritario porque la totalidad de los equipos de CUANTICO opera fuera de instalaciones de la organización. Se aplican cifrado de disco, cumplimiento verificado y capacidad de borrado remoto mediante Microsoft Intune."
+  },
+  {
+    "codigo": "A.7.10",
+    "nombre": "Medios de almacenamiento",
+    "descripcion": "Los medios de almacenamiento deben gestionarse a lo largo de su ciclo de vida de adquisición, uso, transporte y disposición, de acuerdo con el esquema de clasificación y los requisitos de manejo de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar la fuga de información por medios removibles. El uso de medios extraíbles y su cifrado se controlan por directiva de Intune."
+  },
+  {
+    "codigo": "A.7.11",
+    "nombre": "Servicios de suministro",
+    "descripcion": "Las instalaciones de procesamiento de información deben estar protegidas contra fallas de energía y otras interrupciones causadas por fallas en los servicios de suministro.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: la continuidad de los servicios de suministro de los sistemas de procesamiento es responsabilidad de los proveedores de nube, verificada mediante sus acuerdos de nivel de servicio. La eventual interrupción en el domicilio de un colaborador se trata como riesgo de disponibilidad del puesto de trabajo y se cubre con los controles de continuidad A.5.29 y A.5.30."
+  },
+  {
+    "codigo": "A.7.12",
+    "nombre": "Seguridad del cableado",
+    "descripcion": "Los cables que transportan energía, datos o que dan soporte a los servicios de información deben estar protegidos contra la interceptación, la interferencia o el daño.",
+    "aplicable": "adaptado",
+    "justificacion": "Se adopta este control con alcance adaptado: CUANTICO no posee cableado estructurado propio. La protección del cableado de los centros de datos corresponde a los proveedores de nube y la comunicación desde el puesto de teletrabajo se protege mediante cifrado en tránsito (A.8.24) y controles de red (A.8.20)."
+  },
+  {
+    "codigo": "A.7.13",
+    "nombre": "Mantenimiento de los equipos",
+    "descripcion": "Los equipos deben mantenerse correctamente para asegurar la disponibilidad, integridad y confidencialidad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para preservar la disponibilidad de los equipos de cómputo. El mantenimiento y la supervisión del parque se registran de forma controlada."
+  },
+  {
+    "codigo": "A.7.14",
+    "nombre": "Eliminación o reutilización segura de los equipos",
+    "descripcion": "Los elementos de los equipos que contengan medios de almacenamiento deben ser verificados para asegurar que cualquier dato sensible y software licenciado haya sido eliminado o sobrescrito de forma segura antes de su disposición o reutilización. A.8. CONTROLES TECNOLÓGICOS",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para impedir la recuperación de información al reasignar o dar de baja un equipo. La formalización del procedimiento de borrado seguro hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.1",
+    "nombre": "Dispositivos de punto final del usuario",
+    "descripcion": "La información almacenada, procesada o accesible a través de los dispositivos de punto final del usuario debe ser protegida.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el dispositivo de punto final es la principal superficie de exposición en un modelo de teletrabajo. Microsoft Intune gestiona el 100 % del parque con cumplimiento verificado o en periodo de gracia."
+  },
+  {
+    "codigo": "A.8.2",
+    "nombre": "Derechos de acceso privilegiado",
+    "descripcion": "La asignación y el uso de los derechos de acceso privilegiado deben restringirse y gestionarse.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el abuso de una cuenta privilegiada tiene impacto crítico. Las cuentas privilegiadas están identificadas y protegidas con autenticación multifactor; la elevación temporal con aprobación hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.3",
+    "nombre": "Restricción del acceso a la información",
+    "descripcion": "El acceso a la información y a otros activos asociados debe restringirse de acuerdo con la política temática establecida sobre control de acceso.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para materializar el principio de mínimo privilegio sobre la información. Se aplica mediante Entra ID y las etiquetas de sensibilidad de Purview."
+  },
+  {
+    "codigo": "A.8.4",
+    "nombre": "Acceso al código fuente",
+    "descripcion": "El acceso de lectura y escritura al código fuente, a las herramientas de desarrollo y a las bibliotecas de software debe gestionarse de forma apropiada.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el código fuente es un activo central del negocio. Se gestiona en GitHub Enterprise con control de acceso por repositorio y protección de ramas."
+  },
+  {
+    "codigo": "A.8.5",
+    "nombre": "Autenticación segura",
+    "descripcion": "Deben implementarse tecnologías y procedimientos de autenticación segura con base en las restricciones de acceso a la información y en la política temática sobre control de acceso.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para impedir el acceso mediante credenciales comprometidas. Se aplica autenticación multifactor universal y acceso condicional basado en riesgo de sesión."
+  },
+  {
+    "codigo": "A.8.6",
+    "nombre": "Gestión de la capacidad",
+    "descripcion": "El uso de los recursos debe ser monitoreado y ajustado de acuerdo con los requisitos de capacidad actuales y previstos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para sostener los compromisos de disponibilidad ante los clientes. La observabilidad se ejerce con Grafana; la formalización de umbrales de capacidad hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.7",
+    "nombre": "Protección contra software malicioso",
+    "descripcion": "La protección contra software malicioso debe implementarse y respaldarse mediante una adecuada concienciación de los usuarios.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control por su carácter transversal frente a las amenazas más frecuentes. Microsoft Defender está desplegado sobre el 100 % del parque."
+  },
+  {
+    "codigo": "A.8.8",
+    "nombre": "Gestión de las vulnerabilidades técnicas",
+    "descripcion": "Debe obtenerse información sobre las vulnerabilidades técnicas de los sistemas de información en uso, evaluarse la exposición de la organización a dichas vulnerabilidades y tomarse las medidas apropiadas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para reducir la ventana de explotación. Se combina la gestión de vulnerabilidades de Defender con el análisis de composición de software en el pipeline."
+  },
+  {
+    "codigo": "A.8.9",
+    "nombre": "Gestión de la configuración",
+    "descripcion": "Las configuraciones, incluidas las de seguridad, del hardware, software, servicios y redes deben establecerse, documentarse, implementarse, monitorearse y revisarse.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar exposiciones por configuraciones inseguras. Se aplican líneas base en Intune e infraestructura como código; la verificación de deriva hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.10",
+    "nombre": "Eliminación de información",
+    "descripcion": "La información almacenada en los sistemas de información, dispositivos o en cualquier otro medio de almacenamiento debe eliminarse cuando ya no sea necesaria.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para limitar la retención innecesaria de información, en particular de datos personales. Se aplican etiquetas de retención y eliminación en Purview."
+  },
+  {
+    "codigo": "A.8.11",
+    "nombre": "Enmascaramiento de datos",
+    "descripcion": "El enmascaramiento de datos debe utilizarse de acuerdo con la política temática de la organización sobre control de acceso y otras políticas temáticas relacionadas, así como con los requisitos del negocio, teniendo en cuenta la legislación aplicable.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque los proyectos de CUANTICO procesan datos personales de terceros y el análisis de riesgos lo identifica como la brecha de mayor alcance. Su implementación en entornos distintos de producción es la acción prioritaria del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.12",
+    "nombre": "Prevención de fuga de datos",
+    "descripcion": "Deben aplicarse medidas de prevención de fuga de datos a los sistemas, redes y cualquier otro dispositivo que procese, almacene o transmita información sensible.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para impedir la salida no autorizada de información de clientes. Las políticas de prevención de fuga de datos de Purview están activas y su afinamiento hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.13",
+    "nombre": "Respaldo de la información",
+    "descripcion": "Deben mantenerse y probarse regularmente copias de respaldo de la información, del software y de los sistemas, de acuerdo con la política temática acordada sobre respaldo.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control por su relación directa con los compromisos de disponibilidad. Los respaldos son automáticos y las pruebas de restauración se ejecutan y registran."
+  },
+  {
+    "codigo": "A.8.14",
+    "nombre": "Redundancia de las instalaciones de procesamiento de información",
+    "descripcion": "Las instalaciones de procesamiento de información deben implementarse con la redundancia suficiente para cumplir los requisitos de disponibilidad.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para sostener los niveles de servicio comprometidos. La infraestructura cuenta con redundancia en la nube; la prueba formal de conmutación hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.15",
+    "nombre": "Registro de eventos",
+    "descripcion": "Deben producirse, almacenarse, protegerse y analizarse registros que contengan las actividades, excepciones, fallas y otros eventos pertinentes.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque sin registros no hay detección ni investigación posible. El registro se centraliza en Microsoft Sentinel y se complementa con los registros de aplicación en Grafana."
+  },
+  {
+    "codigo": "A.8.16",
+    "nombre": "Actividades de monitoreo",
+    "descripcion": "Las redes, los sistemas y las aplicaciones deben ser monitoreados para detectar comportamientos anómalos y tomar las acciones apropiadas para evaluar posibles incidentes de seguridad de la información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para detectar de forma temprana los comportamientos anómalos. El monitoreo continuo se ejecuta sobre Sentinel y las herramientas de observabilidad."
+  },
+  {
+    "codigo": "A.8.17",
+    "nombre": "Sincronización de relojes",
+    "descripcion": "Los relojes de los sistemas de procesamiento de información utilizados por la organización deben sincronizarse con las fuentes de tiempo aprobadas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque la correlación de registros y la validez de la evidencia dependen de una referencia temporal común. La sincronización es provista por la plataforma de nube."
+  },
+  {
+    "codigo": "A.8.18",
+    "nombre": "Uso de programas utilitarios privilegiados",
+    "descripcion": "El uso de programas utilitarios que puedan ser capaces de anular los controles del sistema y de las aplicaciones debe restringirse y controlarse estrictamente.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para impedir la elusión de los controles del sistema. La restricción se aplica por directiva de Intune."
+  },
+  {
+    "codigo": "A.8.19",
+    "nombre": "Instalación de software en sistemas operativos",
+    "descripcion": "Deben implementarse procedimientos y medidas para gestionar de forma segura la instalación de software en los sistemas operativos.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para evitar la introducción de software no autorizado en los equipos. La instalación se controla mediante el catálogo corporativo gestionado por Intune."
+  },
+  {
+    "codigo": "A.8.20",
+    "nombre": "Seguridad de las redes",
+    "descripcion": "Las redes y los dispositivos de red deben ser asegurados, gestionados y controlados para proteger la información en los sistemas y aplicaciones.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para proteger la información en tránsito entre el puesto de teletrabajo y los servicios en la nube. Se aplican segmentación y controles de red en la nube."
+  },
+  {
+    "codigo": "A.8.21",
+    "nombre": "Seguridad de los servicios de red",
+    "descripcion": "Deben identificarse, implementarse y monitorearse los mecanismos de seguridad, los niveles de servicio y los requisitos de servicio de los servicios de red.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para asegurar que los servicios de red cumplan el nivel de seguridad requerido. La formalización de los acuerdos de nivel de servicio de seguridad hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.22",
+    "nombre": "Segregación de redes",
+    "descripcion": "Los grupos de servicios de información, usuarios y sistemas de información deben estar segregados en las redes de la organización.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para contener la propagación lateral ante un compromiso. La segregación se aplica por entorno y por función."
+  },
+  {
+    "codigo": "A.8.23",
+    "nombre": "Filtrado web",
+    "descripcion": "El acceso a sitios web externos debe gestionarse para reducir la exposición a contenido malicioso.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para reducir la exposición del puesto de teletrabajo a sitios maliciosos. El filtrado se aplica mediante Microsoft Defender for Endpoint."
+  },
+  {
+    "codigo": "A.8.24",
+    "nombre": "Uso de criptografía",
+    "descripcion": "Deben definirse e implementarse reglas para el uso efectivo de la criptografía, incluyendo la gestión de claves criptográficas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para proteger la confidencialidad y la integridad de la información en tránsito y en reposo. El cifrado está generalizado; la formalización del ciclo de vida de las claves hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.25",
+    "nombre": "Ciclo de vida de desarrollo seguro",
+    "descripcion": "Deben establecerse y aplicarse reglas para el desarrollo seguro de software y sistemas.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control con carácter prioritario porque el desarrollo de software es la actividad misional de CUANTICO. El análisis estático, de dependencias y de secretos se ejecuta de forma bloqueante en el pipeline."
+  },
+  {
+    "codigo": "A.8.26",
+    "nombre": "Requisitos de seguridad de las aplicaciones",
+    "descripcion": "Los requisitos de seguridad de la información deben identificarse, especificarse y aprobarse al desarrollar o adquirir aplicaciones.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para incorporar la seguridad desde la especificación y no como corrección posterior. La formalización de los criterios por historia de usuario hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.27",
+    "nombre": "Principios de ingeniería y arquitectura de sistemas seguros",
+    "descripcion": "Deben establecerse, documentarse, mantenerse y aplicarse principios para la ingeniería de sistemas seguros a cualquier actividad de desarrollo de sistemas de información.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para que las soluciones entregadas a los clientes sean seguras por diseño. Los principios de arquitectura segura se aplican; la revisión formal de arquitectura hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.28",
+    "nombre": "Codificación segura",
+    "descripcion": "Deben aplicarse principios de codificación segura al desarrollo de software.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para reducir la introducción de vulnerabilidades en el código propio. Los estándares de codificación segura se verifican automáticamente en cada integración."
+  },
+  {
+    "codigo": "A.8.29",
+    "nombre": "Pruebas de seguridad en el desarrollo y la aceptación",
+    "descripcion": "Los procesos de prueba de seguridad deben definirse e implementarse en el ciclo de vida de desarrollo.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para detectar defectos de seguridad antes del despliegue. Las pruebas automatizadas operan en el pipeline; las pruebas dinámicas y el pentesting periódico hacen parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.30",
+    "nombre": "Desarrollo contratado externamente",
+    "descripcion": "La organización debe dirigir, monitorear y revisar las actividades relacionadas con el desarrollo de sistemas contratado externamente.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para los componentes cuyo desarrollo se contrata con terceros. El desarrollo es mayoritariamente propio, por lo que el control se aplica de forma focalizada sobre esos componentes."
+  },
+  {
+    "codigo": "A.8.31",
+    "nombre": "Separación de los entornos de desarrollo, prueba y producción",
+    "descripcion": "Los entornos de desarrollo, prueba y producción deben estar separados y asegurados.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para impedir que un cambio no probado afecte la operación productiva. Los entornos de desarrollo, pruebas y producción están separados y declarados en el inventario de activos."
+  },
+  {
+    "codigo": "A.8.32",
+    "nombre": "Gestión de cambios",
+    "descripcion": "Los cambios en las instalaciones de procesamiento de información y en los sistemas de información deben estar sujetos a procedimientos de gestión de cambios.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque el cambio no controlado es una causa frecuente de indisponibilidad. La matriz de gestión de cambios de TI está en uso; la métrica de cambios fallidos hace parte del plan de tratamiento."
+  },
+  {
+    "codigo": "A.8.33",
+    "nombre": "Información de prueba",
+    "descripcion": "La información de prueba debe seleccionarse, protegerse y gestionarse de forma apropiada.",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control porque existe riesgo de presencia de datos personales en entornos no productivos. El establecimiento del control formal sobre los datos de prueba es una acción prioritaria del plan de tratamiento, articulada con el control A.8.11."
+  },
+  {
+    "codigo": "A.8.34",
+    "nombre": "Protección de los sistemas de información durante las pruebas de auditoría",
+    "descripcion": "Las pruebas de auditoría y otras actividades de aseguramiento que impliquen la evaluación de sistemas operativos deben planificarse y acordarse entre el evaluador y la dirección correspondiente..",
+    "aplicable": "si",
+    "justificacion": "Se adopta este control para que las actividades de auditoría no comprometan la disponibilidad ni la confidencialidad de los sistemas en operación. La formalización de las restricciones de acceso durante la auditoría hace parte del plan de tratamiento."
+  }
+]

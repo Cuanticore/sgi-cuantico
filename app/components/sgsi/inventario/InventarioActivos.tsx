@@ -705,6 +705,23 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
   const a = c.activo;
   const fondo = FONDO_RENGLON[c.color];
   const nivelColor = colorDeNivel(c.valor);
+  // Row click opens the asset sheet (tab Valoración); the D/I/C selects and the code
+  // link stop propagation so inline editing never navigates.
+  const ir = () => {
+    const url = `/sgsi/inventario/${encodeURIComponent(a.codigo)}`;
+    window.location.href = url;
+  };
+  const alClic = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('a')) return;
+    ir();
+  };
+  const alTecla = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      ir();
+    }
+  };
 
   return (
     <div
@@ -717,6 +734,11 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
           '--fila-hover': fondo.hover,
         } as React.CSSProperties
       }
+      role="button"
+      tabIndex={0}
+      onClick={alClic}
+      onKeyDown={alTecla}
+      aria-label={`Abrir la ficha del activo ${a.codigo} ${a.nombre}`}
     >
       <span className="sr-only">{textoDeRenglon(c.color, c.inherente, c.residual)}</span>
 
@@ -725,6 +747,7 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
       <div className="flex min-w-0 flex-col gap-px">
         <Link
           href={`/sgsi/inventario/${encodeURIComponent(a.codigo)}`}
+          onClick={(e) => e.stopPropagation()}
           className="font-mono text-11_5 font-semibold text-accent-500 underline decoration-accent-border decoration-from-font underline-offset-2"
         >
           {a.codigo}
@@ -747,7 +770,7 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
       </div>
 
       {(['D', 'I', 'C'] as const).map((dim) => (
-        <div key={dim} className="pr-1.5">
+        <div key={dim} className="pr-1.5" onClick={(e) => e.stopPropagation()}>
           <SelectDimension
             dim={dim}
             valor={c[dim]}

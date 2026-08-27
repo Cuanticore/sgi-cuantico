@@ -121,7 +121,9 @@ function Hero({ datos: d, brechaPuntos }: { datos: DatosInicio; brechaPuntos: nu
         </div>
 
         <div className="mt-2 flex justify-between font-mono text-9_5 text-white/60">
-          <span>línea base {d.indiceLineaBase.toFixed(1)}%</span>
+          <span>
+            línea base · {d.fechaLineaBase} {d.indiceLineaBase.toFixed(1)}%
+          </span>
           <span>objetivo {d.indiceObjetivo.toFixed(1)}%</span>
         </div>
       </div>

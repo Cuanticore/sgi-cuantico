@@ -14,6 +14,7 @@ import { seedMagerit } from './seeds/magerit';
 import { seedIso, seedControlAmenaza } from './seeds/iso';
 import { seedActivos } from './seeds/activos';
 import { seedPlan } from './seeds/plan';
+import { seedLineaBase } from './seeds/linea-base';
 import { generarRiesgos } from '../lib/sgsi/riesgos';
 import { verificarMetricas } from './seeds/verificar';
 
@@ -31,6 +32,9 @@ async function main(): Promise<void> {
 
   console.log('Sembrando controles ISO, dominios y capacidades…');
   await seedIso(prisma);
+
+  console.log('Sembrando la línea base GAP 2 mar 2026…');
+  await seedLineaBase(prisma);
 
   console.log('Sembrando el inventario de activos…');
   const { sembrados, sinCodigo } = await seedActivos(prisma);

@@ -14,8 +14,10 @@ export const dynamic = 'force-dynamic';
 
 const REFERENCIA: Record<string, number> = {
   Controles: 93,
-  Aplicables: 86,
-  'No aplicables': 7,
+  Aplicables: 93,
+  'No aplicables': 0,
+  'Alcance adaptado': 7,
+  'Con línea base (GAP)': 92,
   'Índice de madurez (%)': 86.7,
   'Nivel típico': 3.0,
   'Nivel medio': 3.23,
@@ -52,6 +54,8 @@ export default async function VerificacionPage() {
     ['Controles', m.total],
     ['Aplicables', m.aplicables],
     ['No aplicables', m.noAplicables],
+    ['Alcance adaptado', m.parciales],
+    ['Con línea base (GAP)', m.conLineaBase],
     ['Índice de madurez (%)', Math.round(m.indice * 100) / 100],
     ['Nivel típico', m.nivelTipico],
     ['Nivel medio', Math.round(m.nivelMedio * 100) / 100],

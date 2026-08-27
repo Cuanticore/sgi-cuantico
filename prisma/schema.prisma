@@ -418,6 +418,18 @@ model Control {
   /// Written justification, mandatory when soa is PARCIAL (which part of the scope is
   /// covered and which is not) or NO (why the control is excluded).
   justificacionSoa  String?  @map("justificacion_soa")
+  /// DEC-SIG-01 v2. The SoA document that this declaration belongs to, so every state
+  /// answer reads against the version that sustains it (ISO 27001 6.1.3 d).
+  soaDescripcion String?  @map("soa_descripcion")
+  soaDocumento   String?  @map("soa_documento")
+  soaVersion     String?  @map("soa_version")
+  soaFecha       DateTime? @map("soa_fecha") @db.Date
+  soaAprobadoPor String?  @map("soa_aprobado_por")
+  /// True for the seven physical controls (A.7.1-4, A.7.6, A.7.11-12) declared applicable
+  /// with the scope adapted to the remote operating model. It is what raises the
+  /// DEC-SIG-01 §9 business alert: acquiring or renting own facilities forces an
+  /// immediate review of domain A.7.
+  soaAlcanceAdaptado Boolean @default(false) @map("soa_alcance_adaptado")
   /// Audit trail of the last SOA change: who and when. The full history lives in the
   /// bitácora; these two columns are the current state an auditor asks for first.
   soaActualizadoPor String?  @map("soa_actualizado_por")
@@ -500,10 +512,45 @@ model Evidencia {
   orden     Int           @default(0)
   creadaEn  DateTime      @default(now()) @map("creada_en")
   creadaPor String?       @map("creada_por")
+  /// Actual only for tipo ARCHIVO. Logical delete: the row survives with `activo=false`
+  /// because the object belongs to the evidence of a certification audit, and a physical
+  /// delete would be exactly the artifact the audit is supposed to find.
+  activo        Boolean  @default(true)
+  /// Object key in the annex storage (server-generated, never the original name) or the
+  /// local file path when the S3 provider is not configured yet.
+  archivoKey    String?  @map("archivo_key")
+  archivoNombre String?  @map("archivo_nombre")
+  archivoMime   String?  @map("archivo_mime")
+  archivoTamano Int?     @map("archivo_tamano")
+  archivoSha256 String?  @map("archivo_sha256")
+  /// Re-uploading the same file name creates a new version and keeps the previous one;
+  /// the history is consultable through the same list.
+  archivoVersion Int    @default(1) @map("archivo_version")
+  archivoVersionDe Int? @map("archivo_version_de")
+
+  archivo EvidenciaArchivo?
 
   control Control @relation(fields: [controlId], references: [id])
 
   @@map("evidencia")
+}
+
+/// Bytes de un anexo, 1:1 con su fila de evidencia (tipo ARCHIVO). Tabla separada a
+/// propósito: los listados de la grilla y del panel nunca arrastran los blobs — solo la
+/// ruta de descarga lee esta tabla.
+///
+/// Decisión (27/08/2026): los anexos viven EN LA BASE DE DATOS, no en un bucket
+/// externo. La retención sigue siendo la misma: la baja es lógica (activo=false) y los
+/// bytes permanecen — evidencia sosteniendo una auditoría de certificación.
+model EvidenciaArchivo {
+  id          Int      @id @default(autoincrement())
+  evidenciaId Int      @unique @map("evidencia_id")
+  bytes       Bytes
+  creadaEn    DateTime @default(now()) @map("creada_en")
+
+  evidencia Evidencia @relation(fields: [evidenciaId], references: [id])
+
+  @@map("evidencia_archivo")
 }
 
 enum TipoEvidencia {
@@ -851,6 +898,10 @@ model Bitacora {
   motivo        String?
   usuario       String
   ocurridoEn    DateTime @default(now()) @map("ocurrido_en")
+  /// Network origin of the operation, populated by the evidence annex flow (high, low
+  /// and download of a file). Null for the rest: the application does not log an IP
+  /// that it did not see.
+  ip String?
 
   @@index([tabla, registroId])
   @@index([ocurridoEn])

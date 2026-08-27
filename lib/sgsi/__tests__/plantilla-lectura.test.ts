@@ -5,7 +5,7 @@
 // spreadsheet.
 
 import { COLUMNAS_PLANTILLA } from '../plantilla';
-import { aTernario, entreCorchetes, leerFilas, type Catalogos } from '../plantilla-lectura';
+import { aTernario, entreCorchetes, esFormatoLegacy, leerFilas, type Catalogos } from '../plantilla-lectura';
 
 const CATALOGOS: Catalogos = {
   tipos: [
@@ -65,6 +65,29 @@ describe('entreCorchetes', () => {
 
   it('leaves a cell with no code alone, so it fails validation instead of matching wrongly', () => {
     expect(entreCorchetes('Datos')).toBe('Datos');
+  });
+});
+
+describe('esFormatoLegacy — detección del FOR-SIG-12 histórico', () => {
+  const FILA_LEGACY = [
+    '', 'Código', 'Nombre del activo', 'Descripción', 'Tipo de activo', 'Subtipo de activo',
+    'Proceso o Área', 'Responsable (custodio)', 'Propietario del activo', 'Ubicación',
+    'Entorno', '¿Contiene datos de cliente?', '¿Contiene datos personales (Ley 1581)?',
+    '¿Está expuesto a Internet?', 'Proveedor o subencargado', 'Depende del activo superior',
+    'Valor en Disponibilidad', 'Valor en Integridad', 'Valor en Confidencialidad',
+    'Valor del activo (0 a 5)', 'Nivel del activo',
+  ];
+
+  it('reconoce el encabezado del workbook original (con «Proceso o Área» en mayúscula)', () => {
+    expect(esFormatoLegacy(FILA_LEGACY)).toBe(true);
+  });
+
+  it('no confunde el encabezado de nuestra plantilla con el formato histórico', () => {
+    expect(esFormatoLegacy(COLUMNAS_PLANTILLA.map((c) => c.encabezado))).toBe(false);
+  });
+
+  it('rechaza una fila cualquiera sin la firma legacy', () => {
+    expect(esFormatoLegacy(['INVENTARIO', '', '', '', '', '', '', '', '', '', ''])).toBe(false);
   });
 });
 

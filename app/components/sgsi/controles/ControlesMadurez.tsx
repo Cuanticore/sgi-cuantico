@@ -19,7 +19,7 @@ import {
   type EstadoSoa,
 } from '@/lib/sgsi/madurez';
 import { cambiarEstadoSoa, guardarMadurez } from '@/app/sgsi/acciones/controles';
-import PopupControl from './PopupControl';
+import PantallaControl from './PantallaControl';
 
 export interface ControlVista {
   codigo: string;
@@ -38,12 +38,25 @@ export interface ControlVista {
     /// The entry that justified the rating. It has no delete button.
     esBase: boolean;
     creadaPor: string | null;
+    creadaEn: string | null;
+    activo: boolean;
+    archivoNombre: string | null;
+    archivoMime: string | null;
+    archivoTamano: number | null;
+    archivoSha256: string | null;
+    archivoVersion: number | null;
   }[];
   amenazas: { codigo: string; nombre: string }[];
   accion: { codigo: string; estado: string } | null;
   justificacionSoa: string | null;
   soaActualizadoPor: string | null;
   soaActualizadoEn: string | null;
+  soaDescripcion: string | null;
+  soaDocumento: string | null;
+  soaVersion: string | null;
+  soaFecha: string | null;
+  soaAprobadoPor: string | null;
+  soaAlcanceAdaptado: boolean;
 }
 
 interface Props {
@@ -53,6 +66,7 @@ interface Props {
   filtroInicial?: string;
   capacidadInicial?: string;
   dominioInicial?: string;
+  directorio?: { nombre: string; correo: string }[];
 }
 
 /// The scale label carries its efficacy, in the select and in the distribution alike.
@@ -123,7 +137,7 @@ const ESTILO_SOA: Record<EstadoSoa, { fg: string; bg: string; bd: string }> = {
 
 const ETIQUETA_SOA: Record<EstadoSoa, string> = {
   si: 'Aplica',
-  parcial: 'Parcialmente',
+  parcial: 'Aplica con alcance adaptado',
   no: 'No aplica',
 };
 
@@ -134,6 +148,7 @@ export default function ControlesMadurez({
   filtroInicial,
   capacidadInicial,
   dominioInicial,
+  directorio = [],
 }: Props) {
   const [niveles, setNiveles] = useState<Record<string, number>>({});
   const [filtro, setFiltro] = useState<Filtro>(() => {
@@ -214,7 +229,7 @@ export default function ControlesMadurez({
       clave: 'todos',
       titulo: 'Controles del Anexo A',
       valor: m.total,
-      pie: `${m.aplicables} aplicables · ${m.parciales} parciales · ${m.noAplicables} no aplican`,
+      pie: `${m.aplicables} aplicables · ${m.parciales} con alcance adaptado · ${m.noAplicables} no aplican`,
     },
     { clave: 'indice', titulo: 'Índice de madurez', valor: `${m.indice.toFixed(1)}%`, pie: 'media de la eficacia' },
     { clave: 'tipico', titulo: 'Nivel típico', valor: nivelTexto(m.nivelTipico), pie: 'mediana del nivel' },
@@ -276,7 +291,7 @@ export default function ControlesMadurez({
             <option value="gestionados">Solo gestionados L3+</option>
             <option value="objetivo">Solo en objetivo</option>
             <option value="plan">Solo en el plan de tratamiento</option>
-            <option value="parciales">Solo aplicación parcial</option>
+            <option value="parciales">Solo alcance adaptado</option>
             <option value="noAplican">Solo no aplicables</option>
             <optgroup label="Dominio del Anexo A">
               {dominios.map((d) => (
@@ -359,6 +374,7 @@ export default function ControlesMadurez({
         <div style={{ minWidth: 1340 }}>
           <table className="w-full border-collapse text-12" style={{ tableLayout: 'fixed' }}>
             <colgroup>
+              <col style={{ width: 30 }} />
               <col style={{ width: 76 }} />
               <col style={{ minWidth: 200 }} />
               <col style={{ width: 118 }} />
@@ -372,6 +388,9 @@ export default function ControlesMadurez({
             </colgroup>
             <thead>
               <tr className="bg-subtle text-left">
+                <Th>
+                  <span className="sr-only">Vista previa</span>
+                </Th>
                 <Th>CÓDIGO</Th>
                 <Th>CONTROL</Th>
                 <Th>DOMINIO</Th>
@@ -406,10 +425,35 @@ export default function ControlesMadurez({
                 return (
                   <tr
                     key={c.codigo}
-                    onClick={() => setAbierto(estaAbierto ? null : c.codigo)}
+                    onClick={() => setAdministrando(c.codigo)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setAdministrando(c.codigo);
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Administrar el control ${c.codigo} ${c.nombre}`}
                     style={{ background: fondo }}
                     className="cursor-pointer border-t border-hairline align-middle"
                   >
+                    <Td>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAbierto(estaAbierto ? null : c.codigo);
+                        }}
+                        title="Vista previa"
+                        aria-label={`Vista previa del control ${c.codigo}`}
+                        aria-expanded={estaAbierto}
+                        className="h-5 w-5 rounded-campo text-11 leading-none text-muted transition-transform hover:bg-accent-50 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+                      >
+                        <span style={{ transform: estaAbierto ? 'rotate(90deg)' : undefined, display: 'inline-block' }}>
+                          ▸
+                        </span>
+                      </button>
+                    </Td>
                     <Td>
                       <span className="font-mono text-11 text-secondary">{c.codigo}</span>
                     </Td>
@@ -446,14 +490,18 @@ export default function ControlesMadurez({
                     <Td>
                       {esAplicable(c.soa) ? (
                         <select
-                          value={c.actual ?? 0}
+                          value={c.actual === null ? '' : c.actual}
                           onClick={(e) => e.stopPropagation()}
-                          onChange={(e) =>
-                            setNiveles((n) => ({ ...n, [c.codigo]: Number(e.target.value) }))
-                          }
+                          onChange={(e) => {
+                            if (e.target.value === '') return;
+                            setNiveles((n) => ({ ...n, [c.codigo]: Number(e.target.value) }));
+                          }}
                           style={{ color: s.fg, background: s.bg, borderColor: s.bd }}
                           className="w-full rounded-campo border px-2 py-1 font-mono text-11 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                         >
+                          <option value="" disabled style={{ color: 'var(--hf-text-faint)' }}>
+                            Por evaluar
+                          </option>
                           {ESCALA.map((e) => (
                             <option key={e.nivel} value={e.nivel}>
                               {etiquetaEscala(e.nivel)}
@@ -465,7 +513,23 @@ export default function ControlesMadurez({
                       )}
                     </Td>
                     <Td>
-                      <span className="font-mono text-11 text-muted">{nivelTexto(c.lineaBase)}</span>
+                      {c.lineaBase === null ? (
+                        <span
+                          className="inline-flex rounded-chip px-2 py-0.5 font-mono text-10"
+                          style={{
+                            color: 'var(--hf-cmm-nulo-fg)',
+                            background: 'var(--hf-cmm-nulo-bg)',
+                            border: '1px solid var(--hf-cmm-nulo-bd)',
+                          }}
+                          title="El GAP de marzo de 2026 no evaluó este control. Debe valorarse antes de cerrar la línea base; la media no lo cuenta."
+                        >
+                          Sin evaluar
+                        </span>
+                      ) : (
+                        <span className="font-mono text-11 text-muted">
+                          {nivelTexto(c.lineaBase)}
+                        </span>
+                      )}
                     </Td>
                     <Td>
                       <span className="font-mono text-11 text-muted">{nivelTexto(c.objetivo)}</span>
@@ -501,12 +565,22 @@ export default function ControlesMadurez({
         <Detalle control={conNivel.find((c) => c.codigo === abierto)!} />
       )}
 
-      {administrando && (
-        <PopupControl
-          control={conNivel.find((c) => c.codigo === administrando)!}
-          onCerrar={() => setAdministrando(null)}
-        />
-      )}
+      {administrando && (() => {
+        const idx = controles.findIndex((c) => c.codigo === administrando);
+        const abiertoVino = idx >= 0 ? controles[idx] : null;
+        return (
+          <PantallaControl
+            control={abiertoVino!}
+            onCerrar={() => setAdministrando(null)}
+            onNavegar={(codigo) => setAdministrando(codigo)}
+            directorio={directorio}
+            navegacion={{
+              anterior: idx > 0 ? controles[idx - 1].codigo : null,
+              siguiente: idx >= 0 && idx < controles.length - 1 ? controles[idx + 1].codigo : null,
+            }}
+          />
+        );
+      })()}
 
       <p className="mt-5 text-11 text-faint">
         Mostrando {visibles.length} de {m.total} controles. El índice es la media de la
@@ -518,13 +592,26 @@ export default function ControlesMadurez({
 }
 
 function Distribucion({ controles }: { controles: ControlVista[] }) {
-  const total = controles.length;
+  // The bar is a share of the controls actually EVALUATED, not of every applicable one:
+  // «Sin evaluar» (A.7.13) y «Por evaluar» (los siete de alcance adaptado) no son L0.
+  const evaluados = controles.filter((c) => c.actual !== null);
+  const total = evaluados.length;
   const porNivel = (nivel: number, campo: 'lineaBase' | 'actual' | 'objetivo') =>
     controles.filter((c) => c[campo] === nivel).length;
+  const pendientes = controles.length - evaluados.length;
 
   return (
     <section className="rounded-tarjeta border border-border-default bg-surface p-4">
       <h2 className="etiqueta-campo">Distribución por nivel</h2>
+      {pendientes > 0 && (
+        <p className="mt-1 text-10 text-faint">
+          {pendientes} control{pendientes === 1 ? '' : 'es'} fuera de la distribución:
+          {controles
+            .filter((c) => c.actual === null)
+            .map((c) => c.codigo)
+            .join(', ')} — valoración pendiente.
+        </p>
+      )}
       <div className="mt-3 space-y-2">
         {ESCALA.map((e) => {
           const actual = porNivel(e.nivel, 'actual');
@@ -576,10 +663,11 @@ function PorDominio({
         {dominios.map((d) => {
           const delDominio = controles.filter((c) => c.dominio === d);
           if (delDominio.length === 0) return null;
-          const niveles = delDominio.map((c) => c.actual ?? 0);
-          const enL3 = delDominio.filter((c) => (c.actual ?? 0) >= 3).length;
-          const pct = (enL3 / delDominio.length) * 100;
-          const eficaciaMedia = media(delDominio.map((c) => eficaciaDeNivel(c.actual))) * 100;
+          const evaluados = delDominio.filter((c) => c.actual !== null);
+          const niveles = evaluados.map((c) => c.actual as number);
+          const enL3 = evaluados.filter((c) => (c.actual as number) >= 3).length;
+          const pct = (enL3 / evaluados.length) * 100;
+          const eficaciaMedia = media(evaluados.map((c) => eficaciaDeNivel(c.actual))) * 100;
 
           return (
             <div key={d} className="text-11_5">
@@ -777,7 +865,7 @@ function SelectSoa({
         }
       >
         <option value="si">Aplica</option>
-        <option value="parcial">Parcialmente</option>
+        <option value="parcial">Aplica con alcance adaptado</option>
         <option value="no">No aplica</option>
       </select>
 
@@ -870,6 +958,13 @@ function SelectSoa({
 
 function BarraEficacia({ nivel, aplica }: { nivel: number | null; aplica: boolean }) {
   if (!aplica) return <span className="text-11 text-faint">—</span>;
+  if (nivel === null) {
+    return (
+      <span className="font-mono text-11" style={{ color: 'var(--hf-text-faint)' }}>
+        Por evaluar
+      </span>
+    );
+  }
   const pct = eficaciaDeNivel(nivel) * 100;
   const s = semaforo(nivel);
   return (
@@ -930,11 +1025,11 @@ function desdeClave(clave: string): Filtro {
 function pasa(c: ControlVista, f: Filtro): boolean {
   switch (f.tipo) {
     case 'brechas':
-      return esAplicable(c.soa) && (c.actual ?? 0) <= 2;
+      return esAplicable(c.soa) && c.actual !== null && c.actual <= 2;
     case 'gestionados':
-      return esAplicable(c.soa) && (c.actual ?? 0) >= 3;
+      return esAplicable(c.soa) && c.actual !== null && c.actual >= 3;
     case 'objetivo':
-      return esAplicable(c.soa) && c.objetivo !== null && (c.actual ?? 0) >= c.objetivo;
+      return esAplicable(c.soa) && c.actual !== null && c.objetivo !== null && c.actual >= c.objetivo;
     case 'plan':
       return c.accion !== null;
     case 'parciales':

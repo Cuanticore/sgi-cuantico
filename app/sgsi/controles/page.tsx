@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
 import ControlesMadurez, {
   type ControlVista,
 } from '@/app/components/sgsi/controles/ControlesMadurez';
+import { leerDirectorio } from '@/lib/sgsi/directorio';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,24 +19,26 @@ export default async function ControlesPage({
 }: {
   searchParams: Promise<{ filtro?: string; capacidad?: string; dominio?: string }>;
 }) {
-  const [{ filtro, capacidad, dominio }, controles, capacidades, dominios] = await Promise.all([
-    searchParams,
-    prisma.control.findMany({
-      orderBy: { codigo: 'asc' },
-      include: {
-        dominio: true,
-        capacidad: true,
-        lineaBase: true,
-        actual: true,
-        objetivo: true,
-        amenazas: { include: { amenaza: true } },
-        acciones: { where: { activa: true }, select: { codigo: true, estado: true } },
-        evidencias: { orderBy: [{ esBase: 'desc' }, { orden: 'asc' }] },
-      },
-    }),
-    prisma.capacidadOperativa.findMany({ orderBy: { orden: 'asc' } }),
-    prisma.dominioAnexoA.findMany({ orderBy: { orden: 'asc' } }),
-  ]);
+  const [{ filtro, capacidad, dominio }, controles, capacidades, dominios, directorio] =
+    await Promise.all([
+      searchParams,
+      prisma.control.findMany({
+        orderBy: { codigo: 'asc' },
+        include: {
+          dominio: true,
+          capacidad: true,
+          lineaBase: true,
+          actual: true,
+          objetivo: true,
+          amenazas: { include: { amenaza: true } },
+          acciones: { where: { activa: true }, select: { codigo: true, estado: true } },
+          evidencias: { orderBy: [{ esBase: 'desc' }, { orden: 'asc' }] },
+        },
+      }),
+      prisma.capacidadOperativa.findMany({ orderBy: { orden: 'asc' } }),
+      prisma.dominioAnexoA.findMany({ orderBy: { orden: 'asc' } }),
+      leerDirectorio(),
+    ]);
 
   const vista: ControlVista[] = controles.map((c) => ({
     codigo: c.codigo,
@@ -56,12 +59,25 @@ export default async function ControlesPage({
       // The base entry is the one that justified the rating; it carries no delete button.
       esBase: e.esBase,
       creadaPor: e.creadaPor,
+      creadaEn: e.creadaEn ? e.creadaEn.toISOString() : null,
+      activo: e.activo,
+      archivoNombre: e.archivoNombre,
+      archivoMime: e.archivoMime,
+      archivoTamano: e.archivoTamano,
+      archivoSha256: e.archivoSha256,
+      archivoVersion: e.archivoVersion,
     })),
     amenazas: c.amenazas.map((a) => ({ codigo: a.amenaza.codigo, nombre: a.amenaza.nombre })),
     accion: c.acciones[0] ? { codigo: c.acciones[0].codigo, estado: c.acciones[0].estado } : null,
     justificacionSoa: c.justificacionSoa,
     soaActualizadoPor: c.soaActualizadoPor,
     soaActualizadoEn: c.soaActualizadoEn ? c.soaActualizadoEn.toISOString() : null,
+    soaDescripcion: c.soaDescripcion,
+    soaDocumento: c.soaDocumento,
+    soaVersion: c.soaVersion,
+    soaFecha: c.soaFecha ? c.soaFecha.toISOString() : null,
+    soaAprobadoPor: c.soaAprobadoPor,
+    soaAlcanceAdaptado: c.soaAlcanceAdaptado,
   }));
 
   return (
@@ -72,6 +88,7 @@ export default async function ControlesPage({
       filtroInicial={filtro}
       capacidadInicial={capacidad}
       dominioInicial={dominio}
+      directorio={directorio}
     />
   );
 }

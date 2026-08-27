@@ -79,7 +79,7 @@ const COLUMNAS: { letra: string; encabezado: string; ancho: number; rango: strin
   { letra: 'D', encabezado: 'Descripción', ancho: 46, rango: null },
   { letra: 'E', encabezado: 'Tipo de activo', ancho: 30, rango: 'LstTipo' },
   { letra: 'F', encabezado: 'Subtipo de activo', ancho: 32, rango: 'DEPENDIENTE' },
-  { letra: 'G', encabezado: 'Proceso o área', ancho: 24, rango: 'LstProceso' },
+  { letra: 'G', encabezado: 'Proceso o Área', ancho: 24, rango: 'LstProceso' },
   { letra: 'H', encabezado: 'Responsable (custodio)', ancho: 24, rango: 'LstCargo' },
   { letra: 'I', encabezado: 'Propietario del activo', ancho: 24, rango: 'LstCargo' },
   { letra: 'J', encabezado: 'Ubicación', ancho: 18, rango: 'LstUbicacion' },

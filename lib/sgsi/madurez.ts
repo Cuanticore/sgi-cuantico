@@ -37,15 +37,17 @@ export function mediana(valores: readonly number[]): number {
 
 export type EstadoSoa = 'si' | 'parcial' | 'no';
 
-/// SOA derivation per ISO 27001 6.1.3 d. «Parcialmente» is NOT an exclusion: the control
-/// covers part of the scope, and it counts in every indicator. Only «No aplica» excludes.
+/// SOA derivation per ISO 27001 6.1.3 d. «Aplica con alcance adaptado» is NOT an
+/// exclusion: the control covers the scope through the remote operating model (the
+/// seven physical controls of DEC-SIG-01 6.3), and it counts in every indicator. Only
+/// «No aplica» excludes.
 export function esAplicable(soa: EstadoSoa): boolean {
   return soa !== 'no';
 }
 
 /// Human label for the SOA state, used in the bitácora and the export.
 export function etiquetaSoa(soa: EstadoSoa): string {
-  return soa === 'no' ? 'No aplica' : soa === 'parcial' ? 'Parcialmente' : 'Aplica';
+  return soa === 'no' ? 'No aplica' : soa === 'parcial' ? 'Aplica con alcance adaptado' : 'Aplica';
 }
 
 /// Pure validation of a SOA change, shared by the action and the UI so both refuse the
@@ -58,7 +60,7 @@ export function validarNuevoSoa(soa: EstadoSoa, justificacion: string): string[]
     errores.push(
       soa === 'no'
         ? '«No aplica» exige justificación escrita: es la declaración de exclusión que el auditor revé.'
-        : '«Parcialmente» exige justificación escrita: qué parte del alcance cubre y qué parte no.',
+        : '«Aplica con alcance adaptado» exige justificación escrita: cómo se alcanza el objetivo en el modelo de operación remota.',
     );
   }
   return errores;
@@ -94,6 +96,9 @@ export interface MetricasMadurez {
   brechas: number;
   avanceMedio: number;
   brechaTotal: number;
+  /// Applicable controls whose baseline is the GAP of 2 mar 2026. A.7.13 is declared
+  /// applicable but was never evaluated by the GAP, so it is absent here (92 of 93).
+  conLineaBase: number;
 }
 
 export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasMadurez {
@@ -101,17 +106,22 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
   const parciales = aplicables.filter((c) => c.soa === 'parcial').length;
   // A non-applicable control is excluded from every average. Letting a single zero in
   // is the defect the applicability flag exists to prevent.
-  const niveles = aplicables.map((c) => c.actual ?? 0);
+  //
+  // So is an applicable control that nobody has scored yet: «Sin evaluar» (A.7.13)
+  // and «Por evaluar» (los siete de alcance adaptado) are pending judgments, not L0s.
+  // Feeding zero would write a decision that was never made into every mean.
+  const evaluados = aplicables.filter((c) => c.actual !== null);
+  const niveles = evaluados.map((c) => c.actual as number);
 
-  const enL3 = aplicables.filter((c) => (c.actual ?? 0) >= 3).length;
-  const enObjetivo = aplicables.filter(
-    (c) => c.objetivo !== null && (c.actual ?? 0) >= c.objetivo,
+  const enL3 = evaluados.filter((c) => (c.actual as number) >= 3).length;
+  const enObjetivo = evaluados.filter(
+    (c) => c.objetivo !== null && (c.actual as number) >= c.objetivo,
   ).length;
   // Gaps are never aggregated into a decimal: a control at L1 is a concrete action
   // with an owner and a date. This counts them, it does not average them.
-  const brechas = aplicables.filter((c) => (c.actual ?? 0) <= 2).length;
-  const brechaTotal = aplicables.reduce(
-    (suma, c) => suma + Math.max(0, (c.objetivo ?? 0) - (c.actual ?? 0)),
+  const brechas = evaluados.filter((c) => (c.actual as number) <= 2).length;
+  const brechaTotal = evaluados.reduce(
+    (suma, c) => suma + Math.max(0, (c.objetivo ?? 0) - (c.actual as number)),
     0,
   );
   const avances = aplicables
@@ -123,15 +133,16 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
     aplicables: aplicables.length,
     parciales,
     noAplicables: controles.length - aplicables.length,
-    indice: media(aplicables.map((c) => eficaciaDeNivel(c.actual))) * 100,
+    indice: media(evaluados.map((c) => eficaciaDeNivel(c.actual))) * 100,
     nivelTipico: mediana(niveles),
     nivelMedio: media(niveles),
     enL3,
-    pctL3: aplicables.length === 0 ? 0 : (enL3 / aplicables.length) * 100,
+    pctL3: evaluados.length === 0 ? 0 : (enL3 / evaluados.length) * 100,
     enObjetivo,
     brechas,
     avanceMedio: media(avances),
     brechaTotal,
+    conLineaBase: aplicables.filter((c) => c.lineaBase !== null).length,
   };
 }
 

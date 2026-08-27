@@ -38,8 +38,10 @@ export async function verificarMetricas(prisma: PrismaClient): Promise<boolean> 
 
   const checks: Esperado[] = [
     { etiqueta: 'Controles', esperado: 93, obtenido: m.total, tolerancia: 0 },
-    { etiqueta: 'Aplicables', esperado: 86, obtenido: m.aplicables, tolerancia: 0 },
-    { etiqueta: 'No aplicables', esperado: 7, obtenido: m.noAplicables, tolerancia: 0 },
+    { etiqueta: 'Aplicables', esperado: 93, obtenido: m.aplicables, tolerancia: 0 },
+    { etiqueta: 'No aplicables', esperado: 0, obtenido: m.noAplicables, tolerancia: 0 },
+    { etiqueta: 'Alcance adaptado', esperado: 7, obtenido: m.parciales, tolerancia: 0 },
+    { etiqueta: 'Con línea base (GAP)', esperado: 92, obtenido: m.conLineaBase, tolerancia: 0 },
     { etiqueta: 'Índice de madurez (%)', esperado: 86.7, obtenido: m.indice, tolerancia: 0.05 },
     { etiqueta: 'Nivel típico (mediana)', esperado: 3.0, obtenido: m.nivelTipico, tolerancia: 0.005 },
     { etiqueta: 'Nivel medio (referencia)', esperado: 3.23, obtenido: m.nivelMedio, tolerancia: 0.005 },
@@ -47,7 +49,7 @@ export async function verificarMetricas(prisma: PrismaClient): Promise<boolean> 
     { etiqueta: '% en L3 o superior', esperado: 87.2, obtenido: m.pctL3, tolerancia: 0.05 },
     { etiqueta: 'Cumplen objetivo', esperado: 26, obtenido: m.enObjetivo, tolerancia: 0 },
     { etiqueta: 'Brechas (L2 o menos)', esperado: 11, obtenido: m.brechas, tolerancia: 0 },
-    { etiqueta: 'Avance medio', esperado: 3.1, obtenido: m.avanceMedio, tolerancia: 0.005 },
+    { etiqueta: 'Avance medio', esperado: 2.906, obtenido: m.avanceMedio, tolerancia: 0.005 },
     { etiqueta: 'Brecha total', esperado: 64, obtenido: m.brechaTotal, tolerancia: 0 },
   ];
 

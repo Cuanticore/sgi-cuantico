@@ -2783,19 +2783,48 @@ function RenglonAmenaza({
         </div>
       </div>
 
+      {/* Iteración 3: el clic en la fila abre el FORMULARIO de la amenaza (degradaciones,
+          frecuencia, excepciones, controles, riesgo residual y tratamiento) en un dialogo
+          superpuesto, no un detalle estirado en la tabla. */}
       {abierta && (
-        <DetalleAmenaza
-          f={f}
-          catalogos={catalogos}
-          onJustificacion={onJustificacion}
-          onQuitarExcepcion={onQuitarExcepcion}
-          onJustificacionFrecuencia={onJustificacionFrecuencia}
-          onMadurez={onMadurez}
-          onEfecto={onEfecto}
-          onQuitarControl={onQuitarControl}
-          onRestaurarControles={onRestaurarControles}
-          onTratamiento={onTratamiento}
-        />
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 md:items-center"
+          onClick={() => onAbrir(codigo)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-tarjeta border border-border-default bg-surface shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Formulario de la amenaza ${codigo}`}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hairline bg-surface px-5 py-3">
+              <p className="min-w-0 font-mono text-11 text-secondary">
+                {codigo} — amenaza del activo · {f.amenaza.nombre}
+              </p>
+              <button
+                onClick={() => onAbrir(codigo)}
+                className="rounded-campo border border-border-field px-3 py-1.5 font-mono text-11 text-muted hover:bg-subtle"
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+            <div className="p-5">
+              <DetalleAmenaza
+                f={f}
+                catalogos={catalogos}
+                onJustificacion={onJustificacion}
+                onQuitarExcepcion={onQuitarExcepcion}
+                onJustificacionFrecuencia={onJustificacionFrecuencia}
+                onMadurez={onMadurez}
+                onEfecto={onEfecto}
+                onQuitarControl={onQuitarControl}
+                onRestaurarControles={onRestaurarControles}
+                onTratamiento={onTratamiento}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

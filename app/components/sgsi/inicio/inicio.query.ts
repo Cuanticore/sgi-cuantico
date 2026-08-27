@@ -44,6 +44,8 @@ export interface DatosInicio {
   indice: number;
   indiceLineaBase: number;
   indiceObjetivo: number;
+  /// «GAP 2 mar 2026» — la fecha de la línea base es un dato (LineaBase), no un literal.
+  fechaLineaBase: string;
   total: number;
   aplicables: number;
   noAplicables: number;
@@ -66,23 +68,25 @@ export interface DatosInicio {
 }
 
 export async function leerInicio(): Promise<DatosInicio> {
-  const [controles, umbrales, activos, riesgos, amenazas, paresMapeados] = await Promise.all([
-    prisma.control.findMany({
-      include: { capacidad: true, lineaBase: true, actual: true, objetivo: true },
-    }),
-    prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
-    prisma.activo.count({ where: { activo: true } }),
-    prisma.riesgo.findMany({
-      where: { obsoleto: false },
-      select: {
-        activoId: true,
-        riesgoPotencial: true,
-        riesgoResidual: true,
-        tratamientoId: true,
-      },
-    }),
-    prisma.amenaza.count({ where: { activa: true } }),
-    prisma.controlAmenaza.count(),
+  const [controles, umbrales, activos, riesgos, amenazas, paresMapeados, lineaBase] =
+    await Promise.all([
+      prisma.control.findMany({
+        include: { capacidad: true, lineaBase: true, actual: true, objetivo: true },
+      }),
+      prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
+      prisma.activo.count({ where: { activo: true } }),
+      prisma.riesgo.findMany({
+        where: { obsoleto: false },
+        select: {
+          activoId: true,
+          riesgoPotencial: true,
+          riesgoResidual: true,
+          tratamientoId: true,
+        },
+      }),
+      prisma.amenaza.count({ where: { activa: true } }),
+      prisma.controlAmenaza.count(),
+      prisma.lineaBase.findFirst({ orderBy: { fecha: 'desc' }, select: { nombre: true } }),
   ]);
 
   const residualCalculable = paresMapeados > 0;
@@ -97,9 +101,15 @@ export async function leerInicio(): Promise<DatosInicio> {
 
   // The index the baseline had, and the one the approved targets would reach. Both go
   // through the same arithmetic as the current figure, so the progress bar compares
-  // like with like.
+  // like with like. A pending judgment is not a zero: A.7.13 never entered the GAP and
+  // the seven adapted controls are still «Por evaluar», so each series averages over
+  // the controls somebody actually scored (92 in the baseline, 86 today).
   const indiceDe = (campo: 'lineaBase' | 'actual' | 'objetivo'): number =>
-    media(paraMetricas.filter((c) => esAplicable(c.soa)).map((c) => eficaciaDeNivel(c[campo]))) * 100;
+    media(
+      paraMetricas
+        .filter((c) => esAplicable(c.soa) && c[campo] !== null)
+        .map((c) => eficaciaDeNivel(c[campo])),
+    ) * 100;
 
   const aplicables = controles.filter((c) => c.soa !== 'NO');
   const porCapacidad = new Map<string, typeof aplicables>();
@@ -109,20 +119,24 @@ export async function leerInicio(): Promise<DatosInicio> {
 
   const capacidades: CapacidadBrecha[] = [...porCapacidad.entries()]
     .map(([capacidad, cs]) => {
-      const niveles = cs.map((c) => c.actual?.nivel ?? 0);
-      const enL3 = cs.filter((c) => (c.actual?.nivel ?? 0) >= 3).length;
+      const evaluados = cs.filter((c) => c.actual !== null);
+      const niveles = evaluados.map((c) => c.actual!.nivel!);
+      const enL3 = evaluados.filter((c) => (c.actual!.nivel!) >= 3).length;
+      const conBase = cs.filter((c) => c.lineaBase !== null);
       return {
         capacidad,
         corto: cs[0].capacidad.nombreCorto,
         controles: cs.length,
         enL3,
         mediana: mediana(niveles),
-        eficacia: media(cs.map((c) => eficaciaDeNivel(c.actual?.nivel ?? null))) * 100,
-        objetivo: media(cs.map((c) => eficaciaDeNivel(c.objetivo?.nivel ?? null))) * 100,
-        lineaBase: media(cs.map((c) => eficaciaDeNivel(c.lineaBase?.nivel ?? null))) * 100,
+        eficacia: media(evaluados.map((c) => eficaciaDeNivel(c.actual!.nivel!))) * 100,
+        objetivo: media(
+          cs.filter((c) => c.objetivo !== null).map((c) => eficaciaDeNivel(c.objetivo!.nivel!)),
+        ) * 100,
+        lineaBase: media(conBase.map((c) => eficaciaDeNivel(c.lineaBase!.nivel!))) * 100,
         // The gap is in efficacy points, which is what the index is measured in.
-        brecha: cs.reduce(
-          (s, c) => s + Math.max(0, (c.objetivo?.nivel ?? 0) - (c.actual?.nivel ?? 0)),
+        brecha: evaluados.reduce(
+          (s, c) => s + Math.max(0, (c.objetivo?.nivel ?? 0) - (c.actual!.nivel!)),
           0,
         ),
         orden: cs[0].capacidad.orden,
@@ -161,6 +175,7 @@ export async function leerInicio(): Promise<DatosInicio> {
     indice: m.indice,
     indiceLineaBase: indiceDe('lineaBase'),
     indiceObjetivo: indiceDe('objetivo'),
+    fechaLineaBase: lineaBase?.nombre ?? 'sin establecer',
     total: m.total,
     aplicables: m.aplicables,
     noAplicables: m.noAplicables,

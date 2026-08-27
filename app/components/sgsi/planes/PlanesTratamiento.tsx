@@ -299,6 +299,9 @@ export default function PlanesTratamiento({
           <table className="w-full border-collapse text-12">
             <thead>
               <tr className="bg-subtle text-left">
+                <Th ancho={30}>
+                  <span className="sr-only">Vista previa</span>
+                </Th>
                 <Th ancho={78}>Código</Th>
                 <Th>Acción</Th>
                 <Th ancho={92}>Tipo</Th>
@@ -320,12 +323,42 @@ export default function PlanesTratamiento({
                 return (
                   <tr
                     key={a.codigo}
-                    onClick={() => setAbierta(estaAbierta ? null : a.codigo)}
+                    onClick={() => setEditando(a.codigo)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setEditando(a.codigo);
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Editar la acción ${a.codigo} ${a.accion}`}
                     style={{
                       background: estaAbierta ? 'var(--hf-accent-50)' : 'var(--hf-row-blanco)',
                     }}
                     className="cursor-pointer border-t border-hairline align-middle"
                   >
+                    <Td>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAbierta(estaAbierta ? null : a.codigo);
+                        }}
+                        title="Vista previa"
+                        aria-label={`Vista previa de la acción ${a.codigo}`}
+                        aria-expanded={estaAbierta}
+                        className="h-5 w-5 rounded-campo text-11 leading-none text-muted transition-transform hover:bg-accent-50 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+                      >
+                        <span
+                          style={{
+                            transform: estaAbierta ? 'rotate(90deg)' : undefined,
+                            display: 'inline-block',
+                          }}
+                        >
+                          ▸
+                        </span>
+                      </button>
+                    </Td>
                     <Td>
                       <span className="font-mono text-11 text-secondary">{a.codigo}</span>
                     </Td>

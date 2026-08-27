@@ -38,11 +38,15 @@ function cargarFixture(): ControlMadurez[] {
 describe('métricas de madurez contra las cifras del libro', () => {
   const m = metricasMadurez(cargarFixture());
 
-  it('cuenta 93 controles, 86 aplicables y 7 no aplicables', () => {
+  it('cuenta 93 controles aplicables, cero exclusión y siete de alcance adaptado', () => {
     expect(m.total).toBe(93);
-    expect(m.aplicables).toBe(86);
-    expect(m.noAplicables).toBe(7);
-    expect(m.parciales).toBe(0);
+    expect(m.aplicables).toBe(93);
+    expect(m.noAplicables).toBe(0);
+    expect(m.parciales).toBe(7);
+  });
+
+  it('la línea base del GAP cubre 92 de 93: A.7.13 quedó sin evaluar', () => {
+    expect(m.conLineaBase).toBe(92);
   });
 
   it('el índice de madurez es la media de la EFICACIA', () => {
@@ -62,7 +66,8 @@ describe('métricas de madurez contra las cifras del libro', () => {
     expect(m.pctL3).toBeCloseTo(87.2, 1);
     expect(m.enObjetivo).toBe(26);
     expect(m.brechas).toBe(11);
-    expect(m.avanceMedio).toBeCloseTo(3.1, 2);
+    // MAT-SIG-02 «comparativo»: salto promedio 2.90588 entre el GAP de marzo y agosto.
+    expect(m.avanceMedio).toBeCloseTo(2.906, 2);
     expect(m.brechaTotal).toBe(64);
   });
 
@@ -110,6 +115,24 @@ describe('los controles PARCIAL cuentan como aplicables', () => {
     expect(esAplicable('si')).toBe(true);
     expect(esAplicable('parcial')).toBe(true);
     expect(esAplicable('no')).toBe(false);
+  });
+});
+
+describe('un control aplicable todavía no evaluado no cuenta como L0', () => {
+  it('la pendiente de evaluación es un dato ausente, no un cero', () => {
+    const controles: ControlMadurez[] = [
+      { soa: 'si', lineaBase: 2, actual: null, objetivo: 4 },
+      { soa: 'si', lineaBase: 0, actual: 4, objetivo: 4 },
+    ];
+    const m = metricasMadurez(controles);
+
+    expect(m.aplicables).toBe(2);
+    expect(m.indice).toBeCloseTo(95, 5);
+    expect(m.enL3).toBe(1);
+    expect(m.pctL3).toBe(100);
+    expect(m.brechas).toBe(0);
+    expect(m.brechaTotal).toBe(0);
+    expect(m.conLineaBase).toBe(2);
   });
 });
 

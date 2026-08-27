@@ -533,10 +533,14 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
     .map(([nombre]) => nombre);
 
   // --- Periods ------------------------------------------------------------------------
+  // The GAP of 2 mar 2026 is data (a LineaBase row), not a literal: it names the
+  // previous period below. The current one is the August evaluation — the levels
+  // stored per control, not a snapshot row.
   const lineaBaseVigente = lineasBase[0]?.nombre ?? null;
   const snapshotAnterior = lineasBase[1]?.nombre ?? null;
   const anteriorEsCalificacionInicial = snapshotAnterior === null;
-  const periodoAnterior = snapshotAnterior ?? 'Calificación inicial de los controles';
+  const periodoAnterior =
+    snapshotAnterior ?? `línea base · ${lineasBase[0]?.nombre ?? 'sin establecer'}`;
 
   const altosResidualesGlobal = totalInventario.altosResiduales;
   const altosSinTratamiento = usaResidual ? candidatosResidual.length : null;
@@ -545,7 +549,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
     {
       periodo: periodoAnterior,
       etiqueta: anteriorEsCalificacionInicial
-        ? 'Nivel de partida registrado por control'
+        ? `Línea base — ${lineasBase[0]?.nombre ?? 'sin establecer'}`
         : 'Snapshot anterior',
       indice: metricasBase.indice,
       enL3: metricasBase.enL3,
@@ -557,8 +561,8 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
       riesgosConocidos: false,
     },
     {
-      periodo: lineaBaseVigente ?? 'Actual',
-      etiqueta: lineaBaseVigente === null ? 'Sin línea base registrada' : 'Línea base vigente',
+      periodo: 'agosto de 2026',
+      etiqueta: 'Evaluación actual',
       indice: metricas.indice,
       enL3: metricas.enL3,
       aplicables: metricas.aplicables,

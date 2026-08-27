@@ -43,7 +43,7 @@ export default async function ResumenSgsiPage() {
       <TableroInicio datos={datos} />
 
       <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <RadarCapacidades ejes={ejes} />
+        <RadarCapacidades ejes={ejes} etiquetaLineaBase={datos.fechaLineaBase} />
         <BrechaPorCapacidad datos={datos} />
       </div>
 

@@ -265,8 +265,9 @@ export default function EvaluacionSgsi({
           )}
           {periodos.length === 1 && (
             <p className="parrafo mt-2 text-11_5 text-muted">
-              Con un solo corte registrado no hay periodo anterior. Antes que inventar un
-              comparativo, el informe declara que trabaja sobre una única medición.
+              Con una sola línea base registrada, el comparativo se traza contra la
+              calificación inicial guardada en cada control — la misma del GAP del 2 de
+              marzo de 2026.
             </p>
           )}
         </div>
@@ -286,10 +287,8 @@ export default function EvaluacionSgsi({
                 style={{ gridTemplateColumns: 'minmax(0, 1fr) 104px 104px 96px' }}
               >
                 <Encabezado>Indicador</Encabezado>
-                <Encabezado derecha>
-                  {anteriorEsCalificacionInicial ? 'Inicial' : periodoAnterior}
-                </Encabezado>
-                <Encabezado derecha>Actual</Encabezado>
+                <Encabezado derecha>{periodoAnterior}</Encabezado>
+                <Encabezado derecha>Actual · agosto de 2026</Encabezado>
                 <Encabezado derecha>Variación</Encabezado>
 
                 {resumen.map((fila) => {
@@ -329,7 +328,7 @@ export default function EvaluacionSgsi({
           </div>
           <p className="text-10_5 leading-relaxed text-faint">
             {anteriorEsCalificacionInicial
-              ? 'La columna anterior es la calificación inicial guardada en cada control, no un corte histórico: no hay ninguna línea base registrada, y un comparativo con periodos inventados sería peor que uno que admite tener una sola medición.'
+              ? 'La columna anterior es la línea base: el GAP Análisis ISO/IEC 27001:2022 · CUANTICO · 2 de marzo de 2026, guardado en cada control. A.7.13 quedó sin evaluar en el GAP y no entra en los promedios.'
               : 'Las variaciones en puntos porcentuales se marcan «pp»; el resto son conteos o niveles.'}
           </p>
         </Tarjeta>

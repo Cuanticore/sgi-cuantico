@@ -19,21 +19,27 @@ export interface FilaDeclaracion {
   nombre: string;
   dominio: string;
   capacidad: string;
-  /// 'Aplica' | 'Parcialmente' | 'No aplica'
+  /// 'Aplica' | 'Aplica con alcance adaptado' | 'No aplica'
   estado: string;
+  descripcion: string;
   justificacion: string;
   responsable: string;
   fechaCambio: string;
   madurez: string;
+  version: string;
+  fechaAprobacion: string;
+  aprobadoPor: string;
 }
 
 const CABECERA = [
   { key: 'codigo', titulo: 'CÓDIGO', ancho: 10 },
   { key: 'nombre', titulo: 'CONTROL', ancho: 60 },
-  { key: 'dominio', titulo: 'DOMINIO', ancho: 16 },
-  { key: 'capacidad', titulo: 'CAPACIDAD OPERATIVA', ancho: 28 },
-  { key: 'estado', titulo: 'APLICA · SOA', ancho: 14 },
-  { key: 'justificacion', titulo: 'JUSTIFICACIÓN', ancho: 70 },
+  { key: 'descripcion', titulo: 'DESCRIPCIÓN DEL CONTROL (ISO/IEC 27002:2022)', ancho: 80 },
+  { key: 'estado', titulo: 'APLICA · SOA', ancho: 16 },
+  { key: 'justificacion', titulo: 'JUSTIFICACIÓN DE LA INCLUSIÓN', ancho: 80 },
+  { key: 'version', titulo: 'VERSIÓN SOA', ancho: 12 },
+  { key: 'fechaAprobacion', titulo: 'FECHA APROBACIÓN', ancho: 16 },
+  { key: 'aprobadoPor', titulo: 'APROBÓ', ancho: 24 },
   { key: 'responsable', titulo: 'RESPONSABLE', ancho: 24 },
   { key: 'fechaCambio', titulo: 'FECHA ÚLTIMO CAMBIO', ancho: 18 },
   { key: 'madurez', titulo: 'MADUREZ ACTUAL', ancho: 12 },
@@ -68,10 +74,12 @@ export async function construirDeclaracion(
     const fila = hoja.addRow({
       codigo: f.codigo,
       nombre: f.nombre,
-      dominio: f.dominio,
-      capacidad: f.capacidad,
+      descripcion: f.descripcion,
       estado: f.estado,
       justificacion: f.justificacion,
+      version: f.version,
+      fechaAprobacion: f.fechaAprobacion,
+      aprobadoPor: f.aprobadoPor,
       responsable: f.responsable,
       fechaCambio: f.fechaCambio,
       madurez: f.madurez,
@@ -84,11 +92,13 @@ export async function construirDeclaracion(
     celdaEstado.fill =
       f.estado === 'No aplica'
         ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBFCFB' } }
-        : f.estado === 'Parcialmente'
+        : f.estado === 'Aplica con alcance adaptado'
           ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E6' } }
           : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F9FD' } };
     fila.getCell('codigo').font = { name: 'Consolas', size: 10 };
     fila.getCell('madurez').alignment = { horizontal: 'center' };
+    fila.getCell('version').alignment = { horizontal: 'center' };
+    fila.getCell('fechaAprobacion').alignment = { horizontal: 'center' };
     fila.getCell('fechaCambio').alignment = { horizontal: 'center' };
   }
 

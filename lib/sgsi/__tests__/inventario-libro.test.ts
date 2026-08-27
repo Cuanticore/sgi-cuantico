@@ -83,7 +83,7 @@ describe('el libro de inventario replicado', () => {
       'Descripción',
       'Tipo de activo',
       'Subtipo de activo',
-      'Proceso o área',
+      'Proceso o Área',
       'Responsable (custodio)',
       'Propietario del activo',
       'Ubicación',

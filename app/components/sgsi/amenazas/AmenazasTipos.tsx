@@ -99,6 +99,9 @@ export default function AmenazasTipos({
   const [relaciones, setRelaciones] = useState<Record<string, boolean>>({});
   const [mostrarNoAplican, setMostrarNoAplican] = useState(false);
   const [avisoPublicar, setAvisoPublicar] = useState(false);
+  /// Row-click opens the amenaza–tipo relation form. The draft flow is the same: the
+  /// popup writes to `borrador` / `relaciones` and the screen publishes on save.
+  const [detalle, setDetalle] = useState<string | null>(null);
 
   const clave = (amenaza: string, tipo: string) => `${amenaza}\u0000${tipo}`;
 
@@ -326,7 +329,17 @@ export default function AmenazasTipos({
                   // row-level signal instead.
                   <tr
                     key={a.codigo}
-                    className="border-t border-hairline align-top"
+                    onClick={() => setDetalle(a.codigo)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetalle(a.codigo);
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Abrir la relación amenaza–tipo de ${a.codigo} ${a.nombre}`}
+                    className="cursor-pointer border-t border-hairline align-top"
                     style={
                       editada
                         ? { boxShadow: 'inset 3px 0 0 0 var(--hf-warn-500)' }
@@ -425,9 +438,10 @@ export default function AmenazasTipos({
 
                     <Td derecha>
                       <button
-                        onClick={() =>
-                          setRelaciones((r) => ({ ...r, [clave(a.codigo, tipoSel)]: false }))
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRelaciones((r) => ({ ...r, [clave(a.codigo, tipoSel)]: false }));
+                        }}
                         title={`Dar de baja la relación de ${a.codigo} con ${tipoActual?.nombre}. La pareja queda registrada como no aplicable, no se borra.`}
                         aria-label={`Dar de baja la relación de ${a.codigo} con ${tipoActual?.nombre}`}
                         className="h-6 w-6 rounded-campo border border-danger-border bg-surface text-13 leading-none text-danger-text hover:bg-danger-bg"
@@ -460,6 +474,109 @@ export default function AmenazasTipos({
           relación es lógica: la pareja pasa a «no aplica» y sigue en el registro.
         </p>
       </div>
+
+      {detalle !== null && (() => {
+        const a = amenazas.find((x) => x.codigo === detalle)!;
+        const n = alcance(a);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+            onClick={() => setDetalle(null)}
+          >
+            <div
+              className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-tarjeta border border-border-default bg-surface p-5 shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="etiqueta-campo">Relación amenaza–tipo · {a.codigo}</p>
+              <p className="mt-1 text-12_5 font-semibold text-primary">{a.nombre}</p>
+              <p className="mt-0.5 font-mono text-10 text-faint">{a.grupo}</p>
+              {a.nota && <p className="mt-2 text-11_5 text-secondary">{a.nota}</p>}
+
+              <p className="etiqueta-campo mt-4">Tipos de activo a los que aplica</p>
+              <div className="mt-1 grid grid-cols-2 gap-1.5">
+                {tipos.map((t) => {
+                  const si = aplica(a, t.codigo);
+                  return (
+                    <label
+                      key={t.codigo}
+                      className="flex items-center gap-2 rounded-campo border border-border-field px-2.5 py-1.5 text-11_5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={si}
+                        onChange={() =>
+                          setRelaciones((r) => ({
+                            ...r,
+                            [clave(a.codigo, t.codigo)]: !si,
+                          }))
+                        }
+                        className="h-3.5 w-3.5 accent-[var(--hf-accent-500)]"
+                      />
+                      <span className="font-mono text-10 text-muted">{t.codigo}</span>
+                      <span className="truncate">{t.nombre}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <p className="etiqueta-campo mt-4">Degradación y frecuencia</p>
+              <div className="mt-1 grid gap-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                {dimensiones.map((d) => (
+                  <label key={d.codigo} className="block">
+                    <span className="mb-0.5 block font-mono text-9_5 text-muted">
+                      Degradación · {d.codigo}
+                    </span>
+                    <Selector
+                      valor={valorDe(a, d.codigo)}
+                      publicado={publicadoDe(a, d.codigo)}
+                      desviado={desviado(a, d.codigo)}
+                      etiqueta={`Degradación en ${d.nombre} de ${a.codigo} ${a.nombre}`}
+                      alcance={n}
+                      onChange={(v) => editar(a.codigo, d.codigo, v)}
+                      opciones={gradosDegradacion.map((g) => ({
+                        valor: g.nombre,
+                        texto: `${g.nombre} · ${cifra(g.factor, 2)}`,
+                        titulo: g.lectura ?? undefined,
+                      }))}
+                    />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-0.5 block font-mono text-9_5 text-muted">
+                    Frecuencia
+                  </span>
+                  <Selector
+                    valor={valorDe(a, CAMPO_FRECUENCIA)}
+                    publicado={publicadoDe(a, CAMPO_FRECUENCIA)}
+                    desviado={desviado(a, CAMPO_FRECUENCIA)}
+                    etiqueta={`Frecuencia esperada de ${a.codigo} ${a.nombre}`}
+                    alcance={n}
+                    onChange={(v) => editar(a.codigo, CAMPO_FRECUENCIA, v)}
+                    opciones={gradosFrecuencia.map((f) => ({
+                      valor: f.nombre,
+                      texto: `${gradoCorto(f.nombre)} · ${cifra(f.vecesAno)}/año`,
+                      titulo: f.nombre,
+                    }))}
+                  />
+                </label>
+              </div>
+
+              <p className="mt-4 text-10_5 text-faint">
+                Los cambios quedan en el borrador de la pantalla: se publican con el
+                botón «Publicar cambios».
+              </p>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={() => setDetalle(null)}
+                  className="rounded-campo border border-border-field px-3 py-1.5 text-12 text-muted hover:bg-subtle"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </main>
   );
 }
@@ -491,6 +608,7 @@ function Selector({
         value={valor}
         aria-label={etiqueta}
         title={`${etiqueta}. Alcanza a los ${alcance} tipos a los que la amenaza aplica.`}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-campo border px-2 py-1 text-11 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
         style={

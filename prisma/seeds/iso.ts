@@ -16,6 +16,12 @@ const DATA = join(process.cwd(), 'prisma', 'data');
 
 export type SoaSemilla = 'si' | 'parcial' | 'no';
 
+/// DEC-SIG-01 v2 — the document every SoA answer reads against (numeral 6.3/7/8).
+export const SOA_DOCUMENTO = 'DEC-SIG-01';
+export const SOA_VERSION = '2';
+export const SOA_FECHA = '2026-08-26';
+export const SOA_APROBADO_POR = 'Alta Dirección — Daniel Medina';
+
 interface ControlSeed {
   c: string; // codigo
   n: string; // nombre
@@ -27,6 +33,14 @@ interface ControlSeed {
   obj: number | null;
   ev: string; // evidencia
   am: string; // codigos de amenaza separados por coma
+}
+
+interface SoaSeed {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  aplicable: 'si' | 'adaptado';
+  justificacion: string;
 }
 
 function aEstadoSoa(soa: SoaSemilla): EstadoSoa {
@@ -115,21 +129,39 @@ export async function seedIso(prisma: PrismaClient): Promise<void> {
   const nivel = (n: number | null): number | null =>
     n === null ? null : madurezPorNivel.get(n) ?? null;
 
+  const soaDocumento: SoaSeed[] = JSON.parse(
+    readFileSync(join(DATA, 'soa.json'), 'utf8'),
+  );
+  const soaPorCodigo = new Map(soaDocumento.map((s) => [s.codigo, s]));
+
   for (const c of controles) {
-    // Maturity levels are null exactly when the control does not apply. Letting a
-    // single zero into an average instead is the bug this invariant prevents.
+    // SoA v2 (DEC-SIG-01): 93 applicable, seven declared with adapted scope
+    // (A.7.1-4, A.7.6, A.7.11-12). Applicability no longer implies an evaluation
+    // exists: an adapted control is still "pending evaluation" until scored, and
+    // that is a fact, not an L0. Only NO implies there is nothing to evaluate.
     const soaEstado = aEstadoSoa(c.soa);
-    const aplica = soaEstado !== 'NO';
-    if (aplica !== (c.act !== null)) {
-      throw new Error(`Control ${c.c}: aplicabilidad y niveles inconsistentes`);
+    if (soaEstado === 'NO' && c.act !== null) {
+      throw new Error(
+        `Control ${c.c}: declarado no aplicable pero con evaluación actual (${c.act}).`,
+      );
     }
+
+    const s = soaPorCodigo.get(c.c);
+    if (!s) throw new Error(`SoA sin fila para ${c.c}`);
+    if (s.nombre !== c.n) throw new Error(`SoA y catálogo difieren en el nombre de ${c.c}`);
 
     const datos = {
       nombre: c.n,
       dominioId: dominioPorNombre.get(c.dom)!,
       capacidadId: capacidadPorNombre.get(c.cap)!,
       soa: soaEstado,
-      justificacionSoa: soaEstado === 'SI' ? null : c.ev,
+      justificacionSoa: s.justificacion,
+      soaDescripcion: s.descripcion,
+      soaDocumento: SOA_DOCUMENTO,
+      soaVersion: SOA_VERSION,
+      soaFecha: new Date(SOA_FECHA + 'T00:00:00.000Z'),
+      soaAprobadoPor: SOA_APROBADO_POR,
+      soaAlcanceAdaptado: s.aplicable === 'adaptado',
       lineaBaseId: nivel(c.base),
       actualId: nivel(c.act),
       objetivoId: nivel(c.obj),

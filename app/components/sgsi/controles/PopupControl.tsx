@@ -100,8 +100,16 @@ export default function PopupControl({
   const cambioObjetivo = objetivo !== control.objetivo;
 
   const versiones = [
-    { titulo: 'Versión inicial', sub: 'línea base', nivel: control.lineaBase, actual: false },
-    { titulo: 'Madurez actual', sub: 'en evaluación', nivel, actual: true },
+    {
+      titulo: 'Versión inicial',
+      sub:
+        control.lineaBase === null
+          ? 'Sin evaluar · debe valorarse'
+          : 'línea base · GAP 2 mar 2026',
+      nivel: control.lineaBase,
+      actual: false,
+    },
+    { titulo: 'Madurez actual', sub: 'en evaluación · agosto de 2026', nivel, actual: true },
     { titulo: 'Versión objetivo', sub: 'aprobada', nivel: objetivo, actual: false },
   ];
 
@@ -132,7 +140,7 @@ export default function PopupControl({
               onClick={() =>
                 correr(() => guardarMadurez([{ codigoControl: control.codigo, nivel: nivel! }]))
               }
-              disabled={pendiente || !cambioNivel}
+              disabled={pendiente || !cambioNivel || nivel === null}
               title={!cambioNivel ? 'La madurez no cambió' : undefined}
               className="rounded-campo px-3.5 py-1.5 text-12_5 font-semibold text-white disabled:opacity-50"
               style={{ background: 'var(--hf-accent-500)' }}
@@ -159,9 +167,21 @@ export default function PopupControl({
           <p className="parrafo mt-1 text-11_5">
             {control.soa === 'no'
               ? 'Un control que no aplica queda excluido de todos los promedios, pero no se borra: su no aplicabilidad es una decisión que el Comité aprueba y que un auditor revisa.'
-              : 'Parcialmente aplicable: cuenta como aplicable en todos los indicadores, pero la cobertura parcial rara vez sostiene L4/L5 en auditoría.'}
+              : 'Declarado aplicable con el alcance adaptado al modelo de operación remota: cuenta en todos los indicadores, y la cobertura parcial rara vez sostiene L4/L5 en auditoría.'}
           </p>
         )}
+        {control.soaAlcanceAdaptado && (
+          <p className="mt-2 rounded-campo border border-warn-border bg-warn-100 p-2 text-10_5 text-warn-text">
+            DEC-SIG-01 §9: arrendar o adquirir instalaciones propias obliga a revisar de
+            inmediato el alcance de implementación de los controles del dominio A.7.
+          </p>
+        )}
+        <p className="mt-1 text-10_5 text-faint">
+          {control.soaDocumento} v{control.soaVersion} ·{' '}
+          {control.soaFecha
+            ? new Date(control.soaFecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/de\s/g, '')
+            : ''} · aprobó {control.soaAprobadoPor}
+        </p>
         {(control.soaActualizadoPor || control.soaActualizadoEn) && (
           <p className="mt-1 text-10_5 text-faint">
             Último cambio{control.soaActualizadoPor ? ` por ${control.soaActualizadoPor}` : ''}
@@ -183,7 +203,7 @@ export default function PopupControl({
                 className="rounded-campo border border-border-field bg-surface px-2 py-1 font-mono text-11 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
               >
                 <option value="si">Aplica</option>
-                <option value="parcial">Parcialmente</option>
+                <option value="parcial">Aplica con alcance adaptado</option>
                 <option value="no">No aplica</option>
               </select>
             </label>
@@ -238,6 +258,16 @@ export default function PopupControl({
         )}
       </div>
 
+      {/* Description of the control per ISO/IEC 27002:2022 (DEC-SIG-01 §7). Verbatim,
+          never editable: it is the normative text an auditor contrasts the decision
+          against. */}
+      <div className="mt-4 rounded-campo border border-hairline-strong bg-surface p-3">
+        <p className="etiqueta-campo">Descripción del control (ISO/IEC 27002:2022)</p>
+        <p className="parrafo mt-1 text-12 text-secondary">
+          {control.soaDescripcion ?? 'Sin descripción cargada.'}
+        </p>
+      </div>
+
       {/* Three cards with the CMM traffic light; the current one carries a 2px border. */}
       <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         {versiones.map((v) => {
@@ -275,8 +305,8 @@ export default function PopupControl({
             {/* Tinted with the level's own colour, so the select says what it means before
                 you read it. */}
             <select
-              value={nivel ?? 0}
-              onChange={(e) => setNivel(Number(e.target.value))}
+              value={nivel === null ? '' : nivel}
+              onChange={(e) => setNivel(e.target.value === '' ? null : Number(e.target.value))}
               style={{
                 color: semaforo(nivel).fg,
                 background: semaforo(nivel).bg,
@@ -284,6 +314,9 @@ export default function PopupControl({
               }}
               className="w-[280px] rounded-campo border px-2.5 py-1.5 font-mono text-11_5 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
             >
+              <option value="" disabled style={{ color: 'var(--hf-text-faint)' }}>
+                Por evaluar
+              </option>
               {ESCALA.map((e) => (
                 <option key={e.nivel} value={e.nivel}>
                   L{e.nivel} — {e.nombre} · {pct(EFICACIA_POR_NIVEL[e.nivel])}
@@ -508,7 +541,7 @@ export default function PopupControl({
 
 /// The six formulas, plus the concrete arithmetic for the control that is open. Clicking
 /// the efficacy should answer "where does this number come from", not just restate it.
-function BloqueFormulas({ nivel, control }: { nivel: number | null; control: ControlVista }) {
+export function BloqueFormulas({ nivel, control }: { nivel: number | null; control: ControlVista }) {
   const e = eficaciaDeNivel(nivel);
   return (
     <div
@@ -567,7 +600,7 @@ function BloqueFormulas({ nivel, control }: { nivel: number | null; control: Con
 ///
 /// The efficacy column is EFICACIA_POR_NIVEL, the same array the engine multiplies by — not
 /// a transcription. `Escalas MAGERIT` B40:C45 of the workbook holds these same six pairs.
-function PopupEquivalencia({ onCerrar }: { onCerrar: () => void }) {
+export function PopupEquivalencia({ onCerrar }: { onCerrar: () => void }) {
   const definiciones: Record<number, string> = {
     0: 'No existe. Nadie lo hace, o se hace por accidente.',
     1: 'Se hace, pero depende de la persona. Sin documentar y sin repetibilidad: si esa persona falta, no se hace.',
