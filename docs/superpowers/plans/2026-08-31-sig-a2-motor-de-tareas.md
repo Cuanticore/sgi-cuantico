@@ -727,14 +727,20 @@ function persona(p: typeof ADA, sobre = p) {
 }
 
 describe('planificarGeneracion — alcance TODOS', () => {
+  // Cada persona recibe TODOS los periodos del horizonte (sep–dic desde el 15/09:
+  // 15/09 + 90 días = 14/12). Los casos de alcance comparan sobre el periodo actual.
+  function delPeriodo(plan: ReturnType<typeof planificarGeneracion>, etiqueta: string) {
+    return plan.crear.filter((c) => c.periodo === etiqueta);
+  }
+
   it('alcanza a todas las personas activas', () => {
     const plan = planificarGeneracion([obligacionBase], [ADA, GRACE, LINUS], [], HOY);
-    expect(plan.crear.map((c) => c.personaId).sort()).toEqual([1, 2]);
+    expect(delPeriodo(plan, '2026-09').map((c) => c.personaId).sort()).toEqual([1, 2]);
   });
 
   it('no alcanza a quien no está activa', () => {
     const plan = planificarGeneracion([obligacionBase], [ADA, LINUS], [], HOY);
-    expect(plan.crear.map((c) => c.personaId)).toEqual([1]);
+    expect(delPeriodo(plan, '2026-09').map((c) => c.personaId)).toEqual([1]);
   });
 
   it('una corrida segunda con las existentes no duplica nada', () => {
@@ -758,7 +764,7 @@ describe('planificarGeneracion — alcance por cargo, área y persona', () => {
       HOY,
     );
     // Linus está inactiva: no ocupa nada.
-    expect(plan.crear.map((c) => c.personaId).sort()).toEqual([1]);
+    expect(delPeriodo(plan, '2026-09').map((c) => c.personaId).sort()).toEqual([1]);
   });
 
   it('AREA alcanza a las personas activas del área', () => {
@@ -768,7 +774,7 @@ describe('planificarGeneracion — alcance por cargo, área y persona', () => {
       [],
       HOY,
     );
-    expect(plan.crear.map((c) => c.personaId).sort()).toEqual([1, 2]);
+    expect(delPeriodo(plan, '2026-09').map((c) => c.personaId).sort()).toEqual([1, 2]);
   });
 
   it('PERSONA alcanza solo a esa persona, y solo si está activa', () => {
@@ -783,15 +789,41 @@ describe('planificarGeneracion — alcance por cargo, área y persona', () => {
 });
 
 describe('planificarGeneracion — periodos y estado', () => {
-  it('genera los periodos del horizonte con sus fechas', () => {
+  it('genera todos los periodos del horizonte con sus fechas', () => {
     const plan = planificarGeneracion([obligacionBase], [ADA], [], HOY);
+    // Horizonte: 15/09 + 90 días = 14/12: entran septiembre a diciembre.
     expect(plan.crear).toEqual([
       {
         obligacionId: 1,
+        contenidoId: 10,
         personaId: 1,
         periodo: '2026-09',
         fechaApertura: d('2026-09-01'),
         fechaLimite: d('2026-09-11'),
+      },
+      {
+        obligacionId: 1,
+        contenidoId: 10,
+        personaId: 1,
+        periodo: '2026-10',
+        fechaApertura: d('2026-10-01'),
+        fechaLimite: d('2026-10-11'),
+      },
+      {
+        obligacionId: 1,
+        contenidoId: 10,
+        personaId: 1,
+        periodo: '2026-11',
+        fechaApertura: d('2026-11-01'),
+        fechaLimite: d('2026-11-11'),
+      },
+      {
+        obligacionId: 1,
+        contenidoId: 10,
+        personaId: 1,
+        periodo: '2026-12',
+        fechaApertura: d('2026-12-01'),
+        fechaLimite: d('2026-12-11'),
       },
     ]);
   });
@@ -813,23 +845,14 @@ describe('planificarGeneracion — periodos y estado', () => {
   });
 
   it('una persona que ingresa después recibe solo los periodos no generados (R2)', () => {
-    const yaGenerado = {
-      obligacionId: 1,
-      personaId: 1,
-      periodo: '2026-09',
-      fechaApertura: d('2026-09-01'),
-      fechaLimite: d('2026-09-11'),
-    };
     const plan = planificarGeneracion(
       [obligacionBase],
       [ADA],
       [{ obligacionId: 1, personaId: 1, periodo: '2026-09' }],
       HOY,
     );
-    // ADA ya tiene septiembre; si el horizonte llegara a octubre, ese sería el único nuevo.
-    expect(plan.crear).toEqual([]);
-    // ...y el formato de la existencia que importa es la tripla unique.
-    expect(yaGenerado.periodo).toBe('2026-09');
+    // ADA ya tiene septiembre; quedan octubre a diciembre dentro del horizonte.
+    expect(plan.crear.map((c) => c.periodo)).toEqual(['2026-10', '2026-11', '2026-12']);
   });
 });
 ```
@@ -960,7 +983,7 @@ export function planificarGeneracion(
 npx jest lib/sig/__tests__/generacion.test.ts
 ```
 
-Expected: PASS, 12 pruebas.
+Expected: PASS, 10 pruebas.
 
 - [ ] **Step 5: Commit**
 
