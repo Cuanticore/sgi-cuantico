@@ -19,18 +19,30 @@ interface Props {
   /// the permission table, not a title the person holds, so the bar no longer prints it.
   rol: string;
   cuenta: string;
+  /// Las pestañas que esta sesión puede ver. Un Colaborador ve solo la primera.
+  pestanas?: Pestana[];
 }
 
-const PESTANAS = [
-  { etiqueta: 'Indicadores', href: '/' },
-  { etiqueta: 'SGSI', href: '/sgsi' },
-] as const;
+export interface Pestana {
+  etiqueta: string;
+  href: string;
+  /// Sin destino todavía: se dibuja pero no navega.
+  deshabilitada?: boolean;
+}
 
-export default function HeaderCorporativo({ usuario, rol, cuenta }: Props) {
+const PESTANAS: Pestana[] = [
+  { etiqueta: 'Mi SIG', href: '/mi-sig' },
+  { etiqueta: 'Indicadores', href: '/' },
+  { etiqueta: 'Estratégico', href: '', deshabilitada: true },
+  { etiqueta: 'SGSI', href: '/sgsi' },
+  { etiqueta: 'Operación', href: '/sig/obligaciones' },
+];
+
+export default function HeaderCorporativo({ usuario, rol, cuenta, pestanas }: Props) {
   const ruta = usePathname();
-  // The SGSI tab owns everything that is not the indicators screen, exactly as the
-  // prototype does: `s.screen !== 'indicadores'`.
-  const enIndicadores = ruta === '/';
+  const visibles = pestanas ?? PESTANAS;
+  const enRaiz = (href: string) =>
+    href === '/' ? ruta === '/' : ruta === href || ruta.startsWith(`${href}/`);
 
   return (
     <header
@@ -75,9 +87,26 @@ export default function HeaderCorporativo({ usuario, rol, cuenta }: Props) {
       </Link>
 
       <nav className="flex items-center" style={{ gap: 4, marginLeft: 14 }}>
-        {PESTANAS.map((p) => {
-          const activa = p.href === '/' ? enIndicadores : !enIndicadores;
-          return (
+        {visibles.map((p) => {
+          const activa = p.href !== '' && enRaiz(p.href);
+          return p.deshabilitada ? (
+            <span
+              key={p.etiqueta}
+              aria-disabled="true"
+              title="Disponible con el módulo D"
+              className="rounded-[7px]"
+              style={{
+                fontSize: 12.5,
+                fontWeight: 500,
+                padding: '7px 13px',
+                color: '#bcd4f5',
+                opacity: 0.6,
+                cursor: 'not-allowed',
+              }}
+            >
+              {p.etiqueta}
+            </span>
+          ) : (
             <Link
               key={p.href}
               href={p.href}
