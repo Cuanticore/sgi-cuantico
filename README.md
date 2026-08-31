@@ -75,3 +75,17 @@ Los indicadores (cumplimiento, deuda, cierres administrativos) se calculan al le
 viven en `lib/sig/cumplimiento.ts`: la barra de Obligaciones y el correo mensual
 comparten esa única copia. El histórico personal exporta a Excel y a la vista
 imprimible, con el cierre administrativo señalado con quién lo hizo.
+
+## Mejora: NC y ACPM (SIG)
+
+`Hallazgo` cubre NC mayor, NC menor, observación y oportunidad de mejora. El código
+(`HAL-2026-NNNN`) no lleva el tipo: reclasificar no rompe la trazabilidad. El estado se
+calcula —abierto, en análisis, en ejecución, en verificación— y solo se almacenan las
+marcas de cerrado y anulado, que son actos de una persona. Cualquiera reporta; solo el
+líder del SIG clasifica; nadie cierra su propio hallazgo; no se cierra sin verificación
+eficaz cuando el tipo la exige.
+
+Las acciones del hallazgo son **asignaciones del motor de A**: aparecen en Mi SIG del
+responsable junto a lo recurrente. Los plazos por tipo se parametrizan en
+`plazo_por_tipo_hallazgo`. La evidencia reusa `Evidencia` (control, registro o hallazgo:
+exactamente un origen, impuesto por CHECK).
