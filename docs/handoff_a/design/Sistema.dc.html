@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .tarjeta { background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .titulo { display: flex; align-items: center; gap: 9px; }
+    .titulo span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    .nota { font-size: 11px; color: #8a938e; line-height: 1.55; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 1040px; display: flex; flex-direction: column; gap: 16px; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Vocabulario del módulo</h1>
+    <span style="font-size: 12.5px; color: #6b7570; max-width: 90ch; line-height: 1.55">Todo sale de <span class="mono" style="font-size: 11.5px; color: #12437f">app/globals.css</span>. Ningún valor de esta hoja es inventado: los azules, la escala tipográfica, los radios y las alturas ya están en el código y se citan aquí para que no se reinterpreten.</span>
+  </div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; overflow: hidden">
+
+    <!-- Columna izquierda -->
+    <div style="display: flex; flex-direction: column; gap: 16px; min-height: 0">
+
+      <div class="tarjeta">
+        <span class="titulo"><span>Header · 58 px</span><span class="regla"></span></span>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 0 16px; height: 58px; border-radius: 8px; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%)">
+          <span class="mono" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; background: #ffffff; color: #1b3a8a; font-size: 10px; font-weight: 700">CQ</span>
+          <span style="display: flex; align-items: center; gap: 4px">
+            <span style="font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 7px; background: rgba(255,255,255,0.18); color: #ffffff">Activa</span>
+            <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; color: #bcd4f5">Inactiva</span>
+            <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; background: rgba(255,255,255,0.16); color: #bcd4f5">Hover</span>
+          </span>
+        </div>
+        <span class="nota">Gradiente a 96°: <span class="mono">#0c2461 0% → #1b3a8a 46% → #2b52b8 100%</span>, borde inferior <span class="mono">#0a2350</span>. Cinco pestañas: Mi SIG · Indicadores · Estratégico · SGSI · Operación.</span>
+      </div>
+
+      <div class="tarjeta">
+        <span class="titulo"><span>Barra lateral · 244 px</span><span class="regla"></span></span>
+        <div style="display: flex; gap: 16px">
+          <div style="flex: none; width: 216px; display: flex; flex-direction: column; gap: 2px; padding: 10px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 8px">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 0 11px; margin-bottom: 6px">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7">Operación</span>
+              <span class="regla"></span>
+            </div>
+            <span style="display: flex; justify-content: space-between; padding: 8px 11px; border-radius: 7px; font-size: 13.5px; font-weight: 600; background: #e9f0fb; color: #12437f"><span>Activa</span><span class="mono" style="font-size: 10px; color: #a3aca7">31</span></span>
+            <span style="display: flex; justify-content: space-between; padding: 8px 11px; border-radius: 7px; font-size: 13.5px; font-weight: 500; color: #4a544f"><span>Normal</span><span class="mono" style="font-size: 10px; color: #a3aca7">128</span></span>
+            <span style="display: flex; justify-content: space-between; padding: 8px 11px; border-radius: 7px; font-size: 13.5px; font-weight: 500; background: #eef2f8; color: #4a544f"><span>Hover</span><span class="mono" style="font-size: 10px; color: #a3aca7">24</span></span>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 0 11px; margin: 14px 0 6px">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7">Configuración</span>
+              <span class="regla"></span>
+            </div>
+            <span style="display: flex; justify-content: space-between; padding: 8px 11px 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 400; color: #6b7570"><span>Sub-entrada</span><span class="mono" style="font-size: 10px; color: #a3aca7">34</span></span>
+          </div>
+          <span class="nota" style="flex: 1">Activa en azul de marca —<span class="mono">#e9f0fb</span> sobre <span class="mono">#12437f</span>— nunca en verde: el verde está reservado para «esto está bien». Sub-entradas con 18 px de sangría, 13 px y peso 400, contra 11 px, 13,5 px y peso 500. Colapsada a 64 px con abreviaturas de tres letras en mono.</span>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="flex: 1; min-height: 0">
+        <span class="titulo"><span>Estados de una asignación</span><span class="regla"></span></span>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{estados}}" as="e" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 11px 14px; background: {{e.fondo}}; border: 1px solid {{e.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{e.badgeBg}}; color: {{e.badgeFg}}">{{e.etiqueta}}</span>
+              <span style="flex: 1; font-size: 12px; color: #3a443f">{{e.regla}}</span>
+              <span class="mono" style="flex: none; font-size: 9.5px; color: #a3aca7">{{e.origen}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <span class="nota">Vencida y por vencer <strong style="font-weight: 600">se calculan</strong> contra la fecha límite y el reloj de America/Bogotá. Solo se almacenan pendiente, realizada, no aplica y anulada.</span>
+      </div>
+
+    </div>
+
+    <!-- Columna derecha -->
+    <div style="display: flex; flex-direction: column; gap: 16px; min-height: 0">
+
+      <div class="tarjeta">
+        <span class="titulo"><span>Tipos de contenido</span><span class="regla"></span></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+            <span style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 128px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="mono" style="align-self: flex-start; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{t.bg}}; color: {{t.fg}}">{{t.etiqueta}}</span>
+              <span style="font-size: 11px; color: #6b7570; line-height: 1.5">{{t.evidencia}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span class="nota">El tipo decide qué cuenta como realizado. Esa validación vive en el servidor: la interfaz ayuda, no decide.</span>
+      </div>
+
+      <div class="tarjeta">
+        <span class="titulo"><span>Botones y campos</span><span class="regla"></span></span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 9px">
+          <span style="padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Primario</span>
+          <span style="padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #0f7a5a; border: 1px solid #0b5c44; border-radius: 6px">Registrar</span>
+          <span style="padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #a52016; border: 1px solid #8a1f16; border-radius: 6px">Urgente</span>
+          <span style="padding: 8px 16px; font-size: 12.5px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Neutro</span>
+          <span style="padding: 8px 16px; font-size: 12.5px; font-weight: 500; color: #a52016; background: #ffffff; border: 1px solid #e6d3d1; border-radius: 6px">Destructivo</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 9px">
+          <span style="padding: 6px 13px; font-size: 12px; font-weight: 600; border-radius: 20px; background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f">Filtro activo</span>
+          <span style="padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px; background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f">Filtro</span>
+          <span style="flex: 1; padding: 9px 12px; font-size: 12.5px; color: #b6bdb9; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Campo de texto</span>
+        </div>
+        <span class="nota">Radios: 4 badge · 6 campo y botón · 10 tarjeta · 12 modal · 20 chip. Altura de control 34 px; en móvil el área táctil nunca baja de 44 px.</span>
+      </div>
+
+      <div class="tarjeta" style="flex: 1; min-height: 0">
+        <span class="titulo"><span>Tipografía</span><span class="regla"></span></span>
+        <div style="display: flex; flex-direction: column; gap: 11px">
+          <span style="display: flex; align-items: baseline; gap: 14px">
+            <span style="font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Título de página</span>
+            <span class="mono" style="font-size: 10px; color: #a3aca7">23 px · 700 · −0.02em</span>
+          </span>
+          <span style="display: flex; align-items: baseline; gap: 14px">
+            <span style="font-size: 13.5px; font-weight: 500">Fila de tabla y entrada de menú</span>
+            <span class="mono" style="font-size: 10px; color: #a3aca7">13,5 px · 500</span>
+          </span>
+          <span style="display: flex; align-items: baseline; gap: 14px">
+            <span style="font-size: 13px; line-height: 1.6; color: #3a443f">Párrafo, hasta 74 caracteres de ancho</span>
+            <span class="mono" style="font-size: 10px; color: #a3aca7">13 px · 1.6 · 74ch</span>
+          </span>
+          <span style="display: flex; align-items: baseline; gap: 14px">
+            <span class="etq">Etiqueta de campo</span>
+            <span class="mono" style="font-size: 10px; color: #a3aca7">mono 8,5 px · 0.07em · mayúsculas</span>
+          </span>
+          <span style="display: flex; align-items: baseline; gap: 14px">
+            <span class="mono" style="font-size: 26px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums">128</span>
+            <span class="mono" style="font-size: 10px; color: #a3aca7">cifra · mono 600 · tabular-nums</span>
+          </span>
+        </div>
+        <span class="nota">Libre Franklin para texto, JetBrains Mono para códigos, cifras y etiquetas en mayúsculas. La escala está en píxeles a propósito: reinterpretarla en rem introduce un redondeo en cada paso.</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      estados: [
+        { etiqueta: 'Vencida', fondo: '#fdeeeb', borde: '#f2cdc6', badgeBg: '#fdeeeb', badgeFg: '#a52016', regla: 'Sigue exigible y el periodo siguiente nace igual', origen: 'calculada' },
+        { etiqueta: 'Por vencer', fondo: '#ffffff', borde: '#f2b473', badgeBg: '#fff3e6', badgeFg: '#8a4407', regla: 'Dentro de los días de aviso de la obligación', origen: 'calculada' },
+        { etiqueta: 'Pendiente', fondo: '#ffffff', borde: '#e2e6e3', badgeBg: '#eef2f8', badgeFg: '#12437f', regla: 'Abierta, con fecha límite futura', origen: 'almacenada' },
+        { etiqueta: 'Realizada', fondo: '#eef7f1', borde: '#c9e3d8', badgeBg: '#e6efe9', badgeFg: '#0b5c44', regla: 'Con registro; extemporánea si cerró después del plazo', origen: 'almacenada' },
+        { etiqueta: 'Anulada', fondo: '#ffffff', borde: '#e2e6e3', badgeBg: '#f5f7f6', badgeFg: '#6b7570', regla: 'Exige motivo; nunca hay borrado físico', origen: 'almacenada' },
+      ],
+      tipos: [
+        { etiqueta: 'Lectura', bg: '#e9f0fb', fg: '#12437f', evidencia: 'Acuse con usuario, fecha, hora y versión leída' },
+        { etiqueta: 'Verificación', bg: '#fff3e6', fg: '#8a4407', evidencia: 'Ítems obligatorios respondidos: cumple, no cumple o no aplica' },
+        { etiqueta: 'Capacitación', bg: '#e8f4ef', fg: '#0b5c44', evidencia: 'Asistencia y calificación cuando la exige' },
+        { etiqueta: 'Tarea', bg: '#f5f7f6', fg: '#4a544f', evidencia: 'Nota y anexo opcional' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

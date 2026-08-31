@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 10px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 18px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Personas</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 78ch; line-height: 1.55">El Directorio manda sobre el nombre, el correo y la existencia. El SIG manda sobre el área y el cargo. Quien sale de la organización se inactiva, nunca se borra.</span>
+    </div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+      <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+        <span class="etq">Última sincronización</span>
+        <span class="mono" style="font-size: 11px; color: #4a544f">31/08/2026 · 07:14</span>
+      </span>
+      <button style="flex: none; display: flex; align-items: center; gap: 8px; padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><polyline points="21 4 21 10 15 10"></polyline></svg>
+        Sincronizar con el Directorio
+      </button>
+    </div>
+  </div>
+
+  <!-- Resultado de la última corrida -->
+  <div style="display: flex; align-items: center; gap: 18px; padding: 12px 18px; margin-bottom: 16px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+    <sc-for list="{{corrida}}" as="c" hint-placeholder-count="4">
+      <span style="display: flex; align-items: baseline; gap: 8px">
+        <span class="mono" style="font-size: 18px; font-weight: 600; color: {{c.color}}; font-variant-numeric: tabular-nums">{{c.valor}}</span>
+        <span style="font-size: 12px; color: #4a544f">{{c.etiqueta}}</span>
+      </span>
+      <span style="height: 18px; width: 1px; background: #eceeed"></span>
+    </sc-for>
+    <span style="font-size: 11.5px; color: #8a938e; line-height: 1.5">Toda alta, cambio, inactivación y reactivación queda en la bitácora con su motivo.</span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 16px; min-height: 0">
+
+    <div style="flex: 1; min-width: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px 8px">
+      <table style="width: 100%; border-collapse: collapse">
+        <thead>
+          <tr>
+            <th class="th">Persona</th>
+            <th class="th" style="width: 176px">Área</th>
+            <th class="th" style="width: 168px">Cargo</th>
+            <th class="th" style="width: 128px">Rol en el SIG</th>
+            <th class="th" style="width: 98px">Estado</th>
+            <th class="th" style="width: 96px; text-align: right">Pendientes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{personas}}" as="p" hint-placeholder-count="9">
+            <tr style="background: {{p.fila}}">
+              <td class="td" style="padding-right: 14px">
+                <button onClick="{{p.elegir}}" style="display: flex; align-items: center; gap: 9px; background: none; border: 0; padding: 0; text-align: left; width: 100%">
+                  <span style="display: flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; border-radius: 999px; font-size: 10px; font-weight: 700; background: {{p.avatarBg}}; color: {{p.avatarFg}}">{{p.iniciales}}</span>
+                  <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+                    <span style="font-size: 12.5px; font-weight: 500; color: {{p.nombreColor}}">{{p.nombre}}</span>
+                    <span class="mono" style="font-size: 9.5px; color: #8a938e">{{p.correo}}</span>
+                  </span>
+                </button>
+              </td>
+              <td class="td"><span style="font-size: 12px; color: {{p.metaColor}}">{{p.area}}</span></td>
+              <td class="td"><span style="font-size: 12px; color: {{p.metaColor}}">{{p.cargo}}</span></td>
+              <td class="td">
+                <span class="mono" style="display: inline-block; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{p.rolBg}}; color: {{p.rolFg}}">{{p.rol}}</span>
+              </td>
+              <td class="td">
+                <span class="mono" style="display: inline-block; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{p.estadoBg}}; color: {{p.estadoFg}}">{{p.estado}}</span>
+              </td>
+              <td class="td" style="text-align: right"><span class="mono" style="font-size: 11.5px; color: {{p.pendColor}}; font-weight: {{p.pendPeso}}">{{p.pendientes}}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Panel: reasignación de pendientes al inactivar -->
+    <sc-if value="{{mostrarPanel}}" hint-placeholder-val="{{ true }}">
+      <aside style="flex: none; width: 340px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #f2cdc6; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-direction: column; gap: 7px; padding: 16px 18px 14px; background: #fdeeeb; border-bottom: 1px solid #f2cdc6">
+          <span class="etq" style="color: #a52016">Persona inactiva · pendientes abiertos</span>
+          <span style="font-size: 14.5px; font-weight: 600; color: #1a211e">{{panel.nombre}}</span>
+          <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">Ya no figura en el Directorio. Sus asignaciones abiertas <strong style="font-weight: 600">no se cerraron ni se borraron</strong>: hay que reasignarlas.</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{panel.pendientes}}" as="d" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span class="mono" style="font-size: 9.5px; color: #12437f; font-weight: 500">{{d.codigo}}</span>
+                <span class="mono" style="margin-left: auto; font-size: 9.5px; color: {{d.fechaColor}}">{{d.fecha}}</span>
+              </span>
+              <span style="font-size: 12px; font-weight: 500; line-height: 1.4">{{d.titulo}}</span>
+              <span style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">
+                <span class="etq" style="flex: none">Reasignar a</span>
+                <span style="flex: 1; font-size: 11.5px; color: #b6bdb9">Elegir persona…</span>
+                <span style="flex: none; color: #8a938e; font-size: 9px">▾</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex: none; display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-top: 1px solid #eceeed; background: #fbfcfb">
+          <button onClick="{{cerrarPanel}}" style="padding: 8px 13px; font-size: 12px; font-weight: 500; color: #6b7570; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">Después</button>
+          <button style="margin-left: auto; padding: 8px 15px; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Reasignar las 3</button>
+        </div>
+      </aside>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const ROLES = {
+  'Responsables SIG': { bg: '#e9f0fb', fg: '#12437f' },
+  'Propietarios': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Auditoría': { bg: '#fff3e6', fg: '#8a4407' },
+  'Colaborador': { bg: '#f5f7f6', fg: '#6b7570' },
+};
+
+const PERSONAS = [
+  { id: 1, nombre: 'Laura Agudelo', correo: 'lagudelo@cuantico.com', area: 'Sistema Integrado de Gestión', cargo: 'Líder del SIG', rol: 'Responsables SIG', activa: true, pendientes: 4 },
+  { id: 2, nombre: 'Daniel Medina', correo: 'dmedina@cuantico.com', area: 'Gestión Tecnológica', cargo: 'CTO', rol: 'Responsables SIG', activa: true, pendientes: 6 },
+  { id: 3, nombre: 'Lina Medina', correo: 'lmedina@cuantico.com', area: 'Gestión Financiera', cargo: 'Analista financiera', rol: 'Propietarios', activa: true, pendientes: 5 },
+  { id: 4, nombre: 'Marcela Molina', correo: 'mmolina@cuantico.com', area: 'Gestión Legal y Compras', cargo: 'Chief Legal Officer', rol: 'Propietarios', activa: true, pendientes: 3 },
+  { id: 5, nombre: 'Yuliet Rojas', correo: 'yrojas@cuantico.com', area: 'Soporte y Servicio al Cliente', cargo: 'Líder de soporte', rol: 'Colaborador', activa: true, pendientes: 2 },
+  { id: 6, nombre: 'Katherine Quiroga', correo: 'kquiroga@cuantico.com', area: 'Gestión de Proyectos', cargo: 'Gerente de proyectos', rol: 'Colaborador', activa: true, pendientes: 2 },
+  { id: 7, nombre: 'Albeiro Restrepo', correo: 'arestrepo@cuantico.com', area: 'Talento Humano', cargo: 'Coordinador de talento', rol: 'Colaborador', activa: true, pendientes: 1 },
+  { id: 8, nombre: 'Auditoría externa', correo: 'auditoria@cuantico.com', area: 'Sistema Integrado de Gestión', cargo: 'Auditor líder', rol: 'Auditoría', activa: true, pendientes: 0 },
+  { id: 9, nombre: 'Camilo Restrepo', correo: 'crestrepo@cuantico.com', area: 'Gestión Comercial', cargo: 'Ejecutivo comercial', rol: 'Colaborador', activa: false, pendientes: 3 },
+];
+
+const PENDIENTES_INACTIVA = [
+  { codigo: 'ASG-0402', titulo: 'Política de Gobierno de Seguridad de la Información', fecha: 'Vencida', vencida: true },
+  { codigo: 'ASG-0429', titulo: 'Inducción y reinducción del SGC 2026', fecha: '04/09', vencida: false },
+  { codigo: 'ASG-0451', titulo: 'Manual de Riesgos y Oportunidades v2.0', fecha: '28/09', vencida: false },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'activas', elegida: 9, panel: true };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const conteos = {
+      todas: PERSONAS.length,
+      activas: PERSONAS.filter((p) => p.activa).length,
+      inactivas: PERSONAS.filter((p) => !p.activa).length,
+    };
+
+    const filtros = [
+      { id: 'activas', etiqueta: 'Activas', conteo: conteos.activas },
+      { id: 'inactivas', etiqueta: 'Inactivas', conteo: conteos.inactivas },
+      { id: 'todas', etiqueta: 'Todas', conteo: conteos.todas },
+    ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) }));
+
+    const visibles =
+      s.filtro === 'todas' ? PERSONAS : PERSONAS.filter((p) => (s.filtro === 'activas' ? p.activa : !p.activa));
+
+    const personas = visibles.map((p) => {
+      const iniciales = p.nombre.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+      const elegida = s.elegida === p.id;
+      return {
+        ...p,
+        iniciales,
+        fila: elegida ? '#eef2f8' : '#ffffff',
+        avatarBg: p.activa ? '#e9f0fb' : '#f5f7f6',
+        avatarFg: p.activa ? '#12437f' : '#a3aca7',
+        nombreColor: p.activa ? '#1a211e' : '#8a938e',
+        metaColor: p.activa ? '#4a544f' : '#a3aca7',
+        rolBg: ROLES[p.rol].bg,
+        rolFg: ROLES[p.rol].fg,
+        estado: p.activa ? 'Activa' : 'Inactiva',
+        estadoBg: p.activa ? '#e6efe9' : '#fdeeeb',
+        estadoFg: p.activa ? '#0b5c44' : '#a52016',
+        pendColor: !p.activa && p.pendientes > 0 ? '#a52016' : '#4a544f',
+        pendPeso: !p.activa && p.pendientes > 0 ? 600 : 400,
+        elegir: () => this.setState({ elegida: p.id, panel: !p.activa }),
+      };
+    });
+
+    const inactiva = PERSONAS.find((p) => p.id === s.elegida && !p.activa);
+
+    return {
+      filtros,
+      personas,
+      corrida: [
+        { valor: 2, etiqueta: 'altas', color: '#0b5c44' },
+        { valor: 5, etiqueta: 'actualizaciones', color: '#12437f' },
+        { valor: 1, etiqueta: 'inactivación', color: '#a52016' },
+        { valor: 0, etiqueta: 'reactivaciones', color: '#6b7570' },
+      ],
+      mostrarPanel: Boolean(inactiva) && s.panel,
+      cerrarPanel: () => this.setState({ panel: false }),
+      panel: {
+        nombre: inactiva ? inactiva.nombre : '',
+        pendientes: PENDIENTES_INACTIVA.map((d) => ({
+          ...d,
+          fechaColor: d.vencida ? '#a52016' : '#8a938e',
+        })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 10px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 18px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Tareas</h1>
+      <span style="font-size: 12.5px; color: #6b7570">Quién debe qué y para cuándo. Reasignar, prorrogar y anular exigen motivo y quedan en la bitácora.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; min-width: 232px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+      <span style="font-size: 12px; color: #b6bdb9">Buscar por persona, contenido o código</span>
+    </span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+  </div>
+
+  <!-- Banda de acciones masivas: aparece con la selección -->
+  <sc-if value="{{haySeleccion}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; margin-bottom: 12px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+      <span style="font-size: 12.5px; font-weight: 600; color: #12437f">{{textoSeleccion}}</span>
+      <span style="height: 16px; width: 1px; background: #d3dceb"></span>
+      <button style="padding: 6px 13px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px solid #d3dceb; border-radius: 6px">Reasignar</button>
+      <button style="padding: 6px 13px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px solid #d3dceb; border-radius: 6px">Prorrogar</button>
+      <button style="padding: 6px 13px; font-size: 12px; font-weight: 500; color: #a52016; background: #ffffff; border: 1px solid #e6d3d1; border-radius: 6px">Anular</button>
+      <button onClick="{{limpiar}}" style="margin-left: auto; padding: 6px 12px; font-size: 12px; color: #6b7570; background: transparent; border: 0">Quitar la selección</button>
+    </div>
+  </sc-if>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px 8px">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr>
+          <th class="th" style="width: 30px"></th>
+          <th class="th" style="width: 78px">Código</th>
+          <th class="th">Contenido</th>
+          <th class="th" style="width: 168px">Responsable</th>
+          <th class="th" style="width: 92px">Periodo</th>
+          <th class="th" style="width: 96px; text-align: right">Fecha límite</th>
+          <th class="th" style="width: 118px">Estado</th>
+          <th class="th" style="width: 34px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{tareas}}" as="t" hint-placeholder-count="10">
+          <tr style="background: {{t.fila}}">
+            <td class="td">
+              <button onClick="{{t.alternar}}" style="{{t.casillaEstilo}}">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{t.tildeOpacidad}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </button>
+            </td>
+            <td class="td"><span class="mono" style="font-size: 11px; color: #12437f; font-weight: 500">{{t.codigo}}</span></td>
+            <td class="td" style="padding-right: 16px">
+              <span style="display: flex; flex-direction: column; gap: 2px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #1a211e">{{t.titulo}}</span>
+                <span class="mono" style="font-size: 9.5px; color: #8a938e">{{t.tipo}} · {{t.origen}}</span>
+              </span>
+            </td>
+            <td class="td">
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span style="display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 999px; font-size: 9px; font-weight: 700; background: #e9f0fb; color: #12437f">{{t.iniciales}}</span>
+                <span style="font-size: 12px; color: #3a443f">{{t.persona}}</span>
+              </span>
+            </td>
+            <td class="td"><span class="mono" style="font-size: 11px; color: #6b7570">{{t.periodo}}</span></td>
+            <td class="td" style="text-align: right"><span class="mono" style="font-size: 11.5px; color: {{t.fechaColor}}; font-weight: {{t.fechaPeso}}">{{t.fecha}}</span></td>
+            <td class="td">
+              <span class="mono" style="display: inline-block; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{t.estadoBg}}; color: {{t.estadoFg}}">{{t.estado}}</span>
+            </td>
+            <td class="td" style="text-align: right"><span style="font-size: 14px; color: #b6bdb9">⋯</span></td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px">
+    <span style="font-size: 11.5px; color: #8a938e">Se muestran {{visibles}} de 128 asignaciones del periodo.</span>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 8px">
+      <span class="etq">Vencida se calcula</span>
+      <span style="font-size: 11.5px; color: #6b7570">pendiente y fecha límite anterior a hoy. No es una marca que alguien deba poner.</span>
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const CASILLA = 'display: flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 4px; padding: 0;';
+const CASILLA_OFF = CASILLA + ' background: #ffffff; border: 1.5px solid #d7dcd9;';
+const CASILLA_ON = CASILLA + ' background: #12437f; border: 1.5px solid #0c2461;';
+
+const ESTADOS = {
+  vencida: { etiqueta: 'Vencida', bg: '#fdeeeb', fg: '#a52016', fila: '#fdeeeb' },
+  porVencer: { etiqueta: 'Por vencer', bg: '#fff3e6', fg: '#8a4407', fila: '#ffffff' },
+  pendiente: { etiqueta: 'Pendiente', bg: '#eef2f8', fg: '#12437f', fila: '#ffffff' },
+  realizada: { etiqueta: 'Realizada', bg: '#e6efe9', fg: '#0b5c44', fila: '#ffffff' },
+  anulada: { etiqueta: 'Anulada', bg: '#f5f7f6', fg: '#6b7570', fila: '#ffffff' },
+};
+
+const TAREAS = [
+  { id: 1, codigo: 'ASG-0412', titulo: 'Política de Gobierno de Seguridad de la Información', tipo: 'Lectura', origen: 'POL-SIG-02', persona: 'Marcela Molina', iniciales: 'MM', periodo: '2026', fecha: '25/08', estado: 'vencida' },
+  { id: 2, codigo: 'ASG-0413', titulo: 'Política de Gobierno de Seguridad de la Información', tipo: 'Lectura', origen: 'POL-SIG-02', persona: 'Lina Medina', iniciales: 'LM', periodo: '2026', fecha: '25/08', estado: 'vencida' },
+  { id: 3, codigo: 'ASG-0398', titulo: 'Verificación mensual de respaldos', tipo: 'Verificación', origen: 'PTR-TEC-01', persona: 'Daniel Medina', iniciales: 'DM', periodo: '2026-08', fecha: '29/08', estado: 'vencida' },
+  { id: 4, codigo: 'ASG-0431', titulo: 'Conciliación bancaria de agosto', tipo: 'Tarea', origen: 'PRO-FIN-03', persona: 'Lina Medina', iniciales: 'LM', periodo: '2026-08', fecha: '01/09', estado: 'porVencer' },
+  { id: 5, codigo: 'ASG-0433', titulo: 'Inducción y reinducción del SGC 2026', tipo: 'Capacitación', origen: 'FOR-CAL-09', persona: 'Yuliet Rojas', iniciales: 'YR', periodo: '2026', fecha: '04/09', estado: 'porVencer' },
+  { id: 6, codigo: 'ASG-0434', titulo: 'Inducción y reinducción del SGC 2026', tipo: 'Capacitación', origen: 'FOR-CAL-09', persona: 'Katherine Quiroga', iniciales: 'KQ', periodo: '2026', fecha: '04/09', estado: 'porVencer' },
+  { id: 7, codigo: 'ASG-0441', titulo: 'Verificación mensual de respaldos', tipo: 'Verificación', origen: 'PTR-TEC-01', persona: 'Daniel Medina', iniciales: 'DM', periodo: '2026-09', fecha: '07/09', estado: 'pendiente' },
+  { id: 8, codigo: 'ASG-0448', titulo: 'Evaluación y reevaluación de proveedores', tipo: 'Tarea', origen: 'PRO-LCO-02', persona: 'Marcela Molina', iniciales: 'MM', periodo: '2026-S2', fecha: '10/09', estado: 'pendiente' },
+  { id: 9, codigo: 'ASG-0455', titulo: 'Revisión trimestral de accesos y privilegios', tipo: 'Verificación', origen: 'PRO-TEC-01', persona: 'Daniel Medina', iniciales: 'DM', periodo: '2026-T3', fecha: '21/09', estado: 'pendiente' },
+  { id: 10, codigo: 'ASG-0462', titulo: 'Manual de Riesgos y Oportunidades v2.0', tipo: 'Lectura', origen: 'MAN-CAL-01', persona: 'Laura Agudelo', iniciales: 'LA', periodo: '2026', fecha: '28/09', estado: 'pendiente' },
+  { id: 11, codigo: 'ASG-0388', titulo: 'Verificación mensual de respaldos', tipo: 'Verificación', origen: 'PTR-TEC-01', persona: 'Daniel Medina', iniciales: 'DM', periodo: '2026-07', fecha: '31/07', estado: 'realizada' },
+  { id: 12, codigo: 'ASG-0377', titulo: 'Política de Viáticos POL-FIN-01', tipo: 'Lectura', origen: 'POL-FIN-01', persona: 'Lina Medina', iniciales: 'LM', periodo: '2026', fecha: '14/07', estado: 'realizada' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todas', seleccion: [] };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const conteo = (id) => (id === 'todas' ? TAREAS.length : TAREAS.filter((t) => t.estado === id).length);
+
+    const filtros = [
+      { id: 'todas', etiqueta: 'Todas' },
+      { id: 'vencida', etiqueta: 'Vencidas' },
+      { id: 'porVencer', etiqueta: 'Por vencer' },
+      { id: 'pendiente', etiqueta: 'Pendientes' },
+      { id: 'realizada', etiqueta: 'Realizadas' },
+    ].map((f) => ({
+      ...f,
+      conteo: conteo(f.id),
+      estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF,
+      elegir: () => this.setState({ filtro: f.id, seleccion: [] }),
+    }));
+
+    const visibles = s.filtro === 'todas' ? TAREAS : TAREAS.filter((t) => t.estado === s.filtro);
+
+    const tareas = visibles.map((t) => {
+      const e = ESTADOS[t.estado];
+      const marcada = s.seleccion.indexOf(t.id) !== -1;
+      return {
+        ...t,
+        estado: e.etiqueta,
+        estadoBg: e.bg,
+        estadoFg: e.fg,
+        fila: marcada ? '#eef2f8' : e.fila,
+        fechaColor: t.estado === 'vencida' ? '#a52016' : t.estado === 'porVencer' ? '#8a4407' : '#4a544f',
+        fechaPeso: t.estado === 'vencida' || t.estado === 'porVencer' ? 600 : 400,
+        casillaEstilo: marcada ? CASILLA_ON : CASILLA_OFF,
+        tildeOpacidad: marcada ? 1 : 0,
+        alternar: () =>
+          this.setState({
+            seleccion: marcada ? s.seleccion.filter((x) => x !== t.id) : s.seleccion.concat([t.id]),
+          }),
+      };
+    });
+
+    const n = s.seleccion.length;
+    return {
+      filtros,
+      tareas,
+      visibles: visibles.length,
+      haySeleccion: n > 0,
+      textoSeleccion: n === 1 ? '1 asignación seleccionada' : n + ' asignaciones seleccionadas',
+      limpiar: () => this.setState({ seleccion: [] }),
+    };
+  }
+}
+</script>
+</body>
+</html>

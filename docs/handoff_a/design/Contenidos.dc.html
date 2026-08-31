@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 9px 12px; font-size: 12.5px; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 18px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Contenidos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 76ch; line-height: 1.55">Se define una vez y se asigna N veces. Editar un contenido publicado sube su versión, y los registros ya cerrados conservan la versión que se realizó.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nuevo contenido</button>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 16px; min-height: 0">
+
+    <!-- Listado -->
+    <div style="flex: none; width: 428px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 6px; padding: 13px 14px; border-bottom: 1px solid #eceeed">
+        <sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+          <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}}</button>
+        </sc-for>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 8px">
+        <sc-for list="{{contenidos}}" as="c" hint-placeholder-count="8">
+          <button onClick="{{c.elegir}}" style="{{c.estilo}}">
+            <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+              <span class="mono" style="font-size: 10.5px; font-weight: 500; color: #12437f">{{c.codigo}}</span>
+              <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{c.tipoBg}}; color: {{c.tipoFg}}">{{c.tipo}}</span>
+              <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">v{{c.version}}</span>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; text-align: left; line-height: 1.4">{{c.titulo}}</span>
+            <span class="mono" style="font-size: 9.5px; color: #8a938e; text-align: left">{{c.origen}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Ficha del contenido -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 18px 22px 15px; border-bottom: 1px solid #eceeed">
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #12437f">{{ficha.codigo}}</span>
+            <span class="mono" style="padding: 3px 8px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{ficha.tipoBg}}; color: {{ficha.tipoFg}}">{{ficha.tipo}}</span>
+            <span class="mono" style="padding: 3px 8px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">Versión {{ficha.version}}</span>
+          </span>
+          <span style="font-size: 16px; font-weight: 600; line-height: 1.35">{{ficha.titulo}}</span>
+        </span>
+        <span style="flex: none; display: flex; gap: 8px">
+          <button style="padding: 7px 13px; font-size: 12px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Duplicar</button>
+          <button style="padding: 7px 13px; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Guardar</button>
+        </span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 20px 22px; display: flex; flex-direction: column; gap: 20px">
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">Procedimiento origen</span>
+            <span class="campo">{{ficha.origen}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">{{ficha.extraEtiqueta}}</span>
+            <span class="campo">{{ficha.extraValor}}</span>
+          </span>
+        </div>
+
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Descripción</span>
+          <span class="campo" style="min-height: 62px; line-height: 1.6; color: #3a443f">{{ficha.descripcion}}</span>
+        </span>
+
+        <!-- Ítems: solo para listas de verificación -->
+        <sc-if value="{{ficha.esVerificacion}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="display: flex; align-items: center; gap: 9px">
+              <span class="etq">Ítems de la lista</span>
+              <span style="height: 1px; flex: 1; background: #eceeed"></span>
+              <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{ficha.conteoItems}}</span>
+            </span>
+            <sc-for list="{{ficha.items}}" as="i" hint-placeholder-count="4">
+              <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 1px; color: #c3cac6; font-size: 10px; line-height: 1">
+                  <span>▲</span><span>▼</span>
+                </span>
+                <span class="mono" style="flex: none; font-size: 10px; color: #a3aca7; padding-top: 3px">{{i.numero}}</span>
+                <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.5; color: #1a211e">{{i.texto}}</span>
+                <span style="flex: none; display: flex; align-items: center; gap: 7px">
+                  <span class="mono" style="padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: {{i.oblBg}}; color: {{i.oblFg}}">{{i.obl}}</span>
+                  <span class="mono" style="padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: {{i.naBg}}; color: {{i.naFg}}">{{i.na}}</span>
+                </span>
+              </div>
+            </sc-for>
+            <button style="align-self: flex-start; padding: 8px 13px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 6px">+ Agregar ítem</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ficha.esLectura}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="display: flex; align-items: center; gap: 9px">
+              <span class="etq">Documento referenciado</span>
+              <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            </span>
+            <div style="display: grid; grid-template-columns: 1fr 96px; gap: 12px">
+              <span class="campo">{{ficha.documento}}</span>
+              <span class="campo mono" style="font-size: 11.5px">v{{ficha.docVersion}}</span>
+            </div>
+            <span class="campo" style="color: #12437f">{{ficha.enlace}}</span>
+            <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+              <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">La gestión documental está fuera del alcance: aquí solo se referencia el documento. Subir la versión aquí no publica una versión nueva del documento — la declara para los acuses futuros.</span>
+            </span>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; align-items: center; gap: 9px; padding-top: 4px">
+          <span class="etq">Asignado por</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <sc-for list="{{ficha.usos}}" as="u" hint-placeholder-count="2">
+            <span style="display: flex; flex-direction: column; gap: 5px; padding: 11px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px; min-width: 168px">
+              <span class="mono" style="font-size: 10.5px; font-weight: 500; color: #12437f">{{u.codigo}}</span>
+              <span style="font-size: 12px; color: #3a443f">{{u.alcance}} · {{u.periodicidad}}</span>
+            </span>
+          </sc-for>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 5px 11px; font-size: 11.5px; font-weight: 500; border-radius: 20px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 11px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+const TIPO_COLOR = {
+  'Lectura': { bg: '#e9f0fb', fg: '#12437f' },
+  'Verificación': { bg: '#fff3e6', fg: '#8a4407' },
+  'Capacitación': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Tarea': { bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+const CONTENIDOS = [
+  {
+    id: 'lve-002', codigo: 'LVE-002', tipo: 'Verificación', version: 3,
+    titulo: 'Verificación mensual de respaldos',
+    origen: 'PTR-TEC-01 Protocolo de Gestión de Backups',
+    descripcion: 'Comprobación mensual de que el respaldo se ejecutó, es restaurable y quedó registrado en el formato del proceso.',
+    extraEtiqueta: 'Ítems obligatorios', extraValor: '4 de 4',
+    items: [
+      { texto: 'El respaldo del último cierre se ejecutó en la ventana programada y terminó sin errores.', obligatorio: true, na: false },
+      { texto: 'Se verificó la restauración de al menos un archivo del respaldo del mes.', obligatorio: true, na: false },
+      { texto: 'El medio de respaldo externo está en la ubicación declarada en el inventario.', obligatorio: true, na: true },
+      { texto: 'Se registró el resultado en el formato FOR-TEC-02.', obligatorio: true, na: false },
+    ],
+    usos: [
+      { codigo: 'VER-002', alcance: 'Cargo · Administrador TI', periodicidad: 'Mensual' },
+    ],
+  },
+  {
+    id: 'lec-001', codigo: 'LEC-001', tipo: 'Lectura', version: 2,
+    titulo: 'Política de Gobierno de Seguridad de la Información',
+    origen: 'POL-SIG-02',
+    descripcion: 'Lectura obligatoria para toda la organización. El acuse registra la versión leída.',
+    extraEtiqueta: 'Alcance de las asignaciones', extraValor: '34 personas',
+    documento: 'POL-SIG-02 Política de Gobierno de Seguridad de la Información',
+    docVersion: 2,
+    enlace: 'https://cuantico.sharepoint.com/… /POL-SIG-02.pdf',
+    usos: [{ codigo: 'LEC-001', alcance: 'Todas las personas', periodicidad: 'Anual' }],
+  },
+  { id: 'cap-004', codigo: 'CAP-004', tipo: 'Capacitación', version: 1, titulo: 'Inducción y reinducción del SGC', origen: 'FOR-CAL-09', descripcion: 'Inducción anual con evaluación. Nota mínima 80.', extraEtiqueta: 'Nota mínima', extraValor: '80', usos: [{ codigo: 'CAP-004', alcance: 'Todas las personas', periodicidad: 'Anual' }] },
+  { id: 'tar-005', codigo: 'TAR-005', tipo: 'Tarea', version: 1, titulo: 'Conciliación bancaria del mes', origen: 'PRO-FIN-03 Gestión de tesorería', descripcion: 'Conciliación de los movimientos del extracto contra el consolidado de control financiero.', extraEtiqueta: 'Evidencia', extraValor: 'Nota y anexo opcional', usos: [{ codigo: 'TAR-005', alcance: 'Cargo · Analista financiera', periodicidad: 'Mensual' }] },
+  { id: 'lec-008', codigo: 'LEC-008', tipo: 'Lectura', version: 1, titulo: 'Manual de Riesgos y Oportunidades v2.0', origen: 'MAN-CAL-01', descripcion: 'Lectura para líderes de proceso antes del comité anual de riesgos.', extraEtiqueta: 'Alcance de las asignaciones', extraValor: '9 personas', documento: 'MAN-CAL-01 Manual de Riesgos y Oportunidades', docVersion: 2, enlace: 'https://cuantico.sharepoint.com/… /MAN-CAL-01.pdf', usos: [{ codigo: 'LEC-008', alcance: 'Cargo · Líder de proceso', periodicidad: 'Anual' }] },
+  { id: 'tar-006', codigo: 'TAR-006', tipo: 'Tarea', version: 2, titulo: 'Evaluación y reevaluación de proveedores', origen: 'PRO-LCO-02', descripcion: 'Aplicación del formato FOR-LCO-04 a los proveedores críticos del semestre.', extraEtiqueta: 'Evidencia', extraValor: 'Nota y anexo obligatorio', usos: [{ codigo: 'TAR-006', alcance: 'Área · Legal y Compras', periodicidad: 'Semestral' }] },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos', elegido: 'lve-002' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tipos = ['Lectura', 'Verificación', 'Capacitación', 'Tarea'];
+
+    const filtros = [{ id: 'todos', etiqueta: 'Todos' }]
+      .concat(tipos.map((t) => ({ id: t, etiqueta: t })))
+      .map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) }));
+
+    const visibles = s.filtro === 'todos' ? CONTENIDOS : CONTENIDOS.filter((c) => c.tipo === s.filtro);
+
+    const contenidos = visibles.map((c) => ({
+      ...c,
+      tipoBg: TIPO_COLOR[c.tipo].bg,
+      tipoFg: TIPO_COLOR[c.tipo].fg,
+      estilo: s.elegido === c.id ? FILA_ON : FILA_OFF,
+      elegir: () => this.setState({ elegido: c.id }),
+    }));
+
+    const c = CONTENIDOS.find((x) => x.id === s.elegido) || CONTENIDOS[0];
+    const items = (c.items || []).map((i, n) => ({
+      numero: String(n + 1).padStart(2, '0'),
+      texto: i.texto,
+      obl: i.obligatorio ? 'Obligatorio' : 'Opcional',
+      oblBg: i.obligatorio ? '#e9f0fb' : '#f5f7f6',
+      oblFg: i.obligatorio ? '#12437f' : '#6b7570',
+      na: i.na ? 'Admite N/A' : 'Sin N/A',
+      naBg: i.na ? '#fff3e6' : '#f5f7f6',
+      naFg: i.na ? '#8a4407' : '#6b7570',
+    }));
+
+    return {
+      filtros,
+      contenidos,
+      ficha: {
+        ...c,
+        tipoBg: TIPO_COLOR[c.tipo].bg,
+        tipoFg: TIPO_COLOR[c.tipo].fg,
+        esVerificacion: c.tipo === 'Verificación',
+        esLectura: c.tipo === 'Lectura',
+        items,
+        conteoItems: items.length + ' ítems',
+        documento: c.documento || '',
+        docVersion: c.docVersion || '',
+        enlace: c.enlace || '',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
