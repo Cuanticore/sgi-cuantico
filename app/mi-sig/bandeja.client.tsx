@@ -7,6 +7,7 @@
 // acompaña siempre al color (regla transversal 09).
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { Bandeja, TarjetaBandeja } from './bandeja.query';
 import PanelCierre from './PanelCierre';
 
@@ -45,13 +46,21 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
 
   return (
     <main className="mx-auto w-full max-w-[1040px] flex-1 px-8 pb-16 pt-8">
-      <section className="flex flex-col gap-1">
-        <h1 className="text-23 font-bold text-primary">{bandeja.persona?.nombre ?? 'Bandeja'}</h1>
-        <p className="text-12_5 text-muted">
-          {bandeja.persona
-            ? [bandeja.persona.area, bandeja.persona.cargo].filter(Boolean).join(' · ') || 'Mi SIG'
-            : 'Mi SIG'}
-        </p>
+      <section className="flex items-end justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-23 font-bold text-primary">{bandeja.persona?.nombre ?? 'Bandeja'}</h1>
+          <p className="text-12_5 text-muted">
+            {bandeja.persona
+              ? [bandeja.persona.area, bandeja.persona.cargo].filter(Boolean).join(' · ') || 'Mi SIG'
+              : 'Mi SIG'}
+          </p>
+        </div>
+        <Link
+          href="/mi-sig/historial"
+          className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
+        >
+          Mi historial
+        </Link>
       </section>
 
       <section className="mt-6 grid grid-cols-3 gap-4">
