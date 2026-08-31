@@ -425,3 +425,223 @@ export async function reasignarAsignacion(
     return { ok: true, mensaje: 'Asignación reasignada.' };
   });
 }
+
+import { registrarAlta } from '@/lib/sgsi/bitacora';
+
+export interface DatosContenido {
+  tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA';
+  titulo: string;
+  descripcion: string;
+  procedimientoOrigen?: string;
+  documentoCodigo?: string;
+  documentoNombre?: string;
+  documentoVersion?: string;
+  documentoUrl?: string;
+  duracionHoras?: number;
+  modalidad?: string;
+  exigeEvaluacion?: boolean;
+  notaMinima?: number;
+  items?: { texto: string; obligatorio: boolean; permiteNoAplica: boolean }[];
+}
+
+function validarDatosContenido(datos: DatosContenido): string[] {
+  const errores: string[] = [];
+  if (!datos.titulo.trim()) errores.push('el título es obligatorio');
+  if (datos.tipo === 'LECTURA' && !datos.documentoVersion?.trim()) {
+    errores.push('la versión del documento es obligatoria');
+  }
+  if (datos.tipo === 'VERIFICACION' && (!datos.items || datos.items.length === 0)) {
+    errores.push('una verificación necesita al menos un ítem');
+  }
+  return errores;
+}
+
+/// R10: editar un contenido que ya generó asignaciones sube su versión; los registros
+/// cerrados conservan la versión que se realizó.
+export async function crearContenido(datos: DatosContenido): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    const errores = validarDatosContenido(datos);
+    if (errores.length > 0) return { ok: false, mensaje: errores.join('. ') };
+
+    await prisma.$transaction(async (tx) => {
+      const contador = await tx.contadorContenido.upsert({
+        where: { tipo: datos.tipo },
+        update: { ultimoValor: { increment: 1 } },
+        create: { tipo: datos.tipo, ultimoValor: 1 },
+      });
+      const prefijo: Record<DatosContenido['tipo'], string> = {
+        CAPACITACION: 'CAP',
+        LECTURA: 'LEC',
+        VERIFICACION: 'LVE',
+        TAREA: 'TAR',
+      };
+      const codigo = `${prefijo[datos.tipo]}-${String(contador.ultimoValor).padStart(3, '0')}`;
+
+      const creado = await tx.contenidoSig.create({
+        data: {
+          codigo,
+          tipo: datos.tipo,
+          titulo: datos.titulo,
+          descripcion: datos.descripcion,
+          procedimientoOrigen: datos.procedimientoOrigen ?? null,
+          documentoCodigo: datos.documentoCodigo ?? null,
+          documentoNombre: datos.documentoNombre ?? null,
+          documentoVersion: datos.documentoVersion ?? null,
+          documentoUrl: datos.documentoUrl ?? null,
+          duracionHoras: datos.duracionHoras ?? null,
+          modalidad: datos.modalidad ?? null,
+          exigeEvaluacion: datos.exigeEvaluacion ?? false,
+          notaMinima: datos.notaMinima ?? null,
+          items:
+            datos.tipo === 'VERIFICACION'
+              ? {
+                  create: (datos.items ?? []).map((item, i) => ({
+                    orden: i + 1,
+                    texto: item.texto,
+                    obligatorio: item.obligatorio,
+                    permiteNoAplica: item.permiteNoAplica,
+                  })),
+                }
+              : undefined,
+        },
+      });
+      await registrarAlta(tx, autor, 'contenido_sig', String(creado.id));
+    });
+
+    return { ok: true, mensaje: 'Contenido creado.' };
+  });
+}
+
+export interface DatosEditarContenido extends Partial<DatosContenido> {}
+
+/// R10: si el contenido ya tiene asignaciones, la edición sube la versión; los acuses
+/// previos conservan la versión que se realizó.
+export async function editarContenido(id: number, datos: DatosEditarContenido): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    const contenido = await prisma.contenidoSig.findUnique({
+      where: { id },
+      include: { _count: { select: { obligaciones: true } } },
+    });
+    if (!contenido) return { ok: false, mensaje: 'El contenido no existe.' };
+
+    const conAsignaciones = contenido._count.obligaciones > 0;
+    const version = conAsignaciones ? contenido.version + 1 : contenido.version;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.contenidoSig.update({
+        where: { id },
+        data: {
+          ...(datos.titulo !== undefined && { titulo: datos.titulo }),
+          ...(datos.descripcion !== undefined && { descripcion: datos.descripcion }),
+          ...(datos.procedimientoOrigen !== undefined && { procedimientoOrigen: datos.procedimientoOrigen }),
+          ...(datos.documentoCodigo !== undefined && { documentoCodigo: datos.documentoCodigo }),
+          ...(datos.documentoNombre !== undefined && { documentoNombre: datos.documentoNombre }),
+          ...(datos.documentoVersion !== undefined && { documentoVersion: datos.documentoVersion }),
+          ...(datos.documentoUrl !== undefined && { documentoUrl: datos.documentoUrl }),
+          ...(datos.duracionHoras !== undefined && { duracionHoras: datos.duracionHoras }),
+          ...(datos.modalidad !== undefined && { modalidad: datos.modalidad }),
+          ...(datos.exigeEvaluacion !== undefined && { exigeEvaluacion: datos.exigeEvaluacion }),
+          ...(datos.notaMinima !== undefined && { notaMinima: datos.notaMinima }),
+          version,
+        },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'contenido_sig',
+          registroId: String(id),
+          campo: 'version',
+          anterior: contenido.version,
+          nuevo: version,
+          motivo: conAsignaciones
+            ? 'edición de contenido publicado: sube la versión'
+            : 'edición sin asignaciones: la versión no cambia',
+        },
+      ]);
+    });
+
+    return {
+      ok: true,
+      mensaje: conAsignaciones ? 'Contenido editado: la versión subió.' : 'Contenido editado.',
+    };
+  });
+}
+
+export interface DatosObligacion {
+  contenidoId: number;
+  alcance: 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS';
+  alcancePersonaId?: number;
+  alcanceCargoId?: number;
+  alcanceAreaId?: number;
+  periodicidad: 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+  fechaInicio: Date;
+  plazoDias: number;
+  diasAviso: number;
+  notificar?: boolean;
+  responsableSeguimientoId: number;
+}
+
+function validarDatosObligacion(datos: DatosObligacion): string[] {
+  const errores: string[] = [];
+  if (datos.plazoDias <= 0) errores.push('el plazo debe ser positivo');
+  if (datos.diasAviso < 0) errores.push('los días de aviso no pueden ser negativos');
+  const cuantos = [datos.alcancePersonaId, datos.alcanceCargoId, datos.alcanceAreaId].filter((v) => v !== undefined).length;
+  if (datos.alcance !== 'TODOS' && cuantos !== 1) {
+    errores.push('el alcance exige exactamente un destino');
+  }
+  if (datos.alcance === 'TODOS' && cuantos !== 0) {
+    errores.push('el alcance TODOS no lleva destino');
+  }
+  return errores;
+}
+
+export async function crearObligacion(datos: DatosObligacion): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    const errores = validarDatosObligacion(datos);
+    if (errores.length > 0) return { ok: false, mensaje: errores.join('. ') };
+
+    const contenido = await prisma.contenidoSig.findUnique({ where: { id: datos.contenidoId } });
+    if (!contenido) return { ok: false, mensaje: 'El contenido no existe.' };
+
+    await prisma.$transaction(async (tx) => {
+      const creada = await tx.obligacion.create({
+        data: {
+          contenidoId: datos.contenidoId,
+          alcance: datos.alcance,
+          alcancePersonaId: datos.alcancePersonaId ?? null,
+          alcanceCargoId: datos.alcanceCargoId ?? null,
+          alcanceAreaId: datos.alcanceAreaId ?? null,
+          periodicidad: datos.periodicidad,
+          fechaInicio: datos.fechaInicio,
+          plazoDias: datos.plazoDias,
+          diasAviso: datos.diasAviso,
+          notificar: datos.notificar ?? true,
+          responsableSeguimientoId: datos.responsableSeguimientoId,
+        },
+      });
+      await registrarAlta(tx, autor, 'obligacion', String(creada.id));
+    });
+
+    return { ok: true, mensaje: 'Obligación creada. Genera asignaciones en la próxima corrida.' };
+  });
+}
+
+/// R11: desactivar deja de generar periodos nuevos y no toca los ya generados.
+export async function desactivarObligacion(id: number, motivo: string): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    if (!motivo.trim()) return { ok: false, mensaje: 'La desactivación exige motivo.' };
+
+    const obligacion = await prisma.obligacion.findUnique({ where: { id } });
+    if (!obligacion) return { ok: false, mensaje: 'La obligación no existe.' };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.obligacion.update({ where: { id }, data: { activa: false } });
+      await registrarBaja(tx, autor, 'obligacion', String(id), motivo);
+    });
+
+    return { ok: true, mensaje: 'Obligación desactivada. Las asignaciones ya generadas no cambian.' };
+  });
+}
