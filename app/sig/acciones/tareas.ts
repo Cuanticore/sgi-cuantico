@@ -272,3 +272,156 @@ export async function reabrirAsignacion(id: number, motivo: string): Promise<Res
     return { ok: true, mensaje: 'Asignación reabierta. El registro anterior se conserva.' };
   });
 }
+
+/// R6: prorrogar deja huella. Cambia la fecha límite con motivo obligatorio y valor
+/// anterior en bitácora: el hecho de haber prorrogado no desaparece.
+export async function prorrogarAsignacion(
+  id: number,
+  nuevaFechaLimite: Date,
+  motivo: string,
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    if (!motivo.trim()) return { ok: false, mensaje: 'La prórroga exige motivo.' };
+
+    const asignacion = await prisma.asignacion.findUnique({ where: { id } });
+    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.' };
+    if (asignacion.estado !== 'PENDIENTE') {
+      return { ok: false, mensaje: 'Solo se prorroga una asignación pendiente.' };
+    }
+    if (nuevaFechaLimite <= asignacion.fechaLimite) {
+      return { ok: false, mensaje: 'La nueva fecha límite debe ser posterior a la actual.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.asignacion.update({
+        where: { id },
+        data: { fechaLimite: nuevaFechaLimite },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'asignacion',
+          registroId: String(id),
+          campo: 'fecha_limite',
+          anterior: asignacion.fechaLimite,
+          nuevo: nuevaFechaLimite,
+          motivo,
+        },
+      ]);
+    });
+
+    return { ok: true, mensaje: 'Fecha límite prorrogada.' };
+  });
+}
+
+/// R7: anular exige motivo. Nunca hay borrado físico.
+export async function anularAsignacion(id: number, motivo: string): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    if (!motivo.trim()) return { ok: false, mensaje: 'La anulación exige motivo.' };
+
+    const asignacion = await prisma.asignacion.findUnique({ where: { id } });
+    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.' };
+    if (asignacion.estado !== 'PENDIENTE') {
+      return { ok: false, mensaje: 'Solo se anula una asignación pendiente.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.asignacion.update({
+        where: { id },
+        data: { estado: 'ANULADA', motivo },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'asignacion',
+          registroId: String(id),
+          campo: 'estado',
+          anterior: 'PENDIENTE',
+          nuevo: 'ANULADA',
+          motivo,
+        },
+      ]);
+    });
+
+    return { ok: true, mensaje: 'Asignación anulada.' };
+  });
+}
+
+/// R7: «no aplica» exige motivo. Lo pide quien tiene la asignación o quien escribe en
+/// Operación.
+export async function noAplicaAsignacion(id: number, motivo: string): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const sesion = await autorActual();
+    const asignacion = await prisma.asignacion.findUnique({
+      where: { id },
+      include: { persona: true },
+    });
+    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.' };
+    if (asignacion.estado !== 'PENDIENTE') {
+      return { ok: false, mensaje: 'Solo una asignación pendiente puede marcarse como no aplica.' };
+    }
+    if (asignacion.persona.correo !== sesion) {
+      await autorConPermiso('operacion:escribir');
+    }
+    if (!motivo.trim()) return { ok: false, mensaje: 'El motivo es obligatorio.' };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.asignacion.update({
+        where: { id },
+        data: { estado: 'NO_APLICA', motivo },
+      });
+      await registrar(tx, sesion, [
+        {
+          tabla: 'asignacion',
+          registroId: String(id),
+          campo: 'estado',
+          anterior: 'PENDIENTE',
+          nuevo: 'NO_APLICA',
+          motivo,
+        },
+      ]);
+    });
+
+    return { ok: true, mensaje: 'Asignación marcada como no aplica.' };
+  });
+}
+
+/// R9: reasignar no cierra nada: la asignación abierta pasa a otra persona, con motivo.
+export async function reasignarAsignacion(
+  id: number,
+  nuevaPersonaId: number,
+  motivo: string,
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    if (!motivo.trim()) return { ok: false, mensaje: 'La reasignación exige motivo.' };
+
+    const asignacion = await prisma.asignacion.findUnique({ where: { id } });
+    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.' };
+    if (asignacion.estado !== 'PENDIENTE') {
+      return { ok: false, mensaje: 'Solo se reasigna una asignación pendiente.' };
+    }
+    const persona = await prisma.persona.findUnique({ where: { id: nuevaPersonaId } });
+    if (!persona) return { ok: false, mensaje: 'La persona destino no existe.' };
+    if (!persona.activa) return { ok: false, mensaje: 'La persona destino está inactiva.' };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.asignacion.update({
+        where: { id },
+        data: { personaId: nuevaPersonaId },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'asignacion',
+          registroId: String(id),
+          campo: 'persona_id',
+          anterior: asignacion.personaId,
+          nuevo: nuevaPersonaId,
+          motivo,
+        },
+      ]);
+    });
+
+    return { ok: true, mensaje: 'Asignación reasignada.' };
+  });
+}
