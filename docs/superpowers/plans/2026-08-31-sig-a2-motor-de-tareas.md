@@ -1029,9 +1029,9 @@ describe('validarCierre — LECTURA', () => {
 
 describe('validarCierre — CAPACITACION', () => {
   it('exige la asistencia', () => {
-    expect(validarCierre({ tipo: 'CAPACITACION', asistio: undefined })).toContain(
-      'asistencia',
-    );
+    expect(validarCierre({ tipo: 'CAPACITACION', asistio: undefined })).toEqual([
+      'registre la asistencia',
+    ]);
   });
 
   it('sin evaluación no exige calificación', () => {
@@ -1043,7 +1043,7 @@ describe('validarCierre — CAPACITACION', () => {
   it('con evaluación exige la calificación', () => {
     expect(
       validarCierre({ tipo: 'CAPACITACION', asistio: true, exigeEvaluacion: true, calificacion: undefined }),
-    ).toContain('calificación');
+    ).toEqual(['registre la calificación']);
   });
 });
 
@@ -1209,7 +1209,7 @@ function diaDe(fecha: Date): number {
 npx jest lib/sig/__tests__/cierre.test.ts
 ```
 
-Expected: PASS, 15 pruebas.
+Expected: PASS, 12 pruebas.
 
 - [ ] **Step 5: Commit**
 
