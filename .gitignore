@@ -54,3 +54,9 @@ auth-test.ts
 
 # Bounded-review artifacts — produced per review, never part of the change
 /.review/
+
+# secretos que el patron .env.* no atrapa: el nombre lleva un espacio, no un punto
+.env prod.env
+
+# llaves privadas: *.pem ya estaba, *.ppk (PuTTY) no
+*.ppk
