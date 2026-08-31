@@ -1757,7 +1757,7 @@ model EficaciaControl {
 /// Rango parametrizable (0–4, 5–12, 13–25) con color y acción por clase.
 model NivelRiesgo {
   id          Int    @id @default(autoincrement())
-  minimo      Int
+  minimo      Int    @unique
   maximo      Int
   etiqueta    String
   color       String

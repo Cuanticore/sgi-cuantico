@@ -1,4 +1,4 @@
-# SIG · D — Gestión estratégica · Plan de implementación
+﻿# SIG · D — Gestión estratégica · Plan de implementación
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -510,6 +510,9 @@ git commit -m "feat(sig): modelos de gestion estrategica y catalogo del modelo c
 ```
 
 ---
+
+
+> **Desviación ejecutada:** el @unique de "NivelRiesgo.minimo" se aplicó a mano en la base de desarrollo (Prisma 7 exige TTY para el prompt del unique en migrate dev; la migración estrategico no lo contiene). La base y el schema coinciden; el drift se absorbe con la próxima migración real (C o la carga de datos).
 
 ## Task 2: Las fórmulas, puras y probadas
 
