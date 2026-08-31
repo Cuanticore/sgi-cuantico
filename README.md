@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
@@ -34,4 +34,16 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
 # sgi-cuantico
+
+## Personas y acceso (SIG)
+
+Toda cuenta autenticada del tenant entra como **Colaborador**: ve sus propias tareas en Mi
+SIG y nada del SGSI. Los permisos del SGSI siguen viniendo de tres grupos del Directorio —
+Responsables SIG, SIG-Propietarios, SIG-Auditoría.
+
+La tabla persona es un espejo del Directorio: se crea la fila al iniciar sesión y el
+líder del SIG puede sincronizar el censo completo desde Microsoft Graph. Quien desaparece
+del Directorio se **inactiva**, nunca se borra, porque sus registros sostienen una
+auditoría. Área y cargo son del SIG y la sincronización no los toca.
