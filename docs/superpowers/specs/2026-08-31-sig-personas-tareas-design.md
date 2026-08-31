@@ -158,7 +158,13 @@ Uno a uno con la asignación cerrada. `fechaHora`, `nota`, más el bloque de su 
 
 Inmutable una vez creado. Corregir es reabrir, y la reapertura conserva el registro anterior (regla R8).
 
-### 3.7 Tres decisiones explícitas
+### 3.7 `EnvioNotificacion`
+
+`tipo` (`SEMANAL` · `MENSUAL` · `NUEVA` · `PROXIMIDAD` · `VENCIMIENTO`), `periodo` (`2026-S36`, `2026-09`), `personaId`, `enviadoEn`, `resultado` (`ENVIADO` · `SIN_SMTP` · `FALLO`), `detalle`.
+
+`@@unique([tipo, periodo, personaId])` — es lo que hace idempotente el envío: correr de nuevo el disparador tras una caída no duplica correos, y ante un incumplimiento «no me llegó el aviso» deja de ser una afirmación imposible de verificar.
+
+### 3.8 Tres decisiones explícitas
 
 1. **«Vencida» no es un estado guardado, se calcula.** El estado almacenado es `PENDIENTE`, `REALIZADA`, `NO_APLICA` o `ANULADA`; vencida es `PENDIENTE && fechaLimite < hoy`, y extemporáneo es `fechaCierre > fechaLimite`. No hay proceso nocturno que pueda quedarse atrás y mentir sobre el cumplimiento. Es la misma regla que sostiene `riesgosGlobales()`.
 2. **Los anexos reusan la evidencia existente.** `Evidencia.controlId` pasa a opcional y se agrega `registroId` opcional, con la restricción de que exactamente uno esté presente. El módulo hereda versionado, baja lógica y bytes en base sin duplicar código. La alternativa —una tabla espejo— habría duplicado el manejo de archivos.
@@ -244,7 +250,32 @@ El interruptor existía porque sin grupo reconocido no se entraba a ninguna part
 
 ## 7. Notificaciones, bitácora e indicadores
 
-**Correos** por SMTP reusando `lib/sgsi/notificaciones.ts`: asignación nueva, aviso de proximidad según `diasAviso`, aviso de vencimiento y resumen semanal al responsable de seguimiento. Con el interruptor `notificar` por obligación. Sin SMTP configurado la función devuelve `{ configurado: false }` y el llamador lo registra; no falla en silencio.
+### 7.1 Correos
+
+Por SMTP, reusando `lib/sgsi/notificaciones.ts`. Sin SMTP configurado la función devuelve `{ configurado: false }` y el llamador lo registra; no falla en silencio.
+
+**Avisos por asignación**, con el interruptor `notificar` de la obligación: asignación nueva, aviso de proximidad según `diasAviso`, y aviso de vencimiento.
+
+**Resumen semanal · lunes.** Dos destinatarios distintos, con contenidos distintos:
+
+| Destinatario | Contenido |
+|---|---|
+| Cada persona con pendientes | Sus asignaciones **vencidas**, con la antigüedad de cada una, y las que vencen **esta semana**. Ordenadas por fecha límite. Un enlace directo a Mi SIG. |
+| Cada `responsableSeguimiento` de una obligación | El estado de **las obligaciones que él responde**: cuántas asignaciones abiertas, cuántas vencidas y de quién. No las tareas propias — eso va en el correo anterior. |
+
+**Resumen mensual · primer día hábil.** Al líder del SIG y a cada líder de proceso, acotado a su área: cumplimiento del mes que cerró, deuda vencida con la antigüedad de la más vieja, las obligaciones con peor cumplimiento, los cierres administrativos del mes, y lo que vence el mes entrante.
+
+### 7.2 Reglas de los resúmenes
+
+| # | Regla |
+|---|---|
+| **N1** | **Sin nada que decir, no se envía.** Cero pendientes y cero vencidos significa que no sale correo. Un correo semanal que dice «no tienes nada» enseña a ignorar el correo semanal. |
+| **N2** | **Un correo por persona, agrupado.** Nunca uno por tarea. Diez pendientes son diez líneas de un mismo correo. |
+| **N3** | **Idempotencia por periodo y destinatario.** Un envío por semana o por mes y por persona, registrado en `EnvioNotificacion` (`tipo`, `periodo`, `personaId`, `enviadoEn`, `resultado`). Un reintento tras un fallo de SMTP no duplica lo ya enviado. |
+| **N4** | **Queda registro de que se avisó.** El envío se registra aunque falle, con su detalle. Ante un incumplimiento, «no me llegó el aviso» es una afirmación verificable. |
+| **N5** | **Interruptores en tres niveles**: global por variable de entorno, por obligación (`notificar`) y por persona (quien no quiera el semanal puede apagarlo; el mensual del líder no se apaga). |
+| **N6** | **Zona horaria `America/Bogotá`** y hora de envío parametrizable. El día del semanal y el del mensual también. |
+| **N7** | **El disparo es idempotente y recuperable.** Igual que la generación de asignaciones: un procedimiento «enviar los resúmenes pendientes hasta hoy» que se puede correr de nuevo si el servidor estuvo caído, sin duplicar.
 
 **Bitácora** reusando `lib/sgsi/bitacora.ts`: alta, edición y desactivación de contenidos y obligaciones; cada corrida de generación con su conteo; prórroga, reasignación, anulación, cierre administrativo y reapertura; cambio de área, cargo o rol de una persona; y cada sincronización con el Directorio. Con autor, fecha, valor anterior y motivo.
 
@@ -284,6 +315,10 @@ Pruebas unitarias siguiendo el patrón de `lib/sgsi/__tests__`:
 | Cierre administrativo | Queda marcado, con motivo, visible para la persona y contado aparte del cumplimiento. |
 | Acceso | Una cuenta sin ningún grupo del SIG entra, ve Mi SIG y no alcanza ninguna pantalla del SGSI, comprobado por llamada directa a la API y no solo en la interfaz. |
 | Rendimiento | Bandeja y calendario por debajo de dos segundos con 200 personas y doce meses de asignaciones. |
+| Resumen semanal | Una persona con dos vencidas y una por vencer recibe **un** correo con las tres, ordenadas por fecha límite; una persona sin pendientes no recibe ninguno. |
+| Idempotencia del envío | Correr el disparador dos veces en la misma semana no envía el resumen dos veces, y el segundo intento queda registrado como ya enviado. |
+| Registro del aviso | Un envío fallido por SMTP caído queda en `EnvioNotificacion` con resultado `FALLO` y su detalle, no se pierde. |
+| Resumen mensual | El líder de un proceso recibe el cumplimiento **de su área**, no el de toda la organización. |
 
 ---
 

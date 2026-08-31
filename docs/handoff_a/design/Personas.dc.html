@@ -145,16 +145,18 @@ const ROLES = {
   'Colaborador': { bg: '#f5f7f6', fg: '#6b7570' },
 };
 
+// Configuración base confirmada contra FOR-CAL-04 2026. Los correos NO se listan aquí en
+// la carga real: los pone el Directorio. Los de esta muestra son ilustrativos.
 const PERSONAS = [
-  { id: 1, nombre: 'Laura Agudelo', correo: 'lagudelo@cuantico.com', area: 'Sistema Integrado de Gestión', cargo: 'Líder del SIG', rol: 'Responsables SIG', activa: true, pendientes: 4 },
-  { id: 2, nombre: 'Daniel Medina', correo: 'dmedina@cuantico.com', area: 'Gestión Tecnológica', cargo: 'CTO', rol: 'Responsables SIG', activa: true, pendientes: 6 },
-  { id: 3, nombre: 'Lina Medina', correo: 'lmedina@cuantico.com', area: 'Gestión Financiera', cargo: 'Analista financiera', rol: 'Propietarios', activa: true, pendientes: 5 },
-  { id: 4, nombre: 'Marcela Molina', correo: 'mmolina@cuantico.com', area: 'Gestión Legal y Compras', cargo: 'Chief Legal Officer', rol: 'Propietarios', activa: true, pendientes: 3 },
-  { id: 5, nombre: 'Yuliet Rojas', correo: 'yrojas@cuantico.com', area: 'Soporte y Servicio al Cliente', cargo: 'Líder de soporte', rol: 'Colaborador', activa: true, pendientes: 2 },
-  { id: 6, nombre: 'Katherine Quiroga', correo: 'kquiroga@cuantico.com', area: 'Gestión de Proyectos', cargo: 'Gerente de proyectos', rol: 'Colaborador', activa: true, pendientes: 2 },
-  { id: 7, nombre: 'Albeiro Restrepo', correo: 'arestrepo@cuantico.com', area: 'Talento Humano', cargo: 'Coordinador de talento', rol: 'Colaborador', activa: true, pendientes: 1 },
+  { id: 1, nombre: 'Daniel Medina', correo: 'dmedina@cuantico.com', area: 'Gestión Estratégica', cargo: 'Director de Estrategia', rol: 'Responsables SIG', activa: true, pendientes: 6 },
+  { id: 2, nombre: 'Laura Agudelo', correo: 'lagudelo@cuantico.com', area: 'Gestión de Proyectos', cargo: 'Director de Proyectos', rol: 'Responsables SIG', activa: true, pendientes: 4 },
+  { id: 3, nombre: 'Katherine Quiroga', correo: 'kquiroga@cuantico.com', area: 'Sistema Integrado de Gestión', cargo: 'Profesional de Calidad', rol: 'Responsables SIG', activa: true, pendientes: 5 },
+  { id: 4, nombre: 'Lina Medina', correo: 'lmedina@cuantico.com', area: 'Gestión Comercial', cargo: 'Gerente Comercial', rol: 'Propietarios', activa: true, pendientes: 3 },
+  { id: 5, nombre: 'Albeiro Medina', correo: 'amedina@cuantico.com', area: 'Talento Humano', cargo: 'Gerente Administrativo y Financiero', rol: 'Propietarios', activa: true, pendientes: 7 },
+  { id: 6, nombre: 'Marcela Molina', correo: 'mmolina@cuantico.com', area: 'Gestión Legal y Compras', cargo: 'Gerente Legal', rol: 'Propietarios', activa: true, pendientes: 3 },
+  { id: 7, nombre: 'Yuliet Rojas', correo: 'yrojas@cuantico.com', area: 'Soporte y Servicio al Cliente', cargo: 'Director de Operaciones y Servicios', rol: 'Propietarios', activa: true, pendientes: 4 },
   { id: 8, nombre: 'Auditoría externa', correo: 'auditoria@cuantico.com', area: 'Sistema Integrado de Gestión', cargo: 'Auditor líder', rol: 'Auditoría', activa: true, pendientes: 0 },
-  { id: 9, nombre: 'Camilo Restrepo', correo: 'crestrepo@cuantico.com', area: 'Gestión Comercial', cargo: 'Ejecutivo comercial', rol: 'Colaborador', activa: false, pendientes: 3 },
+  { id: 9, nombre: 'Persona desvinculada · ejemplo', correo: 'exempleado@cuantico.com', area: 'Gestión Comercial', cargo: 'Ejecutivo comercial', rol: 'Colaborador', activa: false, pendientes: 3 },
 ];
 
 const PENDIENTES_INACTIVA = [
