@@ -40,6 +40,8 @@ Verificados sobre el repositorio antes de diseñar:
 
 Las tareas del SIG **no están consolidadas en ninguna parte**: cada procedimiento define sus actividades y su periodicidad. Este módulo las inventaría por primera vez. No hay, por tanto, una carga inicial desde un archivo como la hubo con el Excel MAGERIT: el inventario se construye capturando obligación por obligación, y el campo `procedimientoOrigen` es el que mantiene la trazabilidad con el documento del que sale cada una.
 
+Verificado contra el repositorio documental del SIG: existe el formato `FOR-CAL-11 Cronograma SGC v1` (16/01/2026), una carta Gantt semanal con estructura PHVA y control Planeado/Ejecutado, **sin diligenciar**. Confirma el diagnóstico y aporta un patrón: la vista de calendario debe distinguir lo planeado de lo ejecutado, no solo la fecha límite.
+
 ---
 
 ## 2. Alcance
@@ -166,7 +168,7 @@ Inmutable una vez creado. Corregir es reabrir, y la reapertura conserva el regis
 
 ## 4. Pantallas
 
-El header de 58 px pasa de dos pestañas a cuatro: **Mi SIG · Indicadores · SGSI · Operación** (`app/components/sgsi/EncabezadoSig.tsx`). Un Colaborador solo ve la primera; las demás no se renderizan.
+El header de 58 px pasa de dos pestañas a cinco: **Mi SIG · Indicadores · Estratégico · SGSI · Operación** (`app/components/sgsi/EncabezadoSig.tsx`). «Estratégico» la aporta el módulo D. Un Colaborador solo ve la primera; las demás no se renderizan.
 
 ### 4.1 Mi SIG (`/mi-sig`)
 
@@ -289,5 +291,5 @@ Pruebas unitarias siguiendo el patrón de `lib/sgsi/__tests__`:
 
 1. Plan de implementación de este módulo (skill `writing-plans`).
 2. Módulo **B — Mejora: NC y ACPM** (`2026-08-31-sig-mejora-nc-acpm-design.md`), que consume el motor de tareas de este módulo.
-3. Módulo **D — Gestión estratégica**: partes interesadas, matriz legal, y riesgos y oportunidades organizacionales.
+3. Módulo **D — Gestión estratégica** (`2026-08-31-sig-gestion-estrategica-design.md`): partes interesadas, requisitos legales, y riesgos y oportunidades organizacionales.
 4. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` y alimentará a B.

@@ -53,6 +53,8 @@ Consecuencia sobre A, ya incorporada a su especificación: `Asignacion.contenido
 | SGSI | `riesgoId` o `controlId`, referencia real a la base. |
 | Otro | Texto libre. |
 
+Verificado contra el repositorio documental del SIG: existen los formatos `FOR-CAL-02 Formato de acciones correctivas y de mejora`, `FOR-CAL-03 Control de planes de acción`, `FOR-CAL-01 Identificación y control de salidas no conformes` y el procedimiento `PRO-CAL-03 Acciones correctivas y oportunidades de mejora`, que son la fuente funcional de este módulo. `FOR-CAL-08 Reporte de Incidentes de Riesgo` —núm. del riesgo, fecha, proceso, riesgo/oportunidad, descripción del evento, impacto generado, causa raíz y reportante— es la materialización que el módulo D convierte en hallazgo de este módulo.
+
 ### 2.3 Fuera del alcance
 
 | Qué | Por qué |
@@ -99,7 +101,7 @@ Consecuencia sobre A, ya incorporada a su especificación: `Asignacion.contenido
 
 ## 5. Pantallas
 
-El header se queda en cuatro pestañas (Mi SIG · Indicadores · SGSI · Operación). Mejora entra como dos entradas más de la barra lateral de Operación: `HAL` y `MEJ`.
+El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI · Operación). Mejora entra como dos entradas más de la barra lateral de Operación: `HAL` y `MEJ`.
 
 | Pantalla | Contenido |
 |---|---|
@@ -172,5 +174,5 @@ Todos calculados, ninguno almacenado:
 
 ## 10. Qué sigue
 
-1. Módulo **D — Gestión estratégica**: partes interesadas, matriz legal, y riesgos y oportunidades organizacionales.
+1. Módulo **D — Gestión estratégica** (`2026-08-31-sig-gestion-estrategica-design.md`): partes interesadas, requisitos legales, y riesgos y oportunidades organizacionales.
 2. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` del módulo A y alimentará el origen «auditoría interna» de este módulo.
