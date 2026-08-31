@@ -7,27 +7,18 @@
 //   SIG-Seguridad     read and write across the whole SGSI, parameterisation included
 //   SIG-Propietarios  value and treat the assets of their own process
 //   SIG-Auditoría     read only, with access to the bitácora and the evidence
-//   Domain Users      no access: the application does not appear in the portal
 //
-// Those three are the roles. The Directory groups that map onto them are listed in
-// `ALIAS`, by display name AND by object id, because the claim carries object ids under
-// the usual `groupMembershipClaims` setting. Cuantico's `Responsables SIG` maps to
-// SIG-Seguridad.
+// EL PISO ES COLABORADOR
 //
-// WHEN THE CLAIM IS NOT THERE
+// Toda cuenta autenticada del tenant que no esté en ninguno de esos grupos es Colaborador:
+// ve sus propias tareas en Mi SIG y nada más. No es un grupo del Directorio — es lo que
+// queda cuando no hay ninguno, y por eso `Rol.grupos` viene vacío.
 //
-// Emitting the `groups` claim is a decision in the Azure app registration, and until it
-// is made the token carries no groups at all. Two ways to handle that, and only one of
-// them is honest:
-//
-//   · Treat "no groups" as "no permissions". Correct in production, and it would make
-//     the application unusable on a tenant that has not been configured yet — silently,
-//     because the screens would just be empty.
-//   · Fall back to an explicit role, named in an environment variable, and say on screen
-//     that the role is a fallback rather than a claim.
-//
-// The second is what this does. `SGI_ROL_POR_DEFECTO` is read only when the token has no
-// groups; in production, with no variable set, the fallback is no access.
+// Esto reemplazó a `SGI_ACCESO_SIN_GRUPO`, que existía porque sin grupo reconocido no se
+// entraba a ninguna parte, y cuyo efecto era darle a cualquiera que iniciara sesión el
+// inventario de activos, el registro de riesgos, las banderas de datos personales de la
+// Ley 1581 y la parametrización del método. Con Colaborador como piso, esa variable dejó
+// de tener razón de ser y se retiró. Si quedó puesta en un `.env` viejo, no hace nada.
 
 export const GRUPOS = {
   seguridad: 'SIG-Seguridad',
@@ -38,6 +29,7 @@ export const GRUPOS = {
 export type Grupo = (typeof GRUPOS)[keyof typeof GRUPOS];
 
 export type Permiso =
+  | 'misig:ver'
   | 'sgsi:ver'
   | 'sgsi:escribir'
   | 'activo:valorar'
@@ -45,10 +37,12 @@ export type Permiso =
   | 'parametrizacion:escribir'
   | 'bitacora:ver'
   | 'evidencia:ver'
-  | 'evidencia:escribir';
+  | 'evidencia:escribir'
+  | 'personas:administrar';
 
 const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.seguridad]: [
+    'misig:ver',
     'sgsi:ver',
     'sgsi:escribir',
     'activo:valorar',
@@ -57,6 +51,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'bitacora:ver',
     'evidencia:ver',
     'evidencia:escribir',
+    'personas:administrar',
   ],
   // Values and treats, but does not touch the parameterisation: the scales and the
   // thresholds are the Committee's, not an owner's.
@@ -71,21 +66,27 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   //
   // Evidencia: un propietario aporta notas, enlaces y anexos (evidencia del control),
   // pero no cambia madurez ni aplicabilidad — eso sigue siendo `sgsi:escribir`.
-  [GRUPOS.propietarios]: ['sgsi:ver', 'activo:valorar', 'riesgo:tratar', 'evidencia:escribir'],
+  [GRUPOS.propietarios]: ['misig:ver', 'sgsi:ver', 'activo:valorar', 'riesgo:tratar', 'evidencia:escribir'],
   // Reads everything and changes nothing. The log and the evidence are precisely what an
   // auditor comes for.
-  [GRUPOS.auditoria]: ['sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
+  [GRUPOS.auditoria]: ['misig:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
 };
 
 export interface Rol {
   grupos: Grupo[];
   permisos: Set<Permiso>;
-  /// True when the role came from `SGI_ROL_POR_DEFECTO` rather than from the token. The
-  /// interface says so, because a permission nobody granted should not look granted.
+  /// True when the role came from a fallback rather than from the token. Always false
+  /// since the fallback was retired, but the interface keeps it: removing it would force
+  /// touching ShellSig.tsx and EncabezadoSig.tsx, which are not part of this plan.
   esPorDefecto: boolean;
 }
 
-const SIN_ACCESO: Rol = { grupos: [], permisos: new Set(), esPorDefecto: false };
+/// Lo que recibe una cuenta autenticada sin ningún grupo reconocido: sus propias tareas.
+const COLABORADOR: Rol = {
+  grupos: [],
+  permisos: new Set<Permiso>(['misig:ver']),
+  esPorDefecto: false,
+};
 
 /// Every identifier the Directory may present for one of the three groups, mapped to it.
 ///
@@ -128,48 +129,11 @@ function reconocidos(valores: readonly string[]): Grupo[] {
   return [...vistos];
 }
 
-/// The role granted to an authenticated session whose token carries NO recognised group.
-///
-/// `SGI_ACCESO_SIN_GRUPO` is the switch, and what it does is deliberately blunt: set it and
-/// the Directory stops being the gate. Anyone who can sign in to the tenant gets the role
-/// named here — the whole inventory, the whole risk register, the Ley 1581 personal-data
-/// flags, the internet-exposure flags, the custodians and the owners. Set to
-/// `SIG-Seguridad` it also grants the writes: valuing assets, recording treatment, and
-/// reparameterising the method itself.
-///
-/// It exists because the organisation asked for it, and it is a VARIABLE rather than a
-/// deleted gate for three reasons: reverting is one value, the sidebar can say out loud
-/// where the role came from, and an auditor reading this sees a decision instead of an
-/// oversight. Unset — which is the default, and what production should carry — the answer
-/// for a session with no recognised group is no access.
-///
-/// `SGI_ROL_POR_DEFECTO` is the older, narrower name: it only ever applied when the claim
-/// was absent entirely. It is still read so an existing environment keeps working, but the
-/// new name is the one that describes what actually happens.
-function accesoSinGrupo(): Grupo[] {
-  const configurado = process.env.SGI_ACCESO_SIN_GRUPO ?? process.env.SGI_ROL_POR_DEFECTO ?? '';
-  return reconocidos([configurado]);
-}
-
-/// Derives the role from the token's groups.
-///
-/// A recognised group always wins. Failing that, `SGI_ACCESO_SIN_GRUPO` decides, and the
-/// result is flagged `esPorDefecto` so the interface can say the Directory did not grant it.
+/// Derives the role from the token's groups. Sin grupo reconocido, Colaborador.
 export function rolDesdeGrupos(grupos: readonly string[] | undefined | null): Rol {
   const encontrados = reconocidos(grupos ?? []);
-
-  if (encontrados.length > 0) {
-    return { grupos: encontrados, permisos: permisosDe(encontrados), esPorDefecto: false };
-  }
-
-  // Reached both when the claim is absent AND when it carries only groups that are not
-  // ours. Those used to be different answers — the second was a flat no, on the reasoning
-  // that a working claim listing other groups IS the Directory saying no. They are the same
-  // answer now, by decision: the organisation wants every authenticated account in.
-  const sinGrupo = accesoSinGrupo();
-  if (sinGrupo.length === 0) return SIN_ACCESO;
-
-  return { grupos: sinGrupo, permisos: permisosDe(sinGrupo), esPorDefecto: true };
+  if (encontrados.length === 0) return COLABORADOR;
+  return { grupos: encontrados, permisos: permisosDe(encontrados), esPorDefecto: false };
 }
 
 function permisosDe(grupos: readonly Grupo[]): Set<Permiso> {
@@ -184,7 +148,7 @@ export function puede(rol: Rol, permiso: Permiso): boolean {
 
 /// Human-readable label for the header and the audit trail.
 export function nombreDelRol(rol: Rol): string {
-  if (rol.grupos.length === 0) return 'Sin acceso al SGSI';
+  if (rol.grupos.length === 0) return 'Colaborador';
   const etiquetas: Record<Grupo, string> = {
     [GRUPOS.seguridad]: 'Líder del SIG',
     [GRUPOS.propietarios]: 'Propietario de activos',

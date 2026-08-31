@@ -65,15 +65,13 @@ export default async function ShellSig({ children }: { children: React.ReactNode
     // printing it beside their own name read as if the application were assigning it.
     rol: '',
     // What the session actually grants, said plainly. An auditor reads this line before
-    // anything else on the screen. The fallback is no longer called out here: in production
-    // SGI_ROL_POR_DEFECTO is unset, so the fallback is no access and the note only ever
-    // appeared in development.
+    // anything else on the screen. The fallback is gone: with the floor set to Colaborador
+    // (see lib/sgsi/permisos.ts), the note about the server configuration never shows.
     // WHERE the role came from, not only what it grants.
     //
-    // With `SGI_ACCESO_SIN_GRUPO` set, a session gets the full role without belonging to
-    // any SIG group — and a permission the Directory did not grant must not look identical
-    // to one it did. This line is where an auditor looks first, so it says which of the two
-    // it is reading.
+    // Every session that reaches this screen has a recognised Directory group — the
+    // Colaborador floor is handled upstream — so this line always reads the group
+    // membership, never a server-side fallback.
     permisos: rol.grupos.length
       ? `${
           rol.esPorDefecto
