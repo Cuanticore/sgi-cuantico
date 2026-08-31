@@ -47,3 +47,17 @@ La tabla persona es un espejo del Directorio: se crea la fila al iniciar sesión
 líder del SIG puede sincronizar el censo completo desde Microsoft Graph. Quien desaparece
 del Directorio se **inactiva**, nunca se borra, porque sus registros sostienen una
 auditoría. Área y cargo son del SIG y la sincronización no los toca.
+
+## Motor de tareas (SIG)
+
+`ContenidoSig` (capacitación, lectura, verificación o tarea), `Obligacion` (la lista
+maestra del numeral 8) y `Asignacion` (la instancia concreta por persona y periodo)
+forman el motor que los módulos B, C y D consumen. La generación es **idempotente**:
+se puede correr cuantas veces se quiera y nunca duplica, porque la unique tripla
+(obligación, persona, periodo) lo impide. El alcance se resuelve al generar, no al
+definir: quien ingresa después recibe los periodos siguientes, nunca los pasados.
+
+«Vencida» no es un estado: es `PENDIENTE` con fecha límite anterior a hoy, calculada
+al leer. Todo cierre se valida en el servidor (ítems obligatorios, versión leída,
+nota mínima) y queda en `RegistroRealizado`, inmutable. Reabrir conserva el registro
+anterior y el nuevo cierre crea otro.
