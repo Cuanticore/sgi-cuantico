@@ -1,0 +1,316 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <!-- Header 58px. Sin barra de estado falsa: la real la pinta el teléfono encima. -->
+  <header style="flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 58px; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%); border-bottom: 1px solid #0a2350">
+    <span class="mono" style="display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 6px; background: #ffffff; color: #1b3a8a; font-size: 10px; font-weight: 700">CQ</span>
+    <span style="flex: 1; display: flex; flex-direction: column; line-height: 1.15">
+      <span style="font-size: 13.5px; font-weight: 700; letter-spacing: 0.04em; color: #ffffff">Mi SIG</span>
+      <span class="mono" style="font-size: 8.5px; letter-spacing: 0.14em; color: #7fb0f0">CUANTICO</span>
+    </span>
+    <span style="display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 999px; font-size: 10.5px; font-weight: 700; color: #ffffff; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3)">LM</span>
+    <!-- Hamburguesa: las otras cuatro pestañas viven aquí en móvil, como en Nav.tsx -->
+    <button onClick="{{alternarMenu}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: none; width: 44px; height: 44px; border: 0; background: transparent; padding: 0">
+      <span style="width: 18px; height: 2px; border-radius: 2px; background: #ffffff"></span>
+      <span style="width: 18px; height: 2px; border-radius: 2px; background: #ffffff"></span>
+      <span style="width: 18px; height: 2px; border-radius: 2px; background: #ffffff"></span>
+    </button>
+  </header>
+
+  <sc-if value="{{menuAbierto}}" hint-placeholder-val="{{ true }}">
+    <div style="flex: none; display: flex; flex-direction: column; background: #0c2461; border-bottom: 1px solid #0a2350">
+      <sc-for list="{{pestanas}}" as="p" hint-placeholder-count="5">
+        <span style="{{p.estilo}}">{{p.etiqueta}}</span>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- Bandeja -->
+  <main style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 28px">
+
+    <div style="display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px">
+      <span style="font-size: 18px; font-weight: 700; letter-spacing: -0.01em">Lina Medina</span>
+      <span style="font-size: 11.5px; color: #6b7570">Gestión Comercial · Gerente Comercial</span>
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-bottom: 16px">
+      <sc-for list="{{contadores}}" as="c" hint-placeholder-count="3">
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 5px; padding: 10px 11px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{c.color}}; border-radius: 10px">
+          <span class="mono" style="font-size: 7.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #a3aca7">{{c.etiqueta}}</span>
+          <span class="mono" style="font-size: 21px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.valor}}</span>
+        </span>
+      </sc-for>
+    </div>
+
+    <!-- Filtros: se desplazan en horizontal, no se apilan -->
+    <div style="display: flex; gap: 7px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px 4px">
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{grupos}}" as="g" hint-placeholder-count="3">
+      <section style="margin-bottom: 20px">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 9px">
+          <span class="mono" style="font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: {{g.colorTitulo}}; font-weight: 600; white-space: nowrap">{{g.titulo}}</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <sc-for list="{{g.tareas}}" as="t" hint-placeholder-count="2">
+            <button onClick="{{t.abrir}}" style="{{t.tarjeta}}">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+                <span class="mono" style="flex: none; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{t.tipoBg}}; color: {{t.tipoFg}}">{{t.tipo}}</span>
+                <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: {{t.plazoColor}}">{{t.plazo}}</span>
+              </span>
+              <span style="width: 100%; font-size: 14px; font-weight: 500; color: #1a211e; line-height: 1.4; text-align: left">{{t.titulo}}</span>
+              <span class="mono" style="width: 100%; font-size: 9.5px; color: #8a938e; text-align: left">{{t.origen}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+
+  </main>
+
+  <!-- Hoja de cierre: sube desde abajo y cubre la pantalla. En móvil no hay panel lateral. -->
+  <sc-if value="{{hojaAbierta}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; inset: 0; background: rgba(20, 28, 24, 0.42); display: flex; flex-direction: column; justify-content: flex-end">
+      <div style="display: flex; flex-direction: column; max-height: 82%; background: #ffffff; border-radius: 16px 16px 0 0; overflow: hidden">
+
+        <div style="flex: none; display: flex; flex-direction: column; align-items: center; padding: 10px 0 0">
+          <span style="width: 36px; height: 4px; border-radius: 999px; background: #d7dcd9"></span>
+        </div>
+
+        <div style="flex: none; display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px 14px; border-bottom: 1px solid #eceeed">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+            <span class="etq">{{hoja.tipo}}</span>
+            <span style="font-size: 15px; font-weight: 600; line-height: 1.35">{{hoja.titulo}}</span>
+            <span class="mono" style="font-size: 9.5px; color: #8a938e">{{hoja.origen}}</span>
+          </span>
+          <button onClick="{{cerrarHoja}}" style="flex: none; width: 44px; height: 44px; margin: -8px -8px 0 0; border: 0; background: transparent; color: #6b7570; font-size: 16px">✕</button>
+        </div>
+
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px">
+
+          <sc-if value="{{hoja.esLectura}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">Documento</span>
+                <span style="font-size: 13px; font-weight: 500; line-height: 1.4">POL-SIG-02 Política de Gobierno de Seguridad de la Información</span>
+                <span class="mono" style="font-size: 10.5px; color: #6b7570">Versión 2 · 25/01/2026</span>
+              </div>
+              <a href="#" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; font-size: 13.5px; font-weight: 600; color: #12437f; background: #ffffff; border: 1px solid #d3dceb; border-radius: 8px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                Abrir el documento
+              </a>
+              <button onClick="{{alternarAcuse}}" style="{{hoja.acuseEstilo}}">
+                <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid #0f7a5a; background: {{hoja.acuseFondo}}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{hoja.acuseOpacidad}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </span>
+                <span style="flex: 1; font-size: 12.5px; line-height: 1.5; color: #3a443f; text-align: left">Declaro haber leído y comprendido la <strong style="font-weight: 600">versión 2</strong>.</span>
+              </button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{hoja.esVerificacion}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 11px">
+              <sc-for list="{{hoja.items}}" as="i" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 9px; padding: 12px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                  <span style="display: flex; align-items: flex-start; gap: 8px">
+                    <span class="mono" style="flex: none; font-size: 10px; color: #a3aca7; padding-top: 2px">{{i.numero}}</span>
+                    <span style="flex: 1; font-size: 12.5px; line-height: 1.45">{{i.texto}}</span>
+                  </span>
+                  <!-- Tres opciones a lo ancho: cada una supera los 44px de alto -->
+                  <span style="display: flex; gap: 6px">
+                    <sc-for list="{{i.opciones}}" as="o" hint-placeholder-count="3">
+                      <button onClick="{{o.elegir}}" style="{{o.estilo}}">{{o.etiqueta}}</button>
+                    </sc-for>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+        </div>
+
+        <!-- Acción principal fija, ancho completo -->
+        <div style="flex: none; display: flex; flex-direction: column; gap: 9px; padding: 14px 18px 20px; border-top: 1px solid #eceeed; background: #fbfcfb">
+          <button style="height: 48px; font-size: 14px; font-weight: 600; color: #ffffff; background: #0f7a5a; border: 1px solid #0b5c44; border-radius: 8px">Registrar</button>
+          <span class="mono" style="font-size: 9px; color: #a3aca7; text-align: center; line-height: 1.5">{{hoja.pie}}</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+const CHIP_BASE = 'flex: none; height: 36px; padding: 0 14px; font-size: 12.5px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+// Área táctil: ninguna tarjeta baja de 44px, y en la práctica pasan de 80.
+const TARJETA_BASE = 'display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; min-height: 44px; padding: 13px 14px; border-radius: 10px; text-align: left;';
+
+const OPCION_BASE = 'flex: 1; min-height: 44px; padding: 0 4px; font-size: 11.5px; font-weight: 500; border-radius: 6px;';
+const OPCION_OFF = OPCION_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const OPCION_CUMPLE = OPCION_BASE + ' background: #e6efe9; border: 1px solid #c9e3d8; color: #0b5c44; font-weight: 600;';
+const OPCION_NO = OPCION_BASE + ' background: #fdeeeb; border: 1px solid #f2cdc6; color: #a52016; font-weight: 600;';
+const OPCION_NA = OPCION_BASE + ' background: #f5f7f6; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 600;';
+
+const TIPO_COLOR = {
+  'Lectura': { bg: '#e9f0fb', fg: '#12437f' },
+  'Verificación': { bg: '#fff3e6', fg: '#8a4407' },
+  'Capacitación': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Tarea': { bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+const TAREAS = [
+  { id: 'lec-01', grupo: 'vencidas', tipo: 'Lectura', titulo: 'Política de Gobierno de Seguridad de la Información', origen: 'POL-SIG-02 · anual', plazo: 'Hace 6 días', panel: 'lectura' },
+  { id: 'ver-01', grupo: 'vencidas', tipo: 'Verificación', titulo: 'Verificación mensual de respaldos', origen: 'PTR-TEC-01 · mensual', plazo: 'Hace 2 días', panel: 'verificacion' },
+  { id: 'tar-01', grupo: 'porVencer', tipo: 'Tarea', titulo: 'Conciliación bancaria de agosto', origen: 'PRO-FIN-03 · mensual', plazo: 'Mañana', panel: 'tarea' },
+  { id: 'cap-01', grupo: 'porVencer', tipo: 'Capacitación', titulo: 'Inducción y reinducción del SGC 2026', origen: 'FOR-CAL-09 · anual', plazo: 'En 4 días', panel: 'capacitacion' },
+  { id: 'ver-02', grupo: 'pendientes', tipo: 'Verificación', titulo: 'Revisión trimestral de accesos y privilegios', origen: 'PRO-TEC-01 · trimestral', plazo: 'En 21 días', panel: 'verificacion' },
+  { id: 'lec-02', grupo: 'pendientes', tipo: 'Lectura', titulo: 'Manual de Riesgos y Oportunidades v2.0', origen: 'MAN-CAL-01 · anual', plazo: 'En 28 días', panel: 'lectura' },
+];
+
+const ITEMS = [
+  'El respaldo del último cierre se ejecutó en la ventana programada y terminó sin errores.',
+  'Se verificó la restauración de al menos un archivo del respaldo del mes.',
+  'Se registró el resultado en el formato FOR-TEC-02.',
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todas', abierta: null, menu: false, acuse: false, respuestas: {} };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const abierta = TAREAS.find((t) => t.id === s.abierta) || null;
+
+    const conteos = {
+      todas: TAREAS.length,
+      vencidas: TAREAS.filter((t) => t.grupo === 'vencidas').length,
+      porVencer: TAREAS.filter((t) => t.grupo === 'porVencer').length,
+      pendientes: TAREAS.filter((t) => t.grupo === 'pendientes').length,
+    };
+
+    const visibles = s.filtro === 'todas' ? TAREAS : TAREAS.filter((t) => t.grupo === s.filtro);
+
+    const definicion = [
+      { id: 'vencidas', titulo: 'Vencidas', colorTitulo: '#a52016' },
+      { id: 'porVencer', titulo: 'Esta semana', colorTitulo: '#8a4407' },
+      { id: 'pendientes', titulo: 'Más adelante', colorTitulo: '#a3aca7' },
+    ];
+
+    const grupos = definicion
+      .map((g) => ({
+        ...g,
+        tareas: visibles
+          .filter((t) => t.grupo === g.id)
+          .map((t) => {
+            const c = TIPO_COLOR[t.tipo];
+            const venc = t.grupo === 'vencidas';
+            return {
+              ...t,
+              tipoBg: c.bg,
+              tipoFg: c.fg,
+              plazoColor: venc ? '#a52016' : t.grupo === 'porVencer' ? '#8a4407' : '#6b7570',
+              tarjeta:
+                TARJETA_BASE +
+                ' background: ' + (venc ? '#fdeeeb' : '#ffffff') +
+                '; border: 1px solid ' + (venc ? '#f2cdc6' : '#e2e6e3') + ';',
+              abrir: () => this.setState({ abierta: t.id, acuse: false, respuestas: {} }),
+            };
+          }),
+      }))
+      .filter((g) => g.tareas.length > 0);
+
+    const items = ITEMS.map((texto, n) => ({
+      numero: String(n + 1).padStart(2, '0'),
+      texto,
+      opciones: [
+        { id: 'cumple', etiqueta: 'Cumple' },
+        { id: 'no', etiqueta: 'No cumple' },
+        { id: 'na', etiqueta: 'No aplica' },
+      ].map((o) => ({
+        ...o,
+        estilo:
+          s.respuestas[n] !== o.id
+            ? OPCION_OFF
+            : o.id === 'cumple' ? OPCION_CUMPLE : o.id === 'no' ? OPCION_NO : OPCION_NA,
+        elegir: () => this.setState({ respuestas: { ...s.respuestas, [n]: o.id } }),
+      })),
+    }));
+
+    return {
+      contadores: [
+        { etiqueta: 'Vencidas', valor: conteos.vencidas, color: '#a52016' },
+        { etiqueta: 'Semana', valor: conteos.porVencer, color: '#c25a1e' },
+        { etiqueta: 'Hechas', valor: 11, color: '#0b5c44' },
+      ],
+      filtros: [
+        { id: 'todas', etiqueta: 'Todas', conteo: conteos.todas },
+        { id: 'vencidas', etiqueta: 'Vencidas', conteo: conteos.vencidas },
+        { id: 'porVencer', etiqueta: 'Esta semana', conteo: conteos.porVencer },
+        { id: 'pendientes', etiqueta: 'Más adelante', conteo: conteos.pendientes },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      grupos,
+      menuAbierto: s.menu,
+      alternarMenu: () => this.setState({ menu: !s.menu }),
+      pestanas: ['Mi SIG', 'Indicadores', 'Estratégico', 'SGSI', 'Operación'].map((p, k) => ({
+        etiqueta: p,
+        estilo:
+          'display: flex; align-items: center; min-height: 48px; padding: 0 18px; font-size: 14px; color: ' +
+          (k === 0 ? '#ffffff' : '#bcd4f5') + '; font-weight: ' + (k === 0 ? 600 : 500) +
+          '; border-bottom: 1px solid rgba(255,255,255,0.08);',
+      })),
+      hojaAbierta: abierta !== null,
+      cerrarHoja: () => this.setState({ abierta: null }),
+      alternarAcuse: () => this.setState({ acuse: !s.acuse }),
+      hoja: abierta
+        ? {
+            tipo: abierta.tipo,
+            titulo: abierta.titulo,
+            origen: abierta.origen,
+            esLectura: abierta.panel === 'lectura',
+            esVerificacion: abierta.panel === 'verificacion',
+            acuseFondo: s.acuse ? '#0f7a5a' : '#ffffff',
+            acuseOpacidad: s.acuse ? 1 : 0,
+            acuseEstilo:
+              'display: flex; align-items: flex-start; gap: 11px; width: 100%; min-height: 48px; padding: 13px 14px; border-radius: 10px; background: #f7fbf9; border: 1px solid #c9e3d8;',
+            items,
+            pie: abierta.panel === 'lectura'
+              ? 'Queda tu cuenta, la fecha, la hora y la versión leída'
+              : 'Los tres ítems son obligatorios',
+          }
+        : {},
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cabecera { display: flex; align-items: center; gap: 9px; }
+    .cabecera > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 900px; height: 900px; display: flex; flex-direction: column; background: #ffffff; border-left: 1px solid #e2e6e3; overflow: hidden">
+
+  <!-- Encabezado del panel del control, tal como existe hoy en el SGSI -->
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 14px; padding: 20px 24px 16px; border-bottom: 1px solid #eceeed">
+    <span style="flex: 1; display: flex; flex-direction: column; gap: 7px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <span class="mono" style="font-size: 12px; font-weight: 600; color: #12437f">A.5.31</span>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">Organizacional</span>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e6efe9; color: #0b5c44">Aplica · SOA</span>
+      </span>
+      <span style="font-size: 17px; font-weight: 600; line-height: 1.35">Requisitos legales, estatutarios, reglamentarios y contractuales</span>
+      <span style="font-size: 12px; color: #6b7570; line-height: 1.5; max-width: 78ch">Capacidad operativa: Cumplimiento · Dominio: Controles organizacionales</span>
+    </span>
+    <button style="flex: none; width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e6e3; background: #ffffff; color: #6b7570; font-size: 14px; line-height: 1">✕</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 20px">
+
+    <!-- Madurez: lo que ya existe -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <span class="cabecera"><span style="color: #12437f">Madurez</span><span class="regla"></span></span>
+      <div style="display: flex; gap: 12px">
+        <sc-for list="{{madurez}}" as="m" hint-placeholder-count="3">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 13px 15px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+            <span class="etq">{{m.etiqueta}}</span>
+            <span style="display: flex; align-items: baseline; gap: 8px">
+              <span class="mono" style="font-size: 20px; font-weight: 600; line-height: 1; color: {{m.color}}">{{m.valor}}</span>
+              <span style="font-size: 11px; color: #6b7570">{{m.nota}}</span>
+            </span>
+          </span>
+        </sc-for>
+      </div>
+      <span style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">Brecha de dos niveles contra el objetivo. La evidencia declarada no sostiene un L3 mientras la matriz de requisitos legales esté vacía.</span>
+      </span>
+    </div>
+
+    <!-- EL BLOQUE NUEVO -->
+    <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; background: #f7fbf9; border: 1px solid #c9e3d8; border-radius: 10px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; color: #0b5c44; white-space: nowrap">Hallazgos abiertos que lo referencian</span>
+        <span style="height: 1px; flex: 1; background: #c9e3d8"></span>
+        <span class="mono" style="padding: 2px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #0f7a5a; color: #ffffff">Nuevo · módulo B</span>
+      </span>
+
+      <div style="display: flex; flex-direction: column; gap: 9px">
+        <sc-for list="{{hallazgos}}" as="h" hint-placeholder-count="2">
+          <a href="#" style="display: flex; align-items: flex-start; gap: 13px; padding: 13px 15px; background: #ffffff; border: 1px solid {{h.borde}}; border-radius: 10px">
+            <span class="mono" style="flex: none; width: 88px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{h.tipoBg}}; color: {{h.tipoFg}}">{{h.tipo}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+              <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; line-height: 1.45">{{h.texto}}</span>
+              <span style="display: flex; align-items: center; gap: 9px">
+                <span class="mono" style="font-size: 10px; color: #12437f; font-weight: 500">{{h.codigo}}</span>
+                <span style="font-size: 10.5px; color: #8a938e">{{h.responsable}}</span>
+                <span class="mono" style="{{h.estadoEstilo}}">{{h.estado}}</span>
+              </span>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px">
+              <span style="font-size: 11.5px; font-weight: 600; color: {{h.plazoColor}}">{{h.plazo}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{h.origen}}</span>
+            </span>
+          </a>
+        </sc-for>
+      </div>
+
+      <span style="font-size: 11px; color: #4a544f; line-height: 1.6">Aparecen porque su <span class="mono" style="font-size: 10.5px">controlId</span> apunta a este control, no porque alguien escribiera «A.5.31» en un campo de texto. Es lo que evita que Mejora sea una isla: quien mira la madurez de un control ve, en el mismo sitio, lo que está abierto contra él.</span>
+    </div>
+
+    <!-- Evidencia: lo que ya existe -->
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <span class="cabecera"><span style="color: #12437f">Evidencia</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">3 elementos</span></span>
+      <sc-for list="{{evidencia}}" as="e" hint-placeholder-count="3">
+        <span style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+          <span class="mono" style="flex: none; padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">{{e.tipo}}</span>
+          <span style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.5; color: #3a443f">{{e.texto}}</span>
+          <span class="mono" style="flex: none; font-size: 9.5px; color: #a3aca7">{{e.autor}}</span>
+        </span>
+      </sc-for>
+    </div>
+
+  </div>
+
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-top: 1px solid #e2e6e3; background: #fbfcfb">
+    <span class="mono" style="flex: 1; font-size: 9.5px; color: #a3aca7">Pantalla existente del SGSI · el bloque verde es lo único que agrega el módulo de Mejora</span>
+    <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Guardar</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":900,"height":900}}'>
+const EST = {
+  ejecucion: { t: 'En ejecución', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;' },
+  analisis: { t: 'En análisis', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e9f0fb; color: #12437f;' },
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      madurez: [
+        { etiqueta: 'Actual', valor: 'L1', nota: 'Inicial', color: '#a52016' },
+        { etiqueta: 'Objetivo', valor: 'L3', nota: 'Definido', color: '#12437f' },
+        { etiqueta: 'Brecha', valor: '2', nota: 'niveles', color: '#8a4407' },
+      ],
+      hallazgos: [
+        {
+          tipo: 'NC mayor', tipoBg: '#fdeeeb', tipoFg: '#a52016', borde: '#f2cdc6',
+          texto: 'Matriz de requisitos legales sin diligenciar: la versión vigente solo contiene encabezados y listas desplegables',
+          codigo: 'HAL-2026-0014', responsable: 'Marcela Molina', estado: 'ejecucion',
+          plazo: 'Vencido 3 d', plazoColor: '#a52016', origen: 'Auditoría externa',
+        },
+        {
+          tipo: 'Oportunidad', tipoBg: '#e8f4ef', tipoFg: '#0b5c44', borde: '#e2e6e3',
+          texto: 'Ampliar la sustentación técnica de la no aplicabilidad de controles del Anexo A',
+          codigo: 'HAL-2026-0022', responsable: 'Laura Agudelo', estado: 'analisis',
+          plazo: 'En 18 d', plazoColor: '#4a544f', origen: 'Auditoría externa',
+        },
+      ].map((h) => ({ ...h, estado: EST[h.estado].t, estadoEstilo: EST[h.estado].e })),
+      evidencia: [
+        { tipo: 'Nota', texto: 'El marco normativo aplicable está listado en el MAN-CAL-01, capítulo de marco teórico, pero no desagregado por proceso.', autor: 'mmolina' },
+        { tipo: 'Enlace', texto: 'MAT-EST-01 Matriz de Requisitos Legales Cuantico v2', autor: 'lagudelo' },
+        { tipo: 'Archivo', texto: 'Aprobacion Matriz Requisitos Legales 10-08-2026.pdf', autor: 'lagudelo' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

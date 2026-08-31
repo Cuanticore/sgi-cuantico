@@ -1,0 +1,246 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Auditorías externas y a proveedores</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 84ch; line-height: 1.55">No se ejecutan aquí: el auditor externo trabaja con sus propias herramientas. Se registran para que sus hallazgos entren a Mejora y el tablero muestre el panorama completo.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Registrar auditoría</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <div style="flex: none; width: 448px; display: flex; flex-direction: column; gap: 10px; min-height: 0">
+      <div style="display: flex; gap: 7px">
+        <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+          <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+        </sc-for>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 8px">
+        <sc-for list="{{auditorias}}" as="a" hint-placeholder-count="6">
+          <button onClick="{{a.elegir}}" style="{{a.estilo}}">
+            <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+              <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{a.tipoBg}}; color: {{a.tipoFg}}">{{a.tipo}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{a.norma}}</span>
+              <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">{{a.fecha}}</span>
+            </span>
+            <span style="width: 100%; font-size: 13px; font-weight: 500; text-align: left; line-height: 1.35">{{a.entidad}}</span>
+            <span style="display: flex; align-items: center; gap: 9px; width: 100%">
+              <span class="mono" style="{{a.estadoEstilo}}">{{a.estado}}</span>
+              <span style="font-size: 10.5px; color: #8a938e">{{a.hallazgos}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 17px 20px 14px; border-bottom: 1px solid #eceeed">
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{ficha.tipoBg}}; color: {{ficha.tipoFg}}">{{ficha.tipo}}</span>
+            <span class="mono" style="font-size: 10.5px; color: #6b7570">{{ficha.norma}}</span>
+          </span>
+          <span style="font-size: 16px; font-weight: 600">{{ficha.entidad}}</span>
+        </span>
+        <button style="flex: none; padding: 8px 14px; font-size: 12px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Editar</button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fechas</span><span class="campo mono" style="font-size: 12px">{{ficha.fechas}}</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Auditor líder</span><span class="campo">{{ficha.auditor}}</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Resultado</span><span class="campo" style="color: {{ficha.resultadoColor}}; font-weight: 500">{{ficha.resultado}}</span></span>
+        </div>
+
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Alcance</span>
+          <span class="campo" style="min-height: 52px">{{ficha.alcance}}</span>
+        </span>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="etq" style="color: #12437f">Informe</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 11px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 12.5px; font-weight: 500">{{ficha.informe}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{ficha.informeMeta}}</span>
+            </span>
+            <a href="#" style="font-size: 12px; font-weight: 500">Descargar</a>
+          </span>
+          <span style="font-size: 11px; color: #8a938e; line-height: 1.55">El adjunto es obligatorio: una auditoría externa registrada sin su informe no es evidencia de nada.</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="etq" style="color: #12437f">Hallazgos</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{ficha.conteo}}</span>
+          </span>
+          <sc-for list="{{ficha.hallazgos}}" as="h" hint-placeholder-count="3">
+            <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: {{h.fondo}}; border: 1px solid {{h.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 96px; text-align: center; padding: 3px 0; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{h.tipoBg}}; color: {{h.tipoFg}}">{{h.tipo}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                <span style="font-size: 12px; line-height: 1.45">{{h.texto}}</span>
+                <span class="mono" style="font-size: 9.5px; color: #12437f">{{h.codigo}} · en Mejora</span>
+              </span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ficha.sinHallazgos}}" hint-placeholder-val="{{ true }}">
+            <span style="padding: 18px 12px; text-align: center; font-size: 12px; color: #a3aca7">Sin hallazgos registrados para esta auditoría.</span>
+          </sc-if>
+          <button style="align-self: flex-start; padding: 8px 13px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 6px">+ Capturar hallazgo del informe</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 11px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+const TIPO = {
+  'Certificación': { bg: '#fdeeeb', fg: '#a52016' },
+  'Seguimiento': { bg: '#e9f0fb', fg: '#12437f' },
+  'Proveedor': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Cliente': { bg: '#fff3e6', fg: '#8a4407' },
+};
+
+const EST = {
+  cerrada: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44;',
+  curso: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;',
+  programada: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #eef2f8; color: #12437f;',
+};
+
+const TIPO_HALL = {
+  'NC mayor': { bg: '#fdeeeb', fg: '#a52016', fondo: '#fdeeeb', borde: '#f2cdc6' },
+  'NC menor': { bg: '#fff3e6', fg: '#8a4407', fondo: '#ffffff', borde: '#f2b473' },
+  'Oportunidad': { bg: '#e8f4ef', fg: '#0b5c44', fondo: '#ffffff', borde: '#e2e6e3' },
+};
+
+const AUDITORIAS = [
+  {
+    id: 'ext-27001', tipo: 'Certificación', norma: 'ISO/IEC 27001:2022', fecha: '10/08/2026',
+    entidad: 'ICONTEC · certificación inicial del SGSI', estado: 'cerrada', estadoTexto: 'Cerrada',
+    fechas: '10 a 14/08/2026', auditor: 'Equipo ICONTEC', resultado: '1 NC mayor · 2 OM', resultadoColor: '#a52016',
+    alcance: 'Prestación de servicios de asesoramiento y construcción de productos digitales para la industria GovTech.',
+    informe: '2. Informe 2026.pdf', informeMeta: 'adjuntado el 20/08/2026 · 2,4 MB',
+    hallazgos: [
+      { tipo: 'NC mayor', codigo: 'HAL-2026-0014', texto: 'Matriz de requisitos legales sin diligenciar: solo encabezados en la versión vigente' },
+      { tipo: 'Oportunidad', codigo: 'HAL-2026-0022', texto: 'Ampliar la sustentación técnica de la no aplicabilidad de controles del Anexo A' },
+    ],
+  },
+  {
+    id: 'ext-9001', tipo: 'Seguimiento', norma: 'ISO 9001:2015', fecha: '04/06/2026',
+    entidad: 'ICONTEC · auditoría de seguimiento', estado: 'cerrada', estadoTexto: 'Cerrada',
+    fechas: '02 a 04/06/2026', auditor: 'Equipo ICONTEC', resultado: 'Sin no conformidades', resultadoColor: '#0b5c44',
+    alcance: 'Mantenimiento de la certificación ISO 9001:2015 sobre el alcance vigente.',
+    informe: '4. Informe Auditoria Externa 2026.pdf', informeMeta: 'adjuntado el 04/06/2026 · 1,1 MB',
+    hallazgos: [
+      { tipo: 'Oportunidad', codigo: 'HAL-2026-0012', texto: 'Fortalecer el registro de entradas de la revisión por la dirección' },
+    ],
+  },
+  {
+    id: 'prov-01', tipo: 'Proveedor', norma: 'Contractual', fecha: '15/07/2026',
+    entidad: 'Proveedor de infraestructura en la nube', estado: 'curso', estadoTexto: 'En curso',
+    fechas: '15/07/2026 en adelante', auditor: 'Daniel Medina', resultado: 'En evaluación', resultadoColor: '#8a4407',
+    alcance: 'Verificación de los controles de seguridad comprometidos en el acuerdo de servicio.',
+    informe: 'Pendiente', informeMeta: 'sin adjuntar',
+    hallazgos: [],
+  },
+  {
+    id: 'cli-01', tipo: 'Cliente', norma: 'Contractual', fecha: '22/04/2026',
+    entidad: 'Auditoría de cliente · proyecto ILC', estado: 'cerrada', estadoTexto: 'Cerrada',
+    fechas: '22/04/2026', auditor: 'Equipo del cliente', resultado: '1 NC menor', resultadoColor: '#8a4407',
+    alcance: 'Verificación del cumplimiento de los entregables y del tratamiento de datos del proyecto.',
+    informe: 'Informe cliente ILC.pdf', informeMeta: 'adjuntado el 30/04/2026 · 640 KB',
+    hallazgos: [
+      { tipo: 'NC menor', codigo: 'HAL-2026-0015', texto: 'Entregable devuelto por errores de contenido en la fase 1' },
+    ],
+  },
+  {
+    id: 'ext-2027', tipo: 'Seguimiento', norma: 'ISO 9001:2015', fecha: '2027',
+    entidad: 'ICONTEC · seguimiento 2027', estado: 'programada', estadoTexto: 'Programada',
+    fechas: 'Por confirmar', auditor: 'Por asignar', resultado: '—', resultadoColor: '#6b7570',
+    alcance: 'Mantenimiento de la certificación ISO 9001:2015.',
+    informe: 'Pendiente', informeMeta: 'sin adjuntar',
+    hallazgos: [],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todas', sel: 'ext-27001' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const visibles =
+      s.filtro === 'todas' ? AUDITORIAS
+        : s.filtro === 'externas' ? AUDITORIAS.filter((a) => a.tipo === 'Certificación' || a.tipo === 'Seguimiento')
+          : AUDITORIAS.filter((a) => a.tipo === 'Proveedor' || a.tipo === 'Cliente');
+
+    const f = AUDITORIAS.find((a) => a.id === s.sel) || AUDITORIAS[0];
+
+    return {
+      filtros: [
+        { id: 'todas', etiqueta: 'Todas', conteo: AUDITORIAS.length },
+        { id: 'externas', etiqueta: 'Certificadora', conteo: 3 },
+        { id: 'segunda', etiqueta: 'Segunda parte', conteo: 2 },
+      ].map((x) => ({ ...x, estilo: s.filtro === x.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: x.id }) })),
+      auditorias: visibles.map((a) => ({
+        ...a,
+        estado: a.estadoTexto,
+        estadoEstilo: EST[a.estado],
+        tipoBg: TIPO[a.tipo].bg,
+        tipoFg: TIPO[a.tipo].fg,
+        hallazgos: a.hallazgos.length === 0 ? 'sin hallazgos' : a.hallazgos.length + ' hallazgo(s)',
+        estilo: s.sel === a.id ? FILA_ON : FILA_OFF,
+        elegir: () => this.setState({ sel: a.id }),
+      })),
+      ficha: {
+        ...f,
+        tipoBg: TIPO[f.tipo].bg,
+        tipoFg: TIPO[f.tipo].fg,
+        conteo: f.hallazgos.length === 1 ? '1 hallazgo' : f.hallazgos.length + ' hallazgos',
+        sinHallazgos: f.hallazgos.length === 0,
+        hallazgos: f.hallazgos.map((h) => ({ ...h, ...TIPO_HALL[h.tipo] })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

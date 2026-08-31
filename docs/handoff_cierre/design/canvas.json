@@ -1,0 +1,28 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 844, "title": "Mi SIG · móvil", "is_interactive": true },
+    { "file": "HistoricoPersonal.dc.html", "x": 490, "y": 0, "w": 1000, "h": 900, "title": "Mi historial del SIG", "is_interactive": true },
+    { "file": "Origen.dc.html", "x": 1590, "y": 0, "w": 900, "h": 900, "title": "Hallazgos en la pantalla de origen" },
+
+    { "file": "AuditoriasExternas.dc.html", "x": 0, "y": 1020, "w": 1196, "h": 860, "title": "Auditorías externas", "is_interactive": true },
+    { "file": "Normas.dc.html", "x": 1300, "y": 1020, "w": 1196, "h": 860, "title": "Normas y requisitos", "is_interactive": true },
+    { "file": "Materializaciones.dc.html", "x": 2600, "y": 1020, "w": 1196, "h": 860, "title": "Materializaciones", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "movil",
+      "x": 0,
+      "y": -280,
+      "w": 440,
+      "text": "Mi SIG en móvil · 390 × 844\n\nLa pantalla que usan las 34 personas, y la única que muchas verán. Sin barra de estado ni teclado falsos: el teléfono los pinta encima.\n\nToca una tarjeta y la hoja de cierre sube desde abajo. Ninguna área táctil baja de 44 px."
+    },
+    {
+      "id": "resto",
+      "x": 490,
+      "y": -280,
+      "w": 900,
+      "text": "Las cinco que faltaban de las specs\n\nHistorial personal exportable (A §4) · hallazgos en la pantalla de origen (B §5) · auditorías externas y catálogo de numerales (C §4) · listado de materializaciones (D §5).\n\nCon estas, las cuatro specs quedan con todas sus pantallas dibujadas. Siguen pendientes las dos que necesitan spec antes de diseño: línea base comparable entre años, y perfil de competencia del auditor."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1000px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Mi historial del SIG</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 82ch; line-height: 1.55">Todo lo que has hecho en el sistema, con su registro. Es lo que te piden mostrar cuando una auditoría llega a tu proceso.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 9px">
+      <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Excel</button>
+      <button style="display: flex; align-items: center; gap: 8px; padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Exportar en PDF
+      </button>
+    </span>
+  </div>
+
+  <!-- Encabezado del documento -->
+  <div style="display: flex; align-items: center; gap: 16px; padding: 16px 20px; margin-bottom: 14px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+    <span style="display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 999px; font-size: 15px; font-weight: 700; background: #e9f0fb; color: #12437f">LM</span>
+    <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+      <span style="font-size: 16px; font-weight: 600">Lina Medina</span>
+      <span class="mono" style="font-size: 10.5px; color: #8a938e">lmedina@cuantico.com · Gestión Comercial · Gerente Comercial</span>
+    </span>
+    <span style="display: flex; gap: 22px">
+      <sc-for list="{{resumen}}" as="r" hint-placeholder-count="3">
+        <span style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <span class="mono" style="font-size: 20px; font-weight: 600; line-height: 1; color: {{r.color}}">{{r.valor}}</span>
+          <span class="etq">{{r.etiqueta}}</span>
+        </span>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{anios}}" as="a" hint-placeholder-count="3">
+      <button onClick="{{a.elegir}}" style="{{a.estilo}}">{{a.etiqueta}}</button>
+    </sc-for>
+    <span style="margin-left: auto; display: flex; gap: 7px">
+      <sc-for list="{{tipos}}" as="t" hint-placeholder-count="5">
+        <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 18px 20px">
+    <sc-for list="{{meses}}" as="m" hint-placeholder-count="4">
+      <div style="margin-bottom: 20px">
+        <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 11px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap">{{m.titulo}}</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{m.conteo}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{m.registros}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px; background: {{r.fondo}}; border: 1px solid {{r.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 74px; text-align: center; padding: 4px 0; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{r.tipoBg}}; color: {{r.tipoFg}}">{{r.tipo}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; line-height: 1.4">{{r.titulo}}</span>
+                <span style="font-size: 11.5px; color: #6b7570; line-height: 1.5">{{r.registro}}</span>
+              </span>
+              <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; width: 128px">
+                <span class="mono" style="font-size: 10.5px; color: #4a544f">{{r.fecha}}</span>
+                <span class="mono" style="{{r.estadoEstilo}}">{{r.estado}}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <p style="margin: 12px 0 0; font-size: 11.5px; color: #8a938e; line-height: 1.6; max-width: 108ch">El registro es inmutable: corregir uno es reabrir la asignación, y la reapertura queda en la bitácora. Un cierre administrativo aparece marcado con quién lo hizo — es lo que distingue «lo hice» de «me lo marcaron».</p>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1000,"height":900}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const MINI_OFF = 'padding: 5px 10px; font-size: 11.5px; font-weight: 500; border-radius: 20px; background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const MINI_ON = 'padding: 5px 10px; font-size: 11.5px; font-weight: 600; border-radius: 20px; background: #eef2f8; border: 1px solid #d3dceb; color: #12437f;';
+
+const TIPO_COLOR = {
+  'Lectura': { bg: '#e9f0fb', fg: '#12437f' },
+  'Verificación': { bg: '#fff3e6', fg: '#8a4407' },
+  'Capacitación': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Tarea': { bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+const EST = {
+  aTiempo: { t: 'A tiempo', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44;' },
+  tarde: { t: 'Extemporánea', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;' },
+  admin: { t: 'Cierre administrativo', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #faf1d3; color: #6b5410;' },
+};
+
+const MESES = [
+  {
+    titulo: 'Agosto de 2026',
+    registros: [
+      { tipo: 'Tarea', titulo: 'Conciliación bancaria de julio', registro: 'Se conciliaron los 14 movimientos del extracto contra el consolidado FOR-FIN-03. Dos partidas por identificar, reportadas al contador.', fecha: '04/08/2026', estado: 'tarde' },
+      { tipo: 'Capacitación', titulo: 'Phishing e ingeniería social', registro: 'Asistió · calificación 95 · aprobado', fecha: '21/08/2026', estado: 'aTiempo' },
+    ],
+  },
+  {
+    titulo: 'Julio de 2026',
+    registros: [
+      { tipo: 'Verificación', titulo: 'Verificación mensual de respaldos', registro: '4 de 4 ítems respondidos: 3 cumple, 1 no aplica.', fecha: '31/07/2026', estado: 'aTiempo' },
+      { tipo: 'Lectura', titulo: 'Política de Viáticos POL-FIN-01', registro: 'Acuse de la versión 1 · 14/07/2026 a las 09:42', fecha: '14/07/2026', estado: 'aTiempo' },
+      { tipo: 'Tarea', titulo: 'Conciliación bancaria de junio', registro: 'Cerrada por Laura Agudelo en nombre de Lina Medina. Motivo: ausencia por incapacidad médica.', fecha: '08/07/2026', estado: 'admin' },
+    ],
+  },
+  {
+    titulo: 'Junio de 2026',
+    registros: [
+      { tipo: 'Verificación', titulo: 'Verificación mensual de respaldos', registro: '4 de 4 ítems respondidos: 4 cumple.', fecha: '30/06/2026', estado: 'aTiempo' },
+      { tipo: 'Lectura', titulo: 'Política de Gestión de Activos e Información', registro: 'Acuse de la versión 1 · 25/06/2026 a las 16:08', fecha: '25/06/2026', estado: 'aTiempo' },
+    ],
+  },
+  {
+    titulo: 'Mayo de 2026',
+    registros: [
+      { tipo: 'Verificación', titulo: 'Verificación mensual de respaldos', registro: '4 de 4 ítems respondidos: 3 cumple, 1 no cumple. Nota: medio externo fuera de la ubicación declarada.', fecha: '29/05/2026', estado: 'aTiempo' },
+      { tipo: 'Capacitación', titulo: 'Inducción y reinducción del SGC 2026', registro: 'Asistió · calificación 100 · aprobado', fecha: '12/05/2026', estado: 'aTiempo' },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { anio: '2026', tipo: 'todos' };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const meses = MESES.map((m) => {
+      const registros = (s.tipo === 'todos' ? m.registros : m.registros.filter((r) => r.tipo === s.tipo)).map((r) => {
+        const c = TIPO_COLOR[r.tipo];
+        const e = EST[r.estado];
+        const admin = r.estado === 'admin';
+        return {
+          ...r,
+          tipoBg: c.bg,
+          tipoFg: c.fg,
+          estado: e.t,
+          estadoEstilo: e.e,
+          fondo: admin ? '#fdfaf0' : '#ffffff',
+          borde: admin ? '#e0b93c' : '#e2e6e3',
+        };
+      });
+      return {
+        titulo: m.titulo,
+        conteo: registros.length === 1 ? '1 registro' : registros.length + ' registros',
+        registros,
+      };
+    }).filter((m) => m.registros.length > 0);
+
+    return {
+      resumen: [
+        { valor: 37, etiqueta: 'Registros', color: '#12437f' },
+        { valor: '92 %', etiqueta: 'A tiempo', color: '#0b5c44' },
+        { valor: 1, etiqueta: 'Cierre admin.', color: '#6b5410' },
+      ],
+      anios: ['2026', '2025', 'Todo'].map((a) => ({
+        etiqueta: a,
+        estilo: s.anio === a ? CHIP_ON : CHIP_OFF,
+        elegir: () => this.setState({ anio: a }),
+      })),
+      tipos: ['todos', 'Lectura', 'Verificación', 'Capacitación', 'Tarea'].map((t) => ({
+        etiqueta: t === 'todos' ? 'Todos' : t,
+        estilo: s.tipo === t ? MINI_ON : MINI_OFF,
+        elegir: () => this.setState({ tipo: t }),
+      })),
+      meses,
+    };
+  }
+}
+</script>
+</body>
+</html>

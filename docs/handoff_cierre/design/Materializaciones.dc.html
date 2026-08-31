@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 12px 0; border-top: 1px solid #f2f4f3; vertical-align: top; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Materializaciones</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 86ch; line-height: 1.55">Riesgos que dejaron de ser hipótesis. Cada registro es un <span class="mono" style="font-size: 11.5px">FOR-CAL-08</span> y cada uno abrió su hallazgo en Mejora.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Reportar incidente</button>
+  </div>
+
+  <div style="display: flex; gap: 12px; margin-bottom: 14px">
+    <sc-for list="{{cifras}}" as="c" hint-placeholder-count="4">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{c.color}}; border-radius: 10px">
+        <span class="etq">{{c.etiqueta}}</span>
+        <span style="display: flex; align-items: baseline; gap: 8px">
+          <span class="mono" style="font-size: 22px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.valor}}</span>
+          <span style="font-size: 11px; color: #6b7570; line-height: 1.4">{{c.nota}}</span>
+        </span>
+      </span>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+    <span style="margin-left: auto; font-size: 11.5px; color: #8a938e">Un riesgo que se materializa dos veces en el mismo año es una señal de que su control no sirve.</span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px 8px">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr>
+          <th class="th" style="width: 62px">Riesgo</th>
+          <th class="th" style="width: 76px">Fecha</th>
+          <th class="th" style="width: 150px">Proceso</th>
+          <th class="th">Evento e impacto</th>
+          <th class="th" style="width: 128px">Reportante</th>
+          <th class="th" style="width: 138px">Hallazgo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{registros}}" as="r" hint-placeholder-count="5">
+          <tr style="background: {{r.fila}}">
+            <td class="td">
+              <span style="display: flex; flex-direction: column; gap: 4px">
+                <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #12437f">{{r.codigo}}</span>
+                <sc-if value="{{r.repetido}}" hint-placeholder-val="{{ true }}">
+                  <span class="mono" title="Se materializó más de una vez este año" style="align-self: flex-start; padding: 2px 5px; font-size: 7.5px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 3px; background: #fdeeeb; color: #a52016; font-weight: 600">2×</span>
+                </sc-if>
+              </span>
+            </td>
+            <td class="td"><span class="mono" style="font-size: 11px; color: #6b7570">{{r.fecha}}</span></td>
+            <td class="td"><span style="font-size: 11.5px; color: #4a544f">{{r.proceso}}</span></td>
+            <td class="td" style="padding-right: 16px">
+              <span style="display: flex; flex-direction: column; gap: 5px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; line-height: 1.45">{{r.evento}}</span>
+                <span style="font-size: 11.5px; color: #6b7570; line-height: 1.5">{{r.impacto}}</span>
+              </span>
+            </td>
+            <td class="td">
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span style="display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 999px; font-size: 9px; font-weight: 700; background: #e9f0fb; color: #12437f">{{r.iniciales}}</span>
+                <span style="font-size: 11.5px; color: #3a443f">{{r.reportante}}</span>
+              </span>
+            </td>
+            <td class="td">
+              <span style="display: flex; flex-direction: column; gap: 4px">
+                <a href="#" class="mono" style="font-size: 11px; font-weight: 500">{{r.hallazgo}}</a>
+                <span class="mono" style="{{r.estadoEstilo}}">{{r.estado}}</span>
+              </span>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const EST = {
+  abierto: { t: 'Hallazgo abierto', e: 'align-self: flex-start; padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;' },
+  cerrado: { t: 'Cerrado', e: 'align-self: flex-start; padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44;' },
+};
+
+const REGISTROS = [
+  {
+    codigo: 'R14', fecha: '28/08/26', proceso: 'Gestión de Proyectos', repetido: false,
+    evento: 'Renuncia de la persona a cargo de la analítica del proyecto ILC, con quince días de preaviso y sin esquema de respaldo.',
+    impacto: 'Tres semanas de retraso en la fase 2 y reprogramación acordada con el cliente. El hito de septiembre se movió a octubre.',
+    reportante: 'Laura Agudelo', iniciales: 'LA', hallazgo: 'HAL-2026-0019', estado: 'abierto',
+  },
+  {
+    codigo: 'R27', fecha: '12/08/26', proceso: 'Gestión Tecnológica', repetido: true,
+    evento: 'Venció la suscripción de una herramienta de analítica usada en dos proyectos activos, sin aviso previo.',
+    impacto: 'Dos días sin acceso para cuatro personas y renovación de urgencia a tarifa lista, sin el descuento anual.',
+    reportante: 'Daniel Medina', iniciales: 'DM', hallazgo: 'HAL-2026-0016', estado: 'abierto',
+  },
+  {
+    codigo: 'R17', fecha: '10/08/26', proceso: 'Gestión Legal y Compras', repetido: false,
+    evento: 'La auditoría externa evidenció la matriz de requisitos legales vacía, sin ninguna norma identificada por proceso.',
+    impacto: 'No conformidad mayor en la auditoría de certificación, con plazo de cierre antes de la siguiente visita.',
+    reportante: 'Marcela Molina', iniciales: 'MM', hallazgo: 'HAL-2026-0014', estado: 'abierto',
+  },
+  {
+    codigo: 'R27', fecha: '03/03/26', proceso: 'Gestión Tecnológica', repetido: true,
+    evento: 'Licencia de diseño vencida sin renovación, detectada al intentar exportar un entregable.',
+    impacto: 'Medio día de retraso en una entrega y compra de una licencia mensual a mayor costo.',
+    reportante: 'Daniel Medina', iniciales: 'DM', hallazgo: 'HAL-2026-0006', estado: 'cerrado',
+  },
+  {
+    codigo: 'R29', fecha: '18/02/26', proceso: 'Sistema Integrado de Gestión', repetido: false,
+    evento: 'Un entregable del proyecto ILC salió al cliente sin la revisión de calidad prevista en el procedimiento.',
+    impacto: 'Devolución del entregable y una semana de retrabajo del equipo de proyectos.',
+    reportante: 'Katherine Quiroga', iniciales: 'KQ', hallazgo: 'HAL-2026-0015', estado: 'abierto',
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const visibles =
+      s.filtro === 'todos' ? REGISTROS
+        : s.filtro === 'abiertos' ? REGISTROS.filter((r) => r.estado === 'abierto')
+          : REGISTROS.filter((r) => r.repetido);
+
+    return {
+      filtros: [
+        { id: 'todos', etiqueta: 'Todas', conteo: REGISTROS.length },
+        { id: 'abiertos', etiqueta: 'Con hallazgo abierto', conteo: REGISTROS.filter((r) => r.estado === 'abierto').length },
+        { id: 'repetidos', etiqueta: 'Riesgos reincidentes', conteo: REGISTROS.filter((r) => r.repetido).length },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      cifras: [
+        { etiqueta: 'Este año', valor: 5, nota: 'riesgos materializados', color: '#12437f' },
+        { etiqueta: 'Con hallazgo abierto', valor: 4, nota: 'aún en tratamiento', color: '#8a4407' },
+        { etiqueta: 'Riesgos reincidentes', valor: 1, nota: 'R27, dos veces en 2026', color: '#a52016' },
+        { etiqueta: 'Del universo', valor: '8 %', nota: '5 de 66 registros', color: '#12437f' },
+      ],
+      registros: visibles.map((r) => ({
+        ...r,
+        fila: r.repetido ? '#fdeeeb' : '#ffffff',
+        estado: EST[r.estado].t,
+        estadoEstilo: EST[r.estado].e,
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>
