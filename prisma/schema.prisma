@@ -204,6 +204,7 @@ model Area {
   activos    Activo[]
   contadores ContadorCodigo[]
   personas   Persona[]
+  obligacionesAlcance Obligacion[]
 
   @@map("area")
 }
@@ -245,6 +246,7 @@ model CargoResponsable {
   accionesResponsable AccionPlan[] @relation("AccionResponsable")
   accionesAprueba     AccionPlan[] @relation("AccionAprueba")
   personas            Persona[]
+  obligacionesAlcance Obligacion[]
 
   @@map("cargo_responsable")
 }
@@ -505,7 +507,11 @@ model ControlAmenaza {
 /// auditor (MET-SIG-01 section 8.4).
 model Evidencia {
   id        Int           @id @default(autoincrement())
-  controlId Int           @map("control_id")
+  /// Exactamente uno de `controlId` o `registroId` está presente — lo impone un CHECK
+  /// en la migración y la validación de la acción. La evidencia del SGSI y el anexo del
+  /// SIG comparten la misma tabla: versionado, baja lógica y bytes en base, sin espejo.
+  controlId  Int?  @map("control_id")
+  registroId Int?  @map("registro_id")
   tipo      TipoEvidencia
   texto     String
   /// The base evidence carried over from the control's own justification cannot be
@@ -532,7 +538,7 @@ model Evidencia {
 
   archivo EvidenciaArchivo?
 
-  control Control @relation(fields: [controlId], references: [id])
+  control Control? @relation(fields: [controlId], references: [id])
 
   @@map("evidencia")
 }
@@ -955,5 +961,229 @@ model Persona {
   area  Area?             @relation(fields: [areaId], references: [id])
   cargo CargoResponsable? @relation(fields: [cargoId], references: [id])
 
+  obligacionesAlcance      Obligacion[] @relation("ObligacionAlcancePersona")
+  obligacionesSeguimiento  Obligacion[] @relation("ObligacionSeguimiento")
+  asignaciones             Asignacion[] @relation("AsignacionPersona")
+  asignacionesCerradasPor  Asignacion[] @relation("AsignacionCerradaPor")
+
   @@map("persona")
+}
+
+// ============================================================================
+// SIG — Motor de tareas. The numeral-8 register: what the SIG must do, who must
+// do it and how often. Everything derived (vencida, cumplimiento) is computed at
+// read time, never stored.
+// ============================================================================
+
+enum TipoContenido {
+  CAPACITACION
+  LECTURA
+  VERIFICACION
+  TAREA
+
+  @@map("tipo_contenido")
+}
+
+enum AlcanceObligacion {
+  PERSONA
+  CARGO
+  AREA
+  TODOS
+
+  @@map("alcance_obligacion")
+}
+
+enum Periodicidad {
+  UNICA
+  DIARIA
+  SEMANAL
+  MENSUAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+
+  @@map("periodicidad")
+}
+
+enum EstadoAsignacion {
+  PENDIENTE
+  REALIZADA
+  NO_APLICA
+  ANULADA
+
+  @@map("estado_asignacion")
+}
+
+/// Respuesta de un ítem de verificación. Nombre distinto de `RespuestaItem` porque
+/// Prisma no admite que un enum y un modelo compartan identificador.
+enum ValorRespuesta {
+  CUMPLE
+  NO_CUMPLE
+  NO_APLICA
+
+  @@map("valor_respuesta")
+}
+
+/// Contenido reutilizable: capacitación, lectura, verificación o tarea. El código es
+/// consecutivo por tipo (CAP-001, LEC-003...), generado con un contador atómico.
+///
+/// Bloques condicionales por tipo, siguiendo el precedente de `AccionPlan`: los campos
+/// que no aplican al tipo quedan nulos y el cierre los valida.
+model ContenidoSig {
+  id                  Int           @id @default(autoincrement())
+  codigo              String        @unique
+  tipo                TipoContenido
+  titulo              String
+  descripcion         String
+  procedimientoOrigen String?       @map("procedimiento_origen")
+  /// Sube al editar un contenido que ya generó asignaciones (R10): un acuse de lectura
+  /// debe seguir siendo verificable contra la versión que se leyó.
+  version             Int           @default(1)
+  activo              Boolean       @default(true)
+  creadaEn            DateTime      @default(now()) @map("creada_en")
+  actualizadoEn       DateTime      @updatedAt @map("actualizado_en")
+
+  // LECTURA — documento referenciado, no gestionado acá.
+  documentoCodigo  String? @map("documento_codigo")
+  documentoNombre  String? @map("documento_nombre")
+  documentoVersion String? @map("documento_version")
+  documentoUrl     String? @map("documento_url")
+
+  // CAPACITACION
+  duracionHoras   Decimal? @map("duracion_horas")
+  modalidad       String?
+  exigeEvaluacion Boolean  @default(false) @map("exige_evaluacion")
+  notaMinima      Decimal? @map("nota_minima")
+
+  items       ItemVerificacion[]
+  obligaciones Obligacion[]
+  asignaciones Asignacion[]
+
+  @@map("contenido_sig")
+}
+
+/// Ítems de un contenido VERIFICACION. La primitiva que el módulo C reutilizará.
+model ItemVerificacion {
+  id              Int      @id @default(autoincrement())
+  contenidoId     Int      @map("contenido_id")
+  orden           Int
+  texto           String
+  obligatorio     Boolean  @default(true)
+  permiteNoAplica Boolean  @default(true) @map("permite_no_aplica")
+
+  contenido ContenidoSig @relation(fields: [contenidoId], references: [id])
+  respuestas RespuestaItem[]
+
+  @@unique([contenidoId, orden])
+  @@map("item_verificacion")
+}
+
+/// La lista maestra del numeral 8: qué contenido, a quién, cada cuánto y con qué plazo.
+/// El alcance se resuelve al generar (R2), no al definir.
+model Obligacion {
+  id                       Int               @id @default(autoincrement())
+  contenidoId              Int               @map("contenido_id")
+  alcance                  AlcanceObligacion
+  alcancePersonaId         Int?              @map("alcance_persona_id")
+  alcanceCargoId           Int?              @map("alcance_cargo_id")
+  alcanceAreaId            Int?              @map("alcance_area_id")
+  periodicidad             Periodicidad
+  fechaInicio              DateTime          @map("fecha_inicio") @db.Date
+  plazoDias                Int               @map("plazo_dias")
+  diasAviso                Int               @map("dias_aviso")
+  notificar                Boolean           @default(true)
+  responsableSeguimientoId Int               @map("responsable_seguimiento_id")
+  activa                   Boolean           @default(true)
+  creadaEn                 DateTime          @default(now()) @map("creada_en")
+
+  contenido              ContenidoSig        @relation(fields: [contenidoId], references: [id])
+  alcancePersona         Persona?            @relation("ObligacionAlcancePersona", fields: [alcancePersonaId], references: [id])
+  alcanceCargo           CargoResponsable?   @relation(fields: [alcanceCargoId], references: [id])
+  alcanceArea            Area?               @relation(fields: [alcanceAreaId], references: [id])
+  responsableSeguimiento Persona             @relation("ObligacionSeguimiento", fields: [responsableSeguimientoId], references: [id])
+  asignaciones           Asignacion[]
+
+  @@map("obligacion")
+}
+
+/// Una instancia concreta: obligación + persona + periodo. La unique tripla es lo que
+/// hace idempotente la generación: correrla dos veces no duplica nada.
+model Asignacion {
+  id            Int               @id @default(autoincrement())
+  obligacionId  Int?              @map("obligacion_id")
+  contenidoId   Int?              @map("contenido_id")
+  /// Obligatorios cuando no hay contenido; ignorados cuando lo hay.
+  titulo        String?
+  descripcion   String?
+  personaId     Int               @map("persona_id")
+  /// Etiqueta legible del periodo: `2026-T3`, `2026-09`, `2026-S36`, `2026`.
+  periodo       String
+  fechaApertura DateTime          @map("fecha_apertura") @db.Date
+  fechaLimite   DateTime          @map("fecha_limite") @db.Date
+  estado        EstadoAsignacion  @default(PENDIENTE)
+  fechaCierre   DateTime?         @map("fecha_cierre")
+  /// Distinto de `personaId` solo en un cierre administrativo (R5).
+  cerradaPor    Int?              @map("cerrada_por")
+  /// Obligatorio en prórroga, anulación, no aplica y cierre administrativo.
+  motivo        String?
+  creadaEn      DateTime          @default(now()) @map("creada_en")
+
+  obligacion        Obligacion?         @relation(fields: [obligacionId], references: [id])
+  contenido         ContenidoSig?       @relation(fields: [contenidoId], references: [id])
+  persona           Persona             @relation("AsignacionPersona", fields: [personaId], references: [id])
+  cerradaPorPersona Persona?            @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
+  registros         RegistroRealizado[]
+
+  @@unique([obligacionId, personaId, periodo])
+  @@index([personaId, estado])
+  @@index([fechaLimite])
+  @@map("asignacion")
+}
+
+/// El registro de un cierre, inmutable. 1:N con la asignación a propósito: al reabrir
+/// (R8) el anterior se conserva y el nuevo cierre crea otro; el vigente es el último.
+/// Quién lo registró no se repite acá: es `Asignacion.cerradaPor`.
+model RegistroRealizado {
+  id           Int      @id @default(autoincrement())
+  asignacionId Int      @map("asignacion_id")
+  fechaHora    DateTime @default(now()) @map("fecha_hora")
+  nota         String?
+
+  // LECTURA — la versión del documento en el momento del acuse (R10).
+  versionLeida String? @map("version_leida")
+  // CAPACITACION
+  asistio      Boolean?
+  calificacion Decimal?
+  /// Congelado al cerrar: derivable de `notaMinima`, pero esa vive en el contenido y
+  /// cambia; el registro debe seguir siendo verificable (R10).
+  aprobado     Boolean?
+
+  asignacion Asignacion       @relation(fields: [asignacionId], references: [id])
+  respuestas RespuestaItem[]
+
+  @@index([asignacionId])
+  @@map("registro_realizado")
+}
+
+model RespuestaItem {
+  id         Int            @id @default(autoincrement())
+  registroId Int            @map("registro_id")
+  itemId     Int            @map("item_id")
+  respuesta  ValorRespuesta
+  nota       String?
+
+  registro RegistroRealizado @relation(fields: [registroId], references: [id])
+  item     ItemVerificacion  @relation(fields: [itemId], references: [id])
+
+  @@unique([registroId, itemId])
+  @@map("respuesta_item")
+}
+
+/// Códigos consecutivos por tipo de contenido (CAP-001, LEC-003...). El mismo patrón
+/// que `ContadorCodigo`: upsert atómico, porque MAX()+1 entregaría un número retirado.
+model ContadorContenido {
+  tipo        TipoContenido @id
+  ultimoValor Int           @default(0) @map("ultimo_valor")
+
+  @@map("contador_contenido")
 }
