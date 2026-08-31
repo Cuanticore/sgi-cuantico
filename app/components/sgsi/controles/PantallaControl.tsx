@@ -163,6 +163,7 @@ export default function PantallaControl({
   navegacion,
   puedeEditarSoa = true,
   directorio = [],
+  hallazgosAbiertos = [],
 }: {
   control: ControlVista;
   onCerrar: () => void;
@@ -170,6 +171,8 @@ export default function PantallaControl({
   navegacion?: NavegacionControles;
   puedeEditarSoa?: boolean;
   directorio?: { nombre: string; correo: string }[];
+  /// Hallazgos abiertos del módulo B originados en este control (B11).
+  hallazgosAbiertos?: { codigo: string; descripcion: string }[];
 }) {
   const [nivel, setNivel] = useState<number | null>(control.actual);
   const [objetivo, setObjetivo] = useState<number | null>(control.objetivo);
@@ -662,6 +665,27 @@ export default function PantallaControl({
                 )}
               </section>
             </div>
+
+            {hallazgosAbiertos && hallazgosAbiertos.length > 0 && (
+              <section className="rounded-tarjeta border border-border-field bg-surface p-4">
+                <h4 className="text-11_5 font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--hf-text-label)' }}>
+                  Hallazgos abiertos de este control
+                </h4>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {hallazgosAbiertos.map((h) => (
+                    <a
+                      key={h.codigo}
+                      href={`/sig/hallazgos/${h.codigo}`}
+                      className="flex items-center gap-2 rounded-campo px-2.5 py-1.5 text-11_5 transition-colors"
+                      style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
+                    >
+                      <span className="font-mono font-semibold">{h.codigo}</span>
+                      <span className="truncate">{h.descripcion}</span>
+                    </a>
+                  ))}
+                </div>
+              </section>
+            )}
           </section>
         </div>
 

@@ -57,6 +57,8 @@ export interface ControlVista {
   soaFecha: string | null;
   soaAprobadoPor: string | null;
   soaAlcanceAdaptado: boolean;
+  /// Hallazgos abiertos del módulo B originados en este control (B11).
+  hallazgosAbiertos: { codigo: string; descripcion: string }[];
 }
 
 interface Props {
@@ -574,6 +576,7 @@ export default function ControlesMadurez({
             onCerrar={() => setAdministrando(null)}
             onNavegar={(codigo) => setAdministrando(codigo)}
             directorio={directorio}
+            hallazgosAbiertos={abiertoVino!.hallazgosAbiertos}
             navegacion={{
               anterior: idx > 0 ? controles[idx - 1].codigo : null,
               siguiente: idx >= 0 && idx < controles.length - 1 ? controles[idx + 1].codigo : null,

@@ -19,7 +19,7 @@ export default async function ControlesPage({
 }: {
   searchParams: Promise<{ filtro?: string; capacidad?: string; dominio?: string }>;
 }) {
-  const [{ filtro, capacidad, dominio }, controles, capacidades, dominios, directorio] =
+  const [{ filtro, capacidad, dominio }, controles, capacidades, dominios, directorio, hallazgosSgsi] =
     await Promise.all([
       searchParams,
       prisma.control.findMany({
@@ -38,6 +38,12 @@ export default async function ControlesPage({
       prisma.capacidadOperativa.findMany({ orderBy: { orden: 'asc' } }),
       prisma.dominioAnexoA.findMany({ orderBy: { orden: 'asc' } }),
       leerDirectorio(),
+      // B11: los hallazgos abiertos originados en el SGSI, para mostrarlos desde el
+      // control que los produjo (el módulo B no es una isla).
+      prisma.hallazgo.findMany({
+        where: { origen: 'SGSI', fechaCierre: null, anuladoEn: null },
+        select: { codigo: true, descripcion: true, origenReferencia: true },
+      }),
     ]);
 
   const vista: ControlVista[] = controles.map((c) => ({
@@ -78,6 +84,10 @@ export default async function ControlesPage({
     soaFecha: c.soaFecha ? c.soaFecha.toISOString() : null,
     soaAprobadoPor: c.soaAprobadoPor,
     soaAlcanceAdaptado: c.soaAlcanceAdaptado,
+    // B11: hallazgos abiertos originados en este control (origen tipado, no texto).
+    hallazgosAbiertos: hallazgosSgsi
+      .filter((h) => h.origenReferencia === String(c.id))
+      .map((h) => ({ codigo: h.codigo, descripcion: h.descripcion })),
   }));
 
   return (
