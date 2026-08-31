@@ -220,6 +220,6 @@ Todos calculados: riesgos por nivel inherente y residual, por proceso y por fact
 
 ## 10. Qué sigue
 
-1. Módulo **C — Auditorías internas**, con los formatos reales ya localizados: `FOR-CAL-04` programa, `FOR-CAL-06` plan, `FOR-CAL-07` informe.
+1. Módulo **C — Auditorías internas** (`2026-08-31-sig-auditorias-internas-design.md`), especificado sobre `PRO-CAL-04 v3.0` y los formatos `FOR-CAL-04`, `FOR-CAL-06` y `FOR-CAL-07`.
 2. Planes de implementación de A, B y D (skill `writing-plans`).
 3. Recomendaciones al líder del SIG, fuera del alcance del software: corregir «Impactante» → «Inaceptable» en `MAN-CAL-01`, alinear el número de versión de `MAT-CAL-02`, y decidir en comité si el residual de las oportunidades debe invertirse.

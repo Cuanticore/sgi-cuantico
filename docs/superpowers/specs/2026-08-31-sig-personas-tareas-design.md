@@ -292,4 +292,4 @@ Pruebas unitarias siguiendo el patrón de `lib/sgsi/__tests__`:
 1. Plan de implementación de este módulo (skill `writing-plans`).
 2. Módulo **B — Mejora: NC y ACPM** (`2026-08-31-sig-mejora-nc-acpm-design.md`), que consume el motor de tareas de este módulo.
 3. Módulo **D — Gestión estratégica** (`2026-08-31-sig-gestion-estrategica-design.md`): partes interesadas, requisitos legales, y riesgos y oportunidades organizacionales.
-4. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` y alimentará a B.
+4. Módulo **C — Auditorías internas** (`2026-08-31-sig-auditorias-internas-design.md`), que alimenta a B. Nota: C **no** reusa `ItemVerificacion` — su lista de verificación es la matriz proceso × numeral de la norma, con su propio catálogo de requisitos normativos.

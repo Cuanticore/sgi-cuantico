@@ -45,7 +45,7 @@ Consecuencia sobre A, ya incorporada a su especificación: `Asignacion.contenido
 
 | Origen | Referencia |
 |---|---|
-| Auditoría interna | `hallazgoAuditoriaId` cuando exista el módulo C; hasta entonces, referencia de texto. |
+| Auditoría interna | `auditoriaId` + proceso + numeral, promovido al emitir el informe final del módulo C. |
 | Auditoría externa o de cliente | Referencia de texto: entidad auditora, informe y fecha. |
 | Queja, PQRS o salida no conforme | Referencia de texto: número, fecha, cliente. |
 | Indicador incumplido | Código del indicador y periodo, contra el tablero del SGC. |
@@ -175,4 +175,4 @@ Todos calculados, ninguno almacenado:
 ## 10. Qué sigue
 
 1. Módulo **D — Gestión estratégica** (`2026-08-31-sig-gestion-estrategica-design.md`): partes interesadas, requisitos legales, y riesgos y oportunidades organizacionales.
-2. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` del módulo A y alimentará el origen «auditoría interna» de este módulo.
+2. Módulo **C — Auditorías internas** (`2026-08-31-sig-auditorias-internas-design.md`), que alimenta el origen «auditoría interna» de este módulo: al emitir el informe final, cada NC y cada OM se promueve a hallazgo con `auditoriaId`, proceso y numeral.
