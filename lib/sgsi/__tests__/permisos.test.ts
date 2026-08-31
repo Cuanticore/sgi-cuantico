@@ -131,4 +131,24 @@ describe('los tres grupos conservan lo suyo y además ven Mi SIG', () => {
     expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'personas:administrar')).toBe(false);
     expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'personas:administrar')).toBe(false);
   });
+
+  it('los permisos de Operación: escribir y administrar son del líder; ver es de lectura total', () => {
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:escribir')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:administrar')).toBe(true);
+
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:escribir')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:administrar')).toBe(false);
+
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:escribir')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:administrar')).toBe(false);
+  });
+
+  it('un Colaborador no alcanza nada de Operación', () => {
+    for (const permiso of ['operacion:ver', 'operacion:escribir', 'operacion:administrar'] as const) {
+      expect(puede(rolDesdeGrupos(['Domain Users']), permiso)).toBe(false);
+    }
+  });
 });

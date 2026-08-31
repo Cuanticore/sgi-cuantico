@@ -30,6 +30,9 @@ export type Grupo = (typeof GRUPOS)[keyof typeof GRUPOS];
 
 export type Permiso =
   | 'misig:ver'
+  | 'operacion:ver'
+  | 'operacion:escribir'
+  | 'operacion:administrar'
   | 'sgsi:ver'
   | 'sgsi:escribir'
   | 'activo:valorar'
@@ -43,6 +46,9 @@ export type Permiso =
 const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.seguridad]: [
     'misig:ver',
+    'operacion:ver',
+    'operacion:escribir',
+    'operacion:administrar',
     'sgsi:ver',
     'sgsi:escribir',
     'activo:valorar',
@@ -66,10 +72,17 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   //
   // Evidencia: un propietario aporta notas, enlaces y anexos (evidencia del control),
   // pero no cambia madurez ni aplicabilidad — eso sigue siendo `sgsi:escribir`.
-  [GRUPOS.propietarios]: ['misig:ver', 'sgsi:ver', 'activo:valorar', 'riesgo:tratar', 'evidencia:escribir'],
+  [GRUPOS.propietarios]: [
+    'misig:ver',
+    'operacion:ver',
+    'sgsi:ver',
+    'activo:valorar',
+    'riesgo:tratar',
+    'evidencia:escribir',
+  ],
   // Reads everything and changes nothing. The log and the evidence are precisely what an
   // auditor comes for.
-  [GRUPOS.auditoria]: ['misig:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
+  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
 };
 
 export interface Rol {
