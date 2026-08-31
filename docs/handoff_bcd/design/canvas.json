@@ -1,0 +1,46 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Mejora · NC y ACPM" },
+    { "id": "page-2", "name": "Estratégico" },
+    { "id": "page-3", "name": "Auditorías internas" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1196, "h": 900, "title": "Hallazgos", "is_interactive": true },
+    { "file": "Hallazgo.dc.html", "page": "page-1", "x": 1300, "y": 0, "w": 1196, "h": 900, "title": "Ficha del hallazgo", "is_interactive": true },
+
+    { "file": "Riesgos.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Riesgos y oportunidades", "is_interactive": true },
+    { "file": "MapaCalor.dc.html", "page": "page-2", "x": 1540, "y": 0, "w": 1196, "h": 860, "title": "Mapa de calor", "is_interactive": true },
+    { "file": "PartesInteresadas.dc.html", "page": "page-2", "x": 0, "y": 1020, "w": 1196, "h": 860, "title": "Partes interesadas", "is_interactive": true },
+    { "file": "Legal.dc.html", "page": "page-2", "x": 1300, "y": 1020, "w": 1196, "h": 860, "title": "Requisitos legales", "is_interactive": true },
+
+    { "file": "Programa.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1196, "h": 860, "title": "Programa de auditoría" },
+    { "file": "Auditoria.dc.html", "page": "page-3", "x": 1300, "y": 0, "w": 1300, "h": 900, "title": "Ficha de la auditoría", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "mejora",
+      "page": "page-1",
+      "x": 0,
+      "y": -240,
+      "w": 700,
+      "text": "Módulo B · Mejora — REQ-SIG-03\n\nUna sola entidad Hallazgo con tipo. En la ficha, cambia el tipo arriba a la derecha: las pestañas que ese tipo NO exige se atenúan, no desaparecen. Es la tabla del flujo escalonado, hecha interfaz."
+    },
+    {
+      "id": "estrategico",
+      "page": "page-2",
+      "x": 0,
+      "y": -240,
+      "w": 760,
+      "text": "Módulo D · Gestión estratégica — REQ-SIG-04\n\nEn el panel de la derecha de Riesgos, mueve probabilidad, impacto, tipo de control y medición: el cálculo se rehace a la vista, paso a paso. Es la aritmética verificada contra MAT-CAL-02, fila por fila."
+    },
+    {
+      "id": "auditorias",
+      "page": "page-3",
+      "x": 0,
+      "y": -240,
+      "w": 720,
+      "text": "Módulo C · Auditorías internas — REQ-SIG-05\n\nEn la pestaña Informe, cambia de Preliminar a Final: aparece la marca «Va a Mejora» sobre las notas NC y OM. Emitir el final es el acto que congela las notas y crea los hallazgos."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

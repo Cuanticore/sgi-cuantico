@@ -1,0 +1,311 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 10px 12px; font-size: 12.5px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Partes interesadas</h1>
+      <span style="font-size: 12.5px; color: #6b7570">MAT-EST-02 v2 · la cadena arranca aquí: parte interesada → necesidad → requisito → riesgo.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 7px">
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 16px; min-height: 0">
+
+    <!-- Izquierda: mapa poder-interés + listado -->
+    <div style="flex: none; width: 452px; display: flex; flex-direction: column; gap: 14px; min-height: 0">
+
+      <div style="flex: none; display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Poder e interés</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{cuadrantes}}" as="c" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 11px 13px; background: {{c.bg}}; border: 1px solid {{c.borde}}; border-radius: 8px; min-height: 78px">
+              <span class="mono" style="font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; color: {{c.fg}}">{{c.eje}}</span>
+              <span style="font-size: 12px; font-weight: 600; color: {{c.fg}}; line-height: 1.3">{{c.titulo}}</span>
+              <span class="mono" style="margin-top: auto; font-size: 15px; font-weight: 600; color: {{c.fg}}">{{c.n}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 8px">
+        <sc-for list="{{partes}}" as="p" hint-placeholder-count="8">
+          <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+            <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+              <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: {{p.tipoBg}}; color: {{p.tipoFg}}">{{p.tipo}}</span>
+              <span style="margin-left: auto; display: flex; gap: 3px">
+                <sc-for list="{{p.banderas}}" as="b" hint-placeholder-count="3">
+                  <span class="mono" title="{{b.titulo}}" style="padding: 2px 5px; font-size: 7.5px; font-weight: 600; border-radius: 3px; background: {{b.bg}}; color: {{b.fg}}">{{b.sigla}}</span>
+                </sc-for>
+              </span>
+            </span>
+            <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; text-align: left; line-height: 1.35">{{p.nombre}}</span>
+            <span style="font-size: 10.5px; color: #8a938e; text-align: left">Poder {{p.poder}} · interés {{p.interes}} · {{p.conteo}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Derecha: ficha -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 17px 20px 14px; border-bottom: 1px solid #eceeed">
+        <span style="font-size: 16px; font-weight: 600; line-height: 1.3">{{ficha.nombre}}</span>
+        <span style="display: flex; align-items: center; gap: 7px">
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{ficha.tipoBg}}; color: {{ficha.tipoFg}}">{{ficha.tipo}}</span>
+          <span style="font-size: 11.5px; color: #6b7570">Responsable: {{ficha.responsable}}</span>
+        </span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Necesidad o expectativa</span>
+          <span class="campo">{{ficha.necesidad}}</span>
+        </span>
+
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Riesgo u oportunidad que genera</span>
+          <span class="campo">{{ficha.riesgo}}</span>
+        </span>
+
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{ficha.flags}}" as="f" hint-placeholder-count="3">
+            <span style="display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; background: {{f.bg}}; border: 1px solid {{f.borde}}; border-radius: 10px">
+              <span class="etq" style="color: {{f.fg}}">{{f.etiqueta}}</span>
+              <span style="font-size: 13px; font-weight: 600; color: {{f.fg}}">{{f.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span class="etq" style="color: #12437f">Seguimiento por año</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span style="display: flex; gap: 3px; padding: 3px; background: #f5f7f6; border: 1px solid #e2e6e3; border-radius: 6px">
+            <sc-for list="{{anios}}" as="a" hint-placeholder-count="2">
+              <button onClick="{{a.elegir}}" style="{{a.estilo}}">{{a.etiqueta}}</button>
+            </sc-for>
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">Plan de acción {{anioActivo}}</span>
+            <span class="campo" style="min-height: 56px">{{seg.plan}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">Seguimiento</span>
+            <span class="campo" style="min-height: 56px">{{seg.seguimiento}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">Evidencia</span>
+            <span class="campo" style="color: {{seg.evidenciaColor}}">{{seg.evidencia}}</span>
+          </span>
+        </div>
+
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 14px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; line-height: 1.55; color: #12437f">En el Excel el plan, el seguimiento y la evidencia son <strong style="font-weight: 600">tres columnas nuevas cada año</strong>. Aquí son un registro por año: agregar 2027 no obliga a rediseñar la pantalla.</span>
+        </span>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 11px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+const SEG_BASE = 'padding: 5px 12px; font-size: 11.5px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #ffffff; color: #12437f; font-weight: 600; border: 1px solid #d3dceb;';
+
+const TIPO = {
+  Internas: { bg: '#e9f0fb', fg: '#12437f' },
+  Externas: { bg: '#e8f4ef', fg: '#0b5c44' },
+};
+
+const PARTES = [
+  {
+    id: 'acc', tipo: 'Internas', nombre: 'Accionistas y socios · fundadores', poder: 'Alto', interes: 'Alto', responsable: 'CEO',
+    necesidad: 'Garantizar la protección de sus datos personales en el manejo de información societaria.',
+    riesgo: 'Uso indebido o fuga de datos personales de accionistas y socios.',
+    sgsi: true, clima: false, alcance: false,
+    seg: {
+      2025: { plan: 'N.A.', seguimiento: 'N.A.', evidencia: 'N.A.' },
+      2026: { plan: 'Actualizar la política de tratamiento de datos personales conforme a la Ley 1581 de 2012.', seguimiento: 'Política de tratamiento de datos personales en actualización.', evidencia: 'Pendiente' },
+    },
+  },
+  {
+    id: 'ger', tipo: 'Internas', nombre: 'Gerencia · comité directivo', poder: 'Alto', interes: 'Alto', responsable: 'Chief Commercial Officer',
+    necesidad: 'Cumplir las directrices de los accionistas y crecer de forma sostenible.',
+    riesgo: 'Generar un crecimiento sostenible para maximizar el valor de la organización.',
+    sgsi: false, clima: false, alcance: false,
+    seg: {
+      2025: { plan: 'Posicionamiento y gestión de representatividad.', seguimiento: 'Estrategia de marketing y creación de la página web.', evidencia: 'Página web actualizada' },
+      2026: { plan: 'Desarrollar fuerza de ventas dedicada para nuevos negocios.', seguimiento: 'Se aprobaron cambios en la estructura y nuevas contrataciones.', evidencia: 'Pendiente' },
+    },
+  },
+  {
+    id: 'cli', tipo: 'Externas', nombre: 'Clientes · entidades del ecosistema GovTech', poder: 'Alto', interes: 'Alto', responsable: 'Chief Commercial Officer',
+    necesidad: 'Recibir productos digitales que cumplan lo acordado, en plazo y con soporte.',
+    riesgo: 'Entregables devueltos o rechazados por incumplimiento de requisitos.',
+    sgsi: true, clima: false, alcance: true,
+    seg: {
+      2025: { plan: 'Medición formal de satisfacción por fase del proyecto.', seguimiento: 'Encuesta ILC fase 1 aplicada y analizada.', evidencia: 'Análisis de satisfacción 2025' },
+      2026: { plan: 'Reunión periódica de uso y apropiación con el cliente.', seguimiento: 'Encuesta ILC fase 2 y encuentro SER aplicados.', evidencia: 'Informe encuesta fase 2' },
+    },
+  },
+  {
+    id: 'emp', tipo: 'Internas', nombre: 'Colaboradores', poder: 'Medio', interes: 'Alto', responsable: 'Coordinador de talento',
+    necesidad: 'Un entorno de desarrollo profesional y condiciones de trabajo seguras.',
+    riesgo: 'Rotación de personal clave que retrasa los proyectos.',
+    sgsi: true, clima: false, alcance: false,
+    seg: {
+      2025: { plan: 'Fortalecimiento de la estructura organizacional.', seguimiento: 'Mapa de procesos y roles actualizados.', evidencia: 'Organigrama vigente' },
+      2026: { plan: 'Programa de gestión del riesgo psicosocial.', seguimiento: 'PRG-TAL-01 aprobado y comunicado.', evidencia: 'Aprobaciones 10 y 14/08/2026' },
+    },
+  },
+  {
+    id: 'pro', tipo: 'Externas', nombre: 'Proveedores y subencargados', poder: 'Medio', interes: 'Medio', responsable: 'Chief Legal Officer',
+    necesidad: 'Reglas claras de contratación, evaluación y pago.',
+    riesgo: 'Contratación de proveedores sin evaluación previa.',
+    sgsi: true, clima: false, alcance: false,
+    seg: {
+      2025: { plan: 'Aplicar el procedimiento de selección al 100 % de las contrataciones.', seguimiento: 'Procedimiento aplicado parcialmente.', evidencia: 'FOR-LCO-02 diligenciados' },
+      2026: { plan: 'Evaluación y reevaluación semestral de proveedores críticos.', seguimiento: 'Primer semestre ejecutado.', evidencia: 'FOR-LCO-04 · 1S 2026' },
+    },
+  },
+  {
+    id: 'reg', tipo: 'Externas', nombre: 'Entes reguladores y de control', poder: 'Alto', interes: 'Medio', responsable: 'Chief Legal Officer',
+    necesidad: 'Cumplimiento de la normatividad aplicable y respuesta oportuna a requerimientos.',
+    riesgo: 'Recibir multas o sanciones y perder credibilidad.',
+    sgsi: true, clima: true, alcance: false,
+    seg: {
+      2025: { plan: 'Identificar la normatividad aplicable por proceso.', seguimiento: 'No ejecutado.', evidencia: 'Sin evidencia' },
+      2026: { plan: 'Diligenciar la matriz de requisitos legales con responsable y periodicidad.', seguimiento: 'En ejecución · hallazgo HAL-2026-0014 abierto.', evidencia: 'Pendiente' },
+    },
+  },
+  {
+    id: 'soc', tipo: 'Externas', nombre: 'Comunidad y medio ambiente', poder: 'Bajo', interes: 'Medio', responsable: 'Líder del SIG',
+    necesidad: 'Operación responsable con el entorno y gestión de residuos.',
+    riesgo: 'Requisitos ambientales de cambio climático no incorporados al sistema.',
+    sgsi: false, clima: true, alcance: true,
+    seg: {
+      2025: { plan: 'N.A.', seguimiento: 'N.A.', evidencia: 'N.A.' },
+      2026: { plan: 'Ampliar los requisitos ambientales referentes al cambio climático.', seguimiento: 'Oportunidad de mejora HAL-2026-0011 en análisis.', evidencia: 'Pendiente' },
+    },
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todas', sel: 'reg', anio: 2026 };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const visibles = s.filtro === 'todas' ? PARTES : PARTES.filter((p) => p.tipo === s.filtro);
+
+    const banderasDe = (p) => {
+      const out = [];
+      if (p.sgsi) out.push({ sigla: 'SGSI', titulo: 'Genera requisitos al SGSI', bg: '#e9f0fb', fg: '#12437f' });
+      if (p.clima) out.push({ sigla: 'CLIMA', titulo: 'Requisito de cambio climático', bg: '#e8f4ef', fg: '#0b5c44' });
+      if (p.alcance) out.push({ sigla: 'ALC', titulo: 'Requiere cambio al alcance del SIG', bg: '#fff3e6', fg: '#8a4407' });
+      return out;
+    };
+
+    const partes = visibles.map((p) => ({
+      ...p,
+      tipoBg: TIPO[p.tipo].bg,
+      tipoFg: TIPO[p.tipo].fg,
+      banderas: banderasDe(p),
+      conteo: banderasDe(p).length === 0 ? 'sin banderas' : banderasDe(p).length + ' bandera(s)',
+      estilo: s.sel === p.id ? FILA_ON : FILA_OFF,
+      elegir: () => this.setState({ sel: p.id }),
+    }));
+
+    const f = PARTES.find((p) => p.id === s.sel) || PARTES[0];
+    const seg = f.seg[s.anio];
+
+    const cuenta = (poder, interes) =>
+      PARTES.filter((p) => (poder === 'alto' ? p.poder === 'Alto' : p.poder !== 'Alto') && (interes === 'alto' ? p.interes === 'Alto' : p.interes !== 'Alto')).length;
+
+    return {
+      filtros: [
+        { id: 'todas', etiqueta: 'Todas', conteo: PARTES.length },
+        { id: 'Internas', etiqueta: 'Internas', conteo: PARTES.filter((p) => p.tipo === 'Internas').length },
+        { id: 'Externas', etiqueta: 'Externas', conteo: PARTES.filter((p) => p.tipo === 'Externas').length },
+      ].map((x) => ({ ...x, estilo: s.filtro === x.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: x.id }) })),
+      cuadrantes: [
+        { eje: 'Poder alto · interés alto', titulo: 'Gestionar de cerca', n: cuenta('alto', 'alto'), bg: '#fdeeeb', borde: '#f2cdc6', fg: '#a52016' },
+        { eje: 'Poder alto · interés bajo', titulo: 'Mantener satisfecho', n: cuenta('alto', 'bajo'), bg: '#fff3e6', borde: '#f2b473', fg: '#8a4407' },
+        { eje: 'Poder bajo · interés alto', titulo: 'Mantener informado', n: cuenta('bajo', 'alto'), bg: '#e9f0fb', borde: '#d3dceb', fg: '#12437f' },
+        { eje: 'Poder bajo · interés bajo', titulo: 'Monitorear', n: cuenta('bajo', 'bajo'), bg: '#f5f7f6', borde: '#e2e6e3', fg: '#6b7570' },
+      ],
+      partes,
+      anios: [2025, 2026].map((a) => ({
+        etiqueta: String(a),
+        estilo: s.anio === a ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ anio: a }),
+      })),
+      anioActivo: s.anio,
+      ficha: {
+        nombre: f.nombre,
+        tipo: f.tipo,
+        tipoBg: TIPO[f.tipo].bg,
+        tipoFg: TIPO[f.tipo].fg,
+        responsable: f.responsable,
+        necesidad: f.necesidad,
+        riesgo: f.riesgo,
+        flags: [
+          { etiqueta: 'Requisitos al SGSI', valor: f.sgsi ? 'Sí' : 'No', bg: f.sgsi ? '#e9f0fb' : '#fbfcfb', borde: f.sgsi ? '#d3dceb' : '#e2e6e3', fg: f.sgsi ? '#12437f' : '#8a938e' },
+          { etiqueta: 'Cambio climático', valor: f.clima ? 'Sí' : 'No', bg: f.clima ? '#e8f4ef' : '#fbfcfb', borde: f.clima ? '#c9e3d8' : '#e2e6e3', fg: f.clima ? '#0b5c44' : '#8a938e' },
+          { etiqueta: 'Cambia el alcance', valor: f.alcance ? 'Sí' : 'No', bg: f.alcance ? '#fff3e6' : '#fbfcfb', borde: f.alcance ? '#f2b473' : '#e2e6e3', fg: f.alcance ? '#8a4407' : '#8a938e' },
+        ],
+      },
+      seg: {
+        ...seg,
+        evidenciaColor: seg.evidencia === 'Pendiente' || seg.evidencia === 'Sin evidencia' ? '#8a4407' : '#12437f',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

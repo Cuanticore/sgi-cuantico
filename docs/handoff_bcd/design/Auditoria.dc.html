@@ -1,0 +1,374 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 10px 12px; font-size: 12px; line-height: 1.55; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .titulo { display: flex; align-items: center; gap: 9px; }
+    .titulo > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1300px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; padding: 22px 28px 0">
+    <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px">
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #12437f">AUD-2026-01</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">Interna</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{estadoBg}}; color: {{estadoFg}}">{{estado}}</span>
+        </span>
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Auditoría interna ISO 9001:2015 · 19 y 20 de febrero de 2026</h1>
+        <span style="font-size: 11.5px; color: #6b7570">Auditor líder: Jaime Enrique López H. (externo) · sitio: Microsoft Teams · 9 procesos</span>
+      </div>
+      <span style="margin-left: auto; flex: none; display: flex; gap: 12px">
+        <sc-for list="{{contadores}}" as="c" hint-placeholder-count="5">
+          <span style="display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 62px; padding: 9px 11px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{c.color}}; border-radius: 10px">
+            <span class="mono" style="font-size: 18px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.n}}</span>
+            <span class="mono" style="font-size: 7.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #8a938e">{{c.etiqueta}}</span>
+          </span>
+        </sc-for>
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #e2e6e3">
+      <sc-for list="{{pestanas}}" as="p" hint-placeholder-count="4">
+        <button onClick="{{p.elegir}}" style="{{p.estilo}}">{{p.etiqueta}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: auto; padding: 18px 28px 24px">
+
+    <!-- PLAN: la matriz proceso × numeral -->
+    <sc-if value="{{esPlan}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <span class="titulo"><span>Plan · proceso × numeral de la norma</span><span class="regla"></span><span class="mono" style="font-size: 9.5px; color: #a3aca7">FOR-CAL-06</span></span>
+        <div style="overflow-x: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 14px 16px">
+          <table style="border-collapse: collapse; min-width: 1120px">
+            <thead>
+              <tr>
+                <th class="etq" style="text-align: left; padding: 0 10px 10px 0; min-width: 56px">Hora</th>
+                <th class="etq" style="text-align: left; padding: 0 14px 10px 0; min-width: 178px">Proceso</th>
+                <sc-for list="{{numerales}}" as="n" hint-placeholder-count="14">
+                  <th style="padding: 0 0 10px; min-width: 40px">
+                    <span class="mono" style="display: block; font-size: 9px; font-weight: 500; color: #12437f; text-align: center">{{n}}</span>
+                  </th>
+                </sc-for>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{plan}}" as="p" hint-placeholder-count="9">
+                <tr>
+                  <td style="padding: 8px 10px 8px 0; border-top: 1px solid #f2f4f3"><span class="mono" style="font-size: 10.5px; color: #6b7570">{{p.hora}}</span></td>
+                  <td style="padding: 8px 14px 8px 0; border-top: 1px solid #f2f4f3"><span style="font-size: 12px; font-weight: 500; white-space: nowrap">{{p.proceso}}</span></td>
+                  <sc-for list="{{p.celdas}}" as="c" hint-placeholder-count="14">
+                    <td style="padding: 8px 0; border-top: 1px solid #f2f4f3; text-align: center">
+                      <span style="display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 4px; background: {{c.bg}}; color: {{c.fg}}; font-size: 9.5px; font-weight: 700">{{c.marca}}</span>
+                    </td>
+                  </sc-for>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px">
+          <span style="display: inline-flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 4px; background: #12437f; color: #ffffff; font-size: 9px; font-weight: 700">X</span>
+            <span style="font-size: 11px; color: #4a544f">Planificado</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 4px; background: #fff3e6; border: 1px dashed #f2b473; color: #8a4407; font-size: 9px; font-weight: 700">+</span>
+            <span style="font-size: 11px; color: #4a544f">Agregado durante la ejecución · queda marcado como no planificado</span>
+          </span>
+          <span style="margin-left: auto; font-size: 11.5px; color: #8a938e">Cobertura de la norma este año: <strong style="font-weight: 600; color: #4a544f">24 de 28 numerales</strong> · faltan 7.1.5, 8.5.3, 8.5.5 y 10.3</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- EJECUCIÓN: las notas -->
+    <sc-if value="{{esEjecucion}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 7px">
+          <sc-for list="{{filtros}}" as="f" hint-placeholder-count="6">
+            <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{notas}}" as="n" hint-placeholder-count="8">
+            <div style="display: flex; align-items: flex-start; gap: 14px; padding: 13px 16px; background: {{n.fondo}}; border: 1px solid {{n.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 82px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{n.badgeBg}}; color: {{n.badgeFg}}">{{n.tipo}}</span>
+              <span style="flex: none; width: 148px; display: flex; flex-direction: column; gap: 3px">
+                <span class="mono" style="font-size: 10.5px; font-weight: 600; color: #12437f">{{n.numeral}}</span>
+                <span style="font-size: 11px; color: #6b7570">{{n.proceso}}</span>
+              </span>
+              <span style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.55; color: #1a211e">{{n.texto}}</span>
+              <sc-if value="{{n.promovible}}" hint-placeholder-val="{{ true }}">
+                <span class="mono" style="flex: none; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: #eef2f8; color: #12437f">Va a Mejora</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ACTAS -->
+    <sc-if value="{{esActas}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 14px; max-width: 900px">
+        <sc-for list="{{actas}}" as="a" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: #ffffff; border: 1px solid {{a.borde}}; border-radius: 10px">
+            <span style="display: flex; align-items: center; gap: 10px">
+              <span class="mono" style="padding: 3px 10px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{a.badgeBg}}; color: {{a.badgeFg}}">{{a.tipo}}</span>
+              <span class="mono" style="font-size: 11px; color: #6b7570">{{a.fecha}}</span>
+              <span style="margin-left: auto; font-size: 11.5px; color: {{a.estadoColor}}; font-weight: 500">{{a.estadoTexto}}</span>
+            </span>
+            <span style="display: flex; flex-direction: column; gap: 6px">
+              <span class="etq">Asistentes</span>
+              <span class="campo">{{a.asistentes}}</span>
+            </span>
+            <span style="display: flex; flex-direction: column; gap: 6px">
+              <span class="etq">Contenido tratado</span>
+              <span class="campo" style="min-height: 62px">{{a.contenido}}</span>
+            </span>
+          </div>
+        </sc-for>
+        <span style="display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407"><strong style="font-weight: 600">No se emite el informe final sin acta de cierre.</strong> La validación va en el servidor, no en la interfaz.</span>
+        </span>
+      </div>
+    </sc-if>
+
+    <!-- INFORME -->
+    <sc-if value="{{esInforme}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 16px; max-width: 940px">
+
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span class="etq">Versión del informe</span>
+          <span style="display: flex; gap: 3px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+            <sc-for list="{{versiones}}" as="v" hint-placeholder-count="2">
+              <button onClick="{{v.elegir}}" style="{{v.estilo}}">{{v.etiqueta}}</button>
+            </sc-for>
+          </span>
+          <span style="margin-left: auto; font-size: 11.5px; color: #6b7570">{{versionNota}}</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Objeto</span><span class="campo">Determinar la conformidad del sistema de gestión con los criterios de auditoría</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha del informe</span><span class="campo mono" style="font-size: 12px">05/04/2026</span></span>
+        </div>
+
+        <span style="display: flex; flex-direction: column; gap: 7px">
+          <span class="titulo"><span>Conclusiones</span><span class="regla"></span></span>
+          <span class="campo" style="min-height: 62px">Se evidenció durante la auditoría un alto compromiso de la alta dirección y de los líderes de proceso con el sistema de gestión. No se identificaron no conformidades.</span>
+        </span>
+
+        <span style="display: flex; flex-direction: column; gap: 7px">
+          <span class="titulo"><span>Fortalezas · 2</span><span class="regla"></span></span>
+          <div style="display: flex; flex-direction: column; gap: 7px">
+            <sc-for list="{{fortalezas}}" as="f" hint-placeholder-count="2">
+              <span style="display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; background: #eef7f1; border: 1px solid #c9e3d8; border-radius: 10px">
+                <span class="mono" style="flex: none; font-size: 10px; color: #0b5c44; padding-top: 1px">{{f.n}}</span>
+                <span style="flex: 1; font-size: 12px; line-height: 1.5; color: #1a211e">{{f.texto}}</span>
+              </span>
+            </sc-for>
+          </div>
+        </span>
+
+        <span style="display: flex; flex-direction: column; gap: 7px">
+          <span class="titulo"><span>Oportunidades de mejora · 15</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">se derivan de las notas, no se capturan dos veces</span></span>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{oportunidades}}" as="o" hint-placeholder-count="4">
+              <span style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 13px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="mono" style="flex: none; font-size: 10px; color: #a3aca7; padding-top: 1px">{{o.n}}</span>
+                <span style="flex: 1; font-size: 12px; line-height: 1.5; color: #1a211e">{{o.texto}}</span>
+                <span class="mono" style="flex: none; font-size: 9.5px; color: #8a938e">{{o.numeral}}</span>
+              </span>
+            </sc-for>
+            <span style="font-size: 11.5px; color: #a3aca7; padding-left: 13px">… y 11 más</span>
+          </div>
+        </span>
+
+        <div style="display: flex; align-items: center; gap: 14px; padding: 15px 18px; background: {{emitirFondo}}; border: 1px solid {{emitirBorde}}; border-radius: 10px">
+          <span style="flex: 1; font-size: 12px; line-height: 1.55; color: {{emitirTexto}}">{{emitirMensaje}}</span>
+          <button style="{{emitirBoton}}">{{emitirEtiqueta}}</button>
+        </div>
+
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1300,"height":900}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const SEG_BASE = 'padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+const TIPOS = {
+  OK: { bg: '#e6efe9', fg: '#0b5c44', fondo: '#ffffff', borde: '#e2e6e3', promovible: false },
+  NC: { bg: '#fdeeeb', fg: '#a52016', fondo: '#fdeeeb', borde: '#f2cdc6', promovible: true },
+  OM: { bg: '#fff3e6', fg: '#8a4407', fondo: '#ffffff', borde: '#f2b473', promovible: true },
+  RM: { bg: '#faf1d3', fg: '#6b5410', fondo: '#ffffff', borde: '#e2e6e3', promovible: false },
+  Fortaleza: { bg: '#e8f4ef', fg: '#0b5c44', fondo: '#eef7f1', borde: '#c9e3d8', promovible: false },
+};
+
+const NUMERALES = ['4.1', '4.2', '4.3', '4.4', '5.1', '5.2', '5.3', '6.1', '6.2', '6.3', '7.2', '7.5', '8.1', '9.2'];
+
+const PLAN = [
+  { hora: '08:30', proceso: 'Gestión Estratégica', cols: ['4.1', '4.2', '4.3', '5.1', '5.2', '5.3', '6.2', '6.3'] },
+  { hora: '10:30', proceso: 'Gestión de Calidad', cols: ['4.4', '6.1', '6.3', '7.5', '9.2'] },
+  { hora: '13:30', proceso: 'Gestión Comercial', cols: ['7.5', '8.1'] },
+  { hora: '15:00', proceso: 'Gestión legal y compras', cols: ['4.2'] },
+  { hora: '08:00', proceso: 'Gestión de Proyectos', cols: ['4.4', '6.1', '8.1'] },
+  { hora: '11:30', proceso: 'Soporte y Servicio al Cliente', cols: ['4.4'] },
+  { hora: '11:30', proceso: 'Gestión Financiera', cols: ['4.4', '7.2'] },
+  { hora: '14:00', proceso: 'Talento Humano', cols: ['7.2', '7.5'], extra: ['7.5'] },
+  { hora: '16:00', proceso: 'Gestión Tecnológica', cols: ['7.2'] },
+];
+
+const NOTAS = [
+  { tipo: 'OM', numeral: '4.2', proceso: 'Gestión estratégica', texto: 'Ampliar los requisitos ambientales referentes al cambio climático, por ejemplo desplazamientos y consumo energético.' },
+  { tipo: 'OM', numeral: '4.3', proceso: 'Gestión estratégica', texto: 'Mejorar la redacción de la sustentación técnica de la no aplicabilidad del numeral 7.1.5.2.' },
+  { tipo: 'Fortaleza', numeral: '4.1', proceso: 'Gestión estratégica', texto: 'La definición de conexión de proyectos de cambio climático en la misión de la organización.' },
+  { tipo: 'OM', numeral: '4.4', proceso: 'Gestión de proyectos', texto: 'En la caracterización, separar las actividades de diseño de las de ejecución del proyecto.' },
+  { tipo: 'OK', numeral: '4.4', proceso: 'Gestión de calidad', texto: 'CAR-PRO-01 v2 con el ciclo PHVA completo: entradas, actividades, salidas y responsables.' },
+  { tipo: 'OM', numeral: '6.1', proceso: 'Gestión de calidad', texto: 'Evaluar las acciones definidas para reducir el riesgo e incorporarlas al plan de trabajo con fecha y responsable.' },
+  { tipo: 'Fortaleza', numeral: '5.1', proceso: 'Gestión estratégica', texto: 'La estrategia de internacionalización de los servicios.' },
+  { tipo: 'RM', numeral: '7.5', proceso: 'Talento humano', texto: 'Incorporar con mayor claridad la versión documental en el portal de transparencia.' },
+  { tipo: 'OK', numeral: '5.2', proceso: 'Gestión estratégica', texto: 'POL-EST-01 v02 del 25/01/2026, firmada y comunicada.' },
+];
+
+const PESTANAS = [
+  { id: 'plan', etiqueta: 'Plan' },
+  { id: 'ejecucion', etiqueta: 'Ejecución' },
+  { id: 'actas', etiqueta: 'Actas' },
+  { id: 'informe', etiqueta: 'Informe' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pestana: 'ejecucion', filtro: 'todas', version: 'preliminar' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const conteo = (t) => (t === 'todas' ? NOTAS.length : NOTAS.filter((n) => n.tipo === t).length);
+    const visibles = s.filtro === 'todas' ? NOTAS : NOTAS.filter((n) => n.tipo === s.filtro);
+    const esFinal = s.version === 'final';
+
+    return {
+      estado: esFinal ? 'Emitida' : 'Informe preliminar',
+      estadoBg: esFinal ? '#e6efe9' : '#faf1d3',
+      estadoFg: esFinal ? '#0b5c44' : '#6b5410',
+      contadores: [
+        { n: 76, etiqueta: 'Notas', color: '#12437f' },
+        { n: 0, etiqueta: 'NC', color: '#a52016' },
+        { n: 15, etiqueta: 'OM', color: '#c25a1e' },
+        { n: 1, etiqueta: 'RM', color: '#6b5410' },
+        { n: 2, etiqueta: 'Fortalezas', color: '#0b5c44' },
+      ],
+      pestanas: PESTANAS.map((p) => {
+        const activa = s.pestana === p.id;
+        return {
+          ...p,
+          estilo:
+            'padding: 10px 18px 9px; font-size: 12.5px; border: 0; border-bottom: 2px solid ' +
+            (activa ? '#12437f' : 'transparent') +
+            '; background: ' + (activa ? '#ffffff' : 'transparent') +
+            '; color: ' + (activa ? '#12437f' : '#4a544f') +
+            '; font-weight: ' + (activa ? 600 : 500) + '; border-radius: 7px 7px 0 0;',
+          elegir: () => this.setState({ pestana: p.id }),
+        };
+      }),
+      esPlan: s.pestana === 'plan',
+      esEjecucion: s.pestana === 'ejecucion',
+      esActas: s.pestana === 'actas',
+      esInforme: s.pestana === 'informe',
+      numerales: NUMERALES,
+      plan: PLAN.map((p) => ({
+        hora: p.hora,
+        proceso: p.proceso,
+        celdas: NUMERALES.map((n) => {
+          const extra = (p.extra || []).indexOf(n) !== -1;
+          const puesto = p.cols.indexOf(n) !== -1;
+          if (extra) return { marca: '+', bg: '#fff3e6', fg: '#8a4407' };
+          if (puesto) return { marca: 'X', bg: '#12437f', fg: '#ffffff' };
+          return { marca: '', bg: 'transparent', fg: 'transparent' };
+        }),
+      })),
+      filtros: [{ id: 'todas', etiqueta: 'Todas' }]
+        .concat(Object.keys(TIPOS).map((t) => ({ id: t, etiqueta: t })))
+        .map((f) => ({ ...f, conteo: conteo(f.id), estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      notas: visibles.map((n) => {
+        const t = TIPOS[n.tipo];
+        return { ...n, badgeBg: t.bg, badgeFg: t.fg, fondo: t.fondo, borde: t.borde, promovible: t.promovible && esFinal };
+      }),
+      actas: [
+        {
+          tipo: 'Apertura', fecha: '19/02/2026 · 08:00', badgeBg: '#e9f0fb', badgeFg: '#12437f', borde: '#e2e6e3',
+          estadoTexto: 'Registrada', estadoColor: '#0b5c44',
+          asistentes: 'Equipo auditor, líderes de los nueve procesos y alta dirección',
+          contenido: 'Se confirmó el acuerdo de todos los participantes sobre el plan establecido, se presentó al equipo auditor y se acordaron fechas y horarios de cada sesión.',
+        },
+        {
+          tipo: 'Cierre', fecha: '20/02/2026 · 16:30', badgeBg: '#e8f4ef', badgeFg: '#0b5c44', borde: '#c9e3d8',
+          estadoTexto: 'Registrada', estadoColor: '#0b5c44',
+          asistentes: 'Equipo auditor, auditados y alta dirección',
+          contenido: 'El equipo auditor presentó los hallazgos y las conclusiones: ninguna no conformidad, quince oportunidades de mejora y dos fortalezas. Se acordó la entrega del informe dentro de los cuatro días calendario.',
+        },
+      ],
+      versiones: [
+        { id: 'preliminar', etiqueta: 'Preliminar' },
+        { id: 'final', etiqueta: 'Final' },
+      ].map((v) => ({ ...v, estilo: s.version === v.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ version: v.id }) })),
+      versionNota: esFinal
+        ? 'Emitido: las notas quedaron congeladas y los hallazgos ya están en Mejora.'
+        : 'Borrador del auditor: nadie fuera del equipo lo ve como compromiso.',
+      fortalezas: [
+        { n: '01', texto: 'La definición de conexión de proyectos de cambio climático en la misión de la organización.' },
+        { n: '02', texto: 'La estrategia de internacionalización de los servicios.' },
+      ],
+      oportunidades: [
+        { n: '01', texto: 'Ampliar los requisitos ambientales referentes al cambio climático.', numeral: '4.2' },
+        { n: '02', texto: 'Mejorar la redacción de la sustentación técnica de la no aplicabilidad.', numeral: '4.3' },
+        { n: '03', texto: 'Separar en la caracterización las actividades de diseño de las de ejecución.', numeral: '4.4' },
+        { n: '04', texto: 'Evaluar las acciones definidas para reducir el riesgo e incorporarlas al plan.', numeral: '6.1' },
+      ],
+      emitirFondo: esFinal ? '#eef7f1' : '#e9f0fb',
+      emitirBorde: esFinal ? '#c9e3d8' : '#d3dceb',
+      emitirTexto: esFinal ? '#0b5c44' : '#12437f',
+      emitirMensaje: esFinal
+        ? 'Informe emitido el 05/04/2026. Se crearon 15 hallazgos de tipo oportunidad de mejora en el módulo de Mejora, con origen a esta auditoría, su proceso y su numeral. Reabrir exige motivo y queda en bitácora.'
+        : 'Al emitir el informe final se congelan las 76 notas y cada NC y cada OM se promueve a hallazgo en Mejora, con origen tipado a esta auditoría, el proceso y el numeral. Requiere el acta de cierre registrada.',
+      emitirBoton: esFinal
+        ? 'flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #0b5c44; background: #ffffff; border: 1px solid #c9e3d8; border-radius: 6px;'
+        : 'flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px;',
+      emitirEtiqueta: esFinal ? 'Ver los 15 hallazgos' : 'Emitir el informe final',
+    };
+  }
+}
+</script>
+</body>
+</html>

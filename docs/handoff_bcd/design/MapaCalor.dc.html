@@ -1,0 +1,245 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 18px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Mapa de calor</h1>
+      <span style="font-size: 12.5px; color: #6b7570">Cada casilla lleva su conteo y <strong style="font-weight: 600">el nivel escrito</strong>: el color nunca es el único portador de la información.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 2px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+      <sc-for list="{{vistas}}" as="v" hint-placeholder-count="2">
+        <button onClick="{{v.elegir}}" style="{{v.estilo}}">{{v.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 18px; min-height: 0">
+
+    <!-- La matriz 5×5 -->
+    <div style="flex: none; width: 640px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 18px 20px 16px">
+      <span style="display: flex; align-items: center; gap: 9px; margin-bottom: 14px">
+        <span class="etq" style="color: #12437f">{{tituloMatriz}}</span>
+        <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        <span class="mono" style="font-size: 9.5px; color: #a3aca7">66 registros</span>
+      </span>
+
+      <div style="flex: 1; display: flex; gap: 10px; min-height: 0">
+        <span style="flex: none; display: flex; align-items: center">
+          <span class="etq" style="writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.1em">Probabilidad</span>
+        </span>
+
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-height: 0">
+          <sc-for list="{{filas}}" as="f" hint-placeholder-count="5">
+            <div style="flex: 1; display: flex; gap: 6px; min-height: 0">
+              <span style="flex: none; width: 74px; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px">
+                <span class="mono" style="font-size: 9.5px; color: #6b7570; text-align: right; line-height: 1.3">{{f.etiqueta}}</span>
+              </span>
+              <sc-for list="{{f.celdas}}" as="c" hint-placeholder-count="5">
+                <button onClick="{{c.elegir}}" style="{{c.estilo}}">
+                  <span class="mono" style="font-size: 17px; font-weight: 600; line-height: 1; color: {{c.fg}}">{{c.n}}</span>
+                  <span class="mono" style="font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; color: {{c.fg}}; opacity: 0.85">{{c.nivel}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+
+          <div style="flex: none; display: flex; gap: 6px; margin-top: 2px">
+            <span style="flex: none; width: 74px"></span>
+            <sc-for list="{{columnas}}" as="c" hint-placeholder-count="5">
+              <span style="flex: 1; text-align: center"><span class="mono" style="font-size: 9.5px; color: #6b7570">{{c}}</span></span>
+            </sc-for>
+          </div>
+          <div style="flex: none; display: flex; justify-content: center; margin-top: 4px">
+            <span class="etq" style="letter-spacing: 0.1em">Impacto</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de la casilla -->
+    <aside style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 16px 18px 13px; border-bottom: 1px solid #eceeed">
+        <span class="etq">Casilla seleccionada</span>
+        <span style="font-size: 14.5px; font-weight: 600">{{casilla.titulo}}</span>
+        <span style="display: flex; align-items: center; gap: 8px">
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{casilla.bg}}; color: {{casilla.fg}}">{{casilla.nivel}}</span>
+          <span style="font-size: 11.5px; color: #8a938e">{{casilla.resumen}}</span>
+        </span>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+        <sc-for list="{{casilla.registros}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+            <span class="mono" style="flex: none; font-size: 10.5px; font-weight: 600; color: #12437f; padding-top: 1px">{{r.codigo}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 12px; line-height: 1.4; color: #1a211e">{{r.texto}}</span>
+              <span class="mono" style="font-size: 9px; color: #8a938e">{{r.proceso}} · {{r.factor}}</span>
+            </span>
+          </div>
+        </sc-for>
+        <sc-if value="{{casilla.vacia}}" hint-placeholder-val="{{ true }}">
+          <span style="padding: 28px 10px; text-align: center; font-size: 12px; color: #a3aca7; line-height: 1.6">Ningún registro en esta casilla.<br>Elige otra en la matriz.</span>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+
+  <p style="margin: 14px 0 0; font-size: 11.5px; color: #8a938e; line-height: 1.6; max-width: 104ch">Los conteos se calculan al leer, contra el inventario real. No hay matriz precocinada: es la misma regla que en el SGSI, y la razón es que en la versión anterior las cifras precalculadas se contradecían entre pantallas.</p>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const SEG_BASE = 'padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+const NIVELES = [
+  { hasta: 4, etiqueta: 'Aceptable', bg: '#e6efe9', fg: '#0b5c44', celda: '#eef7f1', celdaFg: '#0b5c44' },
+  { hasta: 12, etiqueta: 'Moderado', bg: '#faf1d3', fg: '#6b5410', celda: '#faf1d3', celdaFg: '#6b5410' },
+  { hasta: 25, etiqueta: 'Inaceptable', bg: '#fdeeeb', fg: '#a52016', celda: '#f7dcd9', celdaFg: '#8a1f16' },
+];
+
+function nivelDe(v) { for (const n of NIVELES) if (v <= n.hasta) return n; return NIVELES[2]; }
+
+const ETIQ_P = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta'];
+const ETIQ_I = ['Muy bajo', 'Bajo', 'Moderado', 'Alto', 'Muy alto'];
+
+// Distribución inherente: la del MAT-CAL-02. Residual: la misma matriz tras aplicar controles.
+const INHERENTE = {
+  '3-4': [
+    { codigo: 'R1', texto: 'Definición de objetivos organizacionales mal enfocados', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+    { codigo: 'R17', texto: 'Recibir multas o sanciones y perder credibilidad', proceso: 'Legal y Compras', factor: 'Legal' },
+    { codigo: 'R28', texto: 'Uso de documentos desactualizados', proceso: 'Gestión de Calidad', factor: 'Operacional' },
+    { codigo: 'R32', texto: 'Ampliar la oferta a nuevos mercados de Centroamérica', proceso: 'Gestión Comercial', factor: 'Externo' },
+    { codigo: 'R36', texto: 'Adoptar estándares internacionales como diferenciador', proceso: 'Gestión Estratégica', factor: 'Externo' },
+  ],
+  '3-5': [
+    { codigo: 'R3', texto: 'Indicadores mal formulados o sin medición', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+    { codigo: 'R4', texto: 'Deterioro de la organización en el mercado', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+    { codigo: 'R18', texto: 'Fraude interno en procesos financieros', proceso: 'Gestión Financiera', factor: 'Personal' },
+  ],
+  '4-4': [
+    { codigo: 'R5', texto: 'Pérdida o fuga de información', proceso: 'Gestión Estratégica', factor: 'Tecnológico' },
+    { codigo: 'R27', texto: 'Licencias vencidas o software sin inventariar', proceso: 'Gestión Tecnológica', factor: 'Tecnológico' },
+  ],
+  '4-5': [
+    { codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', proceso: 'Gestión de Proyectos', factor: 'Personal' },
+  ],
+  '5-4': [
+    { codigo: 'R2', texto: 'Fallas en los flujos de información para la toma de decisiones', proceso: 'Gestión Estratégica', factor: 'Tecnológico' },
+  ],
+  '5-5': [
+    { codigo: 'R9', texto: 'Evaluación deficiente de oportunidades de negocio', proceso: 'Gestión Comercial', factor: 'Operacional' },
+  ],
+  '3-3': [
+    { codigo: 'R21', texto: 'Contratación de proveedores sin evaluación previa', proceso: 'Legal y Compras', factor: 'Operacional' },
+    { codigo: 'R30', texto: 'Desconocimiento del sistema de gestión en la organización', proceso: 'Gestión de Calidad', factor: 'Personal' },
+  ],
+  '2-4': [
+    { codigo: 'R29', texto: 'Mala identificación de las salidas no conformes', proceso: 'Gestión de Calidad', factor: 'Operacional' },
+  ],
+};
+
+// Tras los controles, casi todo baja a la banda aceptable — que es exactamente lo que dice
+// la matriz real, y por eso conviene verlo.
+const RESIDUAL = {
+  '1-4': [
+    { codigo: 'R1', texto: 'Definición de objetivos organizacionales mal enfocados', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+    { codigo: 'R2', texto: 'Fallas en los flujos de información para la toma de decisiones', proceso: 'Gestión Estratégica', factor: 'Tecnológico' },
+    { codigo: 'R5', texto: 'Pérdida o fuga de información', proceso: 'Gestión Estratégica', factor: 'Tecnológico' },
+  ],
+  '1-5': [
+    { codigo: 'R3', texto: 'Indicadores mal formulados o sin medición', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+    { codigo: 'R4', texto: 'Deterioro de la organización en el mercado', proceso: 'Gestión Estratégica', factor: 'Operacional' },
+  ],
+  '2-3': [
+    { codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', proceso: 'Gestión de Proyectos', factor: 'Personal' },
+    { codigo: 'R17', texto: 'Recibir multas o sanciones y perder credibilidad', proceso: 'Legal y Compras', factor: 'Legal' },
+  ],
+  '3-2': [
+    { codigo: 'R21', texto: 'Contratación de proveedores sin evaluación previa', proceso: 'Legal y Compras', factor: 'Operacional' },
+  ],
+  '3-4': [
+    { codigo: 'R27', texto: 'Licencias vencidas o software sin inventariar', proceso: 'Gestión Tecnológica', factor: 'Tecnológico' },
+    { codigo: 'R32', texto: 'Ampliar la oferta a nuevos mercados de Centroamérica', proceso: 'Gestión Comercial', factor: 'Externo' },
+    { codigo: 'R36', texto: 'Adoptar estándares internacionales como diferenciador', proceso: 'Gestión Estratégica', factor: 'Externo' },
+  ],
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { vista: 'inherente', celda: '4-5' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const datos = s.vista === 'inherente' ? INHERENTE : RESIDUAL;
+
+    // Se dibuja de probabilidad 5 arriba a 1 abajo, como el mapa del Excel.
+    const filas = [5, 4, 3, 2, 1].map((p) => ({
+      etiqueta: ETIQ_P[p - 1] + ' (' + p + ')',
+      celdas: [1, 2, 3, 4, 5].map((i) => {
+        const clave = p + '-' + i;
+        const lista = datos[clave] || [];
+        const n = nivelDe(p * i);
+        const sel = s.celda === clave;
+        return {
+          n: lista.length || '·',
+          nivel: n.etiqueta,
+          fg: lista.length ? n.celdaFg : '#c3cac6',
+          estilo:
+            'flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 6px; padding: 4px 2px; background: ' +
+            (lista.length ? n.celda : '#fbfcfb') +
+            '; border: ' + (sel ? '2px solid #12437f' : '1px solid ' + (lista.length ? 'rgba(0,0,0,0.05)' : '#f2f4f3')) + ';',
+          elegir: () => this.setState({ celda: clave }),
+        };
+      }),
+    }));
+
+    const [p, i] = s.celda.split('-').map(Number);
+    const lista = datos[s.celda] || [];
+    const n = nivelDe(p * i);
+
+    return {
+      vistas: [
+        { id: 'inherente', etiqueta: 'Inherente' },
+        { id: 'residual', etiqueta: 'Residual' },
+      ].map((v) => ({ ...v, estilo: s.vista === v.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ vista: v.id, celda: v.id === 'inherente' ? '4-5' : '2-3' }) })),
+      tituloMatriz: s.vista === 'inherente' ? 'Riesgo inherente · sin controles' : 'Riesgo residual · con los controles aplicados',
+      filas,
+      columnas: ETIQ_I.map((e, k) => e + ' (' + (k + 1) + ')'),
+      casilla: {
+        titulo: 'Probabilidad ' + ETIQ_P[p - 1].toLowerCase() + ' · impacto ' + ETIQ_I[i - 1].toLowerCase(),
+        nivel: n.etiqueta,
+        bg: n.bg,
+        fg: n.fg,
+        resumen: 'P ' + p + ' × I ' + i + ' = ' + p * i + ' · ' + (lista.length === 1 ? '1 registro' : lista.length + ' registros'),
+        registros: lista,
+        vacia: lista.length === 0,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

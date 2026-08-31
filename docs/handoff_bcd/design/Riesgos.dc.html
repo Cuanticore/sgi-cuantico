@@ -1,0 +1,449 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 9px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <header style="display: flex; align-items: center; gap: 18px; padding: 0 22px; height: 58px; flex: none; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%); border-bottom: 1px solid #0a2350">
+    <div style="display: flex; align-items: center; gap: 11px">
+      <span class="mono" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; background: #ffffff; color: #1b3a8a; font-size: 10px; font-weight: 700">CQ</span>
+      <span style="display: flex; flex-direction: column; line-height: 1.1">
+        <span style="font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: #ffffff">CUANTICO</span>
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.16em; color: #7fb0f0">SIG</span>
+      </span>
+    </div>
+    <nav style="display: flex; align-items: center; gap: 4px; margin-left: 14px">
+      <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; color: #bcd4f5">Mi SIG</span>
+      <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; color: #bcd4f5">Indicadores</span>
+      <span style="font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 7px; background: rgba(255,255,255,0.18); color: #ffffff">Estratégico</span>
+      <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; color: #bcd4f5">SGSI</span>
+      <span style="font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: 7px; color: #bcd4f5">Operación</span>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+      <span class="mono" style="font-size: 9.5px; color: #7fb0f0">CUANTICO\lagudelo · AD</span>
+      <span style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #ffffff; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3)">LA</span>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+
+    <aside style="flex: none; width: 244px; display: flex; flex-direction: column; gap: 16px; padding: 16px 0 18px; background: #ffffff; border-right: 1px solid #e2e6e3">
+      <div style="display: flex; padding: 0 12px; justify-content: flex-end">
+        <span style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #e2e6e3; color: #6b7570; font-size: 12px">⟨</span>
+      </div>
+      <nav style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 11px; margin: 0 0 6px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; white-space: nowrap">Gestión estratégica</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </div>
+        <sc-for list="{{menu}}" as="m" hint-placeholder-count="5">
+          <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 11px; border-radius: 7px; font-size: 13.5px; font-weight: {{m.peso}}; background: {{m.fondo}}; color: {{m.color}}">
+            <span style="flex: 1; white-space: nowrap">{{m.etiqueta}}</span>
+            <span class="mono" style="flex: none; font-size: 10px; color: #a3aca7">{{m.meta}}</span>
+          </span>
+        </sc-for>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 11px; margin: 14px 0 6px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7">Configuración</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </div>
+        <span style="display: flex; padding: 8px 11px 8px 18px; border-radius: 7px; font-size: 13px; color: #6b7570">Parámetros del modelo</span>
+      </nav>
+
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 9px; padding: 0 20px">
+        <div style="height: 1px; background: #eceeed"></div>
+        <span class="mono" style="font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7">Línea base</span>
+        <span style="font-size: 12.5px; font-weight: 500">Comité 16/02/2026</span>
+        <span style="font-size: 11.5px; color: #8a938e">42 riesgos · 24 oportunidades · 11 procesos</span>
+      </div>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 22px 24px 24px; overflow: hidden">
+
+      <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+        <div style="display: flex; flex-direction: column; gap: 5px">
+          <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Riesgos y oportunidades</h1>
+          <span style="font-size: 12.5px; color: #6b7570">MAT-CAL-02 · metodología MAN-CAL-01 v2.0 · ISO 31000:2018</span>
+        </div>
+        <span style="margin-left: auto; display: flex; gap: 7px">
+          <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+            <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+          </sc-for>
+        </span>
+      </div>
+
+      <div style="flex: 1; display: flex; gap: 16px; min-height: 0">
+
+        <!-- Tabla -->
+        <div style="flex: 1; min-width: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 15px 17px 8px">
+          <table style="width: 100%; border-collapse: collapse">
+            <thead>
+              <tr>
+                <th class="th" style="width: 42px">Núm</th>
+                <th class="th">Riesgo u oportunidad</th>
+                <th class="th" style="width: 96px">Factor</th>
+                <th class="th" style="width: 34px; text-align: center">P</th>
+                <th class="th" style="width: 34px; text-align: center">I</th>
+                <th class="th" style="width: 44px; text-align: right">Inh.</th>
+                <th class="th" style="width: 118px">Control</th>
+                <th class="th" style="width: 44px; text-align: right">Res.</th>
+                <th class="th" style="width: 92px">Nivel res.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{riesgos}}" as="r" hint-placeholder-count="10">
+                <tr style="background: {{r.fila}}">
+                  <td class="td">
+                    <button onClick="{{r.elegir}}" style="padding: 0; border: 0; background: none; text-align: left">
+                      <span class="mono" style="font-size: 11px; font-weight: 500; color: #12437f">{{r.codigo}}</span>
+                    </button>
+                  </td>
+                  <td class="td" style="padding-right: 12px">
+                    <span style="display: flex; flex-direction: column; gap: 2px">
+                      <span style="font-size: 12px; font-weight: 500; color: #1a211e; line-height: 1.35">{{r.texto}}</span>
+                      <span class="mono" style="font-size: 9px; color: #8a938e">{{r.proceso}} · {{r.clase}}</span>
+                    </span>
+                  </td>
+                  <td class="td"><span style="font-size: 11px; color: #4a544f">{{r.factor}}</span></td>
+                  <td class="td" style="text-align: center"><span class="mono" style="font-size: 11.5px; color: #4a544f">{{r.p}}</span></td>
+                  <td class="td" style="text-align: center"><span class="mono" style="font-size: 11.5px; color: #4a544f">{{r.i}}</span></td>
+                  <td class="td" style="text-align: right"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{r.inhColor}}">{{r.inherente}}</span></td>
+                  <td class="td">
+                    <span style="display: flex; flex-direction: column; gap: 1px">
+                      <span style="font-size: 10.5px; color: #4a544f">{{r.tipoControl}}</span>
+                      <span class="mono" style="font-size: 9px; color: #8a938e">{{r.medicion}} · {{r.eficacia}}</span>
+                    </span>
+                  </td>
+                  <td class="td" style="text-align: right"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{r.resColor}}">{{r.residual}}</span></td>
+                  <td class="td">
+                    <span class="mono" style="display: inline-block; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{r.nivelBg}}; color: {{r.nivelFg}}">{{r.nivel}}</span>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Panel de cálculo en vivo -->
+        <aside style="flex: none; width: 352px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 14px; border-bottom: 1px solid #eceeed">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+              <span class="mono" style="padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{sel.claseBg}}; color: {{sel.claseFg}}">{{sel.clase}}</span>
+            </span>
+            <span style="font-size: 13px; font-weight: 500; line-height: 1.4">{{sel.texto}}</span>
+          </div>
+
+          <div style="flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 16px">
+
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <span class="etq">Probabilidad</span>
+              <span style="display: flex; gap: 4px">
+                <sc-for list="{{escalaP}}" as="e" hint-placeholder-count="5">
+                  <button onClick="{{e.elegir}}" style="{{e.estilo}}">{{e.n}}</button>
+                </sc-for>
+              </span>
+              <span style="font-size: 11px; color: #6b7570">{{sel.pEtiqueta}}</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <span class="etq">Impacto</span>
+              <span style="display: flex; gap: 4px">
+                <sc-for list="{{escalaI}}" as="e" hint-placeholder-count="5">
+                  <button onClick="{{e.elegir}}" style="{{e.estilo}}">{{e.n}}</button>
+                </sc-for>
+              </span>
+              <span style="font-size: 11px; color: #6b7570">{{sel.iEtiqueta}}</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <span class="etq">Tipo de control · qué reduce</span>
+              <span style="display: flex; flex-direction: column; gap: 4px">
+                <sc-for list="{{tiposControl}}" as="t" hint-placeholder-count="3">
+                  <button onClick="{{t.elegir}}" style="{{t.estilo}}">
+                    <span>{{t.etiqueta}}</span>
+                    <span class="mono" style="font-size: 9px; opacity: 0.8">{{t.reduce}}</span>
+                  </button>
+                </sc-for>
+              </span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 7px">
+              <span class="etq">Medición del control</span>
+              <span style="display: flex; gap: 4px">
+                <sc-for list="{{mediciones}}" as="m" hint-placeholder-count="3">
+                  <button onClick="{{m.elegir}}" style="{{m.estilo}}">{{m.etiqueta}} <span class="mono" style="font-size: 9px; opacity: 0.75">{{m.pct}}</span></button>
+                </sc-for>
+              </span>
+            </div>
+
+            <!-- El cálculo, paso a paso -->
+            <div style="display: flex; flex-direction: column; gap: 9px; padding: 14px 15px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="etq" style="color: #12437f">El cálculo</span>
+              <sc-for list="{{pasos}}" as="p" hint-placeholder-count="4">
+                <span style="display: flex; align-items: baseline; gap: 10px">
+                  <span class="mono" style="flex: 1; font-size: 10.5px; color: #6b7570">{{p.formula}}</span>
+                  <span class="mono" style="flex: none; font-size: 13px; font-weight: 600; color: {{p.color}}; font-variant-numeric: tabular-nums">{{p.valor}}</span>
+                </span>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; gap: 10px">
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{sel.inhColor}}; border-radius: 10px">
+                <span class="etq">Inherente</span>
+                <span class="mono" style="font-size: 22px; font-weight: 600; line-height: 1; color: {{sel.inhColor}}">{{sel.inherente}}</span>
+                <span style="font-size: 10.5px; color: #6b7570">{{sel.nivelInherente}}</span>
+              </span>
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{sel.resColor}}; border-radius: 10px">
+                <span class="etq">Residual</span>
+                <span class="mono" style="font-size: 22px; font-weight: 600; line-height: 1; color: {{sel.resColor}}">{{sel.residual}}</span>
+                <span style="font-size: 10.5px; color: #6b7570">{{sel.nivel}}</span>
+              </span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+              <span class="etq" style="color: #12437f">Tratamiento sugerido</span>
+              <span style="font-size: 13px; font-weight: 600; color: #12437f">{{sel.tratamiento}}</span>
+              <span style="font-size: 11px; color: #4a544f; line-height: 1.5">{{sel.tratamientoNota}}</span>
+            </div>
+
+            <sc-if value="{{sel.esOportunidad}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 14px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+                <span style="font-size: 11px; line-height: 1.55; color: #8a4407">En una oportunidad el cálculo <strong style="font-weight: 600">reduce</strong> igual que en un riesgo: mientras mejor gestionada, más bajo sale el residual. Se reproduce el Excel tal cual, y la decisión de invertirlo es del comité de riesgos.</span>
+              </div>
+            </sc-if>
+
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const NUM_BASE = 'flex: 1; padding: 7px 0; font-size: 12px; font-weight: 600; border-radius: 4px;';
+const NUM_OFF = NUM_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const NUM_ON = NUM_BASE + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff;';
+
+const OPT_BASE = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 11px; font-size: 11.5px; border-radius: 6px; text-align: left;';
+const OPT_OFF = OPT_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const OPT_ON = OPT_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const MED_BASE = 'flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 0; font-size: 11.5px; border-radius: 4px;';
+const MED_OFF = MED_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const MED_ON = MED_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const EFICACIA = { 'Débil': 0.1, 'Moderado': 0.4, 'Fuerte': 0.8 };
+
+// El tipo de control DECLARA qué reduce: es una fila de tabla, no una condición en el código.
+const TIPOS_RIESGO = [
+  { etiqueta: 'Preventivo', reduce: 'probabilidad' },
+  { etiqueta: 'Correctivo', reduce: 'impacto' },
+  { etiqueta: 'Preventivo y correctivo', reduce: 'ambos' },
+];
+const TIPOS_OPORTUNIDAD = [
+  { etiqueta: 'Reforzador', reduce: 'probabilidad' },
+  { etiqueta: 'Reactivo', reduce: 'impacto' },
+  { etiqueta: 'Proactivo', reduce: 'ambos' },
+];
+
+const ESCALA_P = ['Muy baja · casi nunca', 'Baja · poco probable', 'Media · posible', 'Alta · muy probable', 'Muy alta · casi siempre'];
+const ESCALA_I = ['Muy bajo · hasta 1 % del patrimonio', 'Bajo · hasta 3 %', 'Moderado · hasta 7 %', 'Alto · hasta 12 %', 'Muy alto · 20 % o más'];
+
+const RIESGOS = [
+  { codigo: 'R1', proceso: 'Gestión Estratégica', clase: 'Riesgo', texto: 'Definición de objetivos organizacionales mal enfocados', factor: 'Operacional', p: 3, i: 4, tipo: 'Preventivo', med: 'Fuerte' },
+  { codigo: 'R2', proceso: 'Gestión Estratégica', clase: 'Riesgo', texto: 'Fallas en los flujos de información para la toma de decisiones', factor: 'Tecnológico', p: 5, i: 4, tipo: 'Preventivo', med: 'Fuerte' },
+  { codigo: 'R3', proceso: 'Gestión Estratégica', clase: 'Riesgo', texto: 'Indicadores mal formulados o sin medición', factor: 'Operacional', p: 3, i: 5, tipo: 'Preventivo', med: 'Fuerte' },
+  { codigo: 'R5', proceso: 'Gestión Estratégica', clase: 'Riesgo', texto: 'Pérdida o fuga de información', factor: 'Tecnológico', p: 4, i: 4, tipo: 'Preventivo', med: 'Fuerte' },
+  { codigo: 'R14', proceso: 'Gestión de Proyectos', clase: 'Riesgo', texto: 'Retraso en el cronograma por rotación de personal clave', factor: 'Personal', p: 4, i: 5, tipo: 'Preventivo y correctivo', med: 'Moderado' },
+  { codigo: 'R17', proceso: 'Gestión Legal y Compras', clase: 'Riesgo', texto: 'Recibir multas o sanciones y perder credibilidad', factor: 'Legal', p: 3, i: 4, tipo: 'Preventivo y correctivo', med: 'Moderado' },
+  { codigo: 'R21', proceso: 'Gestión Legal y Compras', clase: 'Riesgo', texto: 'Contratación de proveedores sin evaluación previa', factor: 'Operacional', p: 3, i: 3, tipo: 'Correctivo', med: 'Moderado' },
+  { codigo: 'R27', proceso: 'Gestión Tecnológica', clase: 'Riesgo', texto: 'Licencias vencidas o software sin inventariar', factor: 'Tecnológico', p: 4, i: 4, tipo: 'Preventivo', med: 'Débil' },
+  { codigo: 'R32', proceso: 'Gestión Comercial', clase: 'Oportunidad', texto: 'Ampliar la oferta a nuevos mercados de Centroamérica', factor: 'Externo', p: 3, i: 4, tipo: 'Reforzador', med: 'Débil' },
+  { codigo: 'R36', proceso: 'Gestión Estratégica', clase: 'Oportunidad', texto: 'Adoptar estándares internacionales como diferenciador comercial', factor: 'Externo', p: 3, i: 4, tipo: 'Proactivo', med: 'Débil' },
+];
+
+const NIVELES = [
+  { hasta: 4, etiqueta: 'Aceptable', bg: '#e6efe9', fg: '#0b5c44', color: '#0b5c44', riesgo: 'Aceptar', oportunidad: 'Esperar' },
+  { hasta: 12, etiqueta: 'Moderado', bg: '#faf1d3', fg: '#6b5410', color: '#c25a1e', riesgo: 'Mitigar o reducir', oportunidad: 'Mejorar' },
+  { hasta: 25, etiqueta: 'Inaceptable', bg: '#fdeeeb', fg: '#a52016', color: '#a52016', riesgo: 'Evitar', oportunidad: 'Explotar' },
+];
+
+function nivelDe(v) {
+  for (const n of NIVELES) if (v <= n.hasta) return n;
+  return NIVELES[NIVELES.length - 1];
+}
+
+function redondear(v) {
+  return Math.round(v * 100) / 100;
+}
+
+function calcular(p, i, reduce, med) {
+  const e = EFICACIA[med];
+  const pRes = reduce === 'probabilidad' || reduce === 'ambos' ? p * (1 - e) : p;
+  const iRes = reduce === 'impacto' || reduce === 'ambos' ? i * (1 - e) : i;
+  return { e, pRes: redondear(pRes), iRes: redondear(iRes), inherente: p * i, residual: redondear(pRes * iRes) };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos', sel: 'R14', ajustes: {} };
+  }
+
+  datos(r) {
+    const a = this.state.ajustes[r.codigo] || {};
+    return { ...r, p: a.p ?? r.p, i: a.i ?? r.i, tipo: a.tipo ?? r.tipo, med: a.med ?? r.med };
+  }
+
+  ajustar(codigo, cambio) {
+    const a = this.state.ajustes;
+    this.setState({ ajustes: { ...a, [codigo]: { ...(a[codigo] || {}), ...cambio } } });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const catalogo = (clase) => (clase === 'Oportunidad' ? TIPOS_OPORTUNIDAD : TIPOS_RIESGO);
+    const reduceDe = (r) => (catalogo(r.clase).find((t) => t.etiqueta === r.tipo) || catalogo(r.clase)[0]).reduce;
+
+    const visibles = RIESGOS.filter((r) =>
+      s.filtro === 'todos' ? true : s.filtro === 'riesgo' ? r.clase === 'Riesgo' : r.clase === 'Oportunidad',
+    );
+
+    const riesgos = visibles.map((base) => {
+      const r = this.datos(base);
+      const c = calcular(r.p, r.i, reduceDe(r), r.med);
+      const nRes = nivelDe(c.residual);
+      const nInh = nivelDe(c.inherente);
+      return {
+        ...r,
+        inherente: c.inherente,
+        residual: c.residual,
+        eficacia: Math.round(c.e * 100) + ' %',
+        tipoControl: r.tipo,
+        medicion: r.med,
+        nivel: nRes.etiqueta,
+        nivelBg: nRes.bg,
+        nivelFg: nRes.fg,
+        inhColor: nInh.color,
+        resColor: nRes.color,
+        fila: s.sel === r.codigo ? '#eef2f8' : '#ffffff',
+        elegir: () => this.setState({ sel: r.codigo }),
+      };
+    });
+
+    const base = RIESGOS.find((r) => r.codigo === s.sel) || RIESGOS[0];
+    const r = this.datos(base);
+    const reduce = reduceDe(r);
+    const c = calcular(r.p, r.i, reduce, r.med);
+    const nRes = nivelDe(c.residual);
+    const nInh = nivelDe(c.inherente);
+    const esOp = r.clase === 'Oportunidad';
+
+    const pasos = [
+      { formula: 'inherente = P × I = ' + r.p + ' × ' + r.i, valor: c.inherente, color: nInh.color },
+      {
+        formula:
+          'P_res = ' + (reduce === 'impacto' ? 'P (sin cambio)' : r.p + ' × (1 − ' + c.e + ')'),
+        valor: c.pRes,
+        color: '#4a544f',
+      },
+      {
+        formula:
+          'I_res = ' + (reduce === 'probabilidad' ? 'I (sin cambio)' : r.i + ' × (1 − ' + c.e + ')'),
+        valor: c.iRes,
+        color: '#4a544f',
+      },
+      { formula: 'residual = P_res × I_res', valor: c.residual, color: nRes.color },
+    ];
+
+    return {
+      riesgos,
+      filtros: [
+        { id: 'todos', etiqueta: 'Todos', conteo: 66 },
+        { id: 'riesgo', etiqueta: 'Riesgos', conteo: 42 },
+        { id: 'oportunidad', etiqueta: 'Oportunidades', conteo: 24 },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      menu: [
+        { etiqueta: 'Partes interesadas', meta: '29' },
+        { etiqueta: 'Requisitos legales', meta: '11' },
+        { etiqueta: 'Riesgos y oportunidades', meta: '66', activa: true },
+        { etiqueta: 'Mapa de calor', meta: '' },
+        { etiqueta: 'Materializaciones', meta: '3' },
+      ].map((m) => ({
+        ...m,
+        fondo: m.activa ? '#e9f0fb' : 'transparent',
+        color: m.activa ? '#12437f' : '#4a544f',
+        peso: m.activa ? 600 : 500,
+      })),
+      escalaP: [1, 2, 3, 4, 5].map((n) => ({
+        n,
+        estilo: r.p === n ? NUM_ON : NUM_OFF,
+        elegir: () => this.ajustar(r.codigo, { p: n }),
+      })),
+      escalaI: [1, 2, 3, 4, 5].map((n) => ({
+        n,
+        estilo: r.i === n ? NUM_ON : NUM_OFF,
+        elegir: () => this.ajustar(r.codigo, { i: n }),
+      })),
+      tiposControl: catalogo(r.clase).map((t) => ({
+        etiqueta: t.etiqueta,
+        reduce: t.reduce,
+        estilo: r.tipo === t.etiqueta ? OPT_ON : OPT_OFF,
+        elegir: () => this.ajustar(r.codigo, { tipo: t.etiqueta }),
+      })),
+      mediciones: Object.keys(EFICACIA).map((m) => ({
+        etiqueta: m,
+        pct: Math.round(EFICACIA[m] * 100) + ' %',
+        estilo: r.med === m ? MED_ON : MED_OFF,
+        elegir: () => this.ajustar(r.codigo, { med: m }),
+      })),
+      pasos,
+      sel: {
+        codigo: r.codigo,
+        texto: r.texto,
+        clase: r.clase,
+        claseBg: esOp ? '#e8f4ef' : '#fdeeeb',
+        claseFg: esOp ? '#0b5c44' : '#a52016',
+        pEtiqueta: ESCALA_P[r.p - 1],
+        iEtiqueta: ESCALA_I[r.i - 1],
+        inherente: c.inherente,
+        residual: c.residual,
+        nivel: nRes.etiqueta,
+        nivelInherente: nInh.etiqueta,
+        inhColor: nInh.color,
+        resColor: nRes.color,
+        tratamiento: esOp ? nRes.oportunidad : nRes.riesgo,
+        tratamientoNota: 'Se deriva del nivel residual según los criterios parametrizados; puede sobrescribirse con aprobación del comité.',
+        esOportunidad: esOp,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 10px 12px; font-size: 12.5px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .titulo { display: flex; align-items: center; gap: 9px; }
+    .titulo > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <!-- Encabezado de la ficha -->
+  <div style="flex: none; padding: 22px 28px 0; background: #f5f7f6">
+    <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px">
+      <div style="display: flex; flex-direction: column; gap: 7px; min-width: 0">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 12px; font-weight: 600; color: #12437f">HAL-2026-0014</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{tipoBg}}; color: {{tipoFg}}">{{tipoEtiqueta}}</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #fff3e6; color: #8a4407">En ejecución</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #fdeeeb; color: #a52016">Vencido · 3 días</span>
+        </span>
+        <h1 style="margin: 0; font-size: 19px; font-weight: 600; line-height: 1.35; max-width: 84ch">Matriz de requisitos legales sin diligenciar: la versión vigente solo contiene encabezados y listas desplegables</h1>
+      </div>
+      <span style="margin-left: auto; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+        <span class="etq">Reclasificar</span>
+        <span style="display: flex; gap: 4px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+          <sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+            <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </span>
+    </div>
+
+    <!-- Pestañas. Las que el tipo no exige se muestran atenuadas, no ocultas. -->
+    <div style="display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #e2e6e3">
+      <sc-for list="{{pestanas}}" as="p" hint-placeholder-count="5">
+        <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+          <span>{{p.etiqueta}}</span>
+          <span class="mono" style="font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: {{p.marcaBg}}; color: {{p.marcaFg}}">{{p.marca}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- Cuerpo -->
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px 24px">
+
+    <sc-if value="{{esIdentificacion}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Origen</span><span class="campo">Auditoría externa · ICONTEC 2026</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Detectado por</span><span class="campo">Jaime Enrique López H.</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha de detección</span><span class="campo mono" style="font-size: 12px">10/08/2026</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Área</span><span class="campo">Gestión Legal y Compras</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Responsable</span><span class="campo">Marcela Molina · Chief Legal Officer</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha compromiso</span><span class="campo mono" style="font-size: 12px; color: #a52016">28/08/2026</span></span>
+        </div>
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Requisito incumplido</span>
+          <span class="campo">ISO 9001:2015 numeral 4.2 · ISO/IEC 27001:2022 control A.5.31 — Requisitos legales, estatutarios, reglamentarios y contractuales</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Evidencia objetiva</span>
+          <span class="campo" style="min-height: 76px">Se revisó el archivo MAT-EST-01 Matriz de Requisitos Legales Cuantico v2, con fecha 29/07/2026, en la carpeta 05. Procedimientos / 01. Gestión Estratégica / 4. Matriz. La hoja «Matriz» contiene los encabezados (No, Normatividad, Expedida por, Tipo, Objeto, Aplicación, Sistema de Gestión Aplicable, Proceso Encargado, Fecha de Revisión, Responsable, Enlace) y ninguna fila de datos. Se verificaron también las dos versiones obsoletas, con el mismo resultado.</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Hallazgo anterior relacionado</span>
+          <span class="campo" style="color: #a3aca7">Ninguno · sin antecesor registrado</span>
+        </span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{esCorreccion}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <span class="titulo"><span>Acción inmediata</span><span class="regla"></span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Qué se hizo para contener el efecto</span>
+          <span class="campo" style="min-height: 66px">Se levantó de inmediato el inventario de las normas de obligado cumplimiento que ya están citadas en el marco teórico del MAN-CAL-01, para que la matriz deje de estar vacía mientras se completa el levantamiento formal.</span>
+        </span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Responsable</span><span class="campo">Marcela Molina</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha</span><span class="campo mono" style="font-size: 12px">14/08/2026</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Evidencia</span><span class="campo" style="color: #12437f">MAT-EST-01 v3 · 11 normas</span></span>
+        </div>
+        <span style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px; max-width: 92ch">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">La corrección contiene el efecto; <strong style="font-weight: 600">no cierra el hallazgo</strong>. Para cerrarlo hace falta la causa raíz, la acción correctiva y su verificación de eficacia.</span>
+        </span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{esCausa}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span class="etq">Método declarado</span>
+          <span style="display: flex; gap: 4px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+            <sc-for list="{{metodos}}" as="m" hint-placeholder-count="3">
+              <button onClick="{{m.elegir}}" style="{{m.estilo}}">{{m.etiqueta}}</button>
+            </sc-for>
+          </span>
+          <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">Obligatorio con método declarado en NC mayor</span>
+        </div>
+
+        <sc-if value="{{esPorques}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 9px">
+            <sc-for list="{{porques}}" as="p" hint-placeholder-count="5">
+              <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="mono" style="flex: none; padding-top: 2px; font-size: 10px; font-weight: 600; color: #12437f">{{p.n}}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                  <span class="etq">{{p.pregunta}}</span>
+                  <span style="font-size: 12.5px; line-height: 1.5; color: #1a211e">{{p.respuesta}}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{esIshikawa}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{espinas}}" as="e" hint-placeholder-count="6">
+              <div style="display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">{{e.categoria}}</span>
+                <span style="font-size: 12px; line-height: 1.5; color: {{e.color}}">{{e.causa}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <span style="display: flex; flex-direction: column; gap: 6px">
+          <span class="etq">Causa raíz · conclusión</span>
+          <span class="campo" style="min-height: 58px; border-color: #c9e3d8; background: #f7fbf9">La matriz de requisitos legales nunca tuvo un responsable nombrado ni una periodicidad de revisión, así que no aparecía en el plan de trabajo de ningún proceso. Se creó como formato y se dio por hecho que alguien la llenaría.</span>
+        </span>
+
+        <span class="titulo"><span>¿Existe en otra parte?</span><span class="regla"></span></span>
+        <div style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="flex: none; display: flex; gap: 6px">
+            <span class="mono" style="padding: 6px 13px; font-size: 11px; font-weight: 600; border-radius: 4px; background: #fdeeeb; color: #a52016">Sí</span>
+            <span class="mono" style="padding: 6px 13px; font-size: 11px; border-radius: 4px; background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570">No</span>
+          </span>
+          <span class="campo" style="flex: 1">Se revisaron los demás formatos creados sin responsable asignado. La Matriz de Retención Documental MAT-SIG-04 está en la misma condición y se abre el hallazgo HAL-2026-0021 por extensión.</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{esAcciones}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <span class="titulo"><span>Acciones · son asignaciones del motor de tareas</span><span class="regla"></span></span>
+        <sc-for list="{{acciones}}" as="a" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 16px; padding: 13px 16px; background: {{a.fondo}}; border: 1px solid {{a.borde}}; border-radius: 10px">
+            <span class="mono" style="flex: none; width: 92px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{a.papelBg}}; color: {{a.papelFg}}">{{a.papel}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 13px; font-weight: 500; color: #1a211e">{{a.titulo}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{a.codigo}} · Mi SIG de {{a.responsable}}</span>
+            </span>
+            <span style="flex: none; width: 108px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span style="font-size: 12px; font-weight: 500; color: {{a.plazoColor}}">{{a.plazo}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{a.fecha}}</span>
+            </span>
+            <span class="mono" style="flex: none; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{a.estadoBg}}; color: {{a.estadoFg}}">{{a.estado}}</span>
+          </div>
+        </sc-for>
+        <button style="align-self: flex-start; padding: 8px 14px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 6px">+ Agregar acción</button>
+        <span class="mono" style="font-size: 9.5px; color: #a3aca7; line-height: 1.6; max-width: 92ch">Cada acción es una asignación puntual del módulo A: le llega al responsable a su bandeja, la cierra él, y el cierre administrativo del líder del SIG queda marcado y contado aparte.</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{esEficacia}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <span class="titulo"><span>Historial de verificaciones</span><span class="regla"></span></span>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{verificaciones}}" as="v" hint-placeholder-count="2">
+            <div style="display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; background: {{v.fondo}}; border: 1px solid {{v.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 96px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{v.badgeBg}}; color: {{v.badgeFg}}">{{v.resultado}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+                <span style="font-size: 12.5px; line-height: 1.5; color: #1a211e">{{v.nota}}</span>
+                <span class="mono" style="font-size: 9.5px; color: #8a938e">{{v.fecha}} · {{v.autor}}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+
+        <span style="display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px; max-width: 96ch">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; line-height: 1.55; color: #a52016">La primera verificación resultó <strong style="font-weight: 600">no eficaz</strong>. El hallazgo no se cerró ni se anuló: sigue exigiendo acción, y el sistema advierte que la causa raíz probablemente no era la causa.</span>
+        </span>
+
+        <span class="titulo"><span>Cierre</span><span class="regla"></span></span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Cierra</span><span class="campo" style="color: #a3aca7">Pendiente · requiere verificación eficaz</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha de cierre</span><span class="campo" style="color: #a3aca7">—</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Regla</span><span class="campo" style="font-size: 11.5px; color: #6b7570">Nadie cierra su propio hallazgo</span></span>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <!-- Franja inferior fija -->
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 13px 28px; background: #ffffff; border-top: 1px solid #e2e6e3">
+    <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{pieRegla}}</span>
+    <span style="margin-left: auto; display: flex; gap: 9px">
+      <button style="padding: 8px 14px; font-size: 12.5px; font-weight: 500; color: #a52016; background: #ffffff; border: 1px solid #e6d3d1; border-radius: 6px">Anular</button>
+      <button style="padding: 8px 14px; font-size: 12.5px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Guardar</button>
+      <button style="{{cerrarEstilo}}">Cerrar el hallazgo</button>
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const SEG_BASE = 'padding: 5px 11px; font-size: 11px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+const TIPOS = {
+  'NC mayor': { bg: '#fdeeeb', fg: '#a52016' },
+  'NC menor': { bg: '#fff3e6', fg: '#8a4407' },
+  'Observación': { bg: '#faf1d3', fg: '#6b5410' },
+  'Oportunidad': { bg: '#e8f4ef', fg: '#0b5c44' },
+};
+
+// Lo que el flujo exige según el tipo — la tabla del §4 de la especificación.
+const EXIGE = {
+  'NC mayor':    { correccion: 'obl', causa: 'obl-metodo', acciones: 'obl', eficacia: 'obl' },
+  'NC menor':    { correccion: 'cond', causa: 'obl', acciones: 'obl', eficacia: 'obl' },
+  'Observación': { correccion: 'no', causa: 'opc', acciones: 'opc', eficacia: 'cond' },
+  'Oportunidad': { correccion: 'no', causa: 'no', acciones: 'obl', eficacia: 'cond' },
+};
+
+const MARCA = {
+  'obl': { t: 'Obligatorio', bg: '#e9f0fb', fg: '#12437f' },
+  'obl-metodo': { t: 'Con método', bg: '#e9f0fb', fg: '#12437f' },
+  'cond': { t: 'Si aplica', bg: '#fff3e6', fg: '#8a4407' },
+  'opc': { t: 'Opcional', bg: '#f5f7f6', fg: '#6b7570' },
+  'no': { t: 'No aplica', bg: '#f5f7f6', fg: '#b6bdb9' },
+};
+
+const PORQUES = [
+  { pregunta: '¿Por qué?', respuesta: 'La matriz de requisitos legales está vacía.' },
+  { pregunta: '¿Por qué está vacía?', respuesta: 'Nadie la diligenció desde que se creó el formato en 2024.' },
+  { pregunta: '¿Por qué nadie la diligenció?', respuesta: 'No tenía un responsable nombrado en ningún procedimiento.' },
+  { pregunta: '¿Por qué no tenía responsable?', respuesta: 'Se creó como formato del proceso estratégico sin asignarla a un cargo concreto.' },
+  { pregunta: '¿Por qué se creó sin asignarla?', respuesta: 'La creación de un documento no obliga hoy a declarar responsable ni periodicidad de revisión.' },
+];
+
+const ESPINAS = [
+  { categoria: 'Método', causa: 'La creación de un documento no obliga a declarar responsable ni periodicidad.', clave: true },
+  { categoria: 'Personas', causa: 'Ningún cargo tiene la matriz legal entre sus funciones escritas.', clave: true },
+  { categoria: 'Medición', causa: 'No hay indicador que muestre formatos creados y nunca diligenciados.', clave: false },
+  { categoria: 'Medio ambiente', causa: 'El repositorio no distingue un formato vacío de uno en uso.', clave: false },
+  { categoria: 'Materiales', causa: 'El formato existe y está bien diseñado: no es la causa.', clave: false },
+  { categoria: 'Maquinaria', causa: 'No aplica: el proceso no depende de herramienta.', clave: false },
+];
+
+const ACCIONES = [
+  { papel: 'Corrección', titulo: 'Cargar las 11 normas del marco teórico del MAN-CAL-01 en la matriz', codigo: 'ASG-0517', responsable: 'Marcela Molina', plazo: 'Realizada', fecha: '14/08', estado: 'realizada' },
+  { papel: 'Correctiva', titulo: 'Levantamiento legal completo por proceso, con responsable y periodicidad de revisión', codigo: 'ASG-0518', responsable: 'Marcela Molina', plazo: 'Vencida 3 d', fecha: '28/08', estado: 'vencida' },
+  { papel: 'Correctiva', titulo: 'Incluir responsable y periodicidad como campos obligatorios en PRO-CAL-01', codigo: 'ASG-0523', responsable: 'Laura Agudelo', plazo: 'En 12 d', fecha: '12/09', estado: 'pendiente' },
+];
+
+const EST_ACCION = {
+  realizada: { t: 'Realizada', bg: '#e6efe9', fg: '#0b5c44' },
+  vencida: { t: 'Vencida', bg: '#fdeeeb', fg: '#a52016' },
+  pendiente: { t: 'Pendiente', bg: '#eef2f8', fg: '#12437f' },
+};
+
+const PAPEL = {
+  'Corrección': { bg: '#fff3e6', fg: '#8a4407' },
+  'Correctiva': { bg: '#e9f0fb', fg: '#12437f' },
+  'Mejora': { bg: '#e8f4ef', fg: '#0b5c44' },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tipo: 'NC mayor', pestana: 'causa', metodo: 'porques' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const exige = EXIGE[s.tipo];
+
+    const pestanas = [
+      { id: 'identificacion', etiqueta: 'Identificación', req: 'obl' },
+      { id: 'correccion', etiqueta: 'Corrección', req: exige.correccion },
+      { id: 'causa', etiqueta: 'Causa raíz', req: exige.causa },
+      { id: 'acciones', etiqueta: 'Acciones', req: exige.acciones },
+      { id: 'eficacia', etiqueta: 'Eficacia y cierre', req: exige.eficacia },
+    ].map((p) => {
+      const activa = s.pestana === p.id;
+      const apagada = p.req === 'no';
+      const m = MARCA[p.req];
+      return {
+        ...p,
+        marca: m.t,
+        marcaBg: apagada ? '#f5f7f6' : m.bg,
+        marcaFg: apagada ? '#c3cac6' : m.fg,
+        estilo:
+          'display: flex; align-items: center; gap: 8px; padding: 10px 15px 9px; font-size: 12.5px; border: 0; border-bottom: 2px solid ' +
+          (activa ? '#12437f' : 'transparent') +
+          '; background: ' + (activa ? '#ffffff' : 'transparent') +
+          '; color: ' + (activa ? '#12437f' : apagada ? '#c3cac6' : '#4a544f') +
+          '; font-weight: ' + (activa ? 600 : 500) + '; border-radius: 7px 7px 0 0;',
+        elegir: () => this.setState({ pestana: p.id }),
+      };
+    });
+
+    const acciones = ACCIONES.map((a) => {
+      const e = EST_ACCION[a.estado];
+      return {
+        ...a,
+        papelBg: PAPEL[a.papel].bg,
+        papelFg: PAPEL[a.papel].fg,
+        estado: e.t,
+        estadoBg: e.bg,
+        estadoFg: e.fg,
+        fondo: a.estado === 'vencida' ? '#fdeeeb' : '#ffffff',
+        borde: a.estado === 'vencida' ? '#f2cdc6' : '#e2e6e3',
+        plazoColor: a.estado === 'vencida' ? '#a52016' : a.estado === 'realizada' ? '#0b5c44' : '#4a544f',
+      };
+    });
+
+    return {
+      tipoEtiqueta: s.tipo,
+      tipoBg: TIPOS[s.tipo].bg,
+      tipoFg: TIPOS[s.tipo].fg,
+      tipos: Object.keys(TIPOS).map((t) => ({
+        etiqueta: t,
+        estilo: s.tipo === t ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ tipo: t }),
+      })),
+      pestanas,
+      esIdentificacion: s.pestana === 'identificacion',
+      esCorreccion: s.pestana === 'correccion',
+      esCausa: s.pestana === 'causa',
+      esAcciones: s.pestana === 'acciones',
+      esEficacia: s.pestana === 'eficacia',
+      metodos: [
+        { id: 'porques', etiqueta: '5 porqués' },
+        { id: 'ishikawa', etiqueta: 'Ishikawa' },
+        { id: 'libre', etiqueta: 'Libre' },
+      ].map((m) => ({
+        ...m,
+        estilo: s.metodo === m.id ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ metodo: m.id }),
+      })),
+      esPorques: s.metodo === 'porques',
+      esIshikawa: s.metodo === 'ishikawa',
+      porques: PORQUES.map((p, i) => ({ ...p, n: String(i + 1) })),
+      espinas: ESPINAS.map((e) => ({ ...e, color: e.clave ? '#a52016' : '#4a544f' })),
+      acciones,
+      verificaciones: [
+        {
+          resultado: 'No eficaz',
+          nota: 'Se cargaron las 11 normas del marco teórico, pero la matriz sigue sin responsable ni periodicidad declarados. El problema puede repetirse el año entrante.',
+          fecha: '26/08/2026', autor: 'Laura Agudelo',
+          badgeBg: '#fdeeeb', badgeFg: '#a52016', fondo: '#fdeeeb', borde: '#f2cdc6',
+        },
+        {
+          resultado: 'Pendiente',
+          nota: 'Programada para el 26/09/2026, a 15 días del cierre de la última acción. Aparece en Mi SIG de quien debe verificar.',
+          fecha: '26/09/2026', autor: 'Laura Agudelo',
+          badgeBg: '#eef2f8', badgeFg: '#12437f', fondo: '#ffffff', borde: '#e2e6e3',
+        },
+      ],
+      pieRegla: 'No se cierra sin verificación eficaz · cerradoPor ≠ responsable',
+      cerrarEstilo:
+        'padding: 8px 16px; font-size: 12.5px; font-weight: 600; border-radius: 6px; background: #f5f7f6; border: 1px solid #e2e6e3; color: #b6bdb9;',
+    };
+  }
+}
+</script>
+</body>
+</html>

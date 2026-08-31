@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 11px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 28px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 18px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Hallazgos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 78ch; line-height: 1.55">No conformidades, observaciones y oportunidades de mejora, con un solo consecutivo. El código no lleva el tipo: reclasificar no rompe la trazabilidad.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Reportar hallazgo</button>
+  </div>
+
+  <!-- Indicadores del módulo -->
+  <div style="display: flex; gap: 10px; margin-bottom: 16px">
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 13px 15px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{k.color}}; border-radius: 10px">
+        <span class="etq">{{k.etiqueta}}</span>
+        <span style="display: flex; align-items: baseline; gap: 7px">
+          <span class="mono" style="font-size: 24px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: {{k.color}}">{{k.valor}}</span>
+          <span style="font-size: 11px; color: #8a938e">{{k.nota}}</span>
+        </span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 6px">
+      <sc-for list="{{marcas}}" as="m" hint-placeholder-count="2">
+        <button onClick="{{m.elegir}}" style="{{m.estilo}}">{{m.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px 8px">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr>
+          <th class="th" style="width: 112px">Código</th>
+          <th class="th">Descripción</th>
+          <th class="th" style="width: 108px">Tipo</th>
+          <th class="th" style="width: 128px">Origen</th>
+          <th class="th" style="width: 148px">Responsable</th>
+          <th class="th" style="width: 84px; text-align: right">Plazo</th>
+          <th class="th" style="width: 122px">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{hallazgos}}" as="h" hint-placeholder-count="9">
+          <tr style="background: {{h.fila}}">
+            <td class="td">
+              <span style="display: flex; align-items: center; gap: 6px">
+                <span class="mono" style="font-size: 11px; color: #12437f; font-weight: 500">{{h.codigo}}</span>
+                <sc-if value="{{h.reincidente}}" hint-placeholder-val="{{ true }}">
+                  <span class="mono" title="Reincidente" style="padding: 2px 5px; font-size: 7.5px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 3px; background: #fdeeeb; color: #a52016">R</span>
+                </sc-if>
+              </span>
+            </td>
+            <td class="td" style="padding-right: 16px">
+              <span style="display: flex; flex-direction: column; gap: 3px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; line-height: 1.4">{{h.descripcion}}</span>
+                <span class="mono" style="font-size: 9.5px; color: #8a938e">{{h.requisito}}</span>
+              </span>
+            </td>
+            <td class="td">
+              <span class="mono" style="display: inline-block; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{h.tipoBg}}; color: {{h.tipoFg}}">{{h.tipo}}</span>
+            </td>
+            <td class="td"><span style="font-size: 11.5px; color: #4a544f">{{h.origen}}</span></td>
+            <td class="td">
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span style="display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 999px; font-size: 9px; font-weight: 700; background: #e9f0fb; color: #12437f">{{h.iniciales}}</span>
+                <span style="font-size: 11.5px; color: #3a443f">{{h.responsable}}</span>
+              </span>
+            </td>
+            <td class="td" style="text-align: right"><span class="mono" style="font-size: 11.5px; font-weight: {{h.plazoPeso}}; color: {{h.plazoColor}}">{{h.plazo}}</span></td>
+            <td class="td">
+              <span class="mono" style="display: inline-block; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{h.estadoBg}}; color: {{h.estadoFg}}">{{h.estado}}</span>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin: 12px 0 0; font-size: 11.5px; color: #8a938e; line-height: 1.6; max-width: 100ch">Abierto, en análisis, en ejecución y en verificación <strong style="font-weight: 600; color: #6b7570">se calculan</strong> de lo que el hallazgo tiene. Solo se almacenan las marcas de cerrado y anulado, que son actos de una persona y no resultados de un cálculo.</p>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const CHIP_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const MARCA_BASE = 'padding: 6px 12px; font-size: 11.5px; font-weight: 500; border-radius: 20px;';
+const MARCA_OFF = MARCA_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const MARCA_ON = MARCA_BASE + ' background: #fdeeeb; border: 1px solid #f2cdc6; color: #a52016; font-weight: 600;';
+
+const TIPOS = {
+  'NC mayor': { bg: '#fdeeeb', fg: '#a52016' },
+  'NC menor': { bg: '#fff3e6', fg: '#8a4407' },
+  'Observación': { bg: '#faf1d3', fg: '#6b5410' },
+  'Oportunidad': { bg: '#e8f4ef', fg: '#0b5c44' },
+};
+
+const ESTADOS = {
+  abierto: { etiqueta: 'Abierto', bg: '#eef2f8', fg: '#12437f' },
+  analisis: { etiqueta: 'En análisis', bg: '#e9f0fb', fg: '#12437f' },
+  ejecucion: { etiqueta: 'En ejecución', bg: '#fff3e6', fg: '#8a4407' },
+  verificacion: { etiqueta: 'En verificación', bg: '#faf1d3', fg: '#6b5410' },
+  cerrado: { etiqueta: 'Cerrado', bg: '#e6efe9', fg: '#0b5c44' },
+};
+
+const HALLAZGOS = [
+  { codigo: 'HAL-2026-0007', descripcion: 'La caracterización de Gestión de Proyectos no separa las actividades de diseño de las de ejecución', requisito: 'ISO 9001 · 8.3 Diseño y desarrollo', tipo: 'Oportunidad', origen: 'Auditoría interna', responsable: 'Katherine Quiroga', iniciales: 'KQ', plazo: '12 d', dias: 12, estado: 'ejecucion', reincidente: false },
+  { codigo: 'HAL-2026-0011', descripcion: 'Requisitos ambientales de cambio climático no ampliados en la matriz de partes interesadas', requisito: 'ISO 9001 · 4.2 Enmienda 2024', tipo: 'Oportunidad', origen: 'Auditoría interna', responsable: 'Laura Agudelo', iniciales: 'LA', plazo: '4 d', dias: 4, estado: 'analisis', reincidente: false },
+  { codigo: 'HAL-2026-0014', descripcion: 'Matriz de requisitos legales sin diligenciar: solo encabezados en la versión vigente', requisito: 'ISO 9001 · 4.2 · A.5.31', tipo: 'NC mayor', origen: 'Auditoría externa', responsable: 'Marcela Molina', iniciales: 'MM', plazo: 'Vencido 3 d', dias: -3, estado: 'ejecucion', reincidente: false },
+  { codigo: 'HAL-2026-0015', descripcion: 'Entregable del proyecto ILC devuelto por el cliente por errores de contenido', requisito: 'ISO 9001 · 8.6 Liberación', tipo: 'NC menor', origen: 'Queja de cliente', responsable: 'Laura Agudelo', iniciales: 'LA', plazo: '9 d', dias: 9, estado: 'verificacion', reincidente: true },
+  { codigo: 'HAL-2026-0016', descripcion: 'Inventario de licencias desactualizado frente a las suscripciones activas', requisito: 'ISO 27001 · A.5.9', tipo: 'NC menor', origen: 'SGSI · control', responsable: 'Daniel Medina', iniciales: 'DM', plazo: '18 d', dias: 18, estado: 'analisis', reincidente: false },
+  { codigo: 'HAL-2026-0018', descripcion: 'Indicador de satisfacción del cliente por debajo de la meta dos periodos seguidos', requisito: 'ISO 9001 · 9.1.2', tipo: 'NC menor', origen: 'Indicador', responsable: 'Yuliet Rojas', iniciales: 'YR', plazo: 'Vencido 1 d', dias: -1, estado: 'analisis', reincidente: true },
+  { codigo: 'HAL-2026-0019', descripcion: 'Riesgo R14 materializado: retraso en cronograma por rotación de personal clave', requisito: 'MAN-CAL-01 · R14', tipo: 'NC menor', origen: 'Riesgo materializado', responsable: 'Lina Medina', iniciales: 'LM', plazo: '25 d', dias: 25, estado: 'abierto', reincidente: false },
+  { codigo: 'HAL-2026-0020', descripcion: 'Protocolo de atención PTR-CLI-01 sin afinar dentro del control operacional', requisito: 'ISO 9001 · 8.1', tipo: 'Observación', origen: 'Auditoría interna', responsable: 'Yuliet Rojas', iniciales: 'YR', plazo: '30 d', dias: 30, estado: 'abierto', reincidente: false },
+  { codigo: 'HAL-2026-0009', descripcion: 'Registro de revisión por la dirección sin ampliar las entradas del numeral 9.3', requisito: 'ISO 9001 · 9.3.2', tipo: 'Oportunidad', origen: 'Auditoría interna', responsable: 'Laura Agudelo', iniciales: 'LA', plazo: 'Cerrado', dias: 999, estado: 'cerrado', reincidente: false },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos', soloVencidos: false, soloReincidentes: false };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tipos = ['NC mayor', 'NC menor', 'Observación', 'Oportunidad'];
+
+    const filtros = [{ id: 'todos', etiqueta: 'Todos', conteo: HALLAZGOS.length }]
+      .concat(tipos.map((t) => ({ id: t, etiqueta: t, conteo: HALLAZGOS.filter((h) => h.tipo === t).length })))
+      .map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) }));
+
+    let visibles = s.filtro === 'todos' ? HALLAZGOS : HALLAZGOS.filter((h) => h.tipo === s.filtro);
+    if (s.soloVencidos) visibles = visibles.filter((h) => h.dias < 0);
+    if (s.soloReincidentes) visibles = visibles.filter((h) => h.reincidente);
+
+    const hallazgos = visibles.map((h) => {
+      const e = ESTADOS[h.estado];
+      const vencido = h.dias < 0;
+      return {
+        ...h,
+        tipoBg: TIPOS[h.tipo].bg,
+        tipoFg: TIPOS[h.tipo].fg,
+        estado: e.etiqueta,
+        estadoBg: e.bg,
+        estadoFg: e.fg,
+        fila: vencido ? '#fdeeeb' : '#ffffff',
+        plazoColor: vencido ? '#a52016' : h.estado === 'cerrado' ? '#0b5c44' : h.dias <= 7 ? '#8a4407' : '#4a544f',
+        plazoPeso: vencido || h.dias <= 7 ? 600 : 400,
+      };
+    });
+
+    return {
+      filtros,
+      hallazgos,
+      kpis: [
+        { etiqueta: 'Abiertos', valor: 8, nota: 'de 20 en el año', color: '#12437f' },
+        { etiqueta: 'Vencidos', valor: 2, nota: 'el más viejo, 3 días', color: '#a52016' },
+        { etiqueta: 'Tasa de eficacia', valor: '91 %', nota: '10 de 11 verificadas', color: '#0b5c44' },
+        { etiqueta: 'Reincidencia', valor: '22 %', nota: '2 con antecesor', color: '#c25a1e' },
+      ],
+      marcas: [
+        { id: 'venc', etiqueta: 'Solo vencidos', activa: s.soloVencidos, elegir: () => this.setState({ soloVencidos: !s.soloVencidos }) },
+        { id: 'rein', etiqueta: 'Solo reincidentes', activa: s.soloReincidentes, elegir: () => this.setState({ soloReincidentes: !s.soloReincidentes }) },
+      ].map((m) => ({ ...m, estilo: m.activa ? MARCA_ON : MARCA_OFF })),
+    };
+  }
+}
+</script>
+</body>
+</html>
