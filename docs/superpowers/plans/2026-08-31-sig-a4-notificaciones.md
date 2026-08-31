@@ -347,7 +347,7 @@ function diaDe(fecha: Date): number {
 npx jest lib/sig/__tests__/cumplimiento.test.ts
 ```
 
-Expected: PASS, 9 pruebas.
+Expected: PASS, 7 pruebas.
 
 - [ ] **Step 5: Commit**
 
