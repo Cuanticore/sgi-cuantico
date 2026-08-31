@@ -979,7 +979,15 @@ model Persona {
   evaluacionesCumplimiento EvaluacionCumplimiento[] @relation("EvaluacionEvaluadoPor")
   riesgosOrganizacionales RiesgoOrganizacional[] @relation("RiesgoOrgResponsable")
   materializaciones       MaterializacionRiesgo[] @relation("MaterializacionReportante")
-  contextosAprobados      AnalisisContexto[] @relation("ContextoAprobadoPor")
+contextosAprobados      AnalisisContexto[] @relation("ContextoAprobadoPor")
+  programasAprobados      ProgramaAuditoria[] @relation("ProgramaAprobadoPor")
+  programadasResponsable  AuditoriaProgramada[] @relation("ProgramadaResponsable")
+  auditoriasLideradas     Auditoria[] @relation("AuditoriaLider")
+  equipoAuditorias        EquipoAuditor[] @relation("EquipoAuditorPersona")
+  notasAuditor            NotaAuditor[] @relation("NotaAuditorAutor")
+  informesEmitidos        InformeAuditoria[] @relation("InformeEmitidoPor")
+  perfilesAuditor         PerfilAuditor[] @relation("PerfilPersona")
+  perfilesAprobados       PerfilAuditor[] @relation("PerfilAprobadoPor")
 
   @@map("persona")
 }
@@ -1767,4 +1775,234 @@ model NivelRiesgo {
   accionOportunidad String @map("accion_oportunidad")
 
   @@map("nivel_riesgo")
+}
+// ============================================================================
+// SIG — Auditorías internas (ISO 9001 §9.2 · ISO/IEC 27001 §9.2). El estado se
+// calcula; lo único almacenado es `emitidoEn` y `cerradaEn`, actos de una persona.
+// ============================================================================
+
+enum TipoAuditoria {
+  INTERNA
+  EXTERNA
+  PROVEEDOR
+
+  @@map("tipo_auditoria")
+}
+
+enum TipoNota {
+  OK
+  NC
+  OM
+  RM
+  FORTALEZA
+
+  @@map("tipo_nota")
+}
+
+enum TipoActa {
+  APERTURA
+  CIERRE
+
+  @@map("tipo_acta")
+}
+
+enum VersionInforme {
+  PRELIMINAR
+  FINAL
+
+  @@map("version_informe")
+}
+
+enum PapelEquipo {
+  LIDER
+  AUDITOR
+  EN_FORMACION
+  EXPERTO
+
+  @@map("papel_equipo")
+}
+
+/// El catálogo de numerales (decisión 3.1.1: catálogo, no constante).
+model NormaAuditable {
+  id      Int    @id @default(autoincrement())
+  codigo  String @unique
+  nombre  String
+  version String
+  activa  Boolean @default(true)
+
+  requisitos RequisitoNorma[]
+
+  @@map("norma_auditable")
+}
+
+model RequisitoNorma {
+  id        Int    @id @default(autoincrement())
+  normaId   Int    @map("norma_id")
+  numeral   String
+  titulo    String
+  orden     Int
+  auditable Boolean @default(true)
+
+norma NormaAuditable @relation(fields: [normaId], references: [id])
+  celdas CeldaPlan[]
+
+  @@unique([normaId, numeral])
+  @@map("requisito_norma")
+}
+
+/// FOR-CAL-04: el programa anual.
+model ProgramaAuditoria {
+  id               Int      @id @default(autoincrement())
+  anio             Int      @unique
+  alcance          String
+  objetivo         String
+  criterios        String
+  metodos          String
+  aprobadoPorId    Int?     @map("aprobado_por_id")
+  fechaAprobacion  DateTime? @map("fecha_aprobacion")
+
+  aprobadoPor Persona?          @relation("ProgramaAprobadoPor", fields: [aprobadoPorId], references: [id])
+  programadas AuditoriaProgramada[]
+
+  @@map("programa_auditoria")
+}
+
+model AuditoriaProgramada {
+  id               Int       @id @default(autoincrement())
+  programaId       Int       @map("programa_id")
+  procesoRef       String    @map("proceso_ref")
+  meses            String
+  tipo             TipoAuditoria @default(INTERNA)
+  responsableId    Int       @map("responsable_id")
+  plazoInformeDias Int       @map("plazo_informe_dias")
+
+  programa     ProgramaAuditoria @relation(fields: [programaId], references: [id])
+  responsable  Persona           @relation("ProgramadaResponsable", fields: [responsableId], references: [id])
+  auditorias   Auditoria[]
+
+  @@map("auditoria_programada")
+}
+
+/// La auditoría concreta. El estado se calcula (decisión 3.1.4).
+model Auditoria {
+  id            Int          @id @default(autoincrement())
+  programadaId  Int?         @map("programada_id")
+  tipo          TipoAuditoria
+  fechaInicio   DateTime     @map("fecha_inicio") @db.Date
+  fechaFin      DateTime?    @map("fecha_fin") @db.Date
+  sitio         String
+  objeto        String
+  alcance       String
+  criterios     String
+  auditorLiderId Int        @map("auditor_lider_id")
+  entidadAuditora String?    @map("entidad_auditora")
+  emitidoEn     DateTime?    @map("emitido_en")
+  cerradaEn     DateTime?    @map("cerrada_en")
+
+  programada  AuditoriaProgramada? @relation(fields: [programadaId], references: [id])
+  auditorLider Persona             @relation("AuditoriaLider", fields: [auditorLiderId], references: [id])
+  equipo      EquipoAuditor[]
+  celdas      CeldaPlan[]
+  actas       ActaAuditoria[]
+  informes    InformeAuditoria[]
+
+  @@map("auditoria")
+}
+
+model EquipoAuditor {
+  id          Int           @id @default(autoincrement())
+  auditoriaId Int           @map("auditoria_id")
+  personaId   Int?          @map("persona_id")
+  nombreExterno String?     @map("nombre_externo")
+  papel       PapelEquipo
+
+  auditoria Auditoria @relation(fields: [auditoriaId], references: [id])
+  persona   Persona?  @relation("EquipoAuditorPersona", fields: [personaId], references: [id])
+
+  @@map("equipo_auditor")
+}
+
+/// Hoja PLAN de FOR-CAL-06: la matriz proceso × numeral.
+model CeldaPlan {
+  id              Int      @id @default(autoincrement())
+  auditoriaId     Int      @map("auditoria_id")
+  procesoRef      String   @map("proceso_ref")
+  requisitoNormaId Int     @map("requisito_norma_id")
+  hora            String?
+  auditorId       Int?     @map("auditor_id")
+  planificada     Boolean  @default(true)
+
+  auditoria Auditoria     @relation(fields: [auditoriaId], references: [id])
+  requisito RequisitoNorma @relation(fields: [requisitoNormaId], references: [id])
+  notas     NotaAuditor[]
+
+  @@unique([auditoriaId, procesoRef, requisitoNormaId])
+  @@map("celda_plan")
+}
+
+/// Una nota por celda: la cobertura es medible y no hay notas huérfanas (C4).
+model NotaAuditor {
+  id           Int      @id @default(autoincrement())
+  celdaId      Int      @map("celda_id")
+  notaEvidencia String   @map("nota_evidencia")
+  tipo         TipoNota
+  fecha        DateTime @default(now())
+  auditorId    Int      @map("auditor_id")
+  hallazgoId   Int?     @map("hallazgo_id")
+
+  celda   CeldaPlan @relation(fields: [celdaId], references: [id])
+  auditor Persona   @relation("NotaAuditorAutor", fields: [auditorId], references: [id])
+
+  @@map("nota_auditor")
+}
+
+model ActaAuditoria {
+  id         Int      @id @default(autoincrement())
+  auditoriaId Int     @map("auditoria_id")
+  tipo       TipoActa
+  fecha      DateTime @db.Date
+  asistentes String
+  contenido  String
+
+  auditoria Auditoria @relation(fields: [auditoriaId], references: [id])
+
+  @@unique([auditoriaId, tipo])
+  @@map("acta_auditoria")
+}
+
+model InformeAuditoria {
+  id           Int            @id @default(autoincrement())
+  auditoriaId  Int            @map("auditoria_id")
+  version      VersionInforme
+  fechaInforme DateTime       @map("fecha_informe") @db.Date
+  conclusiones String
+  recomendaciones String
+  emitidoPorId Int?           @map("emitido_por_id")
+  emitidoEn    DateTime?      @map("emitido_en")
+
+  auditoria  Auditoria @relation(fields: [auditoriaId], references: [id])
+  emitidoPor Persona?  @relation("InformeEmitidoPor", fields: [emitidoPorId], references: [id])
+
+  @@unique([auditoriaId, version])
+  @@map("informe_auditoria")
+}
+
+/// C3: solo una persona con perfil aprobado por el Consulting Director puede ser
+/// auditor líder. Los datos que PRO-CAL-04 exige para habilitar.
+model PerfilAuditor {
+  id                  Int      @id @default(autoincrement())
+  personaId           Int?     @map("persona_id")
+  nombreExterno       String?  @map("nombre_externo")
+  formacion           String
+  certificacion       String
+  entidadCertificadora String  @map("entidad_certificadora")
+  vigencia            DateTime @db.Date
+  experienciaAnios    Int      @map("experiencia_anios")
+  aprobadoPorId       Int?     @map("aprobado_por_id")
+  aprobadoEn          DateTime? @map("aprobado_en")
+
+  persona     Persona? @relation("PerfilPersona", fields: [personaId], references: [id])
+  aprobadoPor Persona? @relation("PerfilAprobadoPor", fields: [aprobadoPorId], references: [id])
+
+  @@map("perfil_auditor")
 }
