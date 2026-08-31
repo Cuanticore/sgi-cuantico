@@ -1340,6 +1340,7 @@ model Hallazgo {
   extension   ExtensionProblema?
   acciones    HallazgoAccion[]
   verificaciones VerificacionEficaciaHallazgo[]
+  materializaciones MaterializacionRiesgo[]
 
   @@index([areaId, fechaDeteccion])
   @@map("hallazgo")
@@ -1650,6 +1651,7 @@ model MaterializacionRiesgo {
 
   riesgo     RiesgoOrganizacional @relation(fields: [riesgoId], references: [id])
   reportante Persona              @relation("MaterializacionReportante", fields: [reportanteId], references: [id])
+  hallazgo   Hallazgo?            @relation(fields: [hallazgoId], references: [id])
 
   @@index([riesgoId, fecha])
   @@map("materializacion_riesgo")
