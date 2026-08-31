@@ -205,6 +205,7 @@ model Area {
   contadores ContadorCodigo[]
   personas   Persona[]
   obligacionesAlcance Obligacion[]
+  hallazgos  Hallazgo[] @relation("HallazgoArea")
 
   @@map("area")
 }
@@ -507,11 +508,11 @@ model ControlAmenaza {
 /// auditor (MET-SIG-01 section 8.4).
 model Evidencia {
   id        Int           @id @default(autoincrement())
-  /// Exactamente uno de `controlId` o `registroId` está presente — lo impone un CHECK
-  /// en la migración y la validación de la acción. La evidencia del SGSI y el anexo del
-  /// SIG comparten la misma tabla: versionado, baja lógica y bytes en base, sin espejo.
+  /// Exactamente uno de `controlId`, `registroId` o `hallazgoId` está presente — lo
+  /// impone el CHECK en la migración. Tres consumidores, un solo manejo de archivos.
   controlId  Int?  @map("control_id")
   registroId Int?  @map("registro_id")
+  hallazgoId Int?  @map("hallazgo_id")
   tipo      TipoEvidencia
   texto     String
   /// The base evidence carried over from the control's own justification cannot be
@@ -966,6 +967,13 @@ model Persona {
   asignaciones             Asignacion[] @relation("AsignacionPersona")
   asignacionesCerradasPor  Asignacion[] @relation("AsignacionCerradaPor")
   enviosNotificacion       EnvioNotificacion[]
+  hallazgosDetectados      Hallazgo[] @relation("HallazgoDetectadoPor")
+  hallazgosClasificados    Hallazgo[] @relation("HallazgoClasificadoPor")
+  hallazgosResponsables    Hallazgo[] @relation("HallazgoResponsable")
+  hallazgosCerrados        Hallazgo[] @relation("HallazgoCerradoPor")
+  correccionesHallazgo     CorreccionHallazgo[] @relation("CorreccionResponsable")
+  analisisCausa            AnalisisCausa[]
+  verificacionesHallazgo   VerificacionEficaciaHallazgo[]
 
   @@map("persona")
 }
@@ -1134,6 +1142,7 @@ model Asignacion {
   persona           Persona             @relation("AsignacionPersona", fields: [personaId], references: [id])
   cerradaPorPersona Persona?            @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
   registros         RegistroRealizado[]
+  hallazgos         HallazgoAccion[]
 
   @@unique([obligacionId, personaId, periodo])
   @@index([personaId, estado])
@@ -1229,4 +1238,201 @@ enum EnvioResultado {
   FALLO
 
   @@map("envio_resultado")
+}
+
+// ============================================================================
+// SIG — Mejora (ISO 9001 §10.2 · ISO/IEC 27001 §10). El estado se calcula; solo
+// se almacenan las marcas de cerrado y anulado, que son actos de una persona.
+// ============================================================================
+
+enum TipoHallazgo {
+  NC_MAYOR
+  NC_MENOR
+  OBSERVACION
+  OPORTUNIDAD
+
+  @@map("tipo_hallazgo")
+}
+
+enum OrigenHallazgo {
+  AUDITORIA_INTERNA
+  AUDITORIA_EXTERNA
+  QUEJA
+  INDICADOR
+  REVISION_DIRECCION
+  SGSI
+  OTRO
+
+  @@map("origen_hallazgo")
+}
+
+enum MetodoCausa {
+  CINCO_PORQUES
+  ISHIKAWA
+  LIBRE
+
+  @@map("metodo_causa")
+}
+
+enum PapelAccionHallazgo {
+  CORRECCION
+  CORRECTIVA
+  MEJORA
+  /// Desviación declarada: la verificación de eficacia se agenda como asignación
+  /// del motor de A (decisión 3.1.2 de la spec) y necesita enlazarse al hallazgo.
+  VERIFICACION
+
+  @@map("papel_accion_hallazgo")
+}
+
+enum ResultadoEficacia {
+  EFICAZ
+  NO_EFICAZ
+
+  @@map("resultado_eficacia")
+}
+
+/// El código NO lleva el tipo: reclasificar una observación reincidente a NC mayor no
+/// rompe la trazabilidad. Consecutivo anual con el patrón de ContadorCodigo (B1).
+model Hallazgo {
+  id               Int            @id @default(autoincrement())
+  codigo           String         @unique // HAL-2026-0001
+  tipo             TipoHallazgo
+  origen           OrigenHallazgo
+  /// Referencia tipada: auditoriaId, riesgoId o controlId, codigoIndicador, o texto.
+  origenReferencia String         @map("origen_referencia")
+  descripcion      String
+  requisitoIncumplido String      @map("requisito_incumplido")
+  evidenciaObjetiva String       @map("evidencia_objetiva")
+  areaId           Int            @map("area_id")
+  detectadoPorId   Int            @map("detectado_por_id")
+  fechaDeteccion   DateTime       @map("fecha_deteccion") @db.Date
+  /// B3: hasta la clasificación el hallazgo no consume plazos.
+  clasificadoPorId Int?           @map("clasificado_por_id")
+  fechaClasificacion DateTime?    @map("fecha_clasificacion") @db.Date
+  responsableId    Int?           @map("responsable_id")
+  fechaCompromiso  DateTime?      @map("fecha_compromiso") @db.Date
+  /// B10: reincidencia.
+  hallazgoAnteriorId Int?         @map("hallazgo_anterior_id")
+  /// Marcas almacenables; el resto del estado se calcula.
+  fechaCierre      DateTime?      @map("fecha_cierre")
+  cerradoPorId     Int?           @map("cerrado_por_id")
+  anuladoEn        DateTime?      @map("anulado_en")
+  motivoAnulacion  String?        @map("motivo_anulacion")
+  creadaEn         DateTime       @default(now()) @map("creada_en")
+
+  area             Area           @relation("HallazgoArea", fields: [areaId], references: [id])
+  detectadoPor     Persona        @relation("HallazgoDetectadoPor", fields: [detectadoPorId], references: [id])
+  clasificadoPor   Persona?       @relation("HallazgoClasificadoPor", fields: [clasificadoPorId], references: [id])
+  responsable      Persona?       @relation("HallazgoResponsable", fields: [responsableId], references: [id])
+  cerradoPor       Persona?       @relation("HallazgoCerradoPor", fields: [cerradoPorId], references: [id])
+  hallazgoAnterior Hallazgo?      @relation("HallazgoReincidencia", fields: [hallazgoAnteriorId], references: [id])
+  reincidentes     Hallazgo[]     @relation("HallazgoReincidencia")
+
+  correccion  CorreccionHallazgo?
+  analisis    AnalisisCausa?
+  extension   ExtensionProblema?
+  acciones    HallazgoAccion[]
+  verificaciones VerificacionEficaciaHallazgo[]
+
+  @@index([areaId, fechaDeteccion])
+  @@map("hallazgo")
+}
+
+/// La corrección inmediata: contiene el efecto, no cierra el hallazgo.
+model CorreccionHallazgo {
+  id            Int      @id @default(autoincrement())
+  hallazgoId    Int      @unique @map("hallazgo_id")
+  descripcion   String
+  responsableId Int      @map("responsable_id")
+  fecha         DateTime @db.Date
+
+  hallazgo    Hallazgo @relation(fields: [hallazgoId], references: [id])
+  responsable Persona  @relation("CorreccionResponsable", fields: [responsableId], references: [id])
+
+  @@map("correccion_hallazgo")
+}
+
+/// El método se declara y se guarda desarrollado, no como un párrafo suelto: es lo que
+/// un auditor pide ver. Cinco porqués guarda los cinco pasos; Ishikawa, por categoría.
+model AnalisisCausa {
+  id            Int            @id @default(autoincrement())
+  hallazgoId    Int            @unique @map("hallazgo_id")
+  metodo        MetodoCausa
+  desarrollo    Json
+  causaRaiz     String         @map("causa_raiz")
+  realizadoPorId Int           @map("realizado_por_id")
+  fecha         DateTime       @default(now())
+
+  hallazgo      Hallazgo       @relation(fields: [hallazgoId], references: [id])
+  realizadoPor  Persona        @relation(fields: [realizadoPorId], references: [id])
+
+  @@map("analisis_causa")
+}
+
+/// ISO 9001 §10.2.1 d: ¿el mismo problema existe en otra parte? Sin este registro la
+/// NC se cierra sin haber preguntado lo que la norma obliga a preguntar.
+model ExtensionProblema {
+  id              Int      @id @default(autoincrement())
+  hallazgoId      Int      @unique @map("hallazgo_id")
+  evaluada        Boolean  @default(true)
+  existeEnOtraParte Boolean @map("existe_en_otra_parte")
+  analisis        String
+
+  hallazgo        Hallazgo @relation(fields: [hallazgoId], references: [id])
+
+  @@map("extension_problema")
+}
+
+/// Puente hallazgo ↔ asignación del motor de A. La dependencia va en un solo sentido:
+/// el motor no sabe que existen los hallazgos (B12).
+model HallazgoAccion {
+  id           Int               @id @default(autoincrement())
+  hallazgoId   Int               @map("hallazgo_id")
+  asignacionId Int               @map("asignacion_id")
+  papel        PapelAccionHallazgo
+
+  hallazgo    Hallazgo          @relation(fields: [hallazgoId], references: [id])
+  asignacion  Asignacion        @relation(fields: [asignacionId], references: [id])
+
+  @@unique([hallazgoId, asignacionId])
+  @@map("hallazgo_accion")
+}
+
+/// Son varias, no una: si la primera resulta no eficaz, la siguiente se agrega y el
+/// historial completo queda (B6).
+model VerificacionEficaciaHallazgo {
+  id            Int              @id @default(autoincrement())
+  hallazgoId    Int              @map("hallazgo_id")
+  fecha         DateTime         @default(now())
+  verificadoPorId Int            @map("verificado_por_id")
+  resultado     ResultadoEficacia
+  nota          String?
+
+  hallazgo      Hallazgo         @relation(fields: [hallazgoId], references: [id])
+  verificadoPor Persona          @relation(fields: [verificadoPorId], references: [id])
+
+  @@index([hallazgoId, fecha])
+  @@map("verificacion_eficacia_hallazgo")
+}
+
+/// Plazos por tipo parametrizables desde la interfaz (B7). Ningún plazo vive en el
+/// código: la metodología cambió una vez y volverá a cambiar.
+model PlazoPorTipoHallazgo {
+  id             Int          @id @default(autoincrement())
+  tipo           TipoHallazgo @unique
+  diasAnalisis   Int          @map("dias_analisis")
+  diasEjecucion  Int          @map("dias_ejecucion")
+  diasVerificacion Int        @map("dias_verificacion")
+  actualizadoEn  DateTime     @updatedAt @map("actualizado_en")
+
+  @@map("plazo_por_tipo_hallazgo")
+}
+
+/// Consecutivo anual de hallazgos (B1).
+model ContadorHallazgo {
+  anio        Int  @id
+  ultimoValor Int  @default(0) @map("ultimo_valor")
+
+  @@map("contador_hallazgo")
 }
