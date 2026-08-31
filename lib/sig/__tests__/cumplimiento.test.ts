@@ -4,7 +4,7 @@
 // única copia de las reglas de cumplimiento, y es la que la barra de Obligaciones y el
 // correo mensual comparten («nunca puede contradecir a la bandeja»).
 
-import { cumplimientoDePeriodo, deudaVencida, cierresAdministrativos } from '../cumplimiento';
+import { cumplimientoDePeriodo, deudaVencida, cierresAdministrativos, type AsignacionIndicador } from '../cumplimiento';
 
 function d(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -13,13 +13,13 @@ function d(iso: string): Date {
 function asignacion(
   over: Partial<{
     id: number;
-    estado: string;
+    estado: 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
     fechaLimite: Date;
     fechaCierre: Date | null;
     personaId: number;
     cerradaPor: number | null;
   }> = {},
-) {
+): AsignacionIndicador {
   return {
     id: 1,
     estado: 'PENDIENTE',
