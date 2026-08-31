@@ -89,3 +89,17 @@ Las acciones del hallazgo son **asignaciones del motor de A**: aparecen en Mi SI
 responsable junto a lo recurrente. Los plazos por tipo se parametrizan en
 `plazo_por_tipo_hallazgo`. La evidencia reusa `Evidencia` (control, registro o hallazgo:
 exactamente un origen, impuesto por CHECK).
+
+## Gestión estratégica (SIG)
+
+Partes interesadas, requisitos legales y la matriz de riesgos y oportunidades
+organizacionales (`MAT-CAL-02`), con metodologías separadas del SGSI y plataforma
+común: sus fórmulas viven en `lib/sig/estrategico.ts` y se probaron contra los cinco
+casos frontera de la matriz real. Nada calculado se almacena — inherente, residual y
+nivel se derivan al leer — y los registros guardan la referencia al nivel, no el
+número (cambiar una escala recalcula sin tocar datos).
+
+Las acciones del tratamiento son asignaciones del motor de A; materializar un riesgo
+abre su hallazgo en Mejora (`FOR-CAL-08`); el DOFA y el PESTEL se versionan por año
+con su acta de aprobación, y una entrada puede originar riesgos con la referencia
+tipada a la fila. La línea base anual se congela con el patrón de `LineaBase`.
