@@ -20,6 +20,7 @@ export interface DatosCierre {
   calificacion?: number | null;
   exigeEvaluacion?: boolean;
   notaMinima?: number | null;
+  nota?: string | null;
   respuestas?: RespuestaCierre[];
 }
 
