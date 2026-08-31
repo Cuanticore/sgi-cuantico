@@ -115,3 +115,30 @@ export function planificarSincronizacion(
 
   return { altas, cambios, inactivaciones, reactivaciones, ignoradas, abortado: false, motivo: null };
 }
+
+export interface PerfilToken {
+  oid?: unknown;
+  name?: unknown;
+  email?: unknown;
+  preferred_username?: unknown;
+}
+
+function texto(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
+}
+
+/// La entrada de Directorio que se deduce del token de quien acaba de iniciar sesión.
+///
+/// Devuelve `null` si falta el object id o el correo: sin identidad no se crea a nadie, y
+/// deducirla del nombre es exactamente el atajo que este módulo existe para no tomar.
+export function entradaDesdePerfil(perfil: PerfilToken | undefined | null): EntradaDirectorio | null {
+  if (!perfil) return null;
+  const oid = texto(perfil.oid);
+  const correo = texto(perfil.preferred_username) ?? texto(perfil.email);
+  if (!oid || !correo) return null;
+  return {
+    oid,
+    nombre: texto(perfil.name) ?? normalizarCorreo(correo),
+    correo: normalizarCorreo(correo),
+  };
+}

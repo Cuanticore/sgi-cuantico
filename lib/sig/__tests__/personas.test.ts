@@ -114,3 +114,37 @@ describe('la salvaguarda', () => {
     expect(plan.ignoradas).toBe(1);
   });
 });
+import { entradaDesdePerfil } from '../personas';
+
+describe('entradaDesdePerfil', () => {
+  it('arma la entrada con el oid, el nombre y el UPN del token', () => {
+    expect(
+      entradaDesdePerfil({
+        oid: 'oid-ada',
+        name: 'Ada Lovelace',
+        preferred_username: 'Ada@Cuantico.com',
+      }),
+    ).toEqual({ oid: 'oid-ada', nombre: 'Ada Lovelace', correo: 'ada@cuantico.com' });
+  });
+
+  it('acepta `email` cuando el token no trae preferred_username', () => {
+    expect(
+      entradaDesdePerfil({ oid: 'oid-ada', name: 'Ada Lovelace', email: 'ada@cuantico.com' }),
+    ).toEqual({ oid: 'oid-ada', nombre: 'Ada Lovelace', correo: 'ada@cuantico.com' });
+  });
+
+  // Sin oid no hay identidad, y adivinarla por el correo es justo lo que este módulo evita.
+  it('devuelve null sin oid, sin correo o sin perfil', () => {
+    expect(entradaDesdePerfil({ name: 'Ada', email: 'ada@cuantico.com' })).toBeNull();
+    expect(entradaDesdePerfil({ oid: 'oid-ada', name: 'Ada' })).toBeNull();
+    expect(entradaDesdePerfil(undefined)).toBeNull();
+  });
+
+  it('usa el correo como nombre cuando el token no trae displayName', () => {
+    expect(entradaDesdePerfil({ oid: 'oid-ada', email: 'ada@cuantico.com' })).toEqual({
+      oid: 'oid-ada',
+      nombre: 'ada@cuantico.com',
+      correo: 'ada@cuantico.com',
+    });
+  });
+});
