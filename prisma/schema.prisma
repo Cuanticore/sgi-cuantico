@@ -203,6 +203,7 @@ model Area {
   liderCargo CargoResponsable? @relation("AreaLider", fields: [liderCargoId], references: [id])
   activos    Activo[]
   contadores ContadorCodigo[]
+  personas   Persona[]
 
   @@map("area")
 }
@@ -243,6 +244,7 @@ model CargoResponsable {
   riesgos             Riesgo[]
   accionesResponsable AccionPlan[] @relation("AccionResponsable")
   accionesAprueba     AccionPlan[] @relation("AccionAprueba")
+  personas            Persona[]
 
   @@map("cargo_responsable")
 }
@@ -920,4 +922,38 @@ model LineaBase {
   creadaEn  DateTime @default(now()) @map("creada_en")
 
   @@map("linea_base")
+}
+
+// ============================================================================
+// SIG — Sistema Integrado de Gestión. Persona mirrors Azure AD; AD commands on
+// name, email and existence, the SIG commands on area and position.
+// ============================================================================
+
+/// Espejo del Directorio Activo. AD manda sobre nombre, correo y existencia; el SIG manda
+/// sobre área y cargo, que son atributos de gestión y no de identidad.
+///
+/// La identidad es el `oid` de Azure, no el correo: un cambio de apellido cambia el UPN y
+/// no debe crear una persona nueva ni huerfanar sus registros.
+///
+/// No hay columna de rol. El rol lo dan los grupos del Directorio (lib/sgsi/permisos.ts),
+/// que es la respuesta que un auditor busca cuando pregunta quién autorizó un permiso.
+model Persona {
+  id             Int       @id @default(autoincrement())
+  /// Object id de Azure AD. Estable aunque cambie el correo.
+  oid            String    @unique
+  /// userPrincipalName, normalizado a minúsculas.
+  correo         String    @unique
+  nombre         String
+  /// Baja lógica: quien sale de la organización deja de estar activa, nunca se borra,
+  /// porque sus registros de realizado sostienen una auditoría.
+  activa         Boolean   @default(true)
+  sincronizadaEn DateTime? @map("sincronizada_en")
+  areaId         Int?      @map("area_id")
+  cargoId        Int?      @map("cargo_id")
+  creadaEn       DateTime  @default(now()) @map("creada_en")
+
+  area  Area?             @relation(fields: [areaId], references: [id])
+  cargo CargoResponsable? @relation(fields: [cargoId], references: [id])
+
+  @@map("persona")
 }
