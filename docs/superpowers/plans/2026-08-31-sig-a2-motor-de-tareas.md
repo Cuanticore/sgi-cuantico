@@ -454,8 +454,15 @@ describe('periodosHasta', () => {
   it('genera todos los periodos desde el inicio hasta el horizonte', () => {
     const hoy = d('2026-03-15');
     const periodos = periodosHasta(base, hoy, 90);
-    expect(periodos.map((p) => p.etiqueta)).toEqual(['2026-01', '2026-02', '2026-03']);
-    // 2026-04 abre el 1; con horizonte 90 desde el 15/03, el 14/06 no alcanza.
+    // Horizonte: 15/03 + 90 días = 13/06. Entran enero a junio; julio abre el 1 y no alcanza.
+    expect(periodos.map((p) => p.etiqueta)).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+      '2026-06',
+    ]);
     expect(periodos[2].apertura).toEqual(d('2026-03-01'));
     expect(periodos[2].fechaLimite).toEqual(d('2026-03-11'));
   });
@@ -480,7 +487,8 @@ describe('periodosHasta', () => {
   });
 
   it('no genera nada cuando la fecha de inicio está después del horizonte', () => {
-    const periodos = periodosHasta(base, d('2025-12-01'), 90);
+    // 01/09 + 90 días = 30/11, y el primer periodo abre el 01/01: fuera de alcance.
+    const periodos = periodosHasta(base, d('2025-09-01'), 90);
     expect(periodos).toEqual([]);
   });
 });
