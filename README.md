@@ -61,3 +61,17 @@ definir: quien ingresa después recibe los periodos siguientes, nunca los pasado
 al leer. Todo cierre se valida en el servidor (ítems obligatorios, versión leída,
 nota mínima) y queda en `RegistroRealizado`, inmutable. Reabrir conserva el registro
 anterior y el nuevo cierre crea otro.
+
+## Notificaciones, indicadores e histórico (SIG)
+
+Los correos salen por SMTP (las mismas credenciales de las menciones del SGSI) y cada
+envío queda registrado en `EnvioNotificacion` — correr el disparo dos veces no duplica
+nada. Reglas del diseño: sin pendientes no se envía el semanal; un correo por persona,
+agrupado; el mensual cubre solo el área del destinatario y el del líder del SIG todas;
+un envío fallido queda registrado con su detalle. La hora y los días de envío se
+configuran con `SGI_CORREO_HORA`, `SGI_CORREO_DIA_SEMANAL` y `SGI_CORREO_DIA_MENSUAL`.
+
+Los indicadores (cumplimiento, deuda, cierres administrativos) se calculan al leer y
+viven en `lib/sig/cumplimiento.ts`: la barra de Obligaciones y el correo mensual
+comparten esa única copia. El histórico personal exporta a Excel y a la vista
+imprimible, con el cierre administrativo señalado con quién lo hizo.
