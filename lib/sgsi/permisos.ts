@@ -33,6 +33,10 @@ export type Permiso =
   | 'operacion:ver'
   | 'operacion:escribir'
   | 'operacion:administrar'
+  | 'mejora:reportar'
+  | 'mejora:ver'
+  | 'mejora:escribir'
+  | 'mejora:cerrar'
   | 'sgsi:ver'
   | 'sgsi:escribir'
   | 'activo:valorar'
@@ -49,6 +53,9 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'operacion:ver',
     'operacion:escribir',
     'operacion:administrar',
+    'mejora:ver',
+    'mejora:escribir',
+    'mejora:cerrar',
     'sgsi:ver',
     'sgsi:escribir',
     'activo:valorar',
@@ -75,6 +82,8 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.propietarios]: [
     'misig:ver',
     'operacion:ver',
+    'mejora:ver',
+    'mejora:escribir',
     'sgsi:ver',
     'activo:valorar',
     'riesgo:tratar',
@@ -82,7 +91,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   ],
   // Reads everything and changes nothing. The log and the evidence are precisely what an
   // auditor comes for.
-  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
+  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'mejora:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
 };
 
 export interface Rol {
@@ -97,7 +106,7 @@ export interface Rol {
 /// Lo que recibe una cuenta autenticada sin ningún grupo reconocido: sus propias tareas.
 const COLABORADOR: Rol = {
   grupos: [],
-  permisos: new Set<Permiso>(['misig:ver']),
+  permisos: new Set<Permiso>(['misig:ver', 'mejora:reportar']),
   esPorDefecto: false,
 };
 

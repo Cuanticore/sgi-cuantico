@@ -151,4 +151,15 @@ describe('los tres grupos conservan lo suyo y además ven Mi SIG', () => {
       expect(puede(rolDesdeGrupos(['Domain Users']), permiso)).toBe(false);
     }
   });
+
+  it('mejora: reportar lo tiene hasta el Colaborador; cerrar solo el líder', () => {
+    expect(puede(rolDesdeGrupos(['Domain Users']), 'mejora:reportar')).toBe(true);
+    expect(puede(rolDesdeGrupos(['Domain Users']), 'mejora:ver')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:escribir')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:cerrar')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'mejora:escribir')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:escribir')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:ver')).toBe(true);
+  });
 });
