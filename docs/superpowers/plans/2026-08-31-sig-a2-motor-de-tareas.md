@@ -1391,6 +1391,33 @@ export async function cerrarAsignacion(
       }
     }
 
+    // R4: los flags de obligatoriedad salen del contenido, no del cliente. Un ítem que
+    // no pertenece a la verificación se rechaza antes de validar.
+    let respuestasValidadas: RespuestaCierre[] | undefined;
+    if (contenido.tipo === 'VERIFICACION') {
+      const items = await prisma.itemVerificacion.findMany({ where: { contenidoId: contenido.id } });
+      const porItem = new Map(items.map((i) => [i.id, i]));
+      const ajenos = (datos.respuestas ?? []).filter((r) => !porItem.has(r.itemId));
+      if (ajenos.length > 0) {
+        return {
+          ok: false,
+          mensaje: 'Hay respuestas para ítems que no pertenecen a esta verificación.',
+          extemporaneo: false,
+          administrativo: esAdministrativo,
+        };
+      }
+      respuestasValidadas = (datos.respuestas ?? []).map((r) => {
+        const item = porItem.get(r.itemId)!;
+        return {
+          itemId: r.itemId,
+          obligatorio: item.obligatorio,
+          permiteNoAplica: item.permiteNoAplica,
+          respuesta: r.respuesta,
+          nota: r.nota,
+        };
+      });
+    }
+
     const errores = validarCierre({
       tipo: contenido.tipo,
       versionLeida: datos.versionLeida,
@@ -1398,7 +1425,8 @@ export async function cerrarAsignacion(
       calificacion: datos.calificacion,
       exigeEvaluacion: contenido.exigeEvaluacion,
       notaMinima: contenido.notaMinima ? Number(contenido.notaMinima) : null,
-      respuestas: datos.respuestas,
+      nota: datos.nota,
+      respuestas: respuestasValidadas,
     });
     if (errores.length > 0) {
       return { ok: false, mensaje: errores.join('. '), extemporaneo: false, administrativo: esAdministrativo };
