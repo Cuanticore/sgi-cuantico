@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">DOFA 2026</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e6efe9; color: #0b5c44">Aprobado</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570">Análisis interno y externo del contexto · acta de aprobación del 10/08/2026, evidencia de la auditoría externa 27001</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 9px">
+      <span style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+        <span style="color: #6b7570; font-size: 12px">‹</span>
+        <span class="mono" style="font-size: 12.5px; font-weight: 600; min-width: 38px; text-align: center">2026</span>
+        <span style="color: #6b7570; font-size: 12px">›</span>
+      </span>
+      <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nueva entrada</button>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <!-- Los cuatro cuadrantes -->
+    <div style="flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{cuadrantes}}" as="c" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 15px 17px; background: #ffffff; border: 1px solid {{c.borde}}; border-top: 3px solid {{c.color}}; border-radius: 10px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; color: {{c.color}}; white-space: nowrap">{{c.titulo}}</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9px; color: #a3aca7">{{c.eje}}</span>
+          </span>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 7px">
+            <sc-for list="{{c.entradas}}" as="e" hint-placeholder-count="4">
+              <button onClick="{{e.elegir}}" style="{{e.estilo}}">
+                <span style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.45; color: #1a211e; text-align: left">{{e.texto}}</span>
+                <span style="{{e.chipEstilo}}">{{e.chip}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Panel de la entrada -->
+    <aside style="flex: none; width: 342px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 14px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 8px">
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{sel.bg}}; color: {{sel.fg}}">{{sel.cuadrante}}</span>
+          <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{sel.codigo}}</span>
+        </span>
+        <span style="font-size: 13.5px; font-weight: 500; line-height: 1.45">{{sel.texto}}</span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 16px">
+
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="etq" style="color: #12437f">Riesgos que originó</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{sel.conteo}}</span>
+          </span>
+          <sc-for list="{{sel.riesgos}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="mono" style="flex: none; font-size: 10.5px; font-weight: 600; color: #12437f; padding-top: 1px">{{r.codigo}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 11.5px; line-height: 1.45; color: #1a211e">{{r.texto}}</span>
+                <span style="display: flex; align-items: center; gap: 7px">
+                  <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: {{r.nivelBg}}; color: {{r.nivelFg}}">{{r.nivel}}</span>
+                  <span class="mono" style="font-size: 9px; color: #8a938e">residual {{r.residual}}</span>
+                </span>
+              </span>
+            </div>
+          </sc-for>
+          <sc-if value="{{sel.sinRiesgos}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+              <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">Esta entrada no originó ningún riesgo ni oportunidad. O no es material, o se escribió para llenar el cuadrante. Vale la pena revisarla en el comité.</span>
+            </div>
+          </sc-if>
+        </div>
+
+        <button style="align-self: flex-start; padding: 8px 13px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 6px">+ Originar un riesgo desde aquí</button>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+          <span class="etq">Trazabilidad</span>
+          <span style="font-size: 11px; color: #6b7570; line-height: 1.6">El riesgo guarda <span class="mono" style="font-size: 10px">entradaContextoId</span>, no el texto «DOFA». Por eso se puede entrar por la debilidad y ver qué salió de ella, que es lo que el Excel nunca pudo hacer.</span>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const FILA_BASE = 'display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 10px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #fbfcfb; border: 1px solid #e2e6e3;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #12437f;';
+
+const CHIP = 'flex: none; font-family: JetBrains Mono, ui-monospace, monospace; padding: 2px 7px; font-size: 8.5px; font-weight: 600; border-radius: 4px;';
+const CHIP_CON = CHIP + ' background: #e9f0fb; color: #12437f;';
+const CHIP_SIN = CHIP + ' background: #fff3e6; color: #8a4407;';
+
+const NIVELES = [
+  { hasta: 4, etiqueta: 'Aceptable', bg: '#e6efe9', fg: '#0b5c44' },
+  { hasta: 12, etiqueta: 'Moderado', bg: '#faf1d3', fg: '#6b5410' },
+  { hasta: 25, etiqueta: 'Inaceptable', bg: '#fdeeeb', fg: '#a52016' },
+];
+function nivelDe(v) { for (const n of NIVELES) if (v <= n.hasta) return n; return NIVELES[2]; }
+
+const CUADRANTES = [
+  {
+    id: 'F', titulo: 'Fortalezas', eje: 'interno · favorable', color: '#0b5c44', borde: '#c9e3d8', bg: '#e6efe9', fg: '#0b5c44',
+    entradas: [
+      { codigo: 'F1', texto: 'Grupo de investigación reconocido por MinCiencias, activo y vigente', riesgos: [] },
+      { codigo: 'F2', texto: 'Certificación ISO 9001 vigente y SGSI en implementación avanzada', riesgos: [{ codigo: 'R36', texto: 'Adoptar estándares internacionales como diferenciador comercial', residual: 9.72 }] },
+      { codigo: 'F3', texto: 'Conocimiento acumulado del sector público y del ecosistema GovTech', riesgos: [] },
+      { codigo: 'F4', texto: 'Equipo técnico con capacidad en analítica de datos e inteligencia artificial', riesgos: [] },
+    ],
+  },
+  {
+    id: 'O', titulo: 'Oportunidades', eje: 'externo · favorable', color: '#12437f', borde: '#d3dceb', bg: '#e9f0fb', fg: '#12437f',
+    entradas: [
+      { codigo: 'O1', texto: 'Expansión a Centroamérica: estudio de mercado en Panamá realizado', riesgos: [{ codigo: 'R32', texto: 'Ampliar la oferta a nuevos mercados de Centroamérica', residual: 10.8 }] },
+      { codigo: 'O2', texto: 'Demanda creciente de transformación digital en entidades públicas', riesgos: [{ codigo: 'R34', texto: 'Consolidar dos negocios nuevos de transformación digital', residual: 10.8 }] },
+      { codigo: 'O3', texto: 'Exigencia de certificaciones en los pliegos públicos', riesgos: [] },
+    ],
+  },
+  {
+    id: 'D', titulo: 'Debilidades', eje: 'interno · adverso', color: '#8a4407', borde: '#f2b473', bg: '#fff3e6', fg: '#8a4407',
+    entradas: [
+      { codigo: 'D1', texto: 'Dependencia de personas clave sin esquema de respaldo formalizado', riesgos: [{ codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', residual: 7.2 }] },
+      { codigo: 'D2', texto: 'Formatos del sistema creados sin responsable ni periodicidad asignados', riesgos: [{ codigo: 'R17', texto: 'Recibir multas o sanciones y perder credibilidad', residual: 4.55 }, { codigo: 'R28', texto: 'Uso de documentos desactualizados', residual: 1.9 }] },
+      { codigo: 'D3', texto: 'Inventario de licencias y activos tecnológicos desactualizado', riesgos: [{ codigo: 'R27', texto: 'Licencias vencidas o software sin inventariar', residual: 12.96 }] },
+      { codigo: 'D4', texto: 'Cultura de medición aún incipiente en algunos procesos', riesgos: [{ codigo: 'R3', texto: 'Indicadores mal formulados o sin medición', residual: 3.0 }] },
+    ],
+  },
+  {
+    id: 'A', titulo: 'Amenazas', eje: 'externo · adverso', color: '#a52016', borde: '#f2cdc6', bg: '#fdeeeb', fg: '#a52016',
+    entradas: [
+      { codigo: 'A1', texto: 'Concentración de ingresos en contratación pública y sus ciclos presupuestales', riesgos: [{ codigo: 'R4', texto: 'Deterioro de la organización en el mercado', residual: 3.0 }] },
+      { codigo: 'A2', texto: 'Endurecimiento del régimen de protección de datos personales', riesgos: [{ codigo: 'R5', texto: 'Pérdida o fuga de información', residual: 3.2 }] },
+      { codigo: 'A3', texto: 'Escasez de talento técnico y presión salarial del sector', riesgos: [{ codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', residual: 7.2 }] },
+      { codigo: 'A4', texto: 'Competencia de firmas internacionales en los mismos pliegos', riesgos: [] },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'D2' };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    let elegida = null;
+    let cuadranteDe = null;
+
+    const cuadrantes = CUADRANTES.map((c) => ({
+      titulo: c.titulo,
+      eje: c.eje,
+      color: c.color,
+      borde: c.borde,
+      entradas: c.entradas.map((e) => {
+        if (e.codigo === s.sel) { elegida = e; cuadranteDe = c; }
+        const n = e.riesgos.length;
+        return {
+          texto: e.texto,
+          chip: n === 0 ? '—' : String(n),
+          chipEstilo: n === 0 ? CHIP_SIN : CHIP_CON,
+          estilo: e.codigo === s.sel ? FILA_ON : FILA_OFF,
+          elegir: () => this.setState({ sel: e.codigo }),
+        };
+      }),
+    }));
+
+    const e = elegida || CUADRANTES[2].entradas[1];
+    const c = cuadranteDe || CUADRANTES[2];
+
+    return {
+      cuadrantes,
+      sel: {
+        codigo: e.codigo,
+        texto: e.texto,
+        cuadrante: c.titulo,
+        bg: c.bg,
+        fg: c.fg,
+        conteo: e.riesgos.length === 1 ? '1 registro' : e.riesgos.length + ' registros',
+        sinRiesgos: e.riesgos.length === 0,
+        riesgos: e.riesgos.map((r) => {
+          const n = nivelDe(r.residual);
+          return { ...r, nivel: n.etiqueta, nivelBg: n.bg, nivelFg: n.fg };
+        }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

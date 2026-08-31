@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .tarjeta { background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 13px; }
+    .cabecera { display: flex; align-items: center; gap: 9px; }
+    .cabecera > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 5px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Tablero de mejora</h1>
+      <span style="font-size: 12.5px; color: #6b7570">Año 2026 · 20 hallazgos registrados</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 7px">
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <!-- Cuatro cifras de cabecera -->
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px">
+    <sc-for list="{{cifras}}" as="c" hint-placeholder-count="4">
+      <div class="tarjeta" style="gap: 9px; border-top: 2px solid {{c.color}}">
+        <span class="etq">{{c.etiqueta}}</span>
+        <span style="display: flex; align-items: baseline; gap: 9px">
+          <span class="mono" style="font-size: 30px; font-weight: 600; line-height: 1; color: {{c.color}}; font-variant-numeric: tabular-nums">{{c.valor}}</span>
+          <span style="font-size: 11px; color: #6b7570; line-height: 1.45">{{c.nota}}</span>
+        </span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px">
+
+    <!-- Embudo por estado -->
+    <div class="tarjeta" style="min-height: 0">
+      <span class="cabecera"><span>Dónde están los hallazgos abiertos</span><span class="regla"></span></span>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 11px; justify-content: center">
+        <sc-for list="{{embudo}}" as="e" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="flex: none; width: 118px; font-size: 12px; color: #3a443f; text-align: right">{{e.etiqueta}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; height: 26px; background: #f7fbf9; border-radius: 4px; overflow: hidden">
+              <span title="{{e.titulo}}" style="width: {{e.ancho}}; background: #12437f; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px">
+                <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #ffffff">{{e.n}}</span>
+              </span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Un embudo con la mitad detenida en «en análisis» significa que se levantan hallazgos más rápido de lo que se analizan. Es el indicador que anticipa el atasco.</span>
+    </div>
+
+    <!-- Por tipo -->
+    <div class="tarjeta" style="min-height: 0">
+      <span class="cabecera"><span>Por tipo</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">del año</span></span>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 11px; justify-content: center">
+        <sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="flex: none; width: 118px; font-size: 12px; color: #3a443f; text-align: right">{{t.etiqueta}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; height: 14px; background: #f2f4f3; border-radius: 4px; overflow: hidden">
+              <span title="{{t.titulo}}" style="width: {{t.ancho}}; background: #12437f; border-radius: 4px"></span>
+            </span>
+            <span class="mono" style="flex: none; width: 26px; text-align: right; font-size: 12px; font-weight: 600; color: #12437f">{{t.n}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Cero no conformidades mayores propias y una externa. La proporción de oportunidades sobre no conformidades es la señal de que la gente reporta sin miedo.</span>
+    </div>
+
+    <!-- Por origen -->
+    <div class="tarjeta" style="min-height: 0">
+      <span class="cabecera"><span>De dónde salieron</span><span class="regla"></span></span>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; justify-content: center">
+        <sc-for list="{{origenes}}" as="o" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="flex: none; width: 148px; font-size: 12px; color: #3a443f; text-align: right">{{o.etiqueta}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; height: 14px; background: #f2f4f3; border-radius: 4px; overflow: hidden">
+              <span title="{{o.titulo}}" style="width: {{o.ancho}}; background: #12437f; border-radius: 4px"></span>
+            </span>
+            <span class="mono" style="flex: none; width: 26px; text-align: right; font-size: 12px; font-weight: 600; color: #12437f">{{o.n}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Si casi todo viene de auditoría, el sistema solo aprende dos veces al año. Los orígenes propios —indicador, riesgo materializado, lo vi trabajando— son los que muestran un sistema vivo.</span>
+    </div>
+
+    <!-- Tiempo de cierre -->
+    <div class="tarjeta" style="min-height: 0">
+      <span class="cabecera"><span>Días hasta el cierre</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">cerrados del año</span></span>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 13px; justify-content: center">
+        <sc-for list="{{cierre}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="display: flex; align-items: baseline; gap: 9px">
+              <span style="flex: 1; font-size: 12px; color: #3a443f">{{c.etiqueta}}</span>
+              <span class="mono" style="font-size: 13px; font-weight: 600; color: {{c.color}}">{{c.dias}}</span>
+              <span class="mono" style="font-size: 10px; color: #a3aca7; width: 60px; text-align: right">plazo {{c.plazo}}</span>
+            </span>
+            <span style="display: flex; height: 10px; background: #f2f4f3; border-radius: 4px; overflow: hidden; position: relative">
+              <span title="{{c.titulo}}" style="width: {{c.ancho}}; background: {{c.color}}; border-radius: 4px"></span>
+              <span style="position: absolute; top: -3px; bottom: -3px; left: {{c.marca}}; width: 2px; background: #1a211e"></span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">La línea negra es el plazo parametrizado para ese tipo. La barra que la cruza es un tipo que se cierra tarde de forma sistemática — eso es un problema de plazo o de capacidad, no de una persona.</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const VERDE = '#0f7a5a';
+const AMBAR = '#b8791a';
+const ROJO = '#a52016';
+
+const CHIP_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const TIPOS = [
+  { etiqueta: 'NC mayor', n: 1 },
+  { etiqueta: 'NC menor', n: 4 },
+  { etiqueta: 'Observación', n: 2 },
+  { etiqueta: 'Oportunidad', n: 13 },
+];
+
+const ORIGENES = [
+  { etiqueta: 'Auditoría interna', n: 9 },
+  { etiqueta: 'Auditoría externa', n: 3 },
+  { etiqueta: 'Queja de cliente', n: 2 },
+  { etiqueta: 'Indicador incumplido', n: 2 },
+  { etiqueta: 'SGSI · riesgo o control', n: 3 },
+  { etiqueta: 'Lo vi trabajando', n: 1 },
+];
+
+const EMBUDO = [
+  { etiqueta: 'Abierto', n: 2 },
+  { etiqueta: 'En análisis', n: 3 },
+  { etiqueta: 'En ejecución', n: 2 },
+  { etiqueta: 'En verificación', n: 1 },
+];
+
+const CIERRE = [
+  { etiqueta: 'NC mayor', dias: 68, plazo: 60 },
+  { etiqueta: 'NC menor', dias: 41, plazo: 45 },
+  { etiqueta: 'Oportunidad', dias: 52, plazo: 90 },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const maxTipo = Math.max.apply(null, TIPOS.map((t) => t.n));
+    const maxOrigen = Math.max.apply(null, ORIGENES.map((o) => o.n));
+    const maxEmbudo = Math.max.apply(null, EMBUDO.map((e) => e.n));
+    const maxDias = 100;
+
+    return {
+      filtros: [
+        { id: 'todos', etiqueta: 'Toda la organización' },
+        { id: 'area', etiqueta: 'Mi área' },
+        { id: 'abiertos', etiqueta: 'Solo abiertos' },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      cifras: [
+        { etiqueta: 'Abiertos', valor: 8, nota: 'de 20 en el año', color: '#12437f' },
+        { etiqueta: 'Vencidos', valor: 2, nota: 'el más viejo, 3 días', color: ROJO },
+        { etiqueta: 'Tasa de eficacia', valor: '91 %', nota: '10 de 11 verificadas resultaron eficaces', color: VERDE },
+        { etiqueta: 'Reincidencia', valor: '22 %', nota: '2 hallazgos con antecesor', color: AMBAR },
+      ],
+      embudo: EMBUDO.map((e) => ({
+        ...e,
+        ancho: Math.max((e.n / maxEmbudo) * 100, 12).toFixed(1) + '%',
+        titulo: e.etiqueta + ': ' + e.n + ' hallazgos',
+      })),
+      tipos: TIPOS.map((t) => ({
+        ...t,
+        ancho: ((t.n / maxTipo) * 100).toFixed(1) + '%',
+        titulo: t.etiqueta + ': ' + t.n + ' hallazgos en 2026',
+      })),
+      origenes: ORIGENES.map((o) => ({
+        ...o,
+        ancho: ((o.n / maxOrigen) * 100).toFixed(1) + '%',
+        titulo: o.etiqueta + ': ' + o.n + ' hallazgos',
+      })),
+      cierre: CIERRE.map((c) => {
+        const tarde = c.dias > c.plazo;
+        return {
+          etiqueta: c.etiqueta,
+          dias: c.dias + ' d',
+          plazo: c.plazo + ' d',
+          ancho: ((c.dias / maxDias) * 100).toFixed(1) + '%',
+          marca: ((c.plazo / maxDias) * 100).toFixed(1) + '%',
+          color: tarde ? ROJO : VERDE,
+          titulo: c.etiqueta + ': ' + c.dias + ' días promedio, plazo ' + c.plazo,
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Tableros" },
+    { "id": "page-2", "name": "Contexto estratégico" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1196, "h": 900, "title": "Cumplimiento de tareas", "is_interactive": true },
+    { "file": "TableroMejora.dc.html", "page": "page-1", "x": 1300, "y": 0, "w": 1196, "h": 900, "title": "Tablero de mejora", "is_interactive": true },
+    { "file": "TableroAuditoria.dc.html", "page": "page-1", "x": 2600, "y": 0, "w": 1196, "h": 900, "title": "Tablero de auditoría" },
+
+    { "file": "Dofa.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1196, "h": 880, "title": "DOFA", "is_interactive": true },
+    { "file": "Pestel.dc.html", "page": "page-2", "x": 1300, "y": 0, "w": 1196, "h": 880, "title": "PESTEL", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "tableros",
+      "page": "page-1",
+      "x": 0,
+      "y": -260,
+      "w": 780,
+      "text": "Tableros\n\nLos desgloses por categoría van en barras de un solo tono: la identidad la lleva la etiqueta del eje, no el color. Reservar el color para el estado es lo que hace que rojo signifique algo.\n\nLa paleta de estado —verde, ámbar, rojo— pasó las seis comprobaciones del validador. El naranja original de la app NO pasa junto al rojo: ΔE 12,8 en visión normal, por debajo del piso de 15."
+    },
+    {
+      "id": "contexto",
+      "page": "page-2",
+      "x": 0,
+      "y": -260,
+      "w": 780,
+      "text": "Contexto estratégico · DOFA y PESTEL\n\nEstaban fuera de alcance en REQ-SIG-04 §2.2 y entraron el 31/08/2026. Lo que existía era solo el acta que los aprueba, sin las matrices — la misma situación de la matriz legal.\n\nCada entrada muestra cuántos riesgos originó, y el riesgo guarda la referencia a la entrada, no el texto «DOFA». Una entrada sin riesgos queda señalada: suele significar que se escribió para llenar el cuadrante."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

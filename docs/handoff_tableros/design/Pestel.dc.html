@@ -1,0 +1,245 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">PESTEL 2026</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e6efe9; color: #0b5c44">Aprobado</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570">Contexto externo en seis dimensiones · misma acta del 10/08/2026 que aprueba el DOFA</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 14px">
+      <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="2">
+        <span style="display: inline-flex; align-items: center; gap: 6px">
+          <span style="width: 9px; height: 9px; border-radius: 2px; background: {{l.color}}"></span>
+          <span style="font-size: 11.5px; color: #4a544f">{{l.etiqueta}}</span>
+        </span>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <div style="flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{dimensiones}}" as="d" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 9px; min-height: 0; padding: 14px 15px; background: #ffffff; border: 1px solid {{d.borde}}; border-radius: 10px">
+          <span style="display: flex; align-items: center; gap: 8px">
+            <span class="mono" style="display: flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; border-radius: 6px; font-size: 11px; font-weight: 700; background: {{d.inicialBg}}; color: {{d.inicialFg}}">{{d.inicial}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: #1a211e">{{d.titulo}}</span>
+            <span class="mono" style="flex: none; font-size: 9.5px; color: {{d.conteoColor}}">{{d.conteo}}</span>
+          </span>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{d.entradas}}" as="e" hint-placeholder-count="3">
+              <button onClick="{{e.elegir}}" style="{{e.estilo}}">
+                <span style="flex: none; width: 3px; align-self: stretch; border-radius: 999px; background: {{e.efectoColor}}"></span>
+                <span style="flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.45; color: #1a211e; text-align: left">{{e.texto}}</span>
+                <span style="{{e.chipEstilo}}">{{e.chip}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{d.vacia}}" hint-placeholder-val="{{ true }}">
+            <span style="font-size: 10.5px; color: #8a4407; line-height: 1.5; padding: 8px 10px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 8px">Ninguna entrada de esta dimensión originó un riesgo.</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <aside style="flex: none; width: 330px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 14px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 8px">
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">{{sel.dimension}}</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{sel.efectoBg}}; color: {{sel.efectoFg}}">{{sel.efecto}}</span>
+        </span>
+        <span style="font-size: 13.5px; font-weight: 500; line-height: 1.45">{{sel.texto}}</span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="etq" style="color: #12437f">Riesgos que originó</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{sel.conteo}}</span>
+          </span>
+          <sc-for list="{{sel.riesgos}}" as="r" hint-placeholder-count="2">
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="mono" style="flex: none; font-size: 10.5px; font-weight: 600; color: #12437f; padding-top: 1px">{{r.codigo}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 11.5px; line-height: 1.45; color: #1a211e">{{r.texto}}</span>
+                <span style="display: flex; align-items: center; gap: 7px">
+                  <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: {{r.nivelBg}}; color: {{r.nivelFg}}">{{r.nivel}}</span>
+                  <span class="mono" style="font-size: 9px; color: #8a938e">residual {{r.residual}}</span>
+                </span>
+              </span>
+            </div>
+          </sc-for>
+          <sc-if value="{{sel.sinRiesgos}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+              <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">Sin riesgos originados. Un PESTEL cuyas entradas no producen nada suele estar escrito para la auditoría, no para decidir.</span>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+          <span class="etq">Enmienda de cambio climático</span>
+          <span style="font-size: 11px; color: #6b7570; line-height: 1.6">La dimensión ambiental deja de ser opcional desde la enmienda ISO de 2024. La matriz de partes interesadas ya lleva su bandera; aquí es donde se analiza el contexto que la sustenta.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const FAVORABLE = '#0f7a5a';
+const ADVERSO = '#a52016';
+
+const FILA_BASE = 'display: flex; align-items: stretch; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #fbfcfb; border: 1px solid #e2e6e3;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #12437f;';
+
+const CHIP = 'flex: none; align-self: center; font-family: JetBrains Mono, ui-monospace, monospace; padding: 2px 6px; font-size: 8px; font-weight: 600; border-radius: 4px;';
+const CHIP_CON = CHIP + ' background: #e9f0fb; color: #12437f;';
+const CHIP_SIN = CHIP + ' background: #fff3e6; color: #8a4407;';
+
+const NIVELES = [
+  { hasta: 4, etiqueta: 'Aceptable', bg: '#e6efe9', fg: '#0b5c44' },
+  { hasta: 12, etiqueta: 'Moderado', bg: '#faf1d3', fg: '#6b5410' },
+  { hasta: 25, etiqueta: 'Inaceptable', bg: '#fdeeeb', fg: '#a52016' },
+];
+function nivelDe(v) { for (const n of NIVELES) if (v <= n.hasta) return n; return NIVELES[2]; }
+
+const DIMENSIONES = [
+  {
+    inicial: 'P', titulo: 'Político', borde: '#e2e6e3',
+    entradas: [
+      { codigo: 'P1', texto: 'Cambio de gobierno y reorientación de las prioridades de transformación digital', efecto: 'ADVERSO', riesgos: [{ codigo: 'R4', texto: 'Deterioro de la organización en el mercado', residual: 3.0 }] },
+      { codigo: 'P2', texto: 'Política pública de gobierno digital que impulsa la contratación del sector', efecto: 'FAVORABLE', riesgos: [{ codigo: 'R34', texto: 'Consolidar dos negocios nuevos de transformación digital', residual: 10.8 }] },
+    ],
+  },
+  {
+    inicial: 'E', titulo: 'Económico', borde: '#e2e6e3',
+    entradas: [
+      { codigo: 'E1', texto: 'Ciclos presupuestales públicos que concentran la contratación en el segundo semestre', efecto: 'ADVERSO', riesgos: [{ codigo: 'R9', texto: 'Evaluación deficiente de oportunidades de negocio', residual: 5.0 }] },
+      { codigo: 'E2', texto: 'Presión salarial del sector tecnológico sobre el costo del talento', efecto: 'ADVERSO', riesgos: [{ codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', residual: 7.2 }] },
+    ],
+  },
+  {
+    inicial: 'S', titulo: 'Social', borde: '#e2e6e3',
+    entradas: [
+      { codigo: 'S1', texto: 'Escasez de perfiles técnicos con experiencia en el sector público', efecto: 'ADVERSO', riesgos: [{ codigo: 'R14', texto: 'Retraso en el cronograma por rotación de personal clave', residual: 7.2 }] },
+      { codigo: 'S2', texto: 'Expectativa creciente de trabajo flexible y bienestar en el equipo', efecto: 'FAVORABLE', riesgos: [] },
+    ],
+  },
+  {
+    inicial: 'T', titulo: 'Tecnológico', borde: '#e2e6e3',
+    entradas: [
+      { codigo: 'T1', texto: 'Adopción acelerada de inteligencia artificial en la analítica de datos', efecto: 'FAVORABLE', riesgos: [{ codigo: 'R36', texto: 'Adoptar estándares internacionales como diferenciador comercial', residual: 9.72 }] },
+      { codigo: 'T2', texto: 'Dependencia de servicios en la nube de terceros para la operación', efecto: 'ADVERSO', riesgos: [{ codigo: 'R2', texto: 'Fallas en los flujos de información para la toma de decisiones', residual: 4.0 }] },
+      { codigo: 'T3', texto: 'Incremento sostenido de ataques de ingeniería social al sector', efecto: 'ADVERSO', riesgos: [{ codigo: 'R5', texto: 'Pérdida o fuga de información', residual: 3.2 }] },
+    ],
+  },
+  {
+    inicial: 'A', titulo: 'Ambiental', borde: '#f2b473',
+    entradas: [
+      { codigo: 'A1', texto: 'Exigencia de considerar el cambio climático en el sistema de gestión, por la enmienda ISO de 2024', efecto: 'ADVERSO', riesgos: [] },
+      { codigo: 'A2', texto: 'Operación mayoritariamente remota: huella de carbono baja frente al sector', efecto: 'FAVORABLE', riesgos: [] },
+    ],
+  },
+  {
+    inicial: 'L', titulo: 'Legal', borde: '#e2e6e3',
+    entradas: [
+      { codigo: 'L1', texto: 'Modernización anunciada del régimen de protección de datos personales', efecto: 'ADVERSO', riesgos: [{ codigo: 'R5', texto: 'Pérdida o fuga de información', residual: 3.2 }] },
+      { codigo: 'L2', texto: 'Requisitos legales aplicables no identificados por proceso', efecto: 'ADVERSO', riesgos: [{ codigo: 'R17', texto: 'Recibir multas o sanciones y perder credibilidad', residual: 4.55 }] },
+      { codigo: 'L3', texto: 'Certificaciones exigidas en pliegos públicos como barrera de entrada', efecto: 'FAVORABLE', riesgos: [] },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'A1' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    let elegida = null;
+    let dimDe = null;
+
+    const dimensiones = DIMENSIONES.map((d) => {
+      const conRiesgos = d.entradas.reduce((a, e) => a + e.riesgos.length, 0);
+      return {
+        inicial: d.inicial,
+        titulo: d.titulo,
+        borde: d.borde,
+        inicialBg: conRiesgos > 0 ? '#e9f0fb' : '#fff3e6',
+        inicialFg: conRiesgos > 0 ? '#12437f' : '#8a4407',
+        conteo: conRiesgos === 0 ? 'sin riesgos' : conRiesgos + ' riesgos',
+        conteoColor: conRiesgos === 0 ? '#8a4407' : '#a3aca7',
+        vacia: conRiesgos === 0,
+        entradas: d.entradas.map((e) => {
+          if (e.codigo === s.sel) { elegida = e; dimDe = d; }
+          const n = e.riesgos.length;
+          return {
+            texto: e.texto,
+            efectoColor: e.efecto === 'FAVORABLE' ? FAVORABLE : ADVERSO,
+            chip: n === 0 ? '—' : String(n),
+            chipEstilo: n === 0 ? CHIP_SIN : CHIP_CON,
+            estilo: e.codigo === s.sel ? FILA_ON : FILA_OFF,
+            elegir: () => this.setState({ sel: e.codigo }),
+          };
+        }),
+      };
+    });
+
+    const e = elegida || DIMENSIONES[4].entradas[0];
+    const d = dimDe || DIMENSIONES[4];
+    const favorable = e.efecto === 'FAVORABLE';
+
+    return {
+      leyenda: [
+        { etiqueta: 'Favorable', color: FAVORABLE },
+        { etiqueta: 'Adverso', color: ADVERSO },
+      ],
+      dimensiones,
+      sel: {
+        dimension: d.titulo,
+        texto: e.texto,
+        efecto: favorable ? 'Favorable' : 'Adverso',
+        efectoBg: favorable ? '#e6efe9' : '#fdeeeb',
+        efectoFg: favorable ? '#0b5c44' : '#a52016',
+        conteo: e.riesgos.length === 1 ? '1 registro' : e.riesgos.length + ' registros',
+        sinRiesgos: e.riesgos.length === 0,
+        riesgos: e.riesgos.map((r) => {
+          const n = nivelDe(r.residual);
+          return { ...r, nivel: n.etiqueta, nivelBg: n.bg, nivelFg: n.fg };
+        }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

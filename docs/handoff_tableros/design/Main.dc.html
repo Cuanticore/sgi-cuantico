@@ -1,0 +1,270 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .tarjeta { background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 13px; }
+    .cabecera { display: flex; align-items: center; gap: 9px; }
+    .cabecera > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 5px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Cumplimiento de tareas del SIG</h1>
+      <span style="font-size: 12.5px; color: #6b7570">Agosto de 2026 · todas las cifras se calculan al leer, contra las asignaciones reales</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 7px">
+      <sc-for list="{{periodos}}" as="p" hint-placeholder-count="3">
+        <button onClick="{{p.elegir}}" style="{{p.estilo}}">{{p.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 372px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 14px">
+
+    <!-- Titular: un solo número -->
+    <div class="tarjeta" style="grid-row: span 1">
+      <span class="cabecera"><span>Cumplimiento del periodo</span><span class="regla"></span></span>
+      <div style="display: flex; align-items: flex-end; gap: 14px">
+        <span class="mono" style="font-size: 52px; font-weight: 600; line-height: 0.9; color: {{titular.color}}; font-variant-numeric: tabular-nums">{{titular.pct}}</span>
+        <span style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 5px">
+          <span style="font-size: 12px; color: #4a544f">{{titular.detalle}}</span>
+          <span style="font-size: 11.5px; color: {{titular.tendenciaColor}}; font-weight: 500">{{titular.tendencia}}</span>
+        </span>
+      </div>
+
+      <!-- Barra apilada. Tres estados, con etiqueta: el color nunca va solo. -->
+      <div style="display: flex; flex-direction: column; gap: 9px">
+        <span style="display: flex; height: 12px; border-radius: 4px; overflow: hidden; background: #eceeed">
+          <sc-for list="{{titular.segmentos}}" as="s" hint-placeholder-count="3">
+            <span title="{{s.titulo}}" style="width: {{s.ancho}}; background: {{s.color}}; border-right: 2px solid #ffffff"></span>
+          </sc-for>
+        </span>
+        <span style="display: flex; flex-wrap: wrap; gap: 14px">
+          <sc-for list="{{titular.segmentos}}" as="s" hint-placeholder-count="3">
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="width: 9px; height: 9px; border-radius: 2px; background: {{s.color}}"></span>
+              <span style="font-size: 11px; color: #4a544f">{{s.etiqueta}}</span>
+              <span class="mono" style="font-size: 11px; font-weight: 600; color: #1a211e">{{s.n}}</span>
+            </span>
+          </sc-for>
+        </span>
+      </div>
+    </div>
+
+    <!-- Cumplimiento por área -->
+    <div class="tarjeta" style="grid-row: span 2; min-height: 0">
+      <span class="cabecera"><span>Por área</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">asignaciones del periodo</span></span>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 11px">
+        <sc-for list="{{areas}}" as="a" hint-placeholder-count="9">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="flex: none; width: 168px; font-size: 12px; color: #3a443f; text-align: right">{{a.nombre}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: #f2f4f3">
+              <sc-for list="{{a.segmentos}}" as="s" hint-placeholder-count="3">
+                <span title="{{s.titulo}}" style="width: {{s.ancho}}; background: {{s.color}}; border-right: 2px solid #ffffff"></span>
+              </sc-for>
+            </span>
+            <span class="mono" style="flex: none; width: 44px; text-align: right; font-size: 12px; font-weight: 600; color: {{a.color}}; font-variant-numeric: tabular-nums">{{a.pct}}</span>
+            <span class="mono" style="flex: none; width: 46px; text-align: right; font-size: 10.5px; color: #a3aca7">{{a.total}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Un área con pocas asignaciones se ve muy bien o muy mal por una sola tarea. La columna de la derecha es el total, y está ahí para leer el porcentaje con esa cautela.</span>
+    </div>
+
+    <!-- Columna izquierda inferior -->
+    <div style="display: flex; flex-direction: column; gap: 14px; min-height: 0">
+
+      <div class="tarjeta">
+        <span class="cabecera"><span style="color: #a52016">Deuda vencida</span><span class="regla"></span></span>
+        <div style="display: flex; align-items: flex-end; gap: 16px">
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 32px; font-weight: 600; line-height: 1; color: #a52016">7</span>
+            <span style="font-size: 11px; color: #6b7570">asignaciones abiertas y vencidas</span>
+          </span>
+          <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+            <span class="mono" style="font-size: 20px; font-weight: 600; line-height: 1; color: #a52016">31 d</span>
+            <span style="font-size: 11px; color: #6b7570">la más antigua</span>
+          </span>
+        </div>
+        <span style="display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: #f2f4f3">
+          <sc-for list="{{antiguedad}}" as="a" hint-placeholder-count="3">
+            <span title="{{a.titulo}}" style="width: {{a.ancho}}; background: {{a.color}}; border-right: 2px solid #ffffff"></span>
+          </sc-for>
+        </span>
+        <span style="display: flex; gap: 14px">
+          <sc-for list="{{antiguedad}}" as="a" hint-placeholder-count="3">
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="width: 8px; height: 8px; border-radius: 2px; background: {{a.color}}"></span>
+              <span style="font-size: 10.5px; color: #4a544f">{{a.etiqueta}}</span>
+              <span class="mono" style="font-size: 10.5px; font-weight: 600">{{a.n}}</span>
+            </span>
+          </sc-for>
+        </span>
+      </div>
+
+      <div class="tarjeta">
+        <span class="cabecera"><span>Capacitación vigente</span><span class="regla"></span></span>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <span class="mono" style="font-size: 28px; font-weight: 600; line-height: 1; color: #0b5c44">88 %</span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+            <span style="display: flex; height: 10px; border-radius: 4px; overflow: hidden; background: #eceeed">
+              <span title="30 personas al día" style="width: 88%; background: #0f7a5a; border-radius: 4px 0 0 4px"></span>
+            </span>
+            <span style="font-size: 11px; color: #6b7570">30 de 34 personas al día con las cuatro capacitaciones obligatorias</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="border-color: #e0b93c; background: #fdfaf0">
+        <span class="cabecera"><span style="color: #6b5410">Cierres administrativos</span><span class="regla" style="background: #f0e4c0"></span></span>
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span class="mono" style="font-size: 26px; font-weight: 600; line-height: 1; color: #6b5410">4</span>
+          <span style="font-size: 11.5px; color: #6b5410; line-height: 1.5">de 128 · se cuentan aparte del cumplimiento, porque el auditor pregunta quién <em>hizo</em> la tarea, no quién la marcó</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Peores obligaciones: magnitud por categoría, un solo tono -->
+    <div class="tarjeta" style="min-height: 0">
+      <span class="cabecera"><span>Obligaciones con peor cumplimiento</span><span class="regla"></span></span>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{peores}}" as="p" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span class="mono" style="flex: none; width: 62px; font-size: 10.5px; font-weight: 500; color: #12437f">{{p.codigo}}</span>
+            <span style="flex: none; width: 268px; font-size: 12px; color: #3a443f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.titulo}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; height: 12px; background: #f2f4f3; border-radius: 4px; overflow: hidden">
+              <span title="{{p.titulo}} · {{p.pct}}" style="width: {{p.ancho}}; background: #12437f; border-radius: 4px"></span>
+            </span>
+            <span class="mono" style="flex: none; width: 40px; text-align: right; font-size: 12px; font-weight: 600; color: #12437f; font-variant-numeric: tabular-nums">{{p.pct}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Un solo tono a propósito: aquí la identidad la lleva el nombre de la obligación, no el color. Reservar los colores para el estado es lo que hace que rojo signifique algo en esta pantalla.</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+// Paleta de estado validada con el script del skill de dataviz:
+// verde #0f7a5a · ámbar #b8791a · rojo #a52016 pasan las seis comprobaciones,
+// contraste incluido. El naranja original de la app (#c25a1e) NO pasa junto al
+// rojo: ΔE 12,8 en visión normal, por debajo del piso de 15.
+const VERDE = '#0f7a5a';
+const AMBAR = '#b8791a';
+const ROJO = '#a52016';
+
+const CHIP_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 20px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const AREAS = [
+  { nombre: 'Gestión Estratégica', aTiempo: 12, tarde: 1, sinHacer: 0 },
+  { nombre: 'Gestión Comercial', aTiempo: 9, tarde: 2, sinHacer: 1 },
+  { nombre: 'Gestión de Proyectos', aTiempo: 16, tarde: 1, sinHacer: 0 },
+  { nombre: 'Soporte y Servicio al Cliente', aTiempo: 11, tarde: 0, sinHacer: 1 },
+  { nombre: 'Talento Humano', aTiempo: 14, tarde: 1, sinHacer: 2 },
+  { nombre: 'Gestión Legal y Compras', aTiempo: 8, tarde: 2, sinHacer: 2 },
+  { nombre: 'Gestión Tecnológica', aTiempo: 19, tarde: 1, sinHacer: 0 },
+  { nombre: 'Sistema Integrado de Gestión', aTiempo: 13, tarde: 0, sinHacer: 1 },
+  { nombre: 'Gestión Financiera', aTiempo: 9, tarde: 2, sinHacer: 0 },
+];
+
+const PEORES = [
+  { codigo: 'LEC-008', titulo: 'Manual de Riesgos y Oportunidades v2.0', pct: 44 },
+  { codigo: 'TAR-006', titulo: 'Evaluación y reevaluación de proveedores', pct: 50 },
+  { codigo: 'LEC-001', titulo: 'Política de Gobierno de Seguridad de la Información', pct: 71 },
+  { codigo: 'CAP-004', titulo: 'Inducción y reinducción del SGC', pct: 88 },
+  { codigo: 'TAR-005', titulo: 'Conciliación bancaria del mes', pct: 92 },
+  { codigo: 'VER-003', titulo: 'Revisión trimestral de accesos y privilegios', pct: 100 },
+];
+
+function segmentos(aTiempo, tarde, sinHacer) {
+  const total = aTiempo + tarde + sinHacer;
+  const def = [
+    { etiqueta: 'A tiempo', n: aTiempo, color: VERDE },
+    { etiqueta: 'Tarde', n: tarde, color: AMBAR },
+    { etiqueta: 'Sin hacer', n: sinHacer, color: ROJO },
+  ];
+  return def
+    .filter((s) => s.n > 0)
+    .map((s) => ({
+      ...s,
+      ancho: ((s.n / total) * 100).toFixed(1) + '%',
+      titulo: s.etiqueta + ': ' + s.n + ' de ' + total,
+    }));
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { periodo: 'mes' };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const tot = AREAS.reduce(
+      (a, x) => ({ aTiempo: a.aTiempo + x.aTiempo, tarde: a.tarde + x.tarde, sinHacer: a.sinHacer + x.sinHacer }),
+      { aTiempo: 0, tarde: 0, sinHacer: 0 },
+    );
+    const total = tot.aTiempo + tot.tarde + tot.sinHacer;
+    const pct = Math.round((tot.aTiempo / total) * 100);
+
+    return {
+      periodos: [
+        { id: 'mes', etiqueta: 'Este mes' },
+        { id: 'trimestre', etiqueta: 'Trimestre' },
+        { id: 'anio', etiqueta: 'Año' },
+      ].map((p) => ({ ...p, estilo: s.periodo === p.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ periodo: p.id }) })),
+      titular: {
+        pct: pct + ' %',
+        color: pct >= 90 ? '#0b5c44' : pct >= 75 ? '#8a4407' : '#a52016',
+        detalle: tot.aTiempo + ' de ' + total + ' realizadas a tiempo',
+        tendencia: 'Julio cerró en 94 %',
+        tendenciaColor: '#8a4407',
+        segmentos: segmentos(tot.aTiempo, tot.tarde, tot.sinHacer),
+      },
+      areas: AREAS.map((a) => {
+        const t = a.aTiempo + a.tarde + a.sinHacer;
+        const p = Math.round((a.aTiempo / t) * 100);
+        return {
+          nombre: a.nombre,
+          segmentos: segmentos(a.aTiempo, a.tarde, a.sinHacer),
+          pct: p + ' %',
+          total: t,
+          color: p >= 90 ? '#0b5c44' : p >= 75 ? '#8a4407' : '#a52016',
+        };
+      }),
+      antiguedad: [
+        { etiqueta: 'Menos de 7 d', n: 4, ancho: '57.1%', color: AMBAR, titulo: '4 asignaciones vencidas hace menos de 7 días' },
+        { etiqueta: '7 a 30 d', n: 2, ancho: '28.6%', color: '#c25a1e', titulo: '2 asignaciones vencidas entre 7 y 30 días' },
+        { etiqueta: 'Más de 30 d', n: 1, ancho: '14.3%', color: ROJO, titulo: '1 asignación vencida hace más de 30 días' },
+      ],
+      peores: PEORES.map((p) => ({ ...p, pct: p.pct + ' %', ancho: p.pct + '%' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

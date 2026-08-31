@@ -59,6 +59,7 @@ Una nota que refuerza la decisión: ambas metodologías, sin haberse coordinado,
 
 ### 2.1 Dentro del alcance
 
+- **Análisis de contexto**: matrices **DOFA y PESTEL**, versionadas por año y con su acta de aprobación (§2.3).
 - **Matriz de partes interesadas**: 29 filas migradas, con poder, interés y las tres banderas.
 - **Matriz de requisitos legales**: construida desde cero y sembrada con el marco normativo que lista `MAN-CAL-01` (Ley 1581 de 2012, decreto 1377 de 2013, ley 1266 de 2008, decretos 2592 de 2010 y 1727 de 2009, decreto 886 de 2014, ley 1474 de 2011, resolución 76434 de 2012). Con evaluación periódica de cumplimiento.
 - **Matriz de riesgos y oportunidades**: 66 registros migrados, con paridad de cálculo fila por fila.
@@ -73,11 +74,28 @@ Una nota que refuerza la decisión: ambas metodologías, sin haberse coordinado,
 
 | Qué | Por qué |
 |---|---|
-| Matrices DOFA y PESTEL | Se citan como fuente en el manual, pero **no existen como registro** en el repositorio. La fuente se declara como etiqueta; construir dos matrices que nadie mantiene hoy sería inventar trabajo. Se pueden agregar después sin rehacer nada. |
+| ~~Matrices DOFA y PESTEL~~ | **Entraron al alcance el 31/08/2026, por decisión.** Ver §2.3. |
 | Fusionar con el SGSI | Ver §1.3. |
 | Gestión del cambio (carpeta 07) y revisión por la dirección (carpeta 11) | No fueron pedidas. |
 | Cuantificación económica del impacto | La escala guarda el valor de referencia en COP y el porcentaje del patrimonio, como hoy; no se calcula pérdida esperada. |
 | Rol de Comité de riesgos | El comité aprueba fuera del sistema y el líder del SIG registra el acta y la fecha, que es como funciona hoy. |
+
+### 2.3 DOFA y PESTEL · alcance ampliado el 31/08/2026
+
+La versión 1.0 de esta especificación los dejó fuera, con el argumento de que se citan como fuente en el manual pero **no existen como registro** en el repositorio. Ese argumento era correcto en los hechos y equivocado en la conclusión.
+
+Lo que hay hoy es solo la evidencia de aprobación: `4.1. Aprobación_PESTEL_DOFA_2026.pdf` en las evidencias de la auditoría externa 27001, y su editable. **Hay un acta que aprueba dos matrices que no están en ninguna parte** — que es exactamente la misma situación de la matriz de requisitos legales, y por la misma razón vale la pena resolverla dentro de la herramienta en vez de dejarla como una etiqueta.
+
+Con esto, la `fuente` de un riesgo deja de ser texto en los cuatro casos:
+
+| Fuente | Referencia |
+|---|---|
+| `PROCESO` | El proceso, que ya es un dato del riesgo. |
+| `PARTE_INTERESADA` | `necesidadExpectativaId` — la fila real de MAT-EST-02. |
+| `DOFA` | `entradaDofaId` — el cuadrante y la entrada concreta. |
+| `PESTEL` | `entradaPestelId` — la dimensión y la entrada concreta. |
+
+Es el mismo principio de la regla D2, aplicado a las dos fuentes que faltaban: **se guarda la referencia, no un texto**. Y da algo que el Excel no puede dar: entrar por una debilidad del DOFA y ver qué riesgos salieron de ella, o descubrir que una dimensión del PESTEL no originó ninguno — que suele significar que se llenó por cumplir.
 
 ---
 
@@ -104,11 +122,22 @@ Una nota que refuerza la decisión: ambas metodologías, sin haberse coordinado,
 
 | Entidad | Contenido |
 |---|---|
-| **`RiesgoOrganizacional`** | `codigo` (`R1`…, inmutable), `procesoId`, `clase` (RIESGO · OPORTUNIDAD), `fuente` (PROCESO · DOFA · PESTEL · PARTE_INTERESADA) + `parteInteresadaId?`, `descripcion`, `causa`, `efecto`, `factorId`, `probabilidadId`, `impactoId`, `responsableId`, `activo` |
+| **`RiesgoOrganizacional`** | `codigo` (`R1`…, inmutable), `procesoId`, `clase` (RIESGO · OPORTUNIDAD), `fuente` (PROCESO · DOFA · PESTEL · PARTE_INTERESADA) + la referencia tipada que corresponda (`necesidadExpectativaId?` · `entradaContextoId?`), `descripcion`, `causa`, `efecto`, `factorId`, `probabilidadId`, `impactoId`, `responsableId`, `activo` |
 | **`ControlRiesgoOrg`** | `riesgoId`, `descripcion`, `tipoId`, `eficaciaId` |
 | **`MaterializacionRiesgo`** | `riesgoId`, `fecha`, `descripcionEvento`, `impactoGenerado`, `causaRaiz`, `reportanteId`, `hallazgoId?` — es `FOR-CAL-08` |
 
-### 3.4 Catálogos parametrizables
+### 3.4 Análisis de contexto · DOFA y PESTEL
+
+| Entidad | Contenido |
+|---|---|
+| **`AnalisisContexto`** | `tipo` (`DOFA` · `PESTEL`), `anio`, `aprobadoPorId`, `fechaAprobacion`, `actaReferencia`, `vigente` |
+| **`EntradaContexto`** | `analisisId`, `casilla` (DOFA: `DEBILIDAD` · `OPORTUNIDAD` · `FORTALEZA` · `AMENAZA` — PESTEL: `POLITICO` · `ECONOMICO` · `SOCIAL` · `TECNOLOGICO` · `AMBIENTAL` · `LEGAL`), `texto`, `efecto` (`FAVORABLE` · `ADVERSO`), `orden` |
+
+Una sola pareja de tablas para las dos matrices: cambia el catálogo de casillas, no la estructura. Agregar un análisis nuevo —un modelo de cinco fuerzas, por ejemplo— sería una fila del enum, no una tabla más.
+
+`AnalisisContexto` se versiona por año y se aprueba: es lo que el auditor pidió ver cuando exigió el acta. El del año anterior no se borra, queda `vigente = false`.
+
+### 3.5 Catálogos parametrizables
 
 Con el patrón de escalas que el SGSI ya tiene: `EscalaProbabilidad`, `EscalaImpactoRiesgo` (con valor de referencia en COP y porcentaje del patrimonio), `EscalaImpactoOportunidad`, `FactorRiesgo` (Legal, Operacional, Personal, Tecnológico, Reputacional, Externo), `TipoControlRiesgo`, `EficaciaControl` y `NivelRiesgo` (rango, etiqueta, color, acción para riesgo, acción para oportunidad).
 
@@ -160,6 +189,8 @@ El header pasa de cuatro a **cinco pestañas**: Mi SIG · Indicadores · Estrat�
 | **Partes interesadas** | Grilla agrupada por tipo, con la matriz poder–interés de 2×2 como mapa. Ficha con las necesidades, las tres banderas y el seguimiento año por año. |
 | **Requisitos legales** | Grilla filtrable por tipo, sistema de gestión, proceso, vigencia y estado de cumplimiento, con semáforo de revisión vencida. Ficha con el historial de evaluaciones. |
 | **Riesgos y oportunidades** | Los 66 registros con inherente y residual calculados en vivo: cambiar probabilidad, impacto o control recalcula sin recargar, igual que la grilla de madurez del SGSI. |
+| **DOFA** | Los cuatro cuadrantes, con el año y el acta que los aprueba. Cada entrada muestra cuántos riesgos originó, y abrirla lleva a ellos. |
+| **PESTEL** | Las seis dimensiones, con el efecto de cada entrada —favorable o adverso— y sus riesgos originados. Una dimensión sin riesgos queda señalada: suele significar que se llenó por cumplir. |
 | **Mapa de calor** | Inherente y residual, 5×5, casillas navegables con su conteo, el color del umbral y **el nivel escrito**, nunca solo el color. |
 | **Materializaciones** | El registro de `FOR-CAL-08` con su enlace al hallazgo que originó. |
 | **Parámetros del modelo** | Escalas, factores, tipos de control, eficacias y niveles. |
@@ -210,7 +241,8 @@ Todos calculados: riesgos por nivel inherente y residual, por proceso y por fact
 | Paridad de cálculo | Para los 66, inherente, probabilidad residual, impacto residual y residual coinciden con el Excel hasta dos decimales. |
 | Casos frontera | Los cinco de la tabla del §4, como prueba automatizada. |
 | Parametrización | Cambiar la eficacia de Fuerte de 80 % a 90 % recalcula los 66 sin desplegar código. |
-| Encadenamiento | Un riesgo con fuente «Parte Interesada» abre la fila de `MAT-EST-02` que lo originó. |
+| Encadenamiento | Un riesgo con fuente «Parte Interesada» abre la fila de `MAT-EST-02` que lo originó; uno con fuente DOFA o PESTEL abre la entrada concreta de esa matriz. Ninguna de las cuatro fuentes es texto libre. |
+| Contexto versionado | El DOFA de 2026 conserva su acta de aprobación, y crear el de 2027 no borra el anterior. |
 | Materialización | Registrar un incidente crea el hallazgo en Mejora, con el riesgo como origen. |
 | Legal | Un requisito con periodicidad semestral genera la asignación de revisión en Mi SIG de su responsable. |
 | Partes interesadas | Registrar el plan de 2027 no requiere tocar la pantalla. |
