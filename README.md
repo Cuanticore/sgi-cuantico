@@ -1,4 +1,4 @@
-﻿This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
@@ -103,3 +103,11 @@ Las acciones del tratamiento son asignaciones del motor de A; materializar un ri
 abre su hallazgo en Mejora (`FOR-CAL-08`); el DOFA y el PESTEL se versionan por año
 con su acta de aprobación, y una entrada puede originar riesgos con la referencia
 tipada a la fila. La línea base anual se congela con el patrón de `LineaBase`.
+
+## Auditorías internas (SIG)
+
+El programa anual (`FOR-CAL-04`), el plan proceso × numeral, las notas con el
+vocabulario OK · NC · OM · RM · Fortaleza, las actas y el informe en versión
+preliminar y final. Emitir el final congela las notas y promueve cada NC y OM a
+hallazgo del módulo B con origen tipado a la auditoría, el proceso y el numeral.
+La independencia (C2) y el perfil del auditor (C3) se validan en el servidor.
