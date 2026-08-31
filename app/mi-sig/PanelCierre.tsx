@@ -19,6 +19,8 @@ export default function PanelCierre({
   const [versionLeida, setVersionLeida] = useState(false);
   const [asistio, setAsistio] = useState<boolean | null>(null);
   const [calificacion, setCalificacion] = useState('');
+  const [respuestas, setRespuestas] = useState<Record<number, 'CUMPLE' | 'NO_CUMPLE' | 'NO_APLICA'>>({});
+  const [archivo, setArchivo] = useState<File | null>(null);
   const [nota, setNota] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,12 +32,24 @@ export default function PanelCierre({
     setEnviando(true);
     setError(null);
     setMensaje(null);
+    const bytes = archivo ? Array.from(new Uint8Array(await archivo.arrayBuffer())) : [];
     const resultado = await cerrarAsignacion(tarjeta.id, {
       versionLeida: tarjeta.tipo === 'LECTURA' && versionLeida ? `v${tarjeta.version}` : undefined,
       asistio: tarjeta.tipo === 'CAPACITACION' ? (asistio ?? undefined) : undefined,
       calificacion:
         tarjeta.tipo === 'CAPACITACION' && calificacion !== '' ? Number(calificacion) : undefined,
       nota: nota || undefined,
+      respuestas:
+        esVerificacion && Object.keys(respuestas).length > 0
+          ? Object.entries(respuestas).map(([itemId, respuesta]) => ({
+              itemId: Number(itemId),
+              respuesta,
+            }))
+          : undefined,
+      archivo:
+        archivo && (tarjeta.tipo === 'TAREA' || tarjeta.tipo === 'CAPACITACION')
+          ? { nombre: archivo.name, mime: archivo.type || 'application/octet-stream', bytes }
+          : undefined,
     });
     setEnviando(false);
     if (!resultado.ok) {
@@ -140,15 +154,53 @@ export default function PanelCierre({
 
         {esVerificacion && (
           <section className="flex flex-col gap-3">
-            <p className="text-11_5 text-muted">
-              Los ítems de la verificación se cargan al abrir; el servidor valida
-              obligatorios y «no aplica» (R4). Los ítems de contenido llegan con A4.
-            </p>
+            <span className="etiqueta-campo">Ítems de verificación</span>
+            {tarjeta.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-1.5 rounded-campo border border-border-field bg-surface p-3"
+              >
+                <span className="text-12_5 font-medium text-primary">{item.texto}</span>
+                <div className="flex gap-1.5">
+                  {(['CUMPLE', 'NO_CUMPLE', 'NO_APLICA'] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setRespuestas({ ...respuestas, [item.id]: v })}
+                      aria-pressed={respuestas[item.id] === v}
+                      disabled={v === 'NO_APLICA' && !item.permiteNoAplica}
+                      className="rounded-campo px-2.5 py-1 text-11 font-medium disabled:opacity-40"
+                      style={{
+                        background:
+                          respuestas[item.id] === v ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                        color:
+                          respuestas[item.id] === v
+                            ? 'var(--hf-brand-nav)'
+                            : 'var(--hf-text-secondary-soft)',
+                        border: '1px solid var(--hf-border-field)',
+                      }}
+                    >
+                      {v === 'CUMPLE' ? 'Cumple' : v === 'NO_CUMPLE' ? 'No cumple' : 'No aplica'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
         )}
 
         {tarjeta.tipo === 'TAREA' && (
-          <p className="text-11_5 text-muted">Describe qué se hizo; el anexo llega con A4.</p>
+          <p className="text-11_5 text-muted">Describe qué se hizo.</p>
+        )}
+
+        {(tarjeta.tipo === 'TAREA' || tarjeta.tipo === 'CAPACITACION') && (
+          <label className="flex flex-col gap-1">
+            <span className="etiqueta-campo">Anexo (opcional)</span>
+            <input
+              type="file"
+              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+              className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5"
+            />
+          </label>
         )}
 
         <label className="flex flex-col gap-1">

@@ -96,6 +96,8 @@ export interface DatosCerrar {
   respuestas?: { itemId: number; respuesta: 'CUMPLE' | 'NO_CUMPLE' | 'NO_APLICA'; nota?: string }[];
   /// Motivo obligatorio en el cierre administrativo (R5).
   motivo?: string;
+  /// Anexo opcional (TAREA y CAPACITACION): se guarda como Evidencia con registroId.
+  archivo?: { nombre: string; mime: string; bytes: number[] };
 }
 
 export interface ResultadoCierre extends Resultado {
@@ -182,7 +184,7 @@ export async function cerrarAsignacion(
         ? await tx.persona.findUnique({ where: { correo: sesion }, select: { id: true } })
         : null;
 
-      await tx.registroRealizado.create({
+      const registro = await tx.registroRealizado.create({
         data: {
           asignacionId: asignacion.id,
           nota: datos.nota,
@@ -205,6 +207,27 @@ export async function cerrarAsignacion(
               : undefined,
         },
       });
+
+      // Anexo del SIG: reusa Evidencia con registroId (decisión 3.8.2), en la misma
+      // transacción — un cierre con anexo no puede quedar a medias.
+      if (datos.archivo) {
+        await tx.evidencia.create({
+          data: {
+            registroId: registro.id,
+            tipo: 'ARCHIVO',
+            texto: datos.archivo.nombre,
+            creadaPor: sesion,
+            archivoNombre: datos.archivo.nombre,
+            archivoMime: datos.archivo.mime,
+            archivoTamano: datos.archivo.bytes.length,
+            archivoSha256: null,
+            archivoVersion: 1,
+            archivo: {
+              create: { bytes: Buffer.from(datos.archivo.bytes) },
+            },
+          },
+        });
+      }
 
       await tx.asignacion.update({
         where: { id: asignacion.id },

@@ -30,6 +30,8 @@ export interface TarjetaBandeja {
   documentoNombre: string | null;
   /// Cierre administrativo (R5): visible en la bandeja.
   cierreAdministrativo: boolean;
+  /// Ítems de una verificación, con sus flags reales (R4).
+  items: { id: number; texto: string; obligatorio: boolean; permiteNoAplica: boolean }[];
 }
 
 export interface Bandeja {
@@ -65,8 +67,8 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
     where: { persona: { correo } },
     orderBy: [{ fechaLimite: 'asc' }],
     include: {
-      contenido: true,
-      obligacion: { include: { contenido: true } },
+      contenido: { include: { items: { orderBy: { orden: 'asc' } } } },
+      obligacion: { include: { contenido: { include: { items: { orderBy: { orden: 'asc' } } } } } },
       cerradaPorPersona: { select: { nombre: true } },
     },
   });
@@ -98,6 +100,12 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       documentoUrl: contenido?.documentoUrl ?? null,
       documentoNombre: contenido?.documentoNombre ?? null,
       cierreAdministrativo: f.cerradaPor !== null && f.cerradaPor !== f.personaId,
+      items: (contenido?.items ?? []).map((i) => ({
+        id: i.id,
+        texto: i.texto,
+        obligatorio: i.obligatorio,
+        permiteNoAplica: i.permiteNoAplica,
+      })),
     };
   });
 
