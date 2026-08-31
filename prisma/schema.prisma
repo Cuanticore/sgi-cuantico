@@ -965,6 +965,7 @@ model Persona {
   obligacionesSeguimiento  Obligacion[] @relation("ObligacionSeguimiento")
   asignaciones             Asignacion[] @relation("AsignacionPersona")
   asignacionesCerradasPor  Asignacion[] @relation("AsignacionCerradaPor")
+  enviosNotificacion       EnvioNotificacion[]
 
   @@map("persona")
 }
@@ -1186,4 +1187,46 @@ model ContadorContenido {
   ultimoValor Int           @default(0) @map("ultimo_valor")
 
   @@map("contador_contenido")
+}
+
+/// El registro de cada correo del SIG. La unique tripla es lo que hace idempotente el
+/// envío (N3): correr el disparo dos veces no duplica correos, y «no me llegó el aviso»
+/// es una afirmación verificable (N4). `SIN_SMTP` y `FALLO` dejan rastro igual.
+model EnvioNotificacion {
+  id        Int            @id @default(autoincrement())
+  tipo      EnvioTipo
+  /// `2026-S36`, `2026-09`, o el periodo de la asignación en los avisos.
+  periodo   String
+  personaId Int            @map("persona_id")
+  enviadoEn DateTime       @default(now()) @map("enviado_en")
+  resultado EnvioResultado
+  detalle   String?
+
+  persona Persona @relation(fields: [personaId], references: [id])
+
+  @@unique([tipo, periodo, personaId])
+  @@index([tipo, periodo])
+  @@map("envio_notificacion")
+}
+
+enum EnvioTipo {
+  /// Aviso de una asignación nueva del periodo vigente.
+  NUEVA
+  /// Aviso de proximidad, según `diasAviso` de la obligación.
+  PROXIMIDAD
+  /// Aviso el día del vencimiento.
+  VENCIMIENTO
+  SEMANAL
+  MENSUAL
+
+  @@map("envio_tipo")
+}
+
+enum EnvioResultado {
+  ENVIADO
+  /// SMTP sin configurar: el correo no salió y queda dicho.
+  SIN_SMTP
+  FALLO
+
+  @@map("envio_resultado")
 }
