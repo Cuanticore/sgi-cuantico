@@ -1,4 +1,4 @@
-# SIG · A4 — Notificaciones, indicadores y exportaciones · Plan de implementación
+﻿# SIG · A4 — Notificaciones, indicadores y exportaciones · Plan de implementación
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -643,7 +643,7 @@ function diaDe(fecha: Date): number {
 npx jest lib/sig/__tests__/resumen.test.ts
 ```
 
-Expected: PASS, 8 pruebas.
+Expected: PASS, 6 pruebas.
 
 - [ ] **Step 5: Commit**
 
