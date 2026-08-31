@@ -133,7 +133,8 @@ Es el registro del numeral 8: la lista maestra de obligaciones del SIG.
 | Campo | Tipo | Nota |
 |---|---|---|
 | `obligacionId` | `Int?` | Nulo cuando es una asignación puntual, fuera de programa. |
-| `contenidoId` | `Int` | |
+| `contenidoId` | `Int?` | Nulo en una asignación puntual sin contenido reutilizable. Ver la nota de abajo. |
+| `titulo`, `descripcion` | `String?` | Obligatorios cuando no hay `contenidoId`; ignorados cuando lo hay. |
 | `personaId` | `Int` | |
 | `periodo` | `String` | Etiqueta legible del periodo: `2026-T3`, `2026-09`, `2026`. |
 | `fechaApertura`, `fechaLimite` | `Date` | |
@@ -287,5 +288,6 @@ Pruebas unitarias siguiendo el patrón de `lib/sgsi/__tests__`:
 ## 10. Qué sigue
 
 1. Plan de implementación de este módulo (skill `writing-plans`).
-2. Módulo **B — Mejora: NC y ACPM**, que consumirá el motor de tareas y generalizará `AccionPlan`.
-3. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` y alimentará a B.
+2. Módulo **B — Mejora: NC y ACPM** (`2026-08-31-sig-mejora-nc-acpm-design.md`), que consume el motor de tareas de este módulo.
+3. Módulo **D — Gestión estratégica**: partes interesadas, matriz legal, y riesgos y oportunidades organizacionales.
+4. Módulo **C — Auditorías internas**, que reusará `ItemVerificacion` y alimentará a B.
