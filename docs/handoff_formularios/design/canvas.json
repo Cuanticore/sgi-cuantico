@@ -1,0 +1,28 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 760, "h": 920, "title": "Reportar un hallazgo", "is_interactive": true },
+    { "file": "Obligacion.dc.html", "x": 860, "y": 0, "w": 1196, "h": 900, "title": "Nueva obligación", "is_interactive": true },
+    { "file": "Materializacion.dc.html", "x": 2140, "y": 0, "w": 780, "h": 880, "title": "Reporte de incidente de riesgo", "is_interactive": true },
+
+    { "file": "CorreoSemanal.dc.html", "x": 0, "y": 1040, "w": 680, "h": 1000, "title": "Correo semanal" },
+    { "file": "CorreoMensual.dc.html", "x": 780, "y": 1040, "w": 680, "h": 1240, "title": "Correo mensual" },
+    { "file": "Parametros.dc.html", "x": 1560, "y": 1040, "w": 1196, "h": 860, "title": "Parámetros del modelo", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "captura",
+      "x": 0,
+      "y": -250,
+      "w": 720,
+      "text": "Lo que se captura\n\nHasta ahora todo eran vistas. Estos tres son los formularios: el que usa cualquier persona para reportar, el que usa el líder para crear una obligación, y el que registra que un riesgo se materializó.\n\nEn Reportar un hallazgo, cambia el origen: los campos de referencia cambian con él."
+    },
+    {
+      "id": "recibe",
+      "x": 0,
+      "y": 2100,
+      "w": 720,
+      "text": "Lo que se recibe\n\nLos dos correos del §7 del requerimiento. Cada uno lleva al pie sus notas de implementación, que no van dentro del correo.\n\nEn Nueva obligación, mueve el alcance y la periodicidad: la vista previa dice cuántas asignaciones al año va a generar antes de guardar."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

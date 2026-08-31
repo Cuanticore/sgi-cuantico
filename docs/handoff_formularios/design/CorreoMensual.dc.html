@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a211e; background: #eceeed; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .sec { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+    .sec > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+  </style>
+</helmet>
+
+<div style="width: 680px; min-height: 1180px; padding: 26px 20px; background: #eceeed">
+
+  <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px 14px">
+    <span style="font-size: 15px; font-weight: 600; color: #1a211e">Talento Humano · cumplimiento de agosto: 82 %</span>
+    <span style="font-size: 12px; color: #6b7570">SIG Cuantico &lt;sig@cuantico.com&gt; · martes 1 de septiembre, 07:00</span>
+  </div>
+
+  <div style="background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e6e3">
+
+    <div style="padding: 22px 26px 20px; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%)">
+      <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 16px">
+        <span class="mono" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; background: #ffffff; color: #1b3a8a; font-size: 10px; font-weight: 700">CQ</span>
+        <span style="display: flex; flex-direction: column; line-height: 1.1">
+          <span style="font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: #ffffff">CUANTICO</span>
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.16em; color: #7fb0f0">SIG</span>
+        </span>
+      </div>
+      <span style="display: block; font-size: 19px; font-weight: 600; color: #ffffff; line-height: 1.35; margin-bottom: 6px">Albeiro, así cerró agosto en Talento Humano</span>
+      <span style="display: block; font-size: 12.5px; color: #bcd4f5">Resumen del 1 al 31 de agosto de 2026 · tu área</span>
+    </div>
+
+    <!-- Cumplimiento del mes -->
+    <div style="padding: 22px 26px 6px">
+      <div class="sec"><span style="color: #12437f">Cumplimiento del mes</span><span class="regla"></span></div>
+      <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 14px">
+        <span style="display: flex; flex-direction: column; gap: 4px">
+          <span class="mono" style="font-size: 40px; font-weight: 600; line-height: 1; color: #c25a1e">82 %</span>
+          <span style="font-size: 11.5px; color: #6b7570">14 de 17 realizadas a tiempo</span>
+        </span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 7px; padding-bottom: 4px">
+          <span style="display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: #eceeed">
+            <sc-for list="{{barra}}" as="b" hint-placeholder-count="3">
+              <span style="width: {{b.ancho}}; background: {{b.color}}"></span>
+            </sc-for>
+          </span>
+          <span style="display: flex; gap: 14px">
+            <sc-for list="{{barra}}" as="b" hint-placeholder-count="3">
+              <span style="display: inline-flex; align-items: center; gap: 5px">
+                <span style="width: 8px; height: 8px; border-radius: 2px; background: {{b.color}}"></span>
+                <span style="font-size: 10.5px; color: #4a544f">{{b.etiqueta}}</span>
+              </span>
+            </sc-for>
+          </span>
+        </span>
+      </div>
+      <span style="display: block; font-size: 12px; color: #6b7570; line-height: 1.6; padding: 11px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+        Julio cerró en 94 %. La caída viene de dos lecturas de política que nadie acusó y de una verificación que se cerró tarde.
+      </span>
+    </div>
+
+    <!-- Deuda vencida -->
+    <div style="padding: 20px 26px 6px">
+      <div class="sec"><span style="color: #a52016">Deuda vencida · 3</span><span class="regla"></span></div>
+      <sc-for list="{{deuda}}" as="d" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 15px; margin-bottom: 8px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+          <span style="display: flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; border-radius: 999px; font-size: 10px; font-weight: 700; background: #ffffff; color: #a52016">{{d.iniciales}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+            <span style="font-size: 12.5px; font-weight: 500; color: #1a211e; line-height: 1.4">{{d.titulo}}</span>
+            <span style="font-size: 11px; color: #6b7570">{{d.persona}}</span>
+          </span>
+          <span class="mono" style="flex: none; font-size: 11.5px; font-weight: 600; color: #a52016">{{d.dias}}</span>
+        </div>
+      </sc-for>
+      <span style="display: block; font-size: 11.5px; color: #8a938e; margin-top: 4px">La más antigua lleva <strong style="font-weight: 600; color: #a52016">31 días</strong> abierta.</span>
+    </div>
+
+    <!-- Obligaciones con peor cumplimiento -->
+    <div style="padding: 20px 26px 6px">
+      <div class="sec"><span style="color: #8a4407">Obligaciones con peor cumplimiento</span><span class="regla"></span></div>
+      <sc-for list="{{peores}}" as="p" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 15px; margin-bottom: 7px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+          <span class="mono" style="flex: none; font-size: 10.5px; font-weight: 500; color: #12437f; width: 64px">{{p.codigo}}</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #1a211e; line-height: 1.4">{{p.titulo}}</span>
+          <span style="flex: none; display: flex; align-items: center; gap: 8px">
+            <span style="width: 52px; height: 6px; border-radius: 999px; background: #eceeed; overflow: hidden">
+              <span style="display: block; width: {{p.ancho}}; height: 100%; background: {{p.color}}"></span>
+            </span>
+            <span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{p.color}}; min-width: 32px; text-align: right">{{p.pct}}</span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Cierres administrativos -->
+    <div style="padding: 20px 26px 6px">
+      <div class="sec"><span style="color: #6b5410">Cierres administrativos · 2</span><span class="regla"></span></div>
+      <div style="padding: 13px 15px; background: #faf1d3; border: 1px solid #e0b93c; border-radius: 10px">
+        <span style="display: block; font-size: 12px; color: #6b5410; line-height: 1.6">
+          Dos asignaciones las cerró el líder del SIG en nombre de otra persona, con motivo registrado. Se cuentan aparte del cumplimiento: el auditor pregunta quién <em>hizo</em> la tarea, no quién la marcó.
+        </span>
+      </div>
+    </div>
+
+    <!-- Lo que viene -->
+    <div style="padding: 20px 26px 6px">
+      <div class="sec"><span style="color: #12437f">Vence en septiembre</span><span class="regla"></span></div>
+      <sc-for list="{{proximo}}" as="p" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 15px; margin-bottom: 7px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+          <span class="mono" style="flex: none; width: 46px; font-size: 11px; font-weight: 600; color: #12437f">{{p.fecha}}</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #1a211e; line-height: 1.4">{{p.titulo}}</span>
+          <span class="mono" style="flex: none; font-size: 10.5px; color: #8a938e">{{p.personas}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="padding: 18px 26px 24px">
+      <a href="#" style="display: block; padding: 13px 20px; text-align: center; font-size: 13.5px; font-weight: 600; color: #ffffff; background: #12437f; border-radius: 8px">Ver el detalle en Operación</a>
+    </div>
+
+    <div style="padding: 16px 26px 20px; background: #fbfcfb; border-top: 1px solid #eceeed">
+      <span style="display: block; font-size: 11px; color: #8a938e; line-height: 1.6">Recibes este resumen porque respondes por un proceso del Sistema Integrado de Gestión. Cubre únicamente tu área.</span>
+      <span style="display: block; margin-top: 8px; font-size: 11px; color: #a3aca7">Cuántico · Sistema Integrado de Gestión</span>
+    </div>
+  </div>
+
+  <div style="margin-top: 18px; padding: 15px 18px; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 10px">
+    <span class="mono" style="display: block; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; margin-bottom: 9px">Notas para el desarrollo · no van en el correo</span>
+    <span style="display: block; font-size: 11.5px; color: #4a544f; line-height: 1.65">
+      <strong style="font-weight: 600">Acotado al área del destinatario.</strong> El líder del SIG recibe además una versión con todas las áreas; un líder de proceso nunca ve el cumplimiento de otro.<br><br>
+      <strong style="font-weight: 600">La comparación con el mes anterior es una frase, no un gráfico.</strong> Un correo con seis indicadores no se lee; uno con un número y su explicación, sí.<br><br>
+      <strong style="font-weight: 600">Este correo sí se envía con cero pendientes</strong>, a diferencia del semanal: un mes en 100 % es justamente lo que un líder quiere ver, y su ausencia se leería como que el sistema dejó de funcionar.<br><br>
+      Las barras son <span class="mono" style="font-size: 10.5px">div</span> con ancho en porcentaje, nunca imágenes: los clientes de correo bloquean imágenes remotas por defecto y el indicador quedaría en blanco.
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":680,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      barra: [
+        { etiqueta: 'A tiempo · 14', ancho: '82.4%', color: '#0f7a5a' },
+        { etiqueta: 'Tarde · 1', ancho: '5.9%', color: '#c25a1e' },
+        { etiqueta: 'Sin hacer · 2', ancho: '11.7%', color: '#a52016' },
+      ],
+      deuda: [
+        { titulo: 'Conciliación bancaria de julio', persona: 'Lina Medina', iniciales: 'LM', dias: '31 d' },
+        { titulo: 'Política de Gobierno de Seguridad de la Información', persona: 'Marcela Molina', iniciales: 'MM', dias: '6 d' },
+        { titulo: 'Política de Gobierno de Seguridad de la Información', persona: 'Lina Medina', iniciales: 'LM', dias: '6 d' },
+      ],
+      peores: [
+        { codigo: 'LEC-008', titulo: 'Manual de Riesgos y Oportunidades v2.0', pct: '44 %', ancho: '44%', color: '#a52016' },
+        { codigo: 'TAR-006', titulo: 'Evaluación y reevaluación de proveedores', pct: '50 %', ancho: '50%', color: '#a52016' },
+        { codigo: 'LEC-001', titulo: 'Política de Gobierno de Seguridad de la Información', pct: '71 %', ancho: '71%', color: '#c25a1e' },
+      ],
+      proximo: [
+        { fecha: '04/09', titulo: 'Inducción y reinducción del SGC 2026', personas: '9 personas' },
+        { fecha: '21/09', titulo: 'Seguimiento al programa de riesgo psicosocial', personas: '1 persona' },
+        { fecha: '30/09', titulo: 'Conciliación bancaria de septiembre', personas: '1 persona' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

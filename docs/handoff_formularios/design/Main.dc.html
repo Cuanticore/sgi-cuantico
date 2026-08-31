@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 11px 13px; font-size: 13px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .ph { color: #b6bdb9; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 760px; height: 920px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 14px; padding: 26px 30px 18px">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 7px">
+      <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em">Reportar un hallazgo</h1>
+      <span style="font-size: 12.5px; color: #6b7570; line-height: 1.55">Cuéntanos qué viste. <strong style="font-weight: 600; color: #4a544f">No tienes que clasificarlo</strong> ni decidir si es una no conformidad: de eso se encarga el líder del SIG.</span>
+    </div>
+    <button style="flex: none; width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e6e3; background: #ffffff; color: #6b7570; font-size: 14px; line-height: 1">✕</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 30px 20px; display: flex; flex-direction: column; gap: 20px">
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">¿Qué pasó? · obligatorio</span>
+      <span class="campo" style="min-height: 92px; line-height: 1.6">La matriz de requisitos legales MAT-EST-01 está vacía: solo tiene los encabezados y las listas desplegables, sin ninguna fila diligenciada.</span>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.5">Describe el hecho, no la culpa. Qué encontraste, dónde, y qué te hizo pensar que algo no está bien.</span>
+    </span>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">¿En qué proceso? · obligatorio</span>
+        <span class="campo" style="display: flex; align-items: center; justify-content: space-between">
+          <span>Gestión Legal y Compras</span>
+          <span style="color: #8a938e; font-size: 9px">▾</span>
+        </span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">¿Cuándo lo detectaste?</span>
+        <span class="campo mono" style="font-size: 12.5px">10/08/2026</span>
+      </span>
+    </div>
+
+    <!-- Origen: cambia los campos de referencia -->
+    <div style="display: flex; flex-direction: column; gap: 9px">
+      <span class="etq">¿Cómo lo supiste? · obligatorio</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px">
+        <sc-for list="{{origenes}}" as="o" hint-placeholder-count="6">
+          <button onClick="{{o.elegir}}" style="{{o.estilo}}">{{o.etiqueta}}</button>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; margin-top: 3px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">{{ref.titulo}}</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{ref.campos}}" as="c" hint-placeholder-count="2">
+          <span style="display: flex; flex-direction: column; gap: 6px">
+            <span class="etq">{{c.etiqueta}}</span>
+            <span class="campo" style="font-size: 12.5px">
+              <span class="{{c.clase}}">{{c.valor}}</span>
+            </span>
+          </span>
+        </sc-for>
+        <span style="font-size: 11px; color: #8a938e; line-height: 1.5">{{ref.nota}}</span>
+      </div>
+    </div>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">Evidencia · opcional pero muy útil</span>
+      <span style="display: flex; align-items: center; gap: 11px; padding: 14px 16px; border: 1px dashed #d7dcd9; border-radius: 10px; background: #fbfcfb">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 12.5px; color: #4a544f">Arrastra un archivo o busca en tu equipo</span>
+          <span style="font-size: 10.5px; color: #a3aca7">Una captura de pantalla suele bastar</span>
+        </span>
+      </span>
+    </span>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">¿Ya hiciste algo al respecto? · opcional</span>
+      <span class="campo" style="min-height: 62px"><span class="ph">Si tomaste alguna acción inmediata para contener el efecto, cuéntala. Eso es una corrección, y ayuda a quien reciba el reporte.</span></span>
+    </span>
+
+  </div>
+
+  <!-- Franja inferior -->
+  <div style="flex: none; display: flex; align-items: center; gap: 14px; padding: 15px 30px; background: #ffffff; border-top: 1px solid #e2e6e3">
+    <span style="flex: 1; display: flex; align-items: flex-start; gap: 9px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+      <span style="font-size: 11px; line-height: 1.55; color: #6b7570">Tu reporte queda visible de inmediato, pero <strong style="font-weight: 600; color: #4a544f">no consume plazos hasta que el líder del SIG lo clasifique</strong>. Recibirás aviso cuando lo haga.</span>
+    </span>
+    <button style="flex: none; padding: 10px 15px; font-size: 12.5px; font-weight: 500; color: #6b7570; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">Cancelar</button>
+    <button style="flex: none; padding: 10px 20px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Enviar el reporte</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":760,"height":920}}'>
+const OPT_BASE = 'padding: 9px 11px; font-size: 12px; font-weight: 500; border-radius: 6px; text-align: left;';
+const OPT_OFF = OPT_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const OPT_ON = OPT_BASE + ' background: #e9f0fb; border: 1px solid #12437f; color: #12437f; font-weight: 600;';
+
+const ORIGENES = {
+  auditoria: {
+    etiqueta: 'Auditoría',
+    titulo: 'Referencia de la auditoría',
+    campos: [
+      { etiqueta: 'Auditoría', valor: 'AUD-2026-01 · interna ISO 9001, 19 y 20 de febrero', clase: '' },
+      { etiqueta: 'Numeral auditado', valor: '4.2 Comprensión de las necesidades y expectativas', clase: '' },
+    ],
+    nota: 'Cuando el módulo de auditorías esté en uso, estos hallazgos se crean solos al emitir el informe final. Este formulario queda para las auditorías externas.',
+  },
+  cliente: {
+    etiqueta: 'Queja de cliente',
+    titulo: 'Referencia de la queja',
+    campos: [
+      { etiqueta: 'Cliente', valor: 'Nombre del cliente', clase: 'ph' },
+      { etiqueta: 'Número o fecha del reclamo', valor: 'Como lo tengas registrado', clase: 'ph' },
+    ],
+    nota: 'No se administra aquí el ciclo de la queja: solo se referencia, para poder trabajar el hallazgo que produjo.',
+  },
+  indicador: {
+    etiqueta: 'Indicador incumplido',
+    titulo: 'Referencia del indicador',
+    campos: [
+      { etiqueta: 'Indicador', valor: 'Elegir del tablero de Indicadores', clase: 'ph' },
+      { etiqueta: 'Periodo', valor: '2026-T2', clase: 'ph' },
+    ],
+    nota: 'Se enlaza con el indicador real del tablero del SGC, no se escribe su nombre a mano.',
+  },
+  sgsi: {
+    etiqueta: 'Riesgo o control del SGSI',
+    titulo: 'Referencia al SGSI',
+    campos: [
+      { etiqueta: 'Riesgo o control', valor: 'A.5.31 Requisitos legales y contractuales', clase: '' },
+      { etiqueta: 'Activo relacionado', valor: 'Opcional', clase: 'ph' },
+    ],
+    nota: 'La referencia es real, contra la base: desde la pantalla de ese control se verán los hallazgos abiertos que lo mencionan.',
+  },
+  direccion: {
+    etiqueta: 'Revisión por la dirección',
+    titulo: 'Referencia del acta',
+    campos: [
+      { etiqueta: 'Acta', valor: 'Número o fecha del acta', clase: 'ph' },
+    ],
+    nota: 'Las decisiones de la revisión por la dirección entran como hallazgo para que tengan responsable, plazo y seguimiento.',
+  },
+  otro: {
+    etiqueta: 'Lo vi trabajando',
+    titulo: 'Sin referencia externa',
+    campos: [
+      { etiqueta: 'Contexto · opcional', valor: 'Cualquier dato que ayude a ubicarlo', clase: 'ph' },
+    ],
+    nota: 'Es un origen legítimo y de los más valiosos: la mayoría de las mejoras reales las ve quien hace el trabajo, no un auditor.',
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { origen: 'auditoria' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    return {
+      origenes: Object.keys(ORIGENES).map((k) => ({
+        etiqueta: ORIGENES[k].etiqueta,
+        estilo: s.origen === k ? OPT_ON : OPT_OFF,
+        elegir: () => this.setState({ origen: k }),
+      })),
+      ref: ORIGENES[s.origen],
+    };
+  }
+}
+</script>
+</body>
+</html>

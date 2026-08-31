@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a211e; background: #eceeed; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+  </style>
+</helmet>
+
+<div style="width: 680px; min-height: 940px; padding: 26px 20px; background: #eceeed">
+
+  <!-- Contexto del cliente de correo -->
+  <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px 14px">
+    <span style="font-size: 15px; font-weight: 600; color: #1a211e">Tienes 3 tareas del SIG esta semana</span>
+    <span style="font-size: 12px; color: #6b7570">SIG Cuantico &lt;sig@cuantico.com&gt; · lunes 31 de agosto, 07:00</span>
+  </div>
+
+  <div style="background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e6e3">
+
+    <!-- Cabecera -->
+    <div style="padding: 22px 26px 20px; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%)">
+      <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 16px">
+        <span class="mono" style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; background: #ffffff; color: #1b3a8a; font-size: 10px; font-weight: 700">CQ</span>
+        <span style="display: flex; flex-direction: column; line-height: 1.1">
+          <span style="font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: #ffffff">CUANTICO</span>
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.16em; color: #7fb0f0">SIG</span>
+        </span>
+      </div>
+      <span style="display: block; font-size: 19px; font-weight: 600; color: #ffffff; line-height: 1.35; margin-bottom: 6px">Hola, Lina. Esto es lo tuyo de esta semana.</span>
+      <span style="display: block; font-size: 12.5px; color: #bcd4f5">Semana del 31 de agosto al 6 de septiembre</span>
+    </div>
+
+    <!-- Resumen en cifras -->
+    <div style="display: flex; border-bottom: 1px solid #eceeed">
+      <sc-for list="{{cifras}}" as="c" hint-placeholder-count="3">
+        <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 16px 8px; border-right: 1px solid #eceeed">
+          <span class="mono" style="font-size: 26px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.n}}</span>
+          <span class="etq">{{c.etiqueta}}</span>
+        </span>
+      </sc-for>
+    </div>
+
+    <!-- Vencidas -->
+    <div style="padding: 20px 26px 4px">
+      <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 12px">
+        <span class="mono" style="font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a52016; font-weight: 600">Vencidas · siguen exigibles</span>
+        <span style="height: 1px; flex: 1; background: #eceeed"></span>
+      </div>
+      <sc-for list="{{vencidas}}" as="v" hint-placeholder-count="2">
+        <div style="display: flex; align-items: flex-start; gap: 13px; padding: 13px 15px; margin-bottom: 9px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+          <span class="mono" style="flex: none; width: 74px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{v.tipoBg}}; color: {{v.tipoFg}}">{{v.tipo}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 13.5px; font-weight: 500; color: #1a211e; line-height: 1.4">{{v.titulo}}</span>
+            <span style="font-size: 11.5px; color: #a52016; font-weight: 500">{{v.antiguedad}}</span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Esta semana -->
+    <div style="padding: 14px 26px 4px">
+      <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 12px">
+        <span class="mono" style="font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #8a4407; font-weight: 600">Vencen esta semana</span>
+        <span style="height: 1px; flex: 1; background: #eceeed"></span>
+      </div>
+      <sc-for list="{{semana}}" as="s" hint-placeholder-count="1">
+        <div style="display: flex; align-items: flex-start; gap: 13px; padding: 13px 15px; margin-bottom: 9px; background: #ffffff; border: 1px solid #f2b473; border-radius: 10px">
+          <span class="mono" style="flex: none; width: 74px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{s.tipoBg}}; color: {{s.tipoFg}}">{{s.tipo}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 13.5px; font-weight: 500; color: #1a211e; line-height: 1.4">{{s.titulo}}</span>
+            <span style="font-size: 11.5px; color: #8a4407; font-weight: 500">{{s.plazo}}</span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Llamado a la acción, uno solo -->
+    <div style="padding: 18px 26px 24px">
+      <a href="#" style="display: block; padding: 13px 20px; text-align: center; font-size: 13.5px; font-weight: 600; color: #ffffff; background: #12437f; border-radius: 8px">Abrir Mi SIG</a>
+    </div>
+
+    <!-- Pie -->
+    <div style="padding: 16px 26px 20px; background: #fbfcfb; border-top: 1px solid #eceeed">
+      <span style="display: block; font-size: 11px; color: #8a938e; line-height: 1.6">Recibes este correo porque tienes tareas del Sistema Integrado de Gestión asignadas. Si no tuvieras ninguna pendiente, no te llegaría.</span>
+      <span style="display: block; margin-top: 8px; font-size: 11px; color: #a3aca7">Cuántico · Sistema Integrado de Gestión · <a href="#" style="color: #6b7570; text-decoration: underline">dejar de recibir el resumen semanal</a></span>
+    </div>
+  </div>
+
+  <!-- Notas de implementación, fuera del correo -->
+  <div style="margin-top: 18px; padding: 15px 18px; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 10px">
+    <span class="mono" style="display: block; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; margin-bottom: 9px">Notas para el desarrollo · no van en el correo</span>
+    <span style="display: block; font-size: 11.5px; color: #4a544f; line-height: 1.65">
+      Ancho 600 px de contenido, tablas y estilos en línea: ningún cliente de correo aplica hojas externas ni descarga Libre&nbsp;Franklin. La pila real es <span class="mono" style="font-size: 10.5px">'Segoe UI', Helvetica, Arial, sans-serif</span>; esta maqueta la usa solo para verse igual que la aplicación.<br><br>
+      <strong style="font-weight: 600">Un solo llamado a la acción.</strong> Ningún botón por tarea: el correo avisa, la bandeja es donde se cierra.<br><br>
+      <strong style="font-weight: 600">Sin pendientes no se envía.</strong> La línea del pie lo dice para que quien no reciba nada sepa que no es un fallo.
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":680,"height":940}}'>
+const TIPO = {
+  'Lectura': { bg: '#e9f0fb', fg: '#12437f' },
+  'Verificación': { bg: '#fff3e6', fg: '#8a4407' },
+  'Capacitación': { bg: '#e8f4ef', fg: '#0b5c44' },
+  'Tarea': { bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const con = (t, o) => ({ ...o, tipo: t, tipoBg: TIPO[t].bg, tipoFg: TIPO[t].fg });
+    return {
+      cifras: [
+        { n: 2, etiqueta: 'Vencidas', color: '#a52016' },
+        { n: 1, etiqueta: 'Esta semana', color: '#c25a1e' },
+        { n: 4, etiqueta: 'Más adelante', color: '#12437f' },
+      ],
+      vencidas: [
+        con('Lectura', { titulo: 'Política de Gobierno de Seguridad de la Información', antiguedad: 'Venció hace 6 días · 25 de agosto' }),
+        con('Tarea', { titulo: 'Conciliación bancaria de julio', antiguedad: 'Venció hace 31 días · 31 de julio' }),
+      ],
+      semana: [
+        con('Tarea', { titulo: 'Conciliación bancaria de agosto', plazo: 'Vence mañana · martes 1 de septiembre' }),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

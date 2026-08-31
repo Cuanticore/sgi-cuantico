@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 11px 13px; font-size: 12.5px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .ph { color: #b6bdb9; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 780px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 14px; padding: 26px 30px 16px">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 7px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em">Reporte de incidente de riesgo</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">FOR-CAL-08</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570; line-height: 1.55">Un riesgo se materializó. Este registro deja constancia y <strong style="font-weight: 600; color: #4a544f">abre el hallazgo</strong> para tratarlo.</span>
+    </div>
+    <button style="flex: none; width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e6e3; background: #ffffff; color: #6b7570; font-size: 14px; line-height: 1">✕</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 30px 20px; display: flex; flex-direction: column; gap: 18px">
+
+    <div style="display: grid; grid-template-columns: 1fr 150px; gap: 14px">
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">Riesgo que se materializó</span>
+        <span style="display: flex; gap: 5px">
+          <sc-for list="{{riesgos}}" as="r" hint-placeholder-count="3">
+            <button onClick="{{r.elegir}}" style="{{r.estilo}}">{{r.codigo}}</button>
+          </sc-for>
+        </span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">Fecha del evento</span>
+        <span class="campo mono" style="font-size: 12px">28/08/2026</span>
+      </span>
+    </div>
+
+    <!-- Contexto del riesgo elegido, leído de la matriz -->
+    <div style="display: flex; flex-direction: column; gap: 11px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <span class="etq" style="color: #12437f">Lo que dice la matriz</span>
+        <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        <span class="mono" style="font-size: 9px; color: #a3aca7">no se captura, se lee</span>
+      </span>
+      <span style="font-size: 13px; font-weight: 500; line-height: 1.4">{{sel.texto}}</span>
+      <div style="display: flex; gap: 18px">
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span class="etq">Proceso</span>
+          <span style="font-size: 12px; color: #4a544f">{{sel.proceso}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span class="etq">Factor</span>
+          <span style="font-size: 12px; color: #4a544f">{{sel.factor}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span class="etq">Inherente</span>
+          <span class="mono" style="font-size: 12px; font-weight: 600; color: {{sel.inhColor}}">{{sel.inherente}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span class="etq">Residual</span>
+          <span class="mono" style="font-size: 12px; font-weight: 600; color: {{sel.resColor}}">{{sel.residual}}</span>
+        </span>
+        <span style="margin-left: auto; display: flex; flex-direction: column; gap: 3px; align-items: flex-end">
+          <span class="etq">Nivel residual</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{sel.nivelBg}}; color: {{sel.nivelFg}}">{{sel.nivel}}</span>
+        </span>
+      </div>
+    </div>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">Descripción del evento · obligatorio</span>
+      <span class="campo" style="min-height: 84px">{{sel.evento}}</span>
+    </span>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">Impacto generado · obligatorio</span>
+      <span class="campo" style="min-height: 66px">{{sel.impacto}}</span>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.5">Qué se perdió o dejó de pasar, en términos concretos. Si hay cifra, ponla.</span>
+    </span>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">Causa raíz · como la ves hoy</span>
+      <span class="campo" style="min-height: 60px"><span class="ph">Tu primera lectura de por qué ocurrió. El análisis formal se hace después, en el hallazgo, con método declarado.</span></span>
+    </span>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">Reportante</span>
+        <span class="campo" style="display: flex; align-items: center; gap: 9px">
+          <span style="display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 999px; font-size: 9px; font-weight: 700; background: #e9f0fb; color: #12437f">DM</span>
+          <span>Daniel Medina</span>
+        </span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">Evidencia · opcional</span>
+        <span style="display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px dashed #d7dcd9; border-radius: 6px; background: #fbfcfb">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span style="font-size: 12px; color: #6b7570">Adjuntar soporte</span>
+        </span>
+      </span>
+    </div>
+
+    <!-- La consecuencia, dicha antes de guardar -->
+    <div style="display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+      <span style="flex: 1; font-size: 12px; line-height: 1.6; color: #12437f">
+        Al guardar se crea un <strong style="font-weight: 600">hallazgo en Mejora</strong> con origen «riesgo materializado» y referencia a {{sel.codigo}}. Lo clasificará el líder del SIG, que decidirá si es no conformidad y con qué plazo. Este registro no lo clasifica.
+      </span>
+    </div>
+
+  </div>
+
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 15px 30px; background: #ffffff; border-top: 1px solid #e2e6e3">
+    <span class="mono" style="flex: 1; font-size: 9.5px; color: #a3aca7">El reporte y el hallazgo se crean en la misma transacción</span>
+    <button style="flex: none; padding: 10px 15px; font-size: 12.5px; font-weight: 500; color: #6b7570; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">Cancelar</button>
+    <button style="flex: none; padding: 10px 20px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Registrar y abrir el hallazgo</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":780,"height":880}}'>
+const PILL_BASE = 'padding: 9px 14px; font-size: 12px; font-weight: 600; border-radius: 6px;';
+const PILL_OFF = PILL_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const PILL_ON = PILL_BASE + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff;';
+
+const NIVELES = [
+  { hasta: 4, etiqueta: 'Aceptable', bg: '#e6efe9', fg: '#0b5c44', color: '#0b5c44' },
+  { hasta: 12, etiqueta: 'Moderado', bg: '#faf1d3', fg: '#6b5410', color: '#c25a1e' },
+  { hasta: 25, etiqueta: 'Inaceptable', bg: '#fdeeeb', fg: '#a52016', color: '#a52016' },
+];
+function nivelDe(v) { for (const n of NIVELES) if (v <= n.hasta) return n; return NIVELES[2]; }
+
+const RIESGOS = {
+  R14: {
+    codigo: 'R14', proceso: 'Gestión de Proyectos', factor: 'Personal',
+    texto: 'Retraso en el cronograma por rotación de personal clave',
+    inherente: 20, residual: 7.2,
+    evento: 'La persona a cargo de la analítica del proyecto ILC presentó renuncia el 12 de agosto con quince días de preaviso. No había esquema de respaldo y las dos entregas de la fase 2 se corrieron tres semanas.',
+    impacto: 'Tres semanas de retraso en la fase 2 del proyecto ILC y una reprogramación acordada con el cliente. Sin sobrecosto directo, pero el hito de septiembre se movió a octubre.',
+  },
+  R27: {
+    codigo: 'R27', proceso: 'Gestión Tecnológica', factor: 'Tecnológico',
+    texto: 'Licencias vencidas o software sin inventariar',
+    inherente: 16, residual: 12.96,
+    evento: 'Se venció la suscripción de una herramienta de analítica usada en dos proyectos activos, sin aviso previo, porque no estaba en el inventario de licencias.',
+    impacto: 'Dos días sin acceso a la herramienta para cuatro personas y una renovación de urgencia a tarifa lista, sin el descuento anual.',
+  },
+  R17: {
+    codigo: 'R17', proceso: 'Gestión Legal y Compras', factor: 'Legal',
+    texto: 'Recibir multas o sanciones y perder credibilidad',
+    inherente: 12, residual: 4.55,
+    evento: 'La auditoría externa evidenció que la matriz de requisitos legales está vacía, sin ninguna norma identificada por proceso.',
+    impacto: 'No conformidad mayor en la auditoría de certificación. Sin sanción económica, pero con plazo de cierre antes de la siguiente visita.',
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'R14' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const r = RIESGOS[s.sel];
+    const nRes = nivelDe(r.residual);
+    const nInh = nivelDe(r.inherente);
+
+    return {
+      riesgos: Object.keys(RIESGOS).map((k) => ({
+        codigo: k,
+        estilo: s.sel === k ? PILL_ON : PILL_OFF,
+        elegir: () => this.setState({ sel: k }),
+      })),
+      sel: {
+        ...r,
+        nivel: nRes.etiqueta,
+        nivelBg: nRes.bg,
+        nivelFg: nRes.fg,
+        resColor: nRes.color,
+        inhColor: nInh.color,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
