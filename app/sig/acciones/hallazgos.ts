@@ -118,3 +118,141 @@ export async function clasificarHallazgo(
     };
   });
 }
+
+export async function guardarCorreccion(
+  codigo: string,
+  datos: { descripcion: string; responsableId: number; fecha: Date },
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('mejora:escribir');
+    const hallazgo = await prisma.hallazgo.findUnique({ where: { codigo } });
+    if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
+    const { exigeTabla } = await import('@/lib/sig/hallazgos');
+    const exige = exigeTabla(hallazgo.tipo);
+    if (exige.correccion === 'NO') {
+      return { ok: false, mensaje: 'Este tipo de hallazgo no exige corrección.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const correccion = await tx.correccionHallazgo.upsert({
+        where: { hallazgoId: hallazgo.id },
+        update: {
+          descripcion: datos.descripcion,
+          responsableId: datos.responsableId,
+          fecha: datos.fecha,
+        },
+        create: {
+          hallazgoId: hallazgo.id,
+          descripcion: datos.descripcion,
+          responsableId: datos.responsableId,
+          fecha: datos.fecha,
+        },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'correccion_hallazgo',
+          registroId: String(correccion.id),
+          campo: 'descripcion',
+          anterior: null,
+          nuevo: datos.descripcion,
+          motivo: 'corrección inmediata del hallazgo',
+        },
+      ]);
+    });
+    return { ok: true, mensaje: 'Corrección guardada. Contiene el efecto; no cierra el hallazgo.' };
+  });
+}
+
+export async function guardarCausaRaiz(
+  codigo: string,
+  datos: {
+    metodo: 'CINCO_PORQUES' | 'ISHIKAWA' | 'LIBRE';
+    desarrollo: unknown;
+    causaRaiz: string;
+  },
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('mejora:escribir');
+    const hallazgo = await prisma.hallazgo.findUnique({ where: { codigo } });
+    if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
+    const persona = await prisma.persona.findUnique({
+      where: { correo: autor },
+      select: { id: true },
+    });
+    if (!persona) return { ok: false, mensaje: 'Tu cuenta no está registrada.' };
+
+    const { exigeTabla } = await import('@/lib/sig/hallazgos');
+    const exige = exigeTabla(hallazgo.tipo);
+    if (exige.causa === 'NO') return { ok: false, mensaje: 'Este tipo no exige causa raíz.' };
+    if (exige.causa === 'METODO' && datos.metodo === 'LIBRE') {
+      return {
+        ok: false,
+        mensaje: 'La NC mayor exige un método declarado (cinco porqués o Ishikawa).',
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const analisis = await tx.analisisCausa.upsert({
+        where: { hallazgoId: hallazgo.id },
+        update: {
+          metodo: datos.metodo,
+          desarrollo: datos.desarrollo,
+          causaRaiz: datos.causaRaiz,
+          realizadoPorId: persona.id,
+        },
+        create: {
+          hallazgoId: hallazgo.id,
+          metodo: datos.metodo,
+          desarrollo: datos.desarrollo,
+          causaRaiz: datos.causaRaiz,
+          realizadoPorId: persona.id,
+        },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'analisis_causa',
+          registroId: String(analisis.id),
+          campo: 'causa_raiz',
+          anterior: null,
+          nuevo: datos.causaRaiz,
+          motivo: `análisis de causa con método ${datos.metodo}`,
+        },
+      ]);
+    });
+    return { ok: true, mensaje: 'Causa raíz guardada.' };
+  });
+}
+
+export async function guardarExtension(
+  codigo: string,
+  datos: { existeEnOtraParte: boolean; analisis: string },
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('mejora:escribir');
+    const hallazgo = await prisma.hallazgo.findUnique({ where: { codigo } });
+    if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
+    const { exigeTabla } = await import('@/lib/sig/hallazgos');
+    if (!exigeTabla(hallazgo.tipo).extension) {
+      return { ok: false, mensaje: 'Este tipo no exige la evaluación de extensión.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const extension = await tx.extensionProblema.upsert({
+        where: { hallazgoId: hallazgo.id },
+        update: { existeEnOtraParte: datos.existeEnOtraParte, analisis: datos.analisis },
+        create: { hallazgoId: hallazgo.id, existeEnOtraParte: datos.existeEnOtraParte, analisis: datos.analisis },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'extension_problema',
+          registroId: String(extension.id),
+          campo: 'existe_en_otra_parte',
+          anterior: null,
+          nuevo: String(datos.existeEnOtraParte),
+          motivo: 'evaluación de extensión (ISO 9001 §10.2.1 d)',
+        },
+      ]);
+    });
+    return { ok: true, mensaje: 'Evaluación de extensión guardada.' };
+  });
+}
