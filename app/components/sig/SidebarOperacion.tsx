@@ -30,14 +30,52 @@ interface Entrada {
   sub?: boolean;
 }
 
-const ENTRADAS: Entrada[] = [
-  { etiqueta: 'Obligaciones', abreviatura: 'OBL', href: '/sig/obligaciones', contador: 'obligaciones' },
-  { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },
-  { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
-  { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
-  { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sig/hallazgos' },
-  { etiqueta: 'Tablero de mejora', abreviatura: 'MEJ', href: '/sig/mejora' },
-  { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
+interface Grupo {
+  titulo: string;
+  tituloCorto: string;
+  items: Entrada[];
+  sub?: boolean;
+}
+
+// Spec §4: la sidebar se agrupa con separadores: TAREAS · MEJORA · AUDITORÍA ·
+// CONFIGURACIÓN.
+const GRUPOS: Grupo[] = [
+  {
+    titulo: 'Tareas',
+    tituloCorto: 'TAR',
+    items: [
+      { etiqueta: 'Obligaciones', abreviatura: 'OBL', href: '/sig/obligaciones', contador: 'obligaciones' },
+      { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },
+      { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
+      { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
+    ],
+  },
+  {
+    titulo: 'Mejora',
+    tituloCorto: 'MEJ',
+    items: [
+      { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sig/hallazgos' },
+      { etiqueta: 'Tablero de mejora', abreviatura: 'MEJ', href: '/sig/mejora' },
+    ],
+  },
+  {
+    titulo: 'Auditoría',
+    tituloCorto: 'AUD',
+    items: [
+      { etiqueta: 'Programa', abreviatura: 'PRG', href: '/sig/programa' },
+      { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sig/auditorias' },
+      { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sig/auditorias/externas' },
+    ],
+  },
+  {
+    titulo: 'Configuración',
+    tituloCorto: '···',
+    sub: true,
+    items: [
+      { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
+      { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sig/normas', sub: true },
+    ],
+  },
 ];
 
 export default function SidebarOperacion({ contadores }: { contadores: ContadoresOperacion }) {
@@ -69,35 +107,22 @@ export default function SidebarOperacion({ contadores }: { contadores: Contadore
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2.5">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2 px-[11px]" style={{ margin: '0 0 6px' }}>
-            <span
-              className="whitespace-nowrap font-mono text-9 uppercase tracking-[0.07em]"
-              style={{ color: 'var(--hf-text-label)' }}
-            >
-              {abierto ? 'Operación' : 'OPR'}
-            </span>
-            <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
+        {GRUPOS.map((g, i) => (
+          <div key={g.titulo} className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2 px-[11px]" style={{ margin: i === 0 ? '0 0 6px' : '14px 0 6px' }}>
+              <span
+                className="whitespace-nowrap font-mono text-9 uppercase tracking-[0.07em]"
+                style={{ color: 'var(--hf-text-label)' }}
+              >
+                {abierto ? g.titulo : g.tituloCorto}
+              </span>
+              <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
+            </div>
+            {g.items.map((e) => (
+              <Item key={e.href} entrada={e} grupo={g} abierto={abierto} ruta={ruta} contadores={contadores} />
+            ))}
           </div>
-          {ENTRADAS.filter((e) => !e.sub).map((e) => (
-            <Item key={e.href} entrada={e} abierto={abierto} ruta={ruta} contadores={contadores} />
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2 px-[11px]" style={{ margin: '14px 0 6px' }}>
-            <span
-              className="whitespace-nowrap font-mono text-9 uppercase tracking-[0.07em]"
-              style={{ color: 'var(--hf-text-label)' }}
-            >
-              {abierto ? 'Configuración' : '···'}
-            </span>
-            <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
-          </div>
-          {ENTRADAS.filter((e) => e.sub).map((e) => (
-            <Item key={e.href} entrada={e} abierto={abierto} ruta={ruta} contadores={contadores} />
-          ))}
-        </div>
+        ))}
       </nav>
 
       {abierto && (
@@ -150,11 +175,13 @@ export default function SidebarOperacion({ contadores }: { contadores: Contadore
 
 function Item({
   entrada,
+  grupo,
   abierto,
   ruta,
   contadores,
 }: {
   entrada: Entrada;
+  grupo: Grupo;
   abierto: boolean;
   ruta: string;
   contadores: ContadoresOperacion;
