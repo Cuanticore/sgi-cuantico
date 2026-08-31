@@ -1,0 +1,873 @@
+<title>Paquete de trabajo del SIG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* ──────────────────────────────────────────────────────────────────────────
+     Tokens. Los valores de luz salen de app/globals.css — es el sistema que
+     esta aplicación ya tiene, y el paquete debe parecerse a lo que se construye.
+     Los de oscuro se derivan manteniendo el azul de marca legible sobre fondo.
+     ────────────────────────────────────────────────────────────────────────── */
+  :root {
+    --ground: #f5f7f6;
+    --surface: #ffffff;
+    --surface-2: #fbfcfb;
+    --line: #e2e6e3;
+    --hair: #eceeed;
+    --ink: #1a211e;
+    --ink-2: #4a544f;
+    --muted: #8a938e;
+    --faint: #a3aca7;
+    --brand: #12437f;
+    --brand-deep: #0c2461;
+    --brand-soft: #e9f0fb;
+    --brand-line: #d3dceb;
+    --accent: #0f7a5a;
+    --accent-soft: #e8f4ef;
+    --accent-line: #c9e3d8;
+    --alert: #a52016;
+    --alert-soft: #fdeeeb;
+    --alert-line: #f2cdc6;
+    --warn: #b8791a;
+    --warn-soft: #fff3e6;
+    --warn-line: #f2b473;
+    --shadow: 0 1px 2px rgba(12, 24, 18, 0.04);
+  }
+
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10161a;
+      --surface: #171f24;
+      --surface-2: #1c252a;
+      --line: #2a353b;
+      --hair: #222c32;
+      --ink: #eaf0ee;
+      --ink-2: #b3bfba;
+      --muted: #8896902;
+      --muted: #889690;
+      --faint: #6f7d77;
+      --brand: #8ab8f2;
+      --brand-deep: #b9d4f8;
+      --brand-soft: #15263a;
+      --brand-line: #24405f;
+      --accent: #58c69b;
+      --accent-soft: #102a22;
+      --accent-line: #1e4739;
+      --alert: #f08a7c;
+      --alert-soft: #2c1512;
+      --alert-line: #52241e;
+      --warn: #e0a751;
+      --warn-soft: #2a1f0f;
+      --warn-line: #55401c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10161a;
+    --surface: #171f24;
+    --surface-2: #1c252a;
+    --line: #2a353b;
+    --hair: #222c32;
+    --ink: #eaf0ee;
+    --ink-2: #b3bfba;
+    --muted: #889690;
+    --faint: #6f7d77;
+    --brand: #8ab8f2;
+    --brand-deep: #b9d4f8;
+    --brand-soft: #15263a;
+    --brand-line: #24405f;
+    --accent: #58c69b;
+    --accent-soft: #102a22;
+    --accent-line: #1e4739;
+    --alert: #f08a7c;
+    --alert-soft: #2c1512;
+    --alert-line: #52241e;
+    --warn: #e0a751;
+    --warn-soft: #2a1f0f;
+    --warn-line: #55401c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: 'Libre Franklin', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--brand); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--brand); }
+  a:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 2px; }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-size: 0.86em;
+    padding: 0.1em 0.36em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--ink-2);
+  }
+
+  .marco {
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr);
+    gap: 44px;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  /* ── Rail de navegación ───────────────────────────────────────────────── */
+  .rail { position: sticky; top: 0; align-self: start; padding-top: 44px; }
+  .rail nav { display: flex; flex-direction: column; gap: 2px; }
+  .rail a {
+    display: block;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--ink-2);
+    border-radius: 6px;
+    border-bottom: 0;
+  }
+  .rail a:hover { background: var(--brand-soft); color: var(--brand); }
+  .rail .grupo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding: 16px 10px 6px;
+  }
+
+  /* ── Encabezado ───────────────────────────────────────────────────────── */
+  header { padding: 68px 0 40px; border-bottom: 1px solid var(--line); margin-bottom: 44px; }
+  .marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 26px;
+  }
+  .cq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    background: var(--brand);
+    color: #ffffff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .marca span:last-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    margin: 0 0 16px;
+    font-size: clamp(32px, 5vw, 46px);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  .bajada { margin: 0; max-width: 62ch; font-size: 17px; line-height: 1.62; color: var(--ink-2); }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 32px; }
+  .meta div { display: flex; flex-direction: column; gap: 5px; }
+  .meta dt, .etq {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .meta dd { margin: 0; font-size: 20px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Secciones ────────────────────────────────────────────────────────── */
+  section { padding-top: 56px; }
+  section > h2 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    scroll-margin-top: 24px;
+  }
+  section > .intro { margin: 0 0 26px; max-width: 66ch; color: var(--ink-2); }
+  h3 { margin: 34px 0 12px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  p { max-width: 68ch; }
+
+  /* ── Tarjetas ─────────────────────────────────────────────────────────── */
+  .lista { display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 18px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .item .clave {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--brand);
+    padding-top: 2px;
+  }
+  .item h4 { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+  .item p { margin: 0; font-size: 13.5px; line-height: 1.58; color: var(--ink-2); }
+  .item .ruta {
+    display: inline-block;
+    margin-top: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  /* ── Enlaces a los canvas ─────────────────────────────────────────────── */
+  .canvas { display: grid; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); gap: 12px; }
+  .canvas a {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 17px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+  .canvas a:hover { border-color: var(--brand); background: var(--brand-soft); }
+  .canvas .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .canvas strong { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+  .canvas span.desc { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+
+  /* ── Avisos ───────────────────────────────────────────────────────────── */
+  .aviso {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 13px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--warn-line);
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+  .aviso.grave { border-color: var(--alert-line); background: var(--alert-soft); color: var(--alert); }
+  .aviso svg { width: 18px; height: 18px; margin-top: 2px; }
+  .aviso p { margin: 0; max-width: none; font-size: 13.5px; line-height: 1.6; }
+  .aviso strong { font-weight: 600; }
+  .aviso + .aviso { margin-top: 10px; }
+
+  /* ── Tabla ────────────────────────────────────────────────────────────── */
+  .tabla-envoltura { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brand);
+    font-weight: 500;
+    text-align: left;
+    padding: 14px 18px 10px;
+  }
+  td { padding: 12px 18px; border-top: 1px solid var(--hair); font-size: 13.5px; vertical-align: top; color: var(--ink-2); }
+  td:first-child { color: var(--ink); font-weight: 500; }
+
+  .pill {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .pill.ok { background: var(--accent-soft); color: var(--accent); }
+  .pill.falta { background: var(--warn-soft); color: var(--warn); }
+  .pill.bloq { background: var(--alert-soft); color: var(--alert); }
+
+  /* ── Reglas transversales ─────────────────────────────────────────────── */
+  .reglas { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .regla { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 16px; padding: 17px 20px; background: var(--surface); }
+  .regla .num { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); padding-top: 1px; }
+  .regla h4 { margin: 0 0 5px; font-size: 14.5px; font-weight: 600; }
+  .regla p { margin: 0; max-width: none; font-size: 13.5px; line-height: 1.58; color: var(--ink-2); }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 900px) {
+    .marco { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 20px 72px; }
+    .rail { display: none; }
+    header { padding-top: 44px; }
+  }
+</style>
+
+<div class="marco">
+
+  <aside class="rail">
+    <nav>
+      <span class="grupo">Empezar</span>
+      <a href="#estado">Estado del paquete</a>
+      <a href="#orden">Orden de trabajo</a>
+      <span class="grupo">Contenido</span>
+      <a href="#specs">Especificaciones</a>
+      <a href="#planes">Planes</a>
+      <a href="#disenos">Diseños</a>
+      <a href="#config">Configuración y datos</a>
+      <span class="grupo">Antes de codificar</span>
+      <a href="#reglas">Reglas transversales</a>
+      <a href="#decisiones">Decisiones abiertas</a>
+    </nav>
+  </aside>
+
+  <main>
+    <header>
+      <span class="marca">
+        <span class="cq">CQ</span>
+        <span>Cuántico · Sistema Integrado de Gestión</span>
+      </span>
+      <h1>Paquete de trabajo del SIG</h1>
+      <p class="bajada">
+        Cuatro módulos nuevos sobre la aplicación que ya existe: tareas del SIG, mejora,
+        gestión estratégica y auditorías internas. Todo lo que hay para construirlos —
+        qué se especificó, cómo se ve, qué está decidido y qué no.
+      </p>
+      <dl class="meta">
+        <div><dt>Especificaciones</dt><dd>4</dd></div>
+        <div><dt>Pantallas diseñadas</dt><dd>32</dd></div>
+        <div><dt>Planes escritos</dt><dd>1 de 7</dd></div>
+        <div><dt>Decisiones abiertas</dt><dd>9</dd></div>
+        <div><dt>Fecha</dt><dd>31·08·26</dd></div>
+      </dl>
+    </header>
+
+    <!-- ── Estado ─────────────────────────────────────────────────────── -->
+    <section id="estado">
+      <h2>Estado del paquete</h2>
+      <p class="intro">
+        Las especificaciones y los diseños están completos. Los planes de implementación no:
+        solo el primero está escrito, y es el único desde el que se puede codificar hoy.
+      </p>
+
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Módulo</th><th>Especificación</th><th>Diseño</th><th>Plan</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A · Personas y tareas</td>
+              <td><span class="pill ok">Completa</span></td>
+              <td><span class="pill ok">8 pantallas</span></td>
+              <td><span class="pill falta">1 de 4 fases</span></td>
+            </tr>
+            <tr>
+              <td>B · Mejora, NC y ACPM</td>
+              <td><span class="pill ok">Completa</span></td>
+              <td><span class="pill ok">5 pantallas</span></td>
+              <td><span class="pill falta">Sin escribir</span></td>
+            </tr>
+            <tr>
+              <td>D · Gestión estratégica</td>
+              <td><span class="pill falta">Falta línea base</span></td>
+              <td><span class="pill ok">9 pantallas</span></td>
+              <td><span class="pill falta">Sin escribir</span></td>
+            </tr>
+            <tr>
+              <td>C · Auditorías internas</td>
+              <td><span class="pill falta">Falta perfil auditor</span></td>
+              <td><span class="pill ok">5 pantallas</span></td>
+              <td><span class="pill falta">Sin escribir</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 22px">
+        <div class="aviso grave">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <p>
+            <strong>Lo primero que hay que resolver, antes de escribir código:</strong>
+            la variable <code>SGI_ACCESO_SIN_GRUPO</code> está puesta en el <code>.env</code> de
+            producción y hoy le da a <em>cualquier</em> cuenta autenticada el rol completo del
+            SGSI — inventario de activos, registro de riesgos, banderas de datos personales.
+            El módulo A la retira y esas cuentas pasan a Colaborador. Hay que verificar la
+            membresía de los tres grupos del Directorio <em>antes</em> de desplegar, no después.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Orden ──────────────────────────────────────────────────────── -->
+    <section id="orden">
+      <h2>Orden de trabajo</h2>
+      <p class="intro">
+        El orden no es negociable: cada módulo consume el anterior. Es una secuencia real,
+        no una prioridad.
+      </p>
+
+      <div class="reglas">
+        <div class="regla">
+          <span class="num">1</span>
+          <div>
+            <h4>A · Personas y tareas del SIG</h4>
+            <p>El sustrato. Aporta la entidad <code>Persona</code> —hoy el sistema no tiene personas, solo cargos— y el motor de asignaciones que los otros tres consumen. Se parte en cuatro planes: A1 personas y acceso, A2 motor, A3 superficies, A4 notificaciones.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">2</span>
+          <div>
+            <h4>B · Mejora</h4>
+            <p>Las acciones de un hallazgo <em>son</em> asignaciones del motor de A. Sin A, B inventaría su propia noción de tarea y habría que unificarlas después.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">3</span>
+          <div>
+            <h4>D · Gestión estratégica</h4>
+            <p>Consume A para los planes de acción y B para la materialización de riesgos. Trae el mayor volumen de datos a migrar: 66 registros con paridad de cálculo exigida.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">4</span>
+          <div>
+            <h4>C · Auditorías internas</h4>
+            <p>Cierra el ciclo. Al emitir el informe final promueve sus hallazgos a B, así que necesita B funcionando.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Specs ──────────────────────────────────────────────────────── -->
+    <section id="specs">
+      <h2>Especificaciones</h2>
+      <p class="intro">
+        Cada una nombra su fuente documental. No se inventó metodología: donde Cuántico ya
+        tenía un método aprobado, la especificación lo reproduce y dice de dónde sale.
+      </p>
+
+      <div class="lista">
+        <article class="item">
+          <span class="clave">REQ-SIG-01</span>
+          <div>
+            <h4>Herramienta de activos y riesgos · preexistente</h4>
+            <p>El requerimiento del SGSI, de agosto de 2026. No es parte de este paquete, pero define reglas que los cuatro módulos heredan: codificación de activos, parametrización sin tocar código, trazabilidad y los requisitos no funcionales.</p>
+            <span class="ruta">docs/handoff_v2/requisitos/REQ-SIG-01-requerimiento.txt</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">REQ-SIG-02</span>
+          <div>
+            <h4>Personas y tareas del SIG</h4>
+            <p>Entidad <code>Persona</code> espejo de Azure AD, rol Colaborador, contenidos reutilizables, programa de obligaciones y generación idempotente de asignaciones. Incluye los resúmenes semanal y mensual por correo. Diseñada desde cero: no había fuente documental.</p>
+            <span class="ruta">docs/superpowers/specs/2026-08-31-sig-personas-tareas-design.md</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">REQ-SIG-03</span>
+          <div>
+            <h4>Mejora · no conformidades y acciones correctivas</h4>
+            <p>Una entidad Hallazgo con tipo y consecutivo que no codifica el tipo, análisis de causa con método declarado, verificación de eficacia con historial y cierre con separación de funciones. Sobre <code>PRO-CAL-03</code> y los formatos FOR-CAL-01 a 03 y 08.</p>
+            <span class="ruta">docs/superpowers/specs/2026-08-31-sig-mejora-nc-acpm-design.md</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">REQ-SIG-04</span>
+          <div>
+            <h4>Gestión estratégica</h4>
+            <p>Partes interesadas, requisitos legales, riesgos y oportunidades organizacionales, DOFA y PESTEL. Sobre <code>MAN-CAL-01 v2.0</code>, con las fórmulas del residual verificadas fila por fila contra <code>MAT-CAL-02</code>.</p>
+            <span class="ruta">docs/superpowers/specs/2026-08-31-sig-gestion-estrategica-design.md</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">REQ-SIG-05</span>
+          <div>
+            <h4>Auditorías internas</h4>
+            <p>Programa anual, plan como matriz proceso × numeral, notas del auditor con el vocabulario real (OK · NC · OM · RM · Fortaleza), informe preliminar y final. Sobre <code>PRO-CAL-04 v3.0</code> y las cinco auditorías archivadas de 2025 y 2026.</p>
+            <span class="ruta">docs/superpowers/specs/2026-08-31-sig-auditorias-internas-design.md</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Planes ─────────────────────────────────────────────────────── -->
+    <section id="planes">
+      <h2>Planes de implementación</h2>
+      <p class="intro">
+        Solo hay uno. Está escrito en TDD paso a paso, con el código completo en cada
+        tarea y sin marcadores de posición: se puede ejecutar tal cual.
+      </p>
+
+      <div class="lista">
+        <article class="item">
+          <span class="clave">A1</span>
+          <div>
+            <h4>Personas y acceso</h4>
+            <p>Siete tareas: modelo <code>Persona</code> y migración, plan de sincronización puro y probado, lectura del Directorio con el object id, acción transaccional con bitácora, alta al iniciar sesión, rol Colaborador y retiro de <code>SGI_ACCESO_SIN_GRUPO</code>, y cierre con el build completo.</p>
+            <span class="ruta">docs/superpowers/plans/2026-08-31-sig-a1-personas-y-acceso.md</span>
+          </div>
+        </article>
+      </div>
+
+      <p style="margin-top: 20px; color: var(--ink-2); font-size: 14px">
+        Faltan seis: <strong>A2</strong> motor de tareas, <strong>A3</strong> las dos superficies,
+        <strong>A4</strong> notificaciones e indicadores, y uno por cada módulo B, D y C.
+        Escribirlos es trabajo de una sesión cada uno, a partir de la especificación
+        correspondiente.
+      </p>
+    </section>
+
+    <!-- ── Diseños ────────────────────────────────────────────────────── -->
+    <section id="disenos">
+      <h2>Diseños</h2>
+      <p class="intro">
+        Treinta y dos pantallas en cinco lienzos. Los controles funcionan: filtros,
+        pestañas, cálculos en vivo. Todos los valores —colores, tipografía, radios,
+        alturas— salen de <code>app/globals.css</code> y de los componentes reales del
+        shell, sin redondear ni reinterpretar.
+      </p>
+
+      <div class="canvas">
+        <a href="https://claude.ai/code/artifact/e5cddb28-c7ae-4bb2-b13b-b6e8368d40eb">
+          <span class="n">7 pantallas</span>
+          <strong>Módulo A</strong>
+          <span class="desc">Mi SIG y las cinco de Operación, más la hoja del vocabulario visual.</span>
+        </a>
+        <a href="https://claude.ai/code/artifact/8644c42e-6b02-4658-b956-943d607d6bbb">
+          <span class="n">8 pantallas · 3 páginas</span>
+          <strong>Mejora, Estratégico y Auditorías</strong>
+          <span class="desc">El cálculo del residual se rehace a la vista al mover el control.</span>
+        </a>
+        <a href="https://claude.ai/code/artifact/88fd6499-ee13-4e38-92d3-cc94f3464253">
+          <span class="n">6 pantallas</span>
+          <strong>Formularios y correos</strong>
+          <span class="desc">Lo que se captura y lo que se recibe, con las notas de implementación del correo.</span>
+        </a>
+        <a href="https://claude.ai/code/artifact/eb17321f-2b7b-4713-a5d5-c1eeafc79da1">
+          <span class="n">5 pantallas · 2 páginas</span>
+          <strong>Tableros y contexto</strong>
+          <span class="desc">Cumplimiento, mejora y auditoría, más DOFA y PESTEL.</span>
+        </a>
+        <a href="https://claude.ai/code/artifact/123090ea-82f7-490a-b6a6-e1c45840ae5d">
+          <span class="n">6 pantallas</span>
+          <strong>Móvil y registros</strong>
+          <span class="desc">Mi SIG a 390 px y las cinco pantallas que cerraban las specs.</span>
+        </a>
+      </div>
+
+      <p style="margin-top: 20px; color: var(--ink-2); font-size: 14px">
+        El código fuente de cada pantalla está en el repositorio, en
+        <code>docs/handoff_*/design/*.dc.html</code>. Es HTML con estilos en línea:
+        sirve para copiar valores exactos, no para importar como componente.
+      </p>
+    </section>
+
+    <!-- ── Configuración ──────────────────────────────────────────────── -->
+    <section id="config">
+      <h2>Configuración y datos</h2>
+      <p class="intro">
+        Lo que hay que cargar antes de que el sistema sirva para algo, y en qué orden.
+      </p>
+
+      <div class="lista">
+        <article class="item">
+          <span class="clave">Carga</span>
+          <div>
+            <h4>Configuración base de tareas por proceso</h4>
+            <p>Quién responde por cada uno de los nueve procesos, contrastado contra <code>FOR-CAL-04 2026</code>: coincide en siete. El orden de carga en siete pasos y seis reglas, entre ellas por qué ninguna obligación debe cargarse con fecha de inicio retroactiva.</p>
+            <span class="ruta">docs/handoff_a/configuracion-base-tareas.md</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">Datos</span>
+          <div>
+            <h4>Cargue de datos · todas las entidades</h4>
+            <p>Cada entidad del sistema con su origen, volumen, fuente y lo que la bloquea: las ya cargadas del SGSI, las cuatro cargas nuevas, el orden en catorce pasos, la prueba de paridad de los 66 registros y la lista de lo que nunca debe cargarse.</p>
+            <span class="ruta">docs/handoff_sig/carga-de-datos.md</span>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="clave">Datos</span>
+          <div>
+            <h4>Contenidos de capacitación</h4>
+            <p>Diez módulos listos para cargar como <code>ContenidoSig</code>, con temario, material propio de Cuántico, evaluación de cinco preguntas y enlaces a video verificados uno por uno. Dos módulos quedan sin video, y el documento dice por qué.</p>
+            <span class="ruta">docs/handoff_a/contenidos-capacitacion.md</span>
+          </div>
+        </article>
+      </div>
+
+      <h3>Cargue de datos · todas las entidades</h3>
+      <p>
+        Cada entidad del sistema cae en uno de <strong>seis orígenes</strong>, y el origen
+        decide el trabajo. La última fila es la que más cuesta si se pasa por alto.
+      </p>
+
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Origen</th><th>Qué significa</th><th>Trabajo</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Ya cargado</td><td>Vive en la base desde el SGSI · catálogos MAGERIT, 93 controles, 234 activos, 2.256 riesgos</td><td>Verificar que está</td></tr>
+            <tr><td>Migración</td><td>Existe en un Excel real y hay que traerlo con paridad verificable</td><td>Importador + prueba de paridad</td></tr>
+            <tr><td>Semilla</td><td>Sale de un documento normativo o de la norma misma</td><td>Script de siembra</td></tr>
+            <tr><td>Directorio</td><td>Lo trae Microsoft Graph</td><td>Sincronización</td></tr>
+            <tr><td>Desde cero</td><td>No existe en ninguna parte · lo construye la organización usando la aplicación</td><td>Solo el CRUD</td></tr>
+            <tr><td><strong>Se genera</strong></td><td>Nunca se carga: lo produce el sistema al operar</td><td><strong>Cargarlo es un error</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>De dónde sale cada cosa</h3>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Fuente</th><th>Qué trae</th><th>Destino</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Azure AD · Graph</td><td>~34 personas, identificadas por su <code>oid</code></td><td>A · bloquea todo lo demás</td></tr>
+            <tr><td>MAN-CAL-01 v2.0</td><td>Los 7 catálogos del método: probabilidad, dos escalas de impacto, factores, tipos de control, eficacias y niveles</td><td>D · van primero, sin ellos no se calcula nada</td></tr>
+            <tr><td>MAT-CAL-02 v3.0</td><td>66 registros · 42 riesgos y 24 oportunidades, 11 procesos</td><td>D · <strong>con prueba de paridad</strong></td></tr>
+            <tr><td>MAT-EST-02 v2</td><td>29 partes interesadas · y 58 seguimientos, porque los años del Excel son columnas y aquí son filas</td><td>D</td></tr>
+            <tr><td>MAT-EST-01 v2</td><td><strong>Nada: está vacía</strong> en la versión vigente y en las dos obsoletas</td><td>D · 11 normas de semilla desde el manual</td></tr>
+            <tr><td>DOFA y PESTEL</td><td><strong>Nada: solo existe el acta que los aprueba</strong></td><td>D · desde cero</td></tr>
+            <tr><td>FOR-CAL-04 y carpeta 09</td><td>Programa 2026, 9 procesos en febrero, y el informe con sus <strong>76 notas</strong></td><td>C</td></tr>
+            <tr><td>ISO 9001 e ISO 27001</td><td>2 normas y sus numerales auditables</td><td>C</td></tr>
+            <tr><td>Levantamiento pendiente</td><td>Las obligaciones del numeral 8 · <strong>no existen consolidadas</strong>, el cronograma SGC es una plantilla en blanco</td><td>A · trabajo del líder del SIG</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>El orden, en catorce pasos</h3>
+      <p>
+        Los pasos 1 a 5 son del módulo A y bloquean a los demás. Del 6 al 9 son de D y
+        pueden ir en paralelo con 10 a 12, que son de C. El 13 necesita A cargado, porque
+        las acciones de un hallazgo son asignaciones. El 14 va al final, siempre.
+      </p>
+
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Qué se carga</th><th>De dónde</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Persona</td><td>Directorio · Graph</td></tr>
+            <tr><td>2</td><td>Área y cargo de cada persona</td><td>7 nombradas en la configuración base</td></tr>
+            <tr><td>3</td><td>Catálogos del método</td><td>7 tablas desde MAN-CAL-01</td></tr>
+            <tr><td>4</td><td>Contenidos e ítems de verificación</td><td>10 de capacitación + levantamiento</td></tr>
+            <tr><td>5</td><td>Obligaciones</td><td>Levantamiento por procedimiento</td></tr>
+            <tr><td>6</td><td>Partes interesadas y sus necesidades</td><td>29 desde MAT-EST-02</td></tr>
+            <tr><td>7</td><td>DOFA y PESTEL</td><td>Desde cero</td></tr>
+            <tr><td>8</td><td>Requisitos legales</td><td>11 de semilla</td></tr>
+            <tr><td>9</td><td>Riesgos y sus controles</td><td>66 desde MAT-CAL-02 · <strong>prueba de paridad</strong></td></tr>
+            <tr><td>10</td><td>Normas y numerales</td><td>ISO 9001 e ISO 27001</td></tr>
+            <tr><td>11</td><td>Plazos por tipo de hallazgo</td><td>4 · <strong>por decidir</strong></td></tr>
+            <tr><td>12</td><td>Programa y auditorías</td><td>FOR-CAL-04 y carpeta 09</td></tr>
+            <tr><td>13</td><td>Hallazgos y sus acciones</td><td>Histórico 2026 · opcional</td></tr>
+            <tr><td>14</td><td>Generar asignaciones</td><td>Idempotente · se puede repetir</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 22px">
+        <div class="aviso grave">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <p>
+            <strong>Lo que nunca se carga:</strong> asignaciones, registros de realizado,
+            los riesgos del SGSI, los envíos de notificación, los roles, y cualquier cifra
+            derivada — inherente, residual, nivel, cumplimiento, cobertura, tasa de eficacia.
+            Todas se calculan al leer. Sembrarlas produce un sistema que arranca mintiendo,
+            y la mentira no se ve hasta la primera auditoría.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Reglas ─────────────────────────────────────────────────────── -->
+    <section id="reglas">
+      <h2>Reglas transversales</h2>
+      <p class="intro">
+        Atraviesan las cuatro especificaciones y algunas ya rigen el código existente.
+        Romper una no produce un error visible: produce un sistema que un auditor
+        desarma. Es la sección que conviene leer antes que ninguna otra.
+      </p>
+
+      <div class="reglas">
+        <div class="regla">
+          <span class="num">01</span>
+          <div>
+            <h4>Lo derivable se calcula, nunca se almacena</h4>
+            <p>Vencido, en análisis, el nivel de un riesgo, el cumplimiento de un periodo. Si hay una columna que guarda algo que se puede deducir, tarde o temprano contradice a la pantalla de al lado. Es la regla que el SGSI ya aplica con <code>riesgosGlobales()</code>.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">02</span>
+          <div>
+            <h4>Nunca hay borrado físico</h4>
+            <p>Toda baja es lógica y lleva motivo. Un registro que desaparece es exactamente el artefacto que una auditoría busca.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">03</span>
+          <div>
+            <h4>La validación vive en el servidor</h4>
+            <p>Los ítems obligatorios, la separación de funciones, el permiso. La interfaz ayuda; no decide. Una acción de servidor es alcanzable por cualquiera que sepa formar la petición.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">04</span>
+          <div>
+            <h4>Ningún umbral vive en el código</h4>
+            <p>Escalas, eficacias, plazos, niveles y criterios son tablas administrables con historial. La metodología ya cambió una vez de escala; volver a cambiarla no debe requerir un despliegue.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">05</span>
+          <div>
+            <h4>Se guarda la referencia al nivel, no el número</h4>
+            <p>Si mañana «Alto» pasa de 4 a 8, todos los cálculos se actualizan sin reescribir un solo dato.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">06</span>
+          <div>
+            <h4>El origen es tipado, nunca texto libre</h4>
+            <p>Un hallazgo que nace de un control guarda <code>controlId</code>; un riesgo que nace de una debilidad guarda <code>entradaContextoId</code>. Es lo que permite entrar por el control y ver lo que está abierto contra él.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">07</span>
+          <div>
+            <h4>La bitácora se escribe en la misma transacción</h4>
+            <p>Con autor, fecha, valor anterior y motivo. Un registro de auditoría que se puede escribir aparte es un registro que puede faltar.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">08</span>
+          <div>
+            <h4>La aplicación no guarda roles</h4>
+            <p>Los dan los grupos del Directorio. Es la respuesta que un auditor busca cuando pregunta quién autorizó un permiso.</p>
+          </div>
+        </div>
+        <div class="regla">
+          <span class="num">09</span>
+          <div>
+            <h4>El color nunca va solo</h4>
+            <p>Cada casilla, badge y renglón lleva su nivel escrito. Vale para las matrices de riesgo, los estados de una asignación y los mapas de calor.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Decisiones ─────────────────────────────────────────────────── -->
+    <section id="decisiones">
+      <h2>Decisiones abiertas</h2>
+      <p class="intro">
+        Nueve. Ninguna impide empezar por A1, pero cada una tiene un momento antes del
+        cual conviene resolverla.
+      </p>
+
+      <h3>Del negocio · no las decide el desarrollo</h3>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Qué</th><th>Antes de</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Verificar los grupos del Directorio antes de retirar <code>SGI_ACCESO_SIN_GRUPO</code></td><td>Desplegar A1</td></tr>
+            <tr><td>Qué significa «SIC» en el mapa de responsables · se leyó como Sistema Integrado de Gestión</td><td>Generar asignaciones</td></tr>
+            <tr><td>Área de pertenencia de Albeiro Medina y de Yuliet Rojas · decide qué ven en el resumen mensual</td><td>Generar asignaciones</td></tr>
+            <tr><td>Corregir <code>FOR-CAL-04</code>, desactualizado en varias filas de responsable</td><td>La próxima auditoría</td></tr>
+            <tr><td>Llevar al comité la anomalía del residual de las 24 oportunidades</td><td>Migrar el módulo D</td></tr>
+            <tr><td>Revisar las evaluaciones propuestas de nueve de los diez módulos de capacitación</td><td>Publicar los contenidos</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Técnicas · las decide quien construya</h3>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Qué</th><th>Antes de</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Volver opcional <code>Evidencia.controlId</code> para reusar la tabla de anexos, contra crear una espejo</td><td>Plan A2</td></tr>
+            <tr><td>Acotar la regla de versionado de contenidos a cambios de fondo, no a cualquier edición</td><td>Plan A2</td></tr>
+            <tr><td>Revisar el semáforo del SGSI donde rojo y naranja van adyacentes · ΔE 12,8 en visión normal</td><td>Tocar las matrices de riesgo</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Especificaciones incompletas</h3>
+      <p>
+        Dos cosas están prometidas en el alcance y nunca llegaron a la tabla de pantallas.
+        No se pueden diseñar sin decidir antes qué hacen:
+      </p>
+      <div class="aviso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <p>
+          <strong>Línea base comparable entre años</strong> — REQ-SIG-04 §2.1 y regla D10.
+          Existe la entidad y la promesa; falta decidir qué se compara y cómo se muestra
+          lo que entró y lo que salió entre dos periodos.
+        </p>
+      </div>
+      <div class="aviso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <p>
+          <strong>Perfil y competencia del auditor</strong> — REQ-SIG-05 §2.1 y regla C3.
+          La regla dice que solo una persona con perfil aprobado puede ser auditor líder,
+          pero no hay dónde ver ni aprobar ese perfil.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      Cuántico · Sistema Integrado de Gestión · 31 de agosto de 2026.
+      Todas las rutas son relativas a la raíz del repositorio <code>Indicadores</code>.
+    </footer>
+  </main>
+</div>
