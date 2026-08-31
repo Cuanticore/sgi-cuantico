@@ -4,6 +4,7 @@
 // buscador, y la tabla con el cumplimiento del último periodo como barra + %.
 
 import { prisma } from '@/lib/db';
+import { cumplimientoDePeriodo } from '@/lib/sig/cumplimiento';
 import NuevaObligacion from './NuevaObligacion';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,29 @@ export default async function ObligacionesPage() {
       responsableSeguimiento: { select: { nombre: true } },
     },
   });
+
+  // El cumplimiento del último periodo de cada obligación, calculado al leer: la barra
+  // de la pantalla y el correo mensual nunca pueden contradecirse (nota del lienzo).
+  const asignaciones = await prisma.asignacion.findMany({
+    where: { estado: { in: ['PENDIENTE', 'REALIZADA'] } },
+    select: { id: true, obligacionId: true, estado: true, fechaLimite: true, fechaCierre: true, personaId: true, cerradaPor: true },
+  });
+  const porObligacion = new Map<
+    number,
+    { periodo: string; cumplimiento: ReturnType<typeof cumplimientoDePeriodo> }
+  >();
+  for (const obligacionId of [...new Set(asignaciones.map((a) => a.obligacionId).filter(Boolean))]) {
+    const deLaObligacion = asignaciones.filter((a) => a.obligacionId === obligacionId);
+    const ultimoPeriodo = deLaObligacion
+      .map((a) => a.fechaLimite.toISOString().slice(0, 7))
+      .sort()
+      .at(-1);
+    if (!ultimoPeriodo) continue;
+    porObligacion.set(obligacionId as number, {
+      periodo: ultimoPeriodo,
+      cumplimiento: cumplimientoDePeriodo(deLaObligacion),
+    });
+  }
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
@@ -74,18 +98,30 @@ export default async function ObligacionesPage() {
                 <td className="px-4 py-3 font-mono text-11 text-muted">{o.plazoDias} d</td>
                 <td className="px-4 py-3 text-muted">{o.responsableSeguimiento.nombre}</td>
                 <td className="px-4 py-3 text-right">
-                  <span className="inline-flex items-center gap-2">
-                    <span
-                      className="h-[5px] w-12 overflow-hidden rounded-full"
-                      style={{ background: 'var(--hf-hairline-strong)' }}
-                    >
-                      <span
-                        className="block h-full rounded-full"
-                        style={{ width: '0%', background: 'var(--hf-text-label)' }}
-                      />
-                    </span>
-                    <span className="font-mono text-11 text-muted">—</span>
-                  </span>
+                  {(() => {
+                    const dato = porObligacion.get(o.id);
+                    if (!dato || dato.cumplimiento.porciento === null) {
+                      return <span className="font-mono text-11 text-muted">—</span>;
+                    }
+                    const p = dato.cumplimiento.porciento;
+                    const color = p >= 90 ? '#0f7a5a' : p >= 70 ? '#8a4407' : '#a52016';
+                    return (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="h-[5px] w-12 overflow-hidden rounded-full"
+                          style={{ background: 'var(--hf-hairline-strong)' }}
+                        >
+                          <span
+                            className="block h-full rounded-full"
+                            style={{ width: `${p}%`, background: color }}
+                          />
+                        </span>
+                        <span className="font-mono text-11 font-semibold" style={{ color }}>
+                          {p}%
+                        </span>
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
