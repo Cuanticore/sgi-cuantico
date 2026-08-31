@@ -37,6 +37,9 @@ export type Permiso =
   | 'mejora:ver'
   | 'mejora:escribir'
   | 'mejora:cerrar'
+  | 'estrategico:ver'
+  | 'estrategico:escribir'
+  | 'estrategico:parametrizar'
   | 'sgsi:ver'
   | 'sgsi:escribir'
   | 'activo:valorar'
@@ -56,6 +59,9 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'mejora:ver',
     'mejora:escribir',
     'mejora:cerrar',
+    'estrategico:ver',
+    'estrategico:escribir',
+    'estrategico:parametrizar',
     'sgsi:ver',
     'sgsi:escribir',
     'activo:valorar',
@@ -84,6 +90,8 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'operacion:ver',
     'mejora:ver',
     'mejora:escribir',
+    'estrategico:ver',
+    'estrategico:escribir',
     'sgsi:ver',
     'activo:valorar',
     'riesgo:tratar',
@@ -91,7 +99,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
   ],
   // Reads everything and changes nothing. The log and the evidence are precisely what an
   // auditor comes for.
-  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'mejora:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
+  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'mejora:ver', 'estrategico:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
 };
 
 export interface Rol {

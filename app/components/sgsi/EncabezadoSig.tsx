@@ -14,7 +14,7 @@ import HeaderCorporativo, { type Pestana } from './HeaderCorporativo';
 const TODAS: Pestana[] = [
   { etiqueta: 'Mi SIG', href: '/mi-sig' },
   { etiqueta: 'Indicadores', href: '/' },
-  { etiqueta: 'Estratégico', href: '', deshabilitada: true },
+  { etiqueta: 'Estratégico', href: '/estrategico/riesgos' },
   { etiqueta: 'SGSI', href: '/sgsi' },
   { etiqueta: 'Operación', href: '/sig/obligaciones' },
 ];

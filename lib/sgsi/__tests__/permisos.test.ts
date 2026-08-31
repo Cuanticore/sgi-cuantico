@@ -162,4 +162,15 @@ describe('los tres grupos conservan lo suyo y además ven Mi SIG', () => {
     expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:escribir')).toBe(false);
     expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:ver')).toBe(true);
   });
+
+  it('estrategico: ver para los tres grupos, escribir para lider y propietarios, parametrizar solo lider', () => {
+    expect(puede(rolDesdeGrupos(['Domain Users']), 'estrategico:ver')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:escribir')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:parametrizar')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'estrategico:escribir')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'estrategico:parametrizar')).toBe(false);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'estrategico:ver')).toBe(true);
+    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'estrategico:escribir')).toBe(false);
+  });
 });
