@@ -1,4 +1,4 @@
-// app/api/sgsi/anexo/route.ts
+﻿// app/api/sgsi/anexo/route.ts
 //
 // Alta y descarga de anexos (evidencia tipo ARCHIVO). El almacenamiento va detras de la
 // interfaz de lib/sgsi/anexos.ts: hoy disco local fuera de la raíz web, mañana S3 con
@@ -208,7 +208,7 @@ export async function GET(req: Request) {
     [
       {
         tabla: 'anexo',
-        registroId: evidencia.control.codigo,
+        registroId: evidencia.control?.codigo ?? String(evidencia.registroId ?? evidencia.controlId ?? ''),
         campo: `anexo ${inline ? 'previsualizado' : 'descargado'}`,
         anterior: null,
         nuevo: `${evidencia.archivoNombre} · ${formatoTamano(buffer.length)}`,

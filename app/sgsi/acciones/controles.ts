@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 // app/sgsi/acciones/controles.ts
 //
@@ -238,7 +238,7 @@ export async function quitarEvidencia(id: number, motivo: string): Promise<Resul
       await registrar(tx, autor, [
         {
           tabla: 'evidencia',
-          registroId: evidencia.control.codigo,
+          registroId: evidencia.control?.codigo ?? String(evidencia.registroId ?? evidencia.controlId ?? ''),
           campo: 'evidencia retirada',
           anterior: evidencia.texto,
           nuevo: null,
@@ -325,7 +325,7 @@ export async function restaurarEvidencia(id: number): Promise<Resultado> {
       await registrar(tx, autor, [
         {
           tabla: 'evidencia',
-          registroId: evidencia.control.codigo,
+          registroId: evidencia.control?.codigo ?? String(evidencia.registroId ?? evidencia.controlId ?? ''),
           campo: 'evidencia restaurada',
           anterior: 'retirada',
           nuevo: 'vigente',
