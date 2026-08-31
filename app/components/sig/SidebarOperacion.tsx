@@ -35,6 +35,8 @@ const ENTRADAS: Entrada[] = [
   { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },
   { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
   { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
+  { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sig/hallazgos' },
+  { etiqueta: 'Tablero de mejora', abreviatura: 'MEJ', href: '/sig/mejora' },
   { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
 ];
 
