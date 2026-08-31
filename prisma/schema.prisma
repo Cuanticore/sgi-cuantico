@@ -974,6 +974,12 @@ model Persona {
   correccionesHallazgo     CorreccionHallazgo[] @relation("CorreccionResponsable")
   analisisCausa            AnalisisCausa[]
   verificacionesHallazgo   VerificacionEficaciaHallazgo[]
+  necesidadesResponsables NecesidadExpectativa[] @relation("NecesidadResponsable")
+  requisitosLegales       RequisitoLegal[] @relation("RequisitoResponsable")
+  evaluacionesCumplimiento EvaluacionCumplimiento[] @relation("EvaluacionEvaluadoPor")
+  riesgosOrganizacionales RiesgoOrganizacional[] @relation("RiesgoOrgResponsable")
+  materializaciones       MaterializacionRiesgo[] @relation("MaterializacionReportante")
+  contextosAprobados      AnalisisContexto[] @relation("ContextoAprobadoPor")
 
   @@map("persona")
 }
@@ -1435,4 +1441,328 @@ model ContadorHallazgo {
   ultimoValor Int  @default(0) @map("ultimo_valor")
 
   @@map("contador_hallazgo")
+}
+
+// ============================================================================
+// SIG — Gestión estratégica (ISO 9001 §4.1, §4.2, §6.1 · ISO 31000:2018).
+// Metodologías separadas del SGSI, plataforma común. Nada calculado se almacena.
+// ============================================================================
+
+enum ClaseRiesgo {
+  RIESGO
+  OPORTUNIDAD
+
+  @@map("clase_riesgo")
+}
+
+enum FuenteRiesgo {
+  PROCESO
+  PARTE_INTERESADA
+  DOFA
+  PESTEL
+
+  @@map("fuente_riesgo")
+}
+
+enum TipoParte {
+  INTERNA
+  EXTERNA
+
+  @@map("tipo_parte")
+}
+
+enum ClaseNecesidad {
+  NECESIDAD
+  EXPECTATIVA
+
+  @@map("clase_necesidad")
+}
+
+enum ResultadoCumplimiento {
+  CUMPLE
+  PARCIAL
+  NO_CUMPLE
+
+  @@map("resultado_cumplimiento")
+}
+
+enum TipoAnalisis {
+  DOFA
+  PESTEL
+
+  @@map("tipo_analisis")
+}
+
+enum EfectoEntrada {
+  FAVORABLE
+  ADVERSO
+
+  @@map("efecto_entrada")
+}
+
+/// MAT-EST-02. La parte y sus necesidades/expectativas; el seguimiento es por año,
+/// filas nuevas cada año, nunca columnas (decisión 3.2 de la spec).
+model ParteInteresada {
+  id          Int       @id @default(autoincrement())
+  tipo        TipoParte
+  descripcion String
+  activa      Boolean   @default(true)
+
+  necesidades NecesidadExpectativa[]
+
+  @@map("parte_interesada")
+}
+
+model NecesidadExpectativa {
+  id                      Int            @id @default(autoincrement())
+  parteId                 Int            @map("parte_id")
+  texto                   String
+  clase                   ClaseNecesidad
+  riesgoOportunidadTexto  String?        @map("riesgo_oportunidad_texto")
+  esRiesgo                Boolean        @default(false) @map("es_riesgo")
+  esOportunidad           Boolean        @default(false) @map("es_oportunidad")
+  poder                   String
+  interes                 String
+  generaRequisitosSgsi    Boolean        @default(false) @map("genera_requisitos_sgsi")
+  requisitoCambioClimatico Boolean       @default(false) @map("requisito_cambio_climatico")
+  requiereCambioAlcanceSig Boolean       @default(false) @map("requiere_cambio_alcance_sig")
+  responsableId           Int?           @map("responsable_id")
+
+  parte       ParteInteresada        @relation(fields: [parteId], references: [id])
+  responsable Persona?               @relation("NecesidadResponsable", fields: [responsableId], references: [id])
+  seguimiento SeguimientoParteAnual[]
+
+  @@map("necesidad_expectativa")
+}
+
+/// El seguimiento anual son filas, no columnas: un registro por año.
+model SeguimientoParteAnual {
+  id          Int      @id @default(autoincrement())
+  necesidadId Int      @map("necesidad_id")
+  anio        Int
+  planAccion  String?  @map("plan_accion")
+  seguimiento String?
+  evidencia   String?
+
+  necesidad NecesidadExpectativa @relation(fields: [necesidadId], references: [id])
+
+  @@unique([necesidadId, anio])
+  @@map("seguimiento_parte_anual")
+}
+
+/// MAT-EST-01. Se construye desde cero: la matriz real está vacía (brecha del
+/// sistema, no módulo sobre datos existentes).
+model RequisitoLegal {
+  id                Int      @id @default(autoincrement())
+  consecutivo       Int
+  normatividad      String
+  articulo          String?
+  expedidaPor       String
+  tipo              String
+  objeto            String
+  aplicacion        String
+  sistemaGestion    String   @map("sistema_gestion")
+  procesoEncargado  String?  @map("proceso_encargado")
+  responsableId     Int?     @map("responsable_id")
+  enlace            String?
+  periodicidadRevision String @map("periodicidad_revision")
+  vigente           Boolean  @default(true)
+  derogadoEn        DateTime? @map("derogado_en")
+  normaQueDeroga    String?  @map("norma_que_deroga")
+
+  responsable   Persona?                  @relation("RequisitoResponsable", fields: [responsableId], references: [id])
+  evaluaciones  EvaluacionCumplimiento[]
+
+  @@map("requisito_legal")
+}
+
+model EvaluacionCumplimiento {
+  id            Int                   @id @default(autoincrement())
+  requisitoId   Int                   @map("requisito_id")
+  fecha         DateTime              @default(now())
+  resultado     ResultadoCumplimiento
+  evidencia     String?
+  evaluadoPorId Int                   @map("evaluado_por_id")
+  hallazgoId    Int?                  @map("hallazgo_id")
+
+  requisito RequisitoLegal @relation(fields: [requisitoId], references: [id])
+  evaluadoPor Persona      @relation("EvaluacionEvaluadoPor", fields: [evaluadoPorId], references: [id])
+
+  @@index([requisitoId, fecha])
+  @@map("evaluacion_cumplimiento")
+}
+
+/// MAT-CAL-02. El código es el del Excel, inmutable (D1). La fuente es tipada (D2).
+model RiesgoOrganizacional {
+  id            Int          @id @default(autoincrement())
+  codigo        String       @unique
+  clase         ClaseRiesgo
+  proceso       String
+  fuente        FuenteRiesgo
+  necesidadExpectativaId Int? @map("necesidad_expectativa_id")
+  entradaContextoId       Int? @map("entrada_contexto_id")
+  descripcion   String
+  causa         String
+  efecto        String
+  factorId      Int          @map("factor_id")
+  probabilidadId Int         @map("probabilidad_id")
+  impactoId     Int          @map("impacto_id")
+  responsableId Int?         @map("responsable_id")
+  activo        Boolean      @default(true)
+  nivelSugerido String?      @map("nivel_sugerido")
+
+  factor        FactorRiesgo          @relation(fields: [factorId], references: [id])
+  probabilidad  EscalaProbabilidad    @relation("RiesgoProbabilidad", fields: [probabilidadId], references: [id])
+  impacto       EscalaImpactoRiesgo   @relation(fields: [impactoId], references: [id])
+  responsable   Persona?              @relation("RiesgoOrgResponsable", fields: [responsableId], references: [id])
+  controles     ControlRiesgoOrg[]
+  materializaciones MaterializacionRiesgo[]
+  entradaContexto EntradaContexto?    @relation(fields: [entradaContextoId], references: [id])
+
+  @@index([clase, activo])
+  @@map("riesgo_organizacional")
+}
+
+model ControlRiesgoOrg {
+  id          Int    @id @default(autoincrement())
+  riesgoId    Int    @map("riesgo_id")
+  descripcion String
+  tipoId      Int    @map("tipo_id")
+  eficaciaId  Int    @map("eficacia_id")
+
+  riesgo   RiesgoOrganizacional @relation(fields: [riesgoId], references: [id])
+  tipo     TipoControlRiesgo    @relation(fields: [tipoId], references: [id])
+  eficacia EficaciaControl      @relation(fields: [eficaciaId], references: [id])
+
+  @@map("control_riesgo_org")
+}
+
+/// FOR-CAL-08. Materializar genera un hallazgo en B (D6).
+model MaterializacionRiesgo {
+  id                Int      @id @default(autoincrement())
+  riesgoId          Int      @map("riesgo_id")
+  fecha             DateTime @db.Date
+  descripcionEvento String   @map("descripcion_evento")
+  impactoGenerado   String   @map("impacto_generado")
+  causaRaiz         String   @map("causa_raiz")
+  reportanteId      Int      @map("reportante_id")
+  hallazgoId        Int?     @map("hallazgo_id")
+
+  riesgo     RiesgoOrganizacional @relation(fields: [riesgoId], references: [id])
+  reportante Persona              @relation("MaterializacionReportante", fields: [reportanteId], references: [id])
+
+  @@index([riesgoId, fecha])
+  @@map("materializacion_riesgo")
+}
+
+/// DOFA y PESTEL. Una sola pareja de tablas; el catálogo de casillas cambia, no la
+/// estructura. Se versiona por año y se aprueba (acta del auditor).
+model AnalisisContexto {
+  id              Int         @id @default(autoincrement())
+  tipo            TipoAnalisis
+  anio            Int
+  aprobadoPorId   Int?        @map("aprobado_por_id")
+  fechaAprobacion DateTime?   @map("fecha_aprobacion")
+  actaReferencia  String?     @map("acta_referencia")
+  vigente         Boolean     @default(true)
+
+  aprobadoPor Persona?          @relation("ContextoAprobadoPor", fields: [aprobadoPorId], references: [id])
+  entradas    EntradaContexto[]
+
+  @@unique([tipo, anio])
+  @@map("analisis_contexto")
+}
+
+model EntradaContexto {
+  id          Int      @id @default(autoincrement())
+  analisisId  Int      @map("analisis_id")
+  casilla     String
+  texto       String
+  efecto      EfectoEntrada
+  orden       Int
+
+  analisis AnalisisContexto     @relation(fields: [analisisId], references: [id])
+  riesgos  RiesgoOrganizacional[]
+
+  @@unique([analisisId, orden])
+  @@map("entrada_contexto")
+}
+
+// ── Catálogos parametrizables (D4) ──
+model EscalaProbabilidad {
+  id          Int    @id @default(autoincrement())
+  valor       Int    @unique
+  etiqueta    String
+  descripcion String?
+  color       String
+
+  riesgos RiesgoOrganizacional[] @relation("RiesgoProbabilidad")
+
+  @@map("escala_probabilidad")
+}
+
+model EscalaImpactoRiesgo {
+  id              Int    @id @default(autoincrement())
+  valor           Int    @unique
+  etiqueta        String
+  porcentajePatrimonio Decimal? @map("porcentaje_patrimonio") @db.Decimal(5, 2)
+  referenciaCop   Decimal? @map("referencia_cop") @db.Decimal(18, 0)
+
+  riesgos RiesgoOrganizacional[]
+
+  @@map("escala_impacto_riesgo")
+}
+
+model EscalaImpactoOportunidad {
+  id       Int    @id @default(autoincrement())
+  valor    Int    @unique
+  etiqueta String
+
+  @@map("escala_impacto_oportunidad")
+}
+
+model FactorRiesgo {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique
+
+  riesgos RiesgoOrganizacional[]
+
+  @@map("factor_riesgo")
+}
+
+/// El tipo de control declara qué reduce (decisión 3.1 de la spec): PROBABILIDAD,
+/// IMPACTO o AMBOS. «Reactivo» es una fila, no un despliegue.
+model TipoControlRiesgo {
+  id          Int    @id @default(autoincrement())
+  nombre      String @unique
+  reduce      String
+  descripcion String?
+
+  controles ControlRiesgoOrg[]
+
+  @@map("tipo_control_riesgo")
+}
+
+model EficaciaControl {
+  id       Int    @id @default(autoincrement())
+  nombre   String @unique
+  valor    Decimal @db.Decimal(4, 3)
+  descripcion String?
+
+  controles ControlRiesgoOrg[]
+
+  @@map("eficacia_control")
+}
+
+/// Rango parametrizable (0–4, 5–12, 13–25) con color y acción por clase.
+model NivelRiesgo {
+  id          Int    @id @default(autoincrement())
+  minimo      Int
+  maximo      Int
+  etiqueta    String
+  color       String
+  accionRiesgo String @map("accion_riesgo")
+  accionOportunidad String @map("accion_oportunidad")
+
+  @@map("nivel_riesgo")
 }
