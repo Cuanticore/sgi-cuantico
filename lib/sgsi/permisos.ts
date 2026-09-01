@@ -112,9 +112,10 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
 export interface Rol {
   grupos: Grupo[];
   permisos: Set<Permiso>;
-  /// True when the role came from a fallback rather than from the token. Always false
-  /// since the fallback was retired, but the interface keeps it: removing it would force
-  /// touching ShellSig.tsx and EncabezadoSig.tsx, which are not part of this plan.
+  /// True when the role came from somewhere other than the token's Directory groups.
+  /// Today that is only the `SGI_ROL_DEV` override, which never applies in production.
+  /// Every surface that renders a role must say so when this is set: an impersonated role
+  /// that looks indistinguishable from a real one is worse than no override at all.
   esPorDefecto: boolean;
 }
 
@@ -166,11 +167,42 @@ function reconocidos(valores: readonly string[]): Grupo[] {
   return [...vistos];
 }
 
+/// Groups to impersonate while developing, from `SGI_ROL_DEV`. Accepts the same
+/// identifiers the Directory claim carries, comma-separated: `SIG-Seguridad`,
+/// `SIG-Propietarios`, `SIG-Auditoría`, `Responsables SIG`.
+///
+/// This is the SAME capability `SGI_ACCESO_SIN_GRUPO` had, and that variable was retired
+/// because it granted the whole SGSI — assets, risks, the Ley 1581 flags, the method's
+/// parameterisation — to any account that signed in, IN PRODUCTION. So the difference is
+/// the guard, not the intent:
+///
+///   · `NODE_ENV === 'production'` ignores the variable outright. Setting it on the
+///     production server does nothing; it cannot be switched on by configuration alone.
+///   · A token that already carries a recognised group WINS. The override only fills the
+///     gap left by a session with no group, so it can never raise or lower a real one.
+///   · The role it returns is flagged `esPorDefecto`, and every surface that renders a
+///     role says on screen that it did not come from the Directory. A fake role that
+///     looks real is how it stops being a testing tool.
+function gruposDeDesarrollo(): Grupo[] {
+  if (process.env.NODE_ENV === 'production') return [];
+  const declarado = process.env.SGI_ROL_DEV;
+  if (!declarado) return [];
+  return reconocidos(declarado.split(','));
+}
+
 /// Derives the role from the token's groups. Sin grupo reconocido, Colaborador.
 export function rolDesdeGrupos(grupos: readonly string[] | undefined | null): Rol {
   const encontrados = reconocidos(grupos ?? []);
-  if (encontrados.length === 0) return COLABORADOR;
-  return { grupos: encontrados, permisos: permisosDe(encontrados), esPorDefecto: false };
+  if (encontrados.length > 0) {
+    return { grupos: encontrados, permisos: permisosDe(encontrados), esPorDefecto: false };
+  }
+
+  const desarrollo = gruposDeDesarrollo();
+  if (desarrollo.length > 0) {
+    return { grupos: desarrollo, permisos: permisosDe(desarrollo), esPorDefecto: true };
+  }
+
+  return COLABORADOR;
 }
 
 function permisosDe(grupos: readonly Grupo[]): Set<Permiso> {

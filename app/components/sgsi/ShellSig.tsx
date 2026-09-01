@@ -64,18 +64,17 @@ export default async function ShellSig({ children }: { children: React.ReactNode
     // permission table calls the SIG-Seguridad group, not a title this person holds, and
     // printing it beside their own name read as if the application were assigning it.
     rol: '',
-    // What the session actually grants, said plainly. An auditor reads this line before
-    // anything else on the screen. The fallback is gone: with the floor set to Colaborador
-    // (see lib/sgsi/permisos.ts), the note about the server configuration never shows.
-    // WHERE the role came from, not only what it grants.
+    // What the session actually grants, said plainly, and WHERE the role came from. An
+    // auditor reads this line before anything else on the screen.
     //
-    // Every session that reaches this screen has a recognised Directory group — the
-    // Colaborador floor is handled upstream — so this line always reads the group
-    // membership, never a server-side fallback.
+    // `esPorDefecto` now means the SGI_ROL_DEV override supplied the groups instead of the
+    // token (lib/sgsi/permisos.ts). It never applies in production, and it must never look
+    // like a real membership here: someone reading a screenshot has to be able to tell
+    // that these permissions were impersonated for a test.
     permisos: rol.grupos.length
       ? `${
           rol.esPorDefecto
-            ? 'Acceso abierto a cualquier cuenta autenticada: el rol NO viene de un grupo del Directorio, viene de la configuración del servidor'
+            ? `ROL SIMULADO para pruebas · SGI_ROL_DEV=${rol.grupos.join(', ')} · NO viene del Directorio Activo`
             : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
         } · ${
           puede(rol, 'sgsi:escribir')

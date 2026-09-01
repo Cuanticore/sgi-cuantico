@@ -185,3 +185,98 @@ describe('los tres grupos conservan lo suyo y además ven Mi SIG', () => {
     expect(puede(rolDesdeGrupos(['Domain Users']), 'auditoria:ver')).toBe(false);
   });
 });
+
+// SGI_ROL_DEV impersonates a role so the three permission sets can be walked without a
+// Directory membership. It is the capability SGI_ACCESO_SIN_GRUPO had, so the tests that
+// matter are the ones proving it CANNOT grant what that variable used to.
+describe('SGI_ROL_DEV', () => {
+  // `process.env.NODE_ENV` is typed read-only, so it is written through the index
+  // signature. The cases below need to observe production behaviour, and there is no
+  // point testing the guard without being able to stand on the other side of it.
+  const entorno = process.env as Record<string, string | undefined>;
+  const nodeEnvOriginal = entorno.NODE_ENV;
+
+  function conEntorno(valores: Record<string, string | undefined>, prueba: () => void) {
+    const previos: Record<string, string | undefined> = {};
+    for (const [clave, valor] of Object.entries(valores)) {
+      previos[clave] = entorno[clave];
+      if (valor === undefined) delete entorno[clave];
+      else entorno[clave] = valor;
+    }
+    try {
+      prueba();
+    } finally {
+      for (const [clave, valor] of Object.entries(previos)) {
+        if (valor === undefined) delete entorno[clave];
+        else entorno[clave] = valor;
+      }
+    }
+  }
+
+  afterEach(() => {
+    if (nodeEnvOriginal === undefined) delete entorno.NODE_ENV;
+    else entorno.NODE_ENV = nodeEnvOriginal;
+  });
+
+  it('fuera de producción otorga el rol declarado y lo marca como simulado', () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: GRUPOS.propietarios }, () => {
+      const rol = rolDesdeGrupos(['Domain Users']);
+      expect(rol.grupos).toEqual([GRUPOS.propietarios]);
+      expect(puede(rol, 'activo:valorar')).toBe(true);
+      expect(puede(rol, 'sgsi:escribir')).toBe(false);
+      // Sin esta marca la pantalla no puede decir que el rol no vino del Directorio.
+      expect(rol.esPorDefecto).toBe(true);
+    });
+  });
+
+  // El caso por el que se retiró SGI_ACCESO_SIN_GRUPO: en producción daba el SGSI entero a
+  // cualquier cuenta autenticada. Puesta en el servidor de producción, esta no hace nada.
+  it('en producción se ignora por completo', () => {
+    conEntorno({ NODE_ENV: 'production', SGI_ROL_DEV: GRUPOS.seguridad }, () => {
+      const rol = rolDesdeGrupos(['Domain Users']);
+      expect(rol.grupos).toEqual([]);
+      expect(puede(rol, 'sgsi:ver')).toBe(false);
+      expect(puede(rol, 'sgsi:escribir')).toBe(false);
+      expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
+      expect(nombreDelRol(rol)).toBe('Colaborador');
+    });
+  });
+
+  it('un grupo real del token gana sobre la variable', () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: GRUPOS.seguridad }, () => {
+      const rol = rolDesdeGrupos([GRUPOS.auditoria]);
+      expect(rol.grupos).toEqual([GRUPOS.auditoria]);
+      expect(puede(rol, 'sgsi:escribir')).toBe(false);
+      expect(rol.esPorDefecto).toBe(false);
+    });
+  });
+
+  it('un valor que no nombra un grupo conocido no otorga nada', () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'Administradores' }, () => {
+      const rol = rolDesdeGrupos(['Domain Users']);
+      expect(rol.grupos).toEqual([]);
+      expect(puede(rol, 'sgsi:ver')).toBe(false);
+    });
+  });
+
+  it('sin la variable el piso sigue siendo Colaborador', () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: undefined }, () => {
+      const rol = rolDesdeGrupos(['Domain Users']);
+      expect(rol.grupos).toEqual([]);
+      expect(puede(rol, 'misig:ver')).toBe(true);
+      expect(puede(rol, 'sgsi:ver')).toBe(false);
+    });
+  });
+
+  it('acepta varios grupos separados por coma', () => {
+    conEntorno(
+      { NODE_ENV: 'development', SGI_ROL_DEV: `${GRUPOS.propietarios}, ${GRUPOS.auditoria}` },
+      () => {
+        const rol = rolDesdeGrupos([]);
+        expect(rol.grupos).toEqual([GRUPOS.propietarios, GRUPOS.auditoria]);
+        expect(puede(rol, 'bitacora:ver')).toBe(true);
+        expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
+      },
+    );
+  });
+});
