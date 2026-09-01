@@ -76,12 +76,12 @@ describe('rolActual', () => {
     expect(rol.permisos.has('misig:ver')).toBe(true);
   });
 
-  it('deriva el rol de los grupos del token', async () => {
-    conSesion('ada@cuantico.com', [GRUPOS.auditoria]);
+  it('deriva el rol del grupo del token', async () => {
+    conSesion('ada@cuantico.com', ['Responsables SIG']);
     const rol = await rolActual();
-    expect(rol.grupos).toEqual([GRUPOS.auditoria]);
+    expect(rol.grupos).toEqual([GRUPOS.seguridad]);
     expect(rol.permisos.has('bitacora:ver')).toBe(true);
-    expect(rol.permisos.has('sgsi:escribir')).toBe(false);
+    expect(rol.permisos.has('sgsi:escribir')).toBe(true);
   });
 });
 
@@ -94,7 +94,7 @@ describe('autorConPermiso', () => {
   });
 
   it('con sesión pero sin el permiso, rechaza', async () => {
-    conSesion('ada@cuantico.com', [GRUPOS.auditoria]);
+    conSesion('ada@cuantico.com', []);
     await expect(autorConPermiso('sgsi:escribir')).rejects.toBeInstanceOf(SinPermisoError);
   });
 
@@ -108,7 +108,7 @@ describe('autorConPermiso', () => {
   });
 
   it('el mensaje nombra el permiso y dice de dónde viene el rol', async () => {
-    conSesion('ada@cuantico.com', [GRUPOS.auditoria]);
+    conSesion('ada@cuantico.com', []);
     const error = await autorConPermiso('sgsi:escribir').catch((e) => e);
     expect(error.message).toContain('sgsi:escribir');
     expect(error.message).toContain('Directorio Activo');
@@ -119,19 +119,23 @@ describe('autorConPermiso', () => {
     await expect(autorConPermiso('sgsi:escribir')).resolves.toBe('lider@cuantico.com');
   });
 
-  // Propietarios valora y trata, pero la parametrización es del Comité.
-  it('SIG-Propietarios valora pero no parametriza', async () => {
-    conSesion('duenio@cuantico.com', [GRUPOS.propietarios]);
-    await expect(autorConPermiso('activo:valorar')).resolves.toBe('duenio@cuantico.com');
-    await expect(autorConPermiso('parametrizacion:escribir')).rejects.toBeInstanceOf(
-      SinPermisoError,
-    );
+  // Los grupos intermedios se retiraron: quedan dos casos y nada en el medio. Una cuenta
+  // que presente uno de ellos queda como Colaborador, no como un rol a medias.
+  it('los grupos retirados no dejan escribir nada', async () => {
+    for (const retirado of ['SIG-Propietarios', 'SIG-Auditoría']) {
+      conSesion('duenio@cuantico.com', [retirado]);
+      await expect(autorConPermiso('activo:valorar')).rejects.toBeInstanceOf(SinPermisoError);
+      await expect(autorConPermiso('sgsi:ver')).rejects.toBeInstanceOf(SinPermisoError);
+      await expect(autorConPermiso('parametrizacion:escribir')).rejects.toBeInstanceOf(
+        SinPermisoError,
+      );
+    }
   });
 });
 
 describe('ejecutar', () => {
   it('convierte el rechazo por permiso en un mensaje que la pantalla puede mostrar', async () => {
-    conSesion('ada@cuantico.com', [GRUPOS.auditoria]);
+    conSesion('ada@cuantico.com', []);
     const r = await ejecutar(async () => {
       await autorConPermiso('sgsi:escribir');
       return { ok: true, mensaje: 'guardado' };

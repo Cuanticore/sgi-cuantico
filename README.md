@@ -40,8 +40,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Personas y acceso (SIG)
 
 Toda cuenta autenticada del tenant entra como **Colaborador**: ve sus propias tareas en Mi
-SIG y nada del SGSI. Los permisos del SGSI siguen viniendo de tres grupos del Directorio —
-Responsables SIG, SIG-Propietarios, SIG-Auditoría.
+SIG y nada del SGSI. El resto del sistema es de un unico grupo del Directorio —
+Responsables SIG.
 
 La tabla persona es un espejo del Directorio: se crea la fila al iniciar sesión y el
 líder del SIG puede sincronizar el censo completo desde Microsoft Graph. Quien desaparece

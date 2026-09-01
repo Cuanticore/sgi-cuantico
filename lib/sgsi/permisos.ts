@@ -4,15 +4,25 @@
 // its own: what a person can do is what their AD groups say, which is the answer an
 // auditor is looking for when they ask who authorised a change.
 //
-//   SIG-Seguridad     read and write across the whole SGSI, parameterisation included
-//   SIG-Propietarios  value and treat the assets of their own process
-//   SIG-Auditoría     read only, with access to the bitácora and the evidence
+// DOS CASOS DE ACCESO, NO MÁS (decisión del líder del SIG, 01/09/2026)
+//
+//   Mi SIG          toda cuenta autenticada de la organización, sin pertenecer a nada
+//   Todo lo demás   solo quien está en `Responsables SIG`
+//
+// Antes había tres grupos —`SIG-Seguridad`, `SIG-Propietarios` y `SIG-Auditoría`— con
+// escalones intermedios: valorar sin parametrizar, leer sin escribir. Se retiraron. Dos de
+// ellos nunca llegaron a existir en el Directorio, y un permiso que nadie tiene no protege
+// nada: sólo reparte la regla en más lugares donde puede quedar mal escrita.
+//
+// El vocabulario de permisos SÍ se conserva entero. Cada pantalla sigue pidiendo el permiso
+// que le corresponde en vez de preguntar por un grupo, así que reabrir un escalón mañana es
+// agregar una entrada en `POR_GRUPO` — nunca recorrer las pantallas de nuevo.
 //
 // EL PISO ES COLABORADOR
 //
-// Toda cuenta autenticada del tenant que no esté en ninguno de esos grupos es Colaborador:
-// ve sus propias tareas en Mi SIG y nada más. No es un grupo del Directorio — es lo que
-// queda cuando no hay ninguno, y por eso `Rol.grupos` viene vacío.
+// Quien no está en `Responsables SIG` es Colaborador: ve sus propias tareas en Mi SIG y
+// nada más. No es un grupo del Directorio — es lo que queda cuando no hay ninguno, y por
+// eso `Rol.grupos` viene vacío.
 //
 // Esto reemplazó a `SGI_ACCESO_SIN_GRUPO`, que existía porque sin grupo reconocido no se
 // entraba a ninguna parte, y cuyo efecto era darle a cualquiera que iniciara sesión el
@@ -22,8 +32,6 @@
 
 export const GRUPOS = {
   seguridad: 'SIG-Seguridad',
-  propietarios: 'SIG-Propietarios',
-  auditoria: 'SIG-Auditoría',
 } as const;
 
 export type Grupo = (typeof GRUPOS)[keyof typeof GRUPOS];
@@ -78,35 +86,6 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'evidencia:escribir',
     'personas:administrar',
   ],
-  // Values and treats, but does not touch the parameterisation: the scales and the
-  // thresholds are the Committee's, not an owner's.
-  //
-  // KNOWN LIMITATION, stated because the alternative is a comment that lies: these two
-  // permissions are ORGANISATION-WIDE. An owner of one process can value and treat the
-  // assets of any other. Scoping them to the owner's own area would need a mapping from an
-  // Active Directory identity to an `area`, and no such mapping exists — the token carries
-  // group membership, not a process. Until the organisation decides how that mapping is
-  // maintained, the mitigation is the bitácora: every valuation and every treatment records
-  // its author, so an out-of-scope change is attributable even though it is not prevented.
-  //
-  // Evidencia: un propietario aporta notas, enlaces y anexos (evidencia del control),
-  // pero no cambia madurez ni aplicabilidad — eso sigue siendo `sgsi:escribir`.
-  [GRUPOS.propietarios]: [
-    'misig:ver',
-    'operacion:ver',
-    'mejora:ver',
-    'mejora:escribir',
-    'estrategico:ver',
-    'estrategico:escribir',
-    'auditoria:ver',
-    'sgsi:ver',
-    'activo:valorar',
-    'riesgo:tratar',
-    'evidencia:escribir',
-  ],
-  // Reads everything and changes nothing. The log and the evidence are precisely what an
-  // auditor comes for.
-  [GRUPOS.auditoria]: ['misig:ver', 'operacion:ver', 'mejora:ver', 'estrategico:ver', 'auditoria:ver', 'sgsi:ver', 'bitacora:ver', 'evidencia:ver'],
 };
 
 export interface Rol {
@@ -126,7 +105,7 @@ const COLABORADOR: Rol = {
   esPorDefecto: false,
 };
 
-/// Every identifier the Directory may present for one of the three groups, mapped to it.
+/// Every identifier the Directory may present for the one group that grants access.
 ///
 /// The claim does not always carry display names. With `groupMembershipClaims` set to
 /// `SecurityGroup` — the usual setting — Azure emits group OBJECT IDS, and matching only
@@ -135,19 +114,29 @@ const COLABORADOR: Rol = {
 ///
 /// So identifiers are listed here explicitly rather than inferred. Nothing is derived
 /// from a pattern and nothing is matched loosely, because a wrong entry in this table
-/// grants permissions in the tool the organisation uses to govern permissions.
+/// grants permissions in the tool the organisation uses to govern permissions. That is
+/// also why an object id nobody has confirmed does not go in: an id whose group is a
+/// guess is a guess about who runs the SGSI.
 ///
-/// `Responsables SIG` is Cuantico's own group and carries the SIG lead's permissions:
-/// full read and write, parameterisation included. Both its display name and its object
-/// id are listed, so the mapping holds whichever form the claim takes — the alternative
-/// is a tenant that works until somebody changes the claim configuration.
+/// `Responsables SIG` is Cuantico's own group and the only one that grants anything.
+/// `SIG-Seguridad` stays listed as its canonical name so a tenant that names the group
+/// that way keeps working; both forms map to the same single role.
 const ALIAS: Readonly<Record<string, Grupo>> = {
   [GRUPOS.seguridad]: GRUPOS.seguridad,
-  [GRUPOS.propietarios]: GRUPOS.propietarios,
-  [GRUPOS.auditoria]: GRUPOS.auditoria,
-
   'Responsables SIG': GRUPOS.seguridad,
+
+  // Los dos object ids del mismo grupo. Se conservan ambos porque no hay forma de
+  // comprobar desde la aplicación cuál está vigente: el registro de Azure no tiene
+  // `Group.Read.All`, así que Graph responde 403 a cualquier consulta sobre grupos.
+  //
+  // `d04a62e7…` venía de antes y nunca abrió una sesión real. `f51b3ad7…` es el que el
+  // líder del SIG confirmó el 01/09/2026 como el grupo al que pertenece, después de que
+  // su cuenta quedara en Colaborador teniendo la membresía puesta — que es el síntoma
+  // exacto de un identificador ausente de esta tabla.
+  //
+  // Dejar el viejo no otorga nada de más: si ya no existe, ningún token lo presenta.
   'd04a62e7-11ce-4faf-a1b2-7e77fb7ba59b': GRUPOS.seguridad,
+  'f51b3ad7-497b-43ea-b646-d1dc482cff5d': GRUPOS.seguridad,
 };
 
 function reconocidos(valores: readonly string[]): Grupo[] {
@@ -168,8 +157,7 @@ function reconocidos(valores: readonly string[]): Grupo[] {
 }
 
 /// Groups to impersonate while developing, from `SGI_ROL_DEV`. Accepts the same
-/// identifiers the Directory claim carries, comma-separated: `SIG-Seguridad`,
-/// `SIG-Propietarios`, `SIG-Auditoría`, `Responsables SIG`.
+/// identifiers the Directory claim carries: `Responsables SIG` or `SIG-Seguridad`.
 ///
 /// This is the SAME capability `SGI_ACCESO_SIN_GRUPO` had, and that variable was retired
 /// because it granted the whole SGSI — assets, risks, the Ley 1581 flags, the method's
@@ -219,9 +207,7 @@ export function puede(rol: Rol, permiso: Permiso): boolean {
 export function nombreDelRol(rol: Rol): string {
   if (rol.grupos.length === 0) return 'Colaborador';
   const etiquetas: Record<Grupo, string> = {
-    [GRUPOS.seguridad]: 'Líder del SIG',
-    [GRUPOS.propietarios]: 'Propietario de activos',
-    [GRUPOS.auditoria]: 'Auditoría',
+    [GRUPOS.seguridad]: 'Responsable SIG',
   };
   return rol.grupos.map((g) => etiquetas[g]).join(' · ');
 }

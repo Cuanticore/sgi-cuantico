@@ -9,20 +9,44 @@
 import { GRUPOS, rolDesdeGrupos, puede, nombreDelRol } from '../permisos';
 
 const OBJECT_ID_RESPONSABLES = 'd04a62e7-11ce-4faf-a1b2-7e77fb7ba59b';
+/// El que el líder del SIG confirmó el 01/09/2026, tras quedar en Colaborador con la
+/// membresía puesta. Ese fue el síntoma: el token traía un id ausente de la tabla.
+const OBJECT_ID_CONFIRMADO = 'f51b3ad7-497b-43ea-b646-d1dc482cff5d';
 
-describe('grupos por nombre', () => {
-  it('reconoce los tres grupos canónicos', () => {
+// Dos casos de acceso y nada más: Mi SIG para toda la organización, el resto para
+// `Responsables SIG`. Los grupos intermedios se retiraron, así que las pruebas que importan
+// ahora son las que verifican que NO quedó un tercer camino abierto.
+describe('sólo hay dos casos de acceso', () => {
+  it('reconoce el grupo por su nombre canónico', () => {
     expect(rolDesdeGrupos([GRUPOS.seguridad]).grupos).toEqual([GRUPOS.seguridad]);
-    expect(rolDesdeGrupos([GRUPOS.propietarios]).grupos).toEqual([GRUPOS.propietarios]);
-    expect(rolDesdeGrupos([GRUPOS.auditoria]).grupos).toEqual([GRUPOS.auditoria]);
   });
 
-  it('acumula los permisos de varios grupos', () => {
-    const rol = rolDesdeGrupos([GRUPOS.propietarios, GRUPOS.auditoria]);
-    expect(puede(rol, 'activo:valorar')).toBe(true);
-    expect(puede(rol, 'bitacora:ver')).toBe(true);
-    // Ninguno de los dos otorga parametrización: es del Comité.
-    expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
+  it('los grupos intermedios retirados ya no otorgan nada', () => {
+    for (const retirado of ['SIG-Propietarios', 'SIG-Auditoría', 'SIG-Auditoria']) {
+      const rol = rolDesdeGrupos([retirado]);
+      expect(rol.grupos).toEqual([]);
+      expect(nombreDelRol(rol)).toBe('Colaborador');
+      expect(puede(rol, 'sgsi:ver')).toBe(false);
+      expect(puede(rol, 'activo:valorar')).toBe(false);
+      expect(puede(rol, 'bitacora:ver')).toBe(false);
+    }
+  });
+
+  it('el único rol reconocido lo puede todo', () => {
+    const rol = rolDesdeGrupos(['Responsables SIG']);
+    for (const permiso of [
+      'misig:ver',
+      'operacion:administrar',
+      'mejora:cerrar',
+      'estrategico:parametrizar',
+      'auditoria:administrar',
+      'sgsi:escribir',
+      'parametrizacion:escribir',
+      'bitacora:ver',
+      'personas:administrar',
+    ] as const) {
+      expect(puede(rol, permiso)).toBe(true);
+    }
   });
 });
 
@@ -50,10 +74,29 @@ describe('Responsables SIG', () => {
     expect(rol.grupos).toEqual([GRUPOS.seguridad]);
   });
 
+  // La regresión concreta: una cuenta con la membresía puesta quedaba en Colaborador
+  // porque su object id no estaba en la tabla. Los dos ids del grupo abren lo mismo.
+  it('el object id confirmado por el líder del SIG otorga acceso completo', () => {
+    for (const id of [OBJECT_ID_CONFIRMADO, OBJECT_ID_CONFIRMADO.toUpperCase()]) {
+      const rol = rolDesdeGrupos([id]);
+      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+      expect(puede(rol, 'sgsi:ver')).toBe(true);
+      expect(puede(rol, 'sgsi:escribir')).toBe(true);
+      expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
+      expect(nombreDelRol(rol)).toBe('Responsable SIG');
+    }
+  });
+
+  it('los dos object ids del grupo dan exactamente los mismos permisos', () => {
+    const a = rolDesdeGrupos([OBJECT_ID_RESPONSABLES]);
+    const b = rolDesdeGrupos([OBJECT_ID_CONFIRMADO]);
+    expect([...a.permisos].sort()).toEqual([...b.permisos].sort());
+  });
+
   it('no duplica el grupo cuando el token trae el nombre y el object id', () => {
     const rol = rolDesdeGrupos(['Responsables SIG', OBJECT_ID_RESPONSABLES]);
     expect(rol.grupos).toEqual([GRUPOS.seguridad]);
-    expect(nombreDelRol(rol)).toBe('Líder del SIG');
+    expect(nombreDelRol(rol)).toBe('Responsable SIG');
   });
 });
 
@@ -119,76 +162,6 @@ describe('el piso es Colaborador, no el SGSI', () => {
   });
 });
 
-describe('los tres grupos conservan lo suyo y además ven Mi SIG', () => {
-  it('todo rol reconocido tiene misig:ver: nadie deja de tener tareas propias', () => {
-    for (const grupo of [GRUPOS.seguridad, GRUPOS.propietarios, GRUPOS.auditoria]) {
-      expect(puede(rolDesdeGrupos([grupo]), 'misig:ver')).toBe(true);
-    }
-  });
-
-  it('solo el líder del SIG administra personas', () => {
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'personas:administrar')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'personas:administrar')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'personas:administrar')).toBe(false);
-  });
-
-  it('los permisos de Operación: escribir y administrar son del líder; ver es de lectura total', () => {
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:escribir')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'operacion:administrar')).toBe(true);
-
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:escribir')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'operacion:administrar')).toBe(false);
-
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:escribir')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'operacion:administrar')).toBe(false);
-  });
-
-  it('un Colaborador no alcanza nada de Operación', () => {
-    for (const permiso of ['operacion:ver', 'operacion:escribir', 'operacion:administrar'] as const) {
-      expect(puede(rolDesdeGrupos(['Domain Users']), permiso)).toBe(false);
-    }
-  });
-
-  it('mejora: reportar lo tiene hasta el Colaborador; cerrar solo el líder', () => {
-    expect(puede(rolDesdeGrupos(['Domain Users']), 'mejora:reportar')).toBe(true);
-    expect(puede(rolDesdeGrupos(['Domain Users']), 'mejora:ver')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:escribir')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'mejora:cerrar')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'mejora:escribir')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:escribir')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'mejora:ver')).toBe(true);
-  });
-
-  it('estrategico: ver para los tres grupos, escribir para lider y propietarios, parametrizar solo lider', () => {
-    expect(puede(rolDesdeGrupos(['Domain Users']), 'estrategico:ver')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:escribir')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'estrategico:parametrizar')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'estrategico:escribir')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'estrategico:parametrizar')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'estrategico:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'estrategico:escribir')).toBe(false);
-  });
-
-  it('auditoria: ver todos los grupos; ejecutar y administrar solo el líder', () => {
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'auditoria:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'auditoria:ejecutar')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.seguridad]), 'auditoria:administrar')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'auditoria:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.propietarios]), 'auditoria:ejecutar')).toBe(false);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'auditoria:ver')).toBe(true);
-    expect(puede(rolDesdeGrupos([GRUPOS.auditoria]), 'auditoria:ejecutar')).toBe(false);
-    expect(puede(rolDesdeGrupos(['Domain Users']), 'auditoria:ver')).toBe(false);
-  });
-});
-
-// SGI_ROL_DEV impersonates a role so the three permission sets can be walked without a
-// Directory membership. It is the capability SGI_ACCESO_SIN_GRUPO had, so the tests that
-// matter are the ones proving it CANNOT grant what that variable used to.
 describe('SGI_ROL_DEV', () => {
   // `process.env.NODE_ENV` is typed read-only, so it is written through the index
   // signature. The cases below need to observe production behaviour, and there is no
@@ -219,13 +192,20 @@ describe('SGI_ROL_DEV', () => {
   });
 
   it('fuera de producción otorga el rol declarado y lo marca como simulado', () => {
-    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: GRUPOS.propietarios }, () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'Responsables SIG' }, () => {
       const rol = rolDesdeGrupos(['Domain Users']);
-      expect(rol.grupos).toEqual([GRUPOS.propietarios]);
-      expect(puede(rol, 'activo:valorar')).toBe(true);
-      expect(puede(rol, 'sgsi:escribir')).toBe(false);
+      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+      expect(puede(rol, 'sgsi:escribir')).toBe(true);
       // Sin esta marca la pantalla no puede decir que el rol no vino del Directorio.
       expect(rol.esPorDefecto).toBe(true);
+    });
+  });
+
+  it('un grupo retirado en la variable tampoco otorga nada', () => {
+    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'SIG-Propietarios' }, () => {
+      const rol = rolDesdeGrupos(['Domain Users']);
+      expect(rol.grupos).toEqual([]);
+      expect(puede(rol, 'sgsi:ver')).toBe(false);
     });
   });
 
@@ -244,9 +224,9 @@ describe('SGI_ROL_DEV', () => {
 
   it('un grupo real del token gana sobre la variable', () => {
     conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: GRUPOS.seguridad }, () => {
-      const rol = rolDesdeGrupos([GRUPOS.auditoria]);
-      expect(rol.grupos).toEqual([GRUPOS.auditoria]);
-      expect(puede(rol, 'sgsi:escribir')).toBe(false);
+      const rol = rolDesdeGrupos(['Responsables SIG']);
+      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+      // Vino del token, no de la variable: la marca de simulado no se enciende.
       expect(rol.esPorDefecto).toBe(false);
     });
   });
@@ -268,14 +248,16 @@ describe('SGI_ROL_DEV', () => {
     });
   });
 
-  it('acepta varios grupos separados por coma', () => {
+  // Sigue admitiendo varios valores separados por coma aunque hoy solo uno otorgue algo:
+  // el día que vuelva a haber más de un grupo, el formato no cambia.
+  it('acepta varios valores separados por coma y toma el que reconoce', () => {
     conEntorno(
-      { NODE_ENV: 'development', SGI_ROL_DEV: `${GRUPOS.propietarios}, ${GRUPOS.auditoria}` },
+      { NODE_ENV: 'development', SGI_ROL_DEV: 'SIG-Propietarios, Responsables SIG' },
       () => {
         const rol = rolDesdeGrupos([]);
-        expect(rol.grupos).toEqual([GRUPOS.propietarios, GRUPOS.auditoria]);
+        expect(rol.grupos).toEqual([GRUPOS.seguridad]);
         expect(puede(rol, 'bitacora:ver')).toBe(true);
-        expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
+        expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
       },
     );
   });

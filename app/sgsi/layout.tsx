@@ -56,25 +56,18 @@ function SinAcceso({ porDefecto }: { porDefecto: boolean }) {
           No tenés acceso al SGSI
         </h1>
         <p className="text-12_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text)' }}>
-          Tu sesión es válida, pero tu cuenta no pertenece a ninguno de los grupos del
-          Directorio Activo que dan acceso a este módulo. El inventario de activos y el
-          registro de riesgos no se muestran sin uno de ellos.
+          Tu sesión es válida, pero tu cuenta no pertenece al grupo del Directorio Activo que
+          da acceso a este módulo. El inventario de activos y el registro de riesgos no se
+          muestran sin él.
         </p>
-        <ul className="flex flex-col gap-1.5">
-          {[
-            [GRUPOS.seguridad, 'lectura y escritura sobre todo el módulo'],
-            [GRUPOS.propietarios, 'valorar activos y registrar tratamiento'],
-            [GRUPOS.auditoria, 'sólo lectura, con bitácora y evidencias'],
-          ].map(([grupo, alcance]) => (
-            <li key={grupo} className="text-12" style={{ color: 'var(--hf-warn-text)' }}>
-              <span className="font-mono font-semibold">{grupo}</span> — {alcance}
-            </li>
-          ))}
-        </ul>
+        <p className="text-12" style={{ color: 'var(--hf-warn-text)' }}>
+          <span className="font-mono font-semibold">Responsables SIG</span> — acceso completo
+          al sistema
+        </p>
         <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>
-          Pedí a quien administra el Directorio Activo que te agregue al grupo que
-          corresponda a tu rol. Los permisos se derivan de esa pertenencia: la aplicación no
-          los concede por su cuenta.
+          Pedí a quien administra el Directorio Activo que te agregue a ese grupo. Los permisos
+          se derivan de esa pertenencia: la aplicación no los concede por su cuenta. Mientras
+          tanto seguís viendo tus propias tareas en Mi SIG.
         </p>
         {porDefecto && (
           <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>
