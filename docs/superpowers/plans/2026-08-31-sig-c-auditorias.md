@@ -446,7 +446,7 @@ export function promueveHallazgo(tipo: string): boolean {
 npx jest lib/sig/__tests__/auditorias.test.ts
 ```
 
-Expected: PASS, 10 pruebas.
+Expected: PASS, 8 pruebas.
 
 - [ ] **Step 5: Commit**
 
