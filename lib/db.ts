@@ -51,13 +51,21 @@ function blindarTransacciones(cliente: PrismaClient): void {
 // connection pool on every reload. Cache the client on globalThis instead.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+// The singleton lives in the module binding, and `globalThis` is only how it survives a
+// hot reload. That order matters: the previous version returned a fresh client instead of
+// caching whenever NODE_ENV was 'production', and since `prisma` below is a Proxy that
+// calls this from its `get` trap, production built one PrismaClient — one pg pool — per
+// property access. Measured against the production build: ~16 connections per request,
+// none released, so `max_connections` was exhausted by the fourth page load and every
+// screen answered P2037 TooManyConnections. Development never showed it, because there
+// the globalThis branch did cache.
+let instancia: PrismaClient | undefined;
+
 function obtener(): PrismaClient {
-  if (!globalForPrisma.prisma) {
-    const cliente = crearCliente();
-    if (process.env.NODE_ENV === 'production') return cliente;
-    globalForPrisma.prisma = cliente;
-  }
-  return globalForPrisma.prisma;
+  if (instancia) return instancia;
+  instancia = globalForPrisma.prisma ?? crearCliente();
+  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = instancia;
+  return instancia;
 }
 
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
