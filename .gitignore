@@ -60,3 +60,7 @@ auth-test.ts
 
 # llaves privadas: *.pem ya estaba, *.ppk (PuTTY) no
 *.ppk
+
+# Volcados de la base (scripts/respaldo.mjs). Nunca se versionan: son datos reales de
+# la organizacion, y un respaldo dentro del repositorio no es un respaldo.
+var/respaldos/
