@@ -121,6 +121,7 @@ Bloques condicionales por tipo, siguiendo el precedente de `AccionPlan`:
 | `alcance` | `enum AlcanceObligacion` | `PERSONA` · `CARGO` · `AREA` · `TODOS` |
 | `alcancePersonaId` / `alcanceCargoId` / `alcanceAreaId` | `Int?` | Exactamente uno según el alcance; ninguno cuando es `TODOS`, que significa todas las personas activas. |
 | `periodicidad` | `enum Periodicidad` | `UNICA` · `DIARIA` · `SEMANAL` · `MENSUAL` · `TRIMESTRAL` · `SEMESTRAL` · `ANUAL` |
+| `anclaje` | `enum Anclaje @default(ANCLADA)` | `ANCLADA` · `FLOTANTE`. Ver la regla R12. |
 | `fechaInicio` | `Date` | Primer periodo. |
 | `plazoDias` | `Int` | Días desde la apertura del periodo hasta la fecha límite. |
 | `diasAviso` | `Int` | Anticipación del aviso por correo. |
@@ -224,6 +225,7 @@ Se mantiene el cross-filtrado tipo Power BI del paso 39: toda tarjeta con dato n
 | **R9** | **Desvinculación no cierra nada.** Al inactivar a una persona, sus asignaciones abiertas van a un panel de reasignación. No se cierran solas ni se borran. |
 | **R10** | **Editar un contenido publicado sube su versión,** y los registros ya cerrados conservan la versión que se realizó. Sin esto, un acuse de lectura no es verificable. |
 | **R11** | **Desactivar una obligación** deja de generar periodos nuevos y no toca los ya generados. |
+| **R12** | **La obligación declara su anclaje.** `ANCLADA` —el valor por defecto— genera los periodos contra el calendario: el trimestre siguiente nace se haya cerrado el anterior o no, y una verificación vencida nunca desplaza a la que viene. `FLOTANTE` genera la siguiente **al cerrarse la previa**, a `plazoDias` de esa fecha. Una revisión trimestral de accesos es anclada, porque el trimestre existe aunque nadie mire; la verificación de un proveedor que se corrió tarde tiene sentido flotante, porque lo que importa es el intervalo entre revisiones. **Una obligación flotante que nadie cierra deja de generar**, y por eso su primera asignación vencida es el único aviso que habrá: la pantalla lo advierte al elegir el anclaje. |
 
 ---
 

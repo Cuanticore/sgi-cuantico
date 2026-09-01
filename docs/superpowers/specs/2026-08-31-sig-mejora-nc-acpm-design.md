@@ -51,7 +51,12 @@ Consecuencia sobre A, ya incorporada a su especificación: `Asignacion.contenido
 | Indicador incumplido | Código del indicador y periodo, contra el tablero del SGC. |
 | Revisión por la dirección | Acta y fecha. |
 | SGSI | `riesgoId` o `controlId`, referencia real a la base. |
+| Verificación programada | `asignacionId` — la ejecución concreta que levantó el hallazgo. Ampliado el 31/08/2026 por `RF-HAL-14`. |
+| Incidente de seguridad | `incidenteId` — del módulo de Operación del SGSI. Ampliado el 31/08/2026. |
+| Proveedor | `proveedorId` + la verificación que lo detectó. Ampliado el 31/08/2026. |
 | Otro | Texto libre. |
+
+**Ampliación del 31/08/2026.** El análisis de los registros del SGSI (`RF-HAL-14` y `RF-HAL-15`) confirma que el hallazgo debe modelarse **una sola vez** para los seis mecanismos, y agrega tres orígenes: verificación, incidente y proveedor. No cambia nada del modelo —el origen ya era tipado por la regla B11—, solo crece el enum y sus referencias. La razón que da el documento es la correcta: si cada mecanismo define su propia tabla de hallazgos, nadie puede responder «cuántos hallazgos abiertos tengo», que es la primera pregunta de un auditor.
 
 Verificado contra el repositorio documental del SIG: existen los formatos `FOR-CAL-02 Formato de acciones correctivas y de mejora`, `FOR-CAL-03 Control de planes de acción`, `FOR-CAL-01 Identificación y control de salidas no conformes` y el procedimiento `PRO-CAL-03 Acciones correctivas y oportunidades de mejora`, que son la fuente funcional de este módulo. `FOR-CAL-08 Reporte de Incidentes de Riesgo` —núm. del riesgo, fecha, proceso, riesgo/oportunidad, descripción del evento, impacto generado, causa raíz y reportante— es la materialización que el módulo D convierte en hallazgo de este módulo.
 

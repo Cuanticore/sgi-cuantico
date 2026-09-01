@@ -1,0 +1,261 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Métricas del SGSI</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 90ch; line-height: 1.55">Unidad, umbral y periodicidad. Superar el umbral genera alerta y, si procede, una tarea. La serie no tiene fin de año: no hay una hoja nueva cada enero.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nueva métrica</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <div style="flex: none; width: 360px; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 8px">
+      <sc-for list="{{lista}}" as="m" hint-placeholder-count="5">
+        <button onClick="{{m.elegir}}" style="{{m.estilo}}">
+          <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <span class="mono" style="font-size: 10px; font-weight: 600; color: #12437f">{{m.codigo}}</span>
+            <span class="mono" style="font-size: 9.5px; color: #8a938e">{{m.periodicidad}}</span>
+            <span class="mono" style="margin-left: auto; {{m.estadoEstilo}}">{{m.estado}}</span>
+          </span>
+          <span style="width: 100%; font-size: 12.5px; font-weight: 500; text-align: left; line-height: 1.35">{{m.titulo}}</span>
+          <span style="display: flex; align-items: baseline; gap: 8px; width: 100%">
+            <span class="mono" style="font-size: 16px; font-weight: 600; color: {{m.color}}">{{m.ultimo}}</span>
+            <span class="mono" style="font-size: 9.5px; color: #a3aca7">umbral {{m.umbral}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: flex-start; gap: 14px; padding: 17px 20px 15px; border-bottom: 1px solid #eceeed">
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">{{ficha.codigo}}</span>
+            <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">{{ficha.control}}</span>
+          </span>
+          <span style="font-size: 16px; font-weight: 600">{{ficha.titulo}}</span>
+        </span>
+        <button style="flex: none; padding: 8px 14px; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Registrar {{ficha.periodoSiguiente}}</button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{ficha.definicion}}" as="d" hint-placeholder-count="4">
+            <span style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="etq">{{d.etiqueta}}</span>
+              <span class="mono" style="font-size: 14px; font-weight: 600; color: {{d.color}}">{{d.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+
+        <!-- La serie -->
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <span class="cab"><span>Serie</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{ficha.conteoPeriodos}}</span></span>
+
+          <div style="position: relative; display: flex; align-items: flex-end; gap: 8px; height: 188px; padding: 12px 12px 0; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+            <!-- Línea de umbral -->
+            <span style="position: absolute; left: 12px; right: 12px; bottom: {{ficha.umbralPos}}; height: 2px; background: #a52016; opacity: 0.5"></span>
+            <span class="mono" style="position: absolute; right: 14px; bottom: calc({{ficha.umbralPos}} + 5px); font-size: 9px; font-weight: 600; color: #a52016">umbral {{ficha.umbral}}</span>
+
+            <sc-for list="{{ficha.serie}}" as="p" hint-placeholder-count="12">
+              <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end">
+                <span class="mono" style="font-size: 9.5px; font-weight: 600; color: {{p.color}}">{{p.valor}}</span>
+                <span title="{{p.titulo}}" style="width: 100%; height: {{p.alto}}; background: {{p.color}}; border-radius: 4px 4px 0 0"></span>
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{p.periodo}}</span>
+              </span>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="width: 9px; height: 9px; border-radius: 2px; background: #0f7a5a"></span>
+              <span style="font-size: 11px; color: #4a544f">Bajo el umbral</span>
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="width: 9px; height: 9px; border-radius: 2px; background: #a52016"></span>
+              <span style="font-size: 11px; color: #4a544f">Sobre el umbral · genera alerta</span>
+            </span>
+            <span style="margin-left: auto; font-size: 11px; color: #8a938e">Un periodo no se puede registrar dos veces.</span>
+          </div>
+        </div>
+
+        <!-- Alertas -->
+        <sc-if value="{{ficha.hayAlertas}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 9px">
+            <span class="cab"><span style="color: #a52016">Alertas generadas</span><span class="regla"></span></span>
+            <sc-for list="{{ficha.alertas}}" as="a" hint-placeholder-count="2">
+              <div style="display: flex; align-items: flex-start; gap: 13px; padding: 12px 15px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+                <span class="mono" style="flex: none; width: 62px; font-size: 11px; font-weight: 600; color: #a52016">{{a.periodo}}</span>
+                <span style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.5; color: #a52016">{{a.texto}}</span>
+                <sc-if value="{{a.conTarea}}" hint-placeholder-val="{{ true }}">
+                  <a href="#" class="mono" style="flex: none; font-size: 9.5px; font-weight: 500; color: #12437f">{{a.tarea}}</a>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; line-height: 1.6; color: #12437f">Estas métricas alimentan el <strong style="font-weight: 600">informe de la cláusula 9.1</strong> y la revisión por la dirección sin transcripción manual. Son distintas de los indicadores del SGC, que siguen viviendo en su tablero: conviene que no se dupliquen.</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const VERDE = '#0f7a5a';
+const ROJO = '#a52016';
+
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 11px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+const EST = {
+  alerta: { t: 'En alerta', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fdeeeb; color: #a52016;' },
+  ok: { t: 'En rango', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44;' },
+  falta: { t: 'Sin registrar', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;' },
+};
+
+const METRICAS = [
+  {
+    id: 'vuln', codigo: 'MET-01', control: 'A.8.8', titulo: 'Vulnerabilidades críticas sin remediar',
+    unidad: 'vulnerabilidades', umbral: 3, periodicidad: 'Mensual', responsable: 'Daniel Medina',
+    periodoSiguiente: 'septiembre', sentido: 'menor',
+    serie: [
+      ['Sep', 5], ['Oct', 4], ['Nov', 6], ['Dic', 3], ['Ene', 2], ['Feb', 2],
+      ['Mar', 4], ['Abr', 7], ['May', 5], ['Jun', 3], ['Jul', 2], ['Ago', 1],
+    ],
+    alertas: [
+      { periodo: 'Abr 2026', texto: 'Siete vulnerabilidades críticas sin remediar contra un umbral de tres. Se abrió tarea de remediación.', tarea: 'ASG-0311' },
+      { periodo: 'Nov 2025', texto: 'Seis sin remediar. Coincide con la ventana de mantenimiento aplazada.', tarea: '' },
+    ],
+  },
+  {
+    id: 'capacidad', codigo: 'MET-02', control: 'A.8.6', titulo: 'Uso del almacenamiento en la nube',
+    unidad: '% de la capacidad', umbral: 80, periodicidad: 'Mensual', responsable: 'Daniel Medina',
+    periodoSiguiente: 'septiembre', sentido: 'menor',
+    serie: [
+      ['Sep', 58], ['Oct', 61], ['Nov', 64], ['Dic', 68], ['Ene', 70], ['Feb', 71],
+      ['Mar', 74], ['Abr', 76], ['May', 79], ['Jun', 82], ['Jul', 84], ['Ago', 86],
+    ],
+    alertas: [
+      { periodo: 'Ago 2026', texto: '86 % de uso, seis puntos sobre el umbral y tercer mes consecutivo por encima. La tendencia es la alerta, no el dato suelto.', tarea: 'ASG-0498' },
+      { periodo: 'Jul 2026', texto: '84 % de uso. Se solicitó ampliación de plan al proveedor.', tarea: 'ASG-0471' },
+    ],
+  },
+  {
+    id: 'phishing', codigo: 'MET-03', control: 'A.6.3', titulo: 'Incidentes de phishing reportados',
+    unidad: 'incidentes', umbral: 4, periodicidad: 'Trimestral', responsable: 'Laura Agudelo',
+    periodoSiguiente: 'el T3', sentido: 'menor',
+    serie: [['T3 25', 2], ['T4 25', 1], ['T1 26', 3], ['T2 26', 2]],
+    alertas: [],
+  },
+  {
+    id: 'parches', codigo: 'MET-04', control: 'A.8.8', titulo: 'Días promedio hasta aplicar un parche crítico',
+    unidad: 'días', umbral: 15, periodicidad: 'Mensual', responsable: 'Daniel Medina',
+    periodoSiguiente: 'septiembre', sentido: 'menor',
+    serie: [['Mar', 21], ['Abr', 18], ['May', 14], ['Jun', 12], ['Jul', 11], ['Ago', 9]],
+    alertas: [
+      { periodo: 'Mar 2026', texto: '21 días promedio contra un umbral de 15.', tarea: '' },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'capacidad' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = METRICAS.find((m) => m.id === s.sel) || METRICAS[0];
+
+    const valores = f.serie.map((p) => p[1]);
+    const tope = Math.max(Math.max.apply(null, valores), f.umbral) * 1.18;
+    const alturaCaja = 140;
+
+    const serie = f.serie.map(([periodo, valor]) => {
+      const sobre = valor > f.umbral;
+      return {
+        periodo,
+        valor,
+        alto: Math.max((valor / tope) * alturaCaja, 4) + 'px',
+        color: sobre ? ROJO : VERDE,
+        titulo: periodo + ': ' + valor + ' ' + f.unidad + (sobre ? ' · sobre el umbral' : ''),
+      };
+    });
+
+    const ultimo = valores[valores.length - 1];
+    const enAlerta = ultimo > f.umbral;
+
+    return {
+      lista: METRICAS.map((m) => {
+        const v = m.serie[m.serie.length - 1][1];
+        const alerta = v > m.umbral;
+        return {
+          codigo: m.codigo,
+          titulo: m.titulo,
+          periodicidad: m.periodicidad,
+          ultimo: v,
+          umbral: m.umbral,
+          color: alerta ? ROJO : VERDE,
+          estado: alerta ? EST.alerta.t : EST.ok.t,
+          estadoEstilo: alerta ? EST.alerta.e : EST.ok.e,
+          estilo: s.sel === m.id ? FILA_ON : FILA_OFF,
+          elegir: () => this.setState({ sel: m.id }),
+        };
+      }),
+      ficha: {
+        codigo: f.codigo,
+        control: f.control,
+        titulo: f.titulo,
+        umbral: f.umbral,
+        periodoSiguiente: f.periodoSiguiente,
+        umbralPos: Math.round((f.umbral / tope) * alturaCaja) + 34 + 'px',
+        conteoPeriodos: f.serie.length + ' periodos registrados',
+        definicion: [
+          { etiqueta: 'Unidad', valor: f.unidad, color: '#1a211e' },
+          { etiqueta: 'Umbral', valor: '≤ ' + f.umbral, color: '#a52016' },
+          { etiqueta: 'Periodicidad', valor: f.periodicidad, color: '#1a211e' },
+          { etiqueta: 'Último valor', valor: String(ultimo), color: enAlerta ? ROJO : VERDE },
+        ],
+        serie,
+        hayAlertas: f.alertas.length > 0,
+        alertas: f.alertas.map((a) => ({ ...a, conTarea: a.tarea !== '' })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
