@@ -4,6 +4,14 @@
 // N2 (un correo por persona) y la acotación del mensual por área son decisiones que se
 // prueban sin SMTP. El envío en sí vive en lib/sig/envios.ts.
 
+import {
+  cumplimientoDePeriodo,
+  deudaVencida,
+  cierresAdministrativos,
+  type AsignacionIndicador,
+  type CumplimientoPeriodo,
+} from './cumplimiento';
+
 export interface TareaResumen {
   id: number;
   tipo: string;
@@ -105,42 +113,78 @@ export interface AreaMensual {
   liderCorreo: string | null;
 }
 
+/// Una asignación del mes cerrado, con el área de su persona para acotar el resumen.
+export interface TareaMensual extends TareaResumen {
+  areaId: number | null;
+  fechaCierre: Date | null;
+  cerradaPor: number | null;
+}
+
 export interface ResumenMensual {
   areaNombre: string;
   /// El mes que cerró: { anio, mes } con mes 0-indexado.
   mes: { anio: number; mes: number };
-  cumplimiento: { asignadas: number; aTiempo: number; tarde: number; porciento: number | null };
+  cumplimiento: CumplimientoPeriodo;
   deuda: { cantidad: number; masAntiguaDias: number | null };
   peorCumplimiento: { codigo: string; titulo: string; porciento: number | null }[];
   cierresAdministrativos: number;
 }
 
 /// El mensual (decisión 3): líderes de proceso por su área, y el líder del SIG con
-/// todas. `asignaciones` trae solo las del mes que cerró, con su obligación resuelta.
+/// todas. `asignaciones` trae solo las del mes que cerró, con el área de la persona
+/// y su obligación resuelta; el cumplimiento, la deuda y los cierres administrativos
+/// se calculan con las mismas reglas que la barra de Obligaciones (nunca contradicen).
 export function planificarMensuales(
-  asignaciones: readonly TareaResumen[],
+  asignaciones: readonly TareaMensual[],
   areas: readonly AreaMensual[],
   liderSigCorreo: string,
   mesCerrado: { anio: number; mes: number },
 ): Map<string, ResumenMensual> {
   const resultado = new Map<string, ResumenMensual>();
 
-  const resumenDe = (nombre: string, filas: readonly TareaResumen[]): ResumenMensual => {
-    const exigibles = filas.filter((a) => a.estado === 'PENDIENTE' || a.estado === 'REALIZADA');
-    const aTiempo = exigibles.filter((a) => a.estado === 'REALIZADA').length;
-    const porciento =
-      exigibles.length === 0 ? null : Math.round((aTiempo / exigibles.length) * 100);
+  const resumenDe = (nombre: string, filas: readonly TareaMensual[]): ResumenMensual => {
+    const indicadores: AsignacionIndicador[] = filas.map((a) => ({
+      id: a.id,
+      estado: a.estado as AsignacionIndicador['estado'],
+      fechaLimite: a.fechaLimite,
+      fechaCierre: a.fechaCierre,
+      personaId: 0,
+      cerradaPor: a.cerradaPor,
+    }));
+    const cumplimiento = cumplimientoDePeriodo(indicadores);
+    const deuda = deudaVencida(indicadores, mesCierre(mesCerrado));
+    const cierres = cierresAdministrativos(indicadores);
+    const porContenido = new Map<string, { asignadas: number; aTiempo: number }>();
+    for (const a of filas) {
+      if (a.estado !== 'REALIZADA' && a.estado !== 'PENDIENTE') continue;
+      const c = porContenido.get(a.codigo) ?? { asignadas: 0, aTiempo: 0 };
+      c.asignadas += 1;
+      if (a.estado === 'REALIZADA' && a.fechaCierre !== null && a.fechaCierre <= a.fechaLimite) {
+        c.aTiempo += 1;
+      }
+      porContenido.set(a.codigo, c);
+    }
+    const peor = [...porContenido.entries()]
+      .map(([codigo, c]) => ({
+        codigo,
+        titulo: codigo,
+        porciento: c.asignadas === 0 ? null : Math.round((c.aTiempo / c.asignadas) * 100),
+      }))
+      .sort((x, y) => (x.porciento ?? 0) - (y.porciento ?? 0))
+      .slice(0, 3);
     return {
       areaNombre: nombre,
       mes: mesCerrado,
-      cumplimiento: { asignadas: exigibles.length, aTiempo, tarde: 0, porciento },
-      deuda: { cantidad: 0, masAntiguaDias: null },
-      peorCumplimiento: [],
-      cierresAdministrativos: 0,
+      cumplimiento,
+      deuda,
+      peorCumplimiento: peor,
+      cierresAdministrativos: cierres,
     };
   };
 
-  resultado.set(liderSigCorreo, resumenDe('Todas las áreas', asignaciones));
+  if (liderSigCorreo) {
+    resultado.set(liderSigCorreo, resumenDe('Todas las áreas', asignaciones));
+  }
 
   for (const area of areas) {
     if (!area.liderCorreo) continue;
@@ -148,6 +192,11 @@ export function planificarMensuales(
   }
 
   return resultado;
+}
+
+/// La fecha de cierre del mes (último día), para calcular la deuda contra el mes.
+function mesCierre(mes: { anio: number; mes: number }): Date {
+  return new Date(Date.UTC(mes.anio, mes.mes + 1, 0));
 }
 
 function diaDe(fecha: Date): number {

@@ -132,6 +132,24 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
     // ── Mensual (día configurado, o el primer día hábil siguiente) ──
     if (diaDelMes(hoy) === diaMensual() || esPrimerHabil(hoy)) {
       const mesCerrado = { anio: hoy.getUTCFullYear(), mes: hoy.getUTCMonth() - 1 };
+      const areaDe = new Map(personas.map((p) => [p.id, p.areaId]));
+      const delMes = asignaciones.filter((a) => {
+        const limite = a.fechaLimite;
+        return limite.getUTCFullYear() === mesCerrado.anio && limite.getUTCMonth() === mesCerrado.mes;
+      });
+      const filasMensuales = delMes.map((a) => ({
+        id: a.id,
+        tipo: (a.contenido ?? a.obligacion?.contenido)?.tipo ?? 'TAREA',
+        codigo: (a.contenido ?? a.obligacion?.contenido)?.codigo ?? '—',
+        titulo: (a.contenido ?? a.obligacion?.contenido)?.titulo ?? a.titulo ?? 'Puntual',
+        fechaLimite: a.fechaLimite,
+        estado: a.estado,
+        correo: correoDe(a.personaId),
+        obligacionTitulo: a.obligacion?.contenido.titulo ?? null,
+        areaId: areaDe.get(a.personaId) ?? null,
+        fechaCierre: a.fechaCierre,
+        cerradaPor: a.cerradaPor,
+      }));
       const areasConLider = areas.map((a) => ({
         id: a.id,
         nombre: a.nombre,
@@ -139,10 +157,8 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
       }));
       // El mensual del líder del SIG (todas las áreas) se envía a la dirección del
       // entorno: el grupo del Directorio no es un correo (decisión declarada).
-      const liderSigCorreo = process.env.SGI_CORREO_LIDER_SIG;
-      const plan = liderSigCorreo
-        ? planificarMensuales([], areasConLider, liderSigCorreo, mesCerrado)
-        : planificarMensuales([], areasConLider, '', mesCerrado);
+      const liderSigCorreo = process.env.SGI_CORREO_LIDER_SIG ?? '';
+      const plan = planificarMensuales(filasMensuales, areasConLider, liderSigCorreo, mesCerrado);
       const periodo = `${mesCerrado.anio}-${String(mesCerrado.mes + 1).padStart(2, '0')}`;
       for (const [correo, r] of plan) {
         if (!correo) continue;

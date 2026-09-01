@@ -36,6 +36,30 @@ function tarea(
   };
 }
 
+function mensual(
+  over: Partial<{
+    id: number;
+    tipo: string;
+    codigo: string;
+    titulo: string;
+    fechaLimite: Date;
+    estado: string;
+    correo: string;
+    obligacionTitulo: string | null;
+    areaId: number | null;
+    fechaCierre: Date | null;
+    cerradaPor: number | null;
+  }> = {},
+) {
+  return {
+    ...tarea(over),
+    areaId: 3,
+    fechaCierre: null,
+    cerradaPor: null,
+    ...over,
+  };
+}
+
 describe('planificarSemanales', () => {
   it('agrupa las tareas de cada persona en un solo correo (N2)', () => {
     const plan = planificarSemanales(
@@ -87,7 +111,7 @@ describe('planificarMensuales', () => {
   it('el líder de proceso recibe solo su área; el líder del SIG todas (decisión 3)', () => {
     const areas = [{ id: 1, nombre: 'Talento Humano', liderCorreo: 'albeiro@cuantico.com' }];
     const plan = planificarMensuales(
-      [tarea({ correo: 'lina@cuantico.com', fechaLimite: d('2026-08-31') })],
+      [mensual({ correo: 'lina@cuantico.com', fechaLimite: d('2026-08-31') })],
       areas,
       'lider@cuantico.com',
       { anio: 2026, mes: 7 },
@@ -95,5 +119,31 @@ describe('planificarMensuales', () => {
     expect(plan.get('albeiro@cuantico.com')).toBeDefined();
     expect(plan.get('lider@cuantico.com')).toBeDefined();
     expect(plan.get('albeiro@cuantico.com')!.areaNombre).toBe('Talento Humano');
+  });
+
+  it('calcula el cumplimiento del mes con las mismas reglas que la barra (decisión 7 del plan A4)', () => {
+    const plan = planificarMensuales(
+      [
+        mensual({ estado: 'REALIZADA', fechaCierre: d('2026-08-30') }),
+        mensual({ id: 2, estado: 'PENDIENTE' }),
+      ],
+      [],
+      'lider@cuantico.com',
+      { anio: 2026, mes: 7 },
+    );
+    const r = plan.get('lider@cuantico.com')!;
+    expect(r.cumplimiento.asignadas).toBe(2);
+    expect(r.cumplimiento.realizadasATiempo).toBe(1);
+    expect(r.cumplimiento.porciento).toBe(50);
+  });
+
+  it('la deuda se calcula contra el cierre del mes', () => {
+    const plan = planificarMensuales(
+      [mensual({ fechaLimite: d('2026-08-25') })],
+      [],
+      'lider@cuantico.com',
+      { anio: 2026, mes: 7 },
+    );
+    expect(plan.get('lider@cuantico.com')!.deuda.cantidad).toBe(1);
   });
 });
