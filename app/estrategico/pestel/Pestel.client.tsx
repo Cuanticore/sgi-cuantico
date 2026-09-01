@@ -27,10 +27,12 @@ const DIMENSIONES: Record<string, { etiqueta: string; inicial: string }> = {
 };
 
 export default function PestelClient({
+  analisisId,
   anio,
   acta,
   entradas,
 }: {
+  analisisId: number | null;
   anio: number | null;
   acta: string | null;
   entradas: EntradaPestel[];
@@ -115,8 +117,8 @@ export default function PestelClient({
                 />
                 <button
                   onClick={async () => {
-                    if (!nuevas[casilla]?.trim()) return;
-                    await agregarEntradaContexto(0, { casilla, texto: nuevas[casilla], efecto: 'FAVORABLE' });
+                    if (!nuevas[casilla]?.trim() || analisisId === null) return;
+                    await agregarEntradaContexto(analisisId, { casilla, texto: nuevas[casilla], efecto: 'FAVORABLE' });
                     window.location.reload();
                   }}
                   className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white"

@@ -25,11 +25,13 @@ const CASILLAS: Record<string, { etiqueta: string; color: string; interno: boole
 };
 
 export default function DofaClient({
+  analisisId,
   anio,
   acta,
   aprobadoPor,
   entradas,
 }: {
+  analisisId: number | null;
   anio: number | null;
   acta: string | null;
   aprobadoPor: string | null;
@@ -94,8 +96,12 @@ export default function DofaClient({
                 />
                 <button
                   onClick={async () => {
-                    if (!nuevas[casilla]?.trim()) return;
-                    await agregarEntradaContexto(0, { casilla, texto: nuevas[casilla], efecto: meta.color === '#0b5c44' || meta.color === '#12437f' ? 'FAVORABLE' : 'ADVERSO' });
+                    if (!nuevas[casilla]?.trim() || analisisId === null) return;
+                    await agregarEntradaContexto(analisisId, {
+                      casilla,
+                      texto: nuevas[casilla],
+                      efecto: meta.color === '#0b5c44' || meta.color === '#12437f' ? 'FAVORABLE' : 'ADVERSO',
+                    });
                     window.location.reload();
                   }}
                   className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white"

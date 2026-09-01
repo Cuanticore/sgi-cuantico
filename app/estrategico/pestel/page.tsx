@@ -31,6 +31,7 @@ export default async function PestelPage() {
 
   return (
     <PestelClient
+      analisisId={vigente?.id ?? null}
       anio={vigente?.anio ?? null}
       acta={vigente?.actaReferencia ?? null}
       entradas={entradas}

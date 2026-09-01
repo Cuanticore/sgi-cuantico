@@ -31,6 +31,7 @@ export default async function DofaPage() {
 
   return (
     <DofaClient
+      analisisId={vigente?.id ?? null}
       anio={vigente?.anio ?? null}
       acta={vigente?.actaReferencia ?? null}
       aprobadoPor={vigente?.aprobadoPor?.nombre ?? null}
