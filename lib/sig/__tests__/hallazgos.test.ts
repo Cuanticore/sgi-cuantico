@@ -9,6 +9,7 @@ import {
   vencidoContra,
   exigeTabla,
   codigoHallazgo,
+  motivoQueImpideCerrar,
 } from '../hallazgos';
 
 function d(iso: string): Date {
@@ -110,5 +111,78 @@ describe('codigoHallazgo', () => {
   it('formatea el consecutivo anual', () => {
     expect(codigoHallazgo(2026, 1)).toBe('HAL-2026-0001');
     expect(codigoHallazgo(2026, 21)).toBe('HAL-2026-0021');
+  });
+});
+// B5 y B7 — por qué NO se puede cerrar. La regla estaba escrita dentro de
+// `cerrarHallazgo` y por eso nunca se ejercitó: los casos que importan son los que
+// DEJARÍAN cerrar a quien no debe.
+describe('motivoQueImpideCerrar', () => {
+  const base = {
+    anuladoEn: null,
+    fechaCierre: null,
+    tipo: 'OBSERVACION',
+    responsableId: 7,
+    cierraId: 9,
+    accionesNoVerificacion: 0,
+    tieneVerificacionEficaz: false,
+  };
+
+  it('deja cerrar cuando no hay impedimento', () => {
+    expect(motivoQueImpideCerrar(base)).toBeNull();
+  });
+
+  // Separación de funciones: no depende del rol. Un administrador tampoco cierra el suyo.
+  it('el responsable no cierra su propio hallazgo', () => {
+    const m = motivoQueImpideCerrar({ ...base, cierraId: 7 });
+    expect(m).toContain('separación de funciones');
+  });
+
+  it('sin responsable asignado, la separación de funciones no bloquea', () => {
+    expect(motivoQueImpideCerrar({ ...base, responsableId: null, cierraId: null })).toBeNull();
+  });
+
+  it('un hallazgo anulado no se cierra', () => {
+    expect(motivoQueImpideCerrar({ ...base, anuladoEn: new Date() })).toContain('anulado');
+  });
+
+  it('un hallazgo ya cerrado no se cierra de nuevo', () => {
+    expect(motivoQueImpideCerrar({ ...base, fechaCierre: new Date() })).toContain('ya está cerrado');
+  });
+
+  // NC mayor y NC menor exigen verificación SIEMPRE, haya habido acción o no.
+  it('las no conformidades no se cierran sin verificación eficaz', () => {
+    for (const tipo of ['NC_MAYOR', 'NC_MENOR']) {
+      expect(motivoQueImpideCerrar({ ...base, tipo })).toContain('verificación eficaz');
+      expect(
+        motivoQueImpideCerrar({ ...base, tipo, tieneVerificacionEficaz: true }),
+      ).toBeNull();
+    }
+  });
+
+  // Observación y oportunidad la exigen sólo si hubo acción: sin acción no hay eficacia
+  // que verificar.
+  it('observación y oportunidad exigen verificación sólo cuando hubo acción', () => {
+    for (const tipo of ['OBSERVACION', 'OPORTUNIDAD']) {
+      expect(motivoQueImpideCerrar({ ...base, tipo, accionesNoVerificacion: 0 })).toBeNull();
+      expect(
+        motivoQueImpideCerrar({ ...base, tipo, accionesNoVerificacion: 2 }),
+      ).toContain('verificación eficaz');
+      expect(
+        motivoQueImpideCerrar({
+          ...base,
+          tipo,
+          accionesNoVerificacion: 2,
+          tieneVerificacionEficaz: true,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  // El orden importa: anulado gana sobre todo lo demás, para que el mensaje diga la causa
+  // real y no la primera regla que casualmente se evalúe.
+  it('el anulado se reporta antes que la falta de verificación', () => {
+    expect(
+      motivoQueImpideCerrar({ ...base, tipo: 'NC_MAYOR', anuladoEn: new Date() }),
+    ).toContain('anulado');
   });
 });

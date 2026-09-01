@@ -381,30 +381,26 @@ export async function cerrarHallazgo(codigo: string): Promise<Resultado> {
       include: { acciones: true, verificaciones: true },
     });
     if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
-    if (hallazgo.anuladoEn) return { ok: false, mensaje: 'El hallazgo está anulado.' };
-    if (hallazgo.fechaCierre) return { ok: false, mensaje: 'El hallazgo ya está cerrado.' };
 
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
     });
     if (!persona) return { ok: false, mensaje: 'Tu cuenta no está registrada.' };
-    if (hallazgo.responsableId === persona.id) {
-      return {
-        ok: false,
-        mensaje: 'Nadie cierra su propio hallazgo (separación de funciones).',
-      };
-    }
 
-    const { exigeTabla } = await import('@/lib/sig/hallazgos');
-    const exige = exigeTabla(hallazgo.tipo);
-    const huboAccion = hallazgo.acciones.filter((a) => a.papel !== 'VERIFICACION').length > 0;
-    if (exige.verificacion === 'SI' || (exige.verificacion === 'CONDICIONAL' && huboAccion)) {
-      const eficaz = hallazgo.verificaciones.some((v) => v.resultado === 'EFICAZ');
-      if (!eficaz) {
-        return { ok: false, mensaje: 'No se cierra sin verificación eficaz.' };
-      }
-    }
+    // La decisión vive en lib/sig/hallazgos.ts, donde se prueba sin base de datos. Acá
+    // sólo se le entregan los datos que ya se leyeron.
+    const { motivoQueImpideCerrar } = await import('@/lib/sig/hallazgos');
+    const impedimento = motivoQueImpideCerrar({
+      anuladoEn: hallazgo.anuladoEn,
+      fechaCierre: hallazgo.fechaCierre,
+      tipo: hallazgo.tipo,
+      responsableId: hallazgo.responsableId,
+      cierraId: persona.id,
+      accionesNoVerificacion: hallazgo.acciones.filter((a) => a.papel !== 'VERIFICACION').length,
+      tieneVerificacionEficaz: hallazgo.verificaciones.some((v) => v.resultado === 'EFICAZ'),
+    });
+    if (impedimento) return { ok: false, mensaje: impedimento };
 
     await prisma.$transaction(async (tx) => {
       await tx.hallazgo.update({

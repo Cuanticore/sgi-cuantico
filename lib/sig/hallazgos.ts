@@ -65,6 +65,50 @@ export function codigoHallazgo(anio: number, consecutivo: number): string {
   return `HAL-${anio}-${String(consecutivo).padStart(4, '0')}`;
 }
 
+export interface DatosCierre {
+  anuladoEn: Date | null;
+  fechaCierre: Date | null;
+  tipo: string;
+  /// Quién responde por el hallazgo y quién pretende cerrarlo. Nulos cuando el hallazgo
+  /// no tiene responsable asignado todavía.
+  responsableId: number | null;
+  cierraId: number | null;
+  /// Acciones que no son de verificación: son las que disparan la exigencia CONDICIONAL.
+  accionesNoVerificacion: number;
+  tieneVerificacionEficaz: boolean;
+}
+
+/// B5 y B7: por qué NO se puede cerrar un hallazgo, o `null` si se puede.
+///
+/// Vive acá y no dentro de la acción de servidor porque es exactamente la clase de regla
+/// que el módulo declara en su cabecera: la que un auditor lee. Estaba escrita en línea en
+/// `cerrarHallazgo`, y por lo tanto no se podía ejercitar sin una base de datos — de las
+/// dos reglas que sostienen el cierre, la separación de funciones es la que nadie quiere
+/// descubrir rota el día de la auditoría.
+///
+/// Devuelve el motivo ya redactado: la acción no debe reescribirlo, porque dos textos para
+/// la misma negativa son dos reglas para quien los lee.
+export function motivoQueImpideCerrar(h: DatosCierre): string | null {
+  if (h.anuladoEn) return 'El hallazgo está anulado.';
+  if (h.fechaCierre) return 'El hallazgo ya está cerrado.';
+
+  // Separación de funciones: no depende del rol. Un administrador tampoco cierra el suyo,
+  // porque el auditor pregunta quién verificó la acción, no quién tenía permiso.
+  if (h.responsableId !== null && h.cierraId !== null && h.responsableId === h.cierraId) {
+    return 'Nadie cierra su propio hallazgo (separación de funciones).';
+  }
+
+  const exige = exigeTabla(h.tipo);
+  const haceFalta =
+    exige.verificacion === 'SI' ||
+    (exige.verificacion === 'CONDICIONAL' && h.accionesNoVerificacion > 0);
+  if (haceFalta && !h.tieneVerificacionEficaz) {
+    return 'No se cierra sin verificación eficaz.';
+  }
+
+  return null;
+}
+
 function diaDe(fecha: Date): number {
   return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
