@@ -21,13 +21,29 @@ export interface MaterializacionFila {
   hallazgo: { codigo: string; cerrado: boolean } | null;
 }
 
+export interface RiesgoDelCatalogo {
+  id: number;
+  codigo: string;
+  descripcion: string;
+  proceso: string;
+  factor: string;
+  inherente: number;
+  residual: number;
+  nivelEtiqueta: string;
+  nivelColor: string;
+}
+
 export default function MaterializacionesClient({
   filas,
+  catalogo,
   totalRiesgos,
   conHallazgoAbierto,
   reincidentes,
 }: {
   filas: MaterializacionFila[];
+  /// Los riesgos ACTIVOS con lo que dice la matriz. Es el catalogo del formulario: el
+  /// riesgo se elige de acá, no se teclea su codigo.
+  catalogo: RiesgoDelCatalogo[];
   totalRiesgos: number;
   conHallazgoAbierto: number;
   reincidentes: string[];
@@ -35,7 +51,8 @@ export default function MaterializacionesClient({
   const [filtro, setFiltro] = useState<'todas' | 'abiertas' | 'reincidentes'>('todas');
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
-  const [form, setForm] = useState({ riesgoCodigo: '', fecha: '', evento: '', impacto: '', causaRaiz: '' });
+  const [form, setForm] = useState({ riesgoId: '', fecha: '', evento: '', impacto: '', causaRaiz: '' });
+  const elegido = catalogo.find((r) => String(r.id) === form.riesgoId) ?? null;
 
   const visibles = useMemo(() => {
     if (filtro === 'abiertas') return filas.filter((f) => f.hallazgo && !f.hallazgo.cerrado);
@@ -150,26 +167,107 @@ export default function MaterializacionesClient({
 
       {abierto && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-6" onClick={() => setAbierto(false)}>
-          <div className="flex w-full max-w-[520px] flex-col gap-3 rounded-modal bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-15 font-semibold text-primary">Reportar incidente (FOR-CAL-08)</h2>
-            <Campo etiqueta="Código del riesgo" valor={form.riesgoCodigo} set={(v) => setForm({ ...form, riesgoCodigo: v })} />
-            <Campo etiqueta="Fecha" valor={form.fecha} set={(v) => setForm({ ...form, fecha: v })} tipo="date" />
-            <Campo etiqueta="Descripción del evento" valor={form.evento} set={(v) => setForm({ ...form, evento: v })} />
-            <Campo etiqueta="Impacto generado" valor={form.impacto} set={(v) => setForm({ ...form, impacto: v })} />
-            <Campo etiqueta="Causa raíz" valor={form.causaRaiz} set={(v) => setForm({ ...form, causaRaiz: v })} />
+          <div className="flex max-h-full w-full max-w-[560px] flex-col gap-3 overflow-y-auto rounded-modal bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <span className="flex items-center gap-2.5">
+              <h2 className="text-15 font-semibold text-primary">Reporte de incidente de riesgo</h2>
+              <span className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold" style={{ background: 'var(--hf-bg-subtle)', color: 'var(--hf-text-secondary)' }}>
+                FOR-CAL-08
+              </span>
+            </span>
+            <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              Un riesgo se materializó. Este registro deja constancia y abre el hallazgo para
+              tratarlo.
+            </p>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-11 font-medium text-secondary">Riesgo que se materializó</span>
+              <select
+                value={form.riesgoId}
+                onChange={(e) => setForm({ ...form, riesgoId: e.target.value })}
+                className="entrada-campo"
+              >
+                <option value="">Elegí el riesgo…</option>
+                {catalogo.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.codigo} · {r.descripcion}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <Campo etiqueta="Fecha del evento" valor={form.fecha} set={(v) => setForm({ ...form, fecha: v })} tipo="date" />
+
+            {/* «Lo que dice la matriz · no se captura, se lee». El reportante NO reescribe
+                el nivel del riesgo: si pudiera, el incidente y la matriz podrían discrepar
+                y nadie sabría cuál de los dos vale. */}
+            {elegido && (
+              <div className="flex flex-col gap-2 rounded-tarjeta border border-border-field bg-subtle px-4 py-3">
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+                    Lo que dice la matriz
+                  </span>
+                  <span className="h-px flex-1 bg-hairline" />
+                  <span className="font-mono text-9 text-muted">no se captura, se lee</span>
+                </span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-11_5">
+                  <Dato etiqueta="Proceso" valor={elegido.proceso} />
+                  <Dato etiqueta="Factor" valor={elegido.factor} />
+                  <Dato etiqueta="Inherente" valor={String(elegido.inherente)} />
+                  <Dato etiqueta="Residual" valor={String(elegido.residual)} />
+                </div>
+                <span className="flex items-center gap-2">
+                  <span className="text-11 text-muted">Nivel residual</span>
+                  <span
+                    className="rounded-[4px] px-2 py-0.5 font-mono text-9 font-semibold uppercase"
+                    style={{ background: `${elegido.nivelColor}22`, color: elegido.nivelColor }}
+                  >
+                    {elegido.nivelEtiqueta}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            <Campo etiqueta="Descripción del evento · obligatorio" valor={form.evento} set={(v) => setForm({ ...form, evento: v })} />
+            <label className="flex flex-col gap-1">
+              <Campo etiqueta="Impacto generado · obligatorio" valor={form.impacto} set={(v) => setForm({ ...form, impacto: v })} />
+              <span className="text-10_5 text-muted">
+                Qué se perdió o dejó de pasar, en términos concretos. Si hay cifra, ponla.
+              </span>
+            </label>
+            <label className="flex flex-col gap-1">
+              <Campo etiqueta="Causa raíz · como la ves hoy" valor={form.causaRaiz} set={(v) => setForm({ ...form, causaRaiz: v })} />
+              <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                Tu primera lectura de por qué ocurrió. El análisis formal se hace después, en el
+                hallazgo, con método declarado.
+              </span>
+            </label>
+
+            <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+              El reporte y el hallazgo en Mejora se crean en la misma transacción: no puede
+              quedar un incidente registrado sin nada que lo trate.
+            </p>
+
             <div className="flex justify-end gap-2 pt-1">
               <button onClick={() => setAbierto(false)} className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 text-muted">
                 Cancelar
               </button>
               <button
                 onClick={async () => {
-                  const riesgo = filas.find((f) => f.riesgoCodigo === form.riesgoCodigo);
-                  if (!riesgo) {
-                    setMensaje('Código de riesgo no reconocido.');
+                  // Antes acá se buscaba el código dentro de `filas`, que son las
+                  // MATERIALIZACIONES ya registradas. Dos defectos en una línea: un riesgo
+                  // que nunca se había materializado daba «código no reconocido» —o sea, la
+                  // pantalla no servía para su único caso de uso—, y uno que sí, mandaba el
+                  // id de la materialización como `riesgoId`, apuntando a otro riesgo.
+                  if (!elegido) {
+                    setMensaje('Elegí el riesgo que se materializó.');
+                    return;
+                  }
+                  if (!form.fecha || !form.evento.trim() || !form.impacto.trim()) {
+                    setMensaje('La fecha, el evento y el impacto son obligatorios.');
                     return;
                   }
                   const r = await materializarRiesgo({
-                    riesgoId: riesgo.id,
+                    riesgoId: elegido.id,
                     fecha: new Date(`${form.fecha}T00:00:00.000Z`),
                     descripcionEvento: form.evento,
                     impactoGenerado: form.impacto,
@@ -181,7 +279,7 @@ export default function MaterializacionesClient({
                 className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white"
                 style={{ background: 'var(--hf-accent-500)' }}
               >
-                Reportar
+                Registrar y abrir el hallazgo
               </button>
             </div>
             {mensaje && <p className="text-12" style={{ color: 'var(--hf-accent-700)' }}>{mensaje}</p>}
@@ -189,6 +287,15 @@ export default function MaterializacionesClient({
         </div>
       )}
     </main>
+  );
+}
+
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <span className="flex flex-col">
+      <span className="text-10 text-muted">{etiqueta}</span>
+      <span className="text-11_5 text-primary">{valor}</span>
+    </span>
   );
 }
 
