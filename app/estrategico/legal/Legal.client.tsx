@@ -2,9 +2,9 @@
 
 // app/estrategico/legal/Legal.client.tsx
 //
-// La grilla con el banner de la matriz vacÃ­a, filtros por sistema y revisiÃ³n vencida,
-// el semÃ¡foro (fila rosada + fecha roja) y el panel del historial de evaluaciones con
-// el botÃ³n Â«NO_CUMPLE â†’ hallazgoÂ» (D7) y Â«derogarÂ» (D8).
+// La grilla con el banner de la matriz vacía, filtros por sistema y revisión vencida,
+// el semáforo (fila rosada + fecha roja) y el panel del historial de evaluaciones con
+// el botón «NO_CUMPLE â†’ hallazgo» (D7) y «derogar» (D8).
 
 import { useMemo, useState } from 'react';
 import { evaluarCumplimiento, derogarRequisito } from '@/app/sig/acciones/estrategico';
@@ -66,7 +66,7 @@ export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
           className="mt-3 rounded-campo px-4 py-3 text-11_5"
           style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
         >
-          La matriz real estÃ¡ vacÃ­a (sin migraciÃ³n posible): las filas son semilla del
+          La matriz real está vacía (sin migración posible): las filas son semilla del
           marco normativo de MAN-CAL-01, y el levantamiento es un hallazgo en Mejora.
         </p>
 
@@ -83,7 +83,7 @@ export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
                 border: '1px solid var(--hf-border-field)',
               }}
             >
-              {f === 'todos' ? 'Todos' : f === 'vencida' ? 'RevisiÃ³n vencida' : f} Â·{' '}
+              {f === 'todos' ? 'Todos' : f === 'vencida' ? 'Revisión vencida' : f} ·{' '}
               {f === 'vencida' ? vencidas.length : f === 'todos' ? filas.length : filas.filter((r) => r.sistemaGestion === f || r.sistemaGestion === 'AMBOS').length}
             </button>
           ))}
@@ -98,7 +98,7 @@ export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
                 <th className="px-4 py-3 font-semibold">Tipo</th>
                 <th className="px-4 py-3 font-semibold">Sistema</th>
                 <th className="px-4 py-3 font-semibold">Responsable</th>
-                <th className="px-4 py-3 font-semibold">RevisiÃ³n</th>
+                <th className="px-4 py-3 font-semibold">Revisión</th>
                 <th className="px-4 py-3 font-semibold">Cumplimiento</th>
               </tr>
             </thead>
@@ -172,7 +172,7 @@ export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
           </div>
           {!seleccion.vigente && (
             <p className="rounded-campo px-3 py-2 text-11_5" style={{ background: '#f5f7f6', color: '#4a544f' }}>
-              Derogado por {seleccion.derogadoPor ?? 'â€”'}: vigente = false, las evaluaciones histÃ³ricas se conservan.
+              Derogado por {seleccion.derogadoPor ?? 'â€”'}: vigente = false, las evaluaciones históricas se conservan.
             </p>
           )}
           <div className="flex flex-col gap-1.5">
