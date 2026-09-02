@@ -26,9 +26,10 @@ export default async function EncabezadoSig() {
   const usuario = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const cuenta = (session?.user?.email ?? 'usuario').split('@')[0];
 
-  // Spec §4: «Un Colaborador solo ve la primera; las demás no se renderizan.» La
-  // pertenencia a cualquiera de los tres grupos habilita el resto del SIG.
-  const pestanas = rol.grupos.length === 0 ? [TODAS[0]] : TODAS;
+  // Un Colaborador ve lo que puede usar y nada más: sus tareas e Indicadores, que es
+  // información del SGC abierta a la organización. Estratégico, SGSI y Operación no se
+  // renderizan — una pestaña que solo lleva a «no tenés acceso» no informa, frustra.
+  const pestanas = rol.grupos.length === 0 ? [TODAS[0], TODAS[1]] : TODAS;
 
   return (
     <HeaderCorporativo

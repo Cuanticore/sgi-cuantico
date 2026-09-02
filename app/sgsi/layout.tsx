@@ -21,6 +21,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { GRUPOS, puede, rolDesdeGrupos, type OrigenRol } from '@/lib/sgsi/permisos';
 import ShellSig from '@/app/components/sgsi/ShellSig';
+import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,16 @@ export default async function SgsiLayout({ children }: { children: React.ReactNo
   const session = await getServerSession(authOptions);
   const rol = rolDesdeGrupos(session?.user?.grupos);
 
+  // El aviso va SIN el shell. Envuelto en ShellSig traía la barra lateral entera del SGSI
+  // —inventario, matrices, controles, parámetros— toda en cero y toda inalcanzable: un menú
+  // que solo sirve para chocar contra la misma negativa. Estratégico y Operación ya
+  // resolvían su negativa así; esto los alinea.
   if (!puede(rol, 'sgsi:ver')) {
     return (
-      <ShellSig>
+      <div className="flex min-h-screen flex-col bg-app">
+        <EncabezadoSig />
         <SinAcceso origen={rol.origen} />
-      </ShellSig>
+      </div>
     );
   }
 
@@ -77,11 +83,11 @@ function SinAcceso({ origen }: { origen: OrigenRol }) {
           </p>
         )}
         <Link
-          href="/"
+          href="/mi-sig"
           className="mt-1 w-fit rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"
           style={{ background: 'var(--hf-accent-500)' }}
         >
-          Ir a Indicadores
+          Ir a Mi SIG
         </Link>
       </div>
     </main>
