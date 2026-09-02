@@ -605,10 +605,29 @@ export interface DatosObligacion {
   responsableSeguimientoId: number;
 }
 
+/// El tipo dice que `contenidoId` y `responsableSeguimientoId` son obligatorios, pero eso
+/// solo vale en compilación: los datos llegan de un formulario, y un `<select>` sin opciones
+/// —porque el catálogo está vacío— manda `undefined`. Sin esta comprobación ese `undefined`
+/// viajaba hasta Prisma, que respondía «Argument `id` is missing» con el nombre del módulo
+/// empaquetado a cuestas. Un error de base de datos crudo en pantalla no le dice a nadie que
+/// primero hay que crear un contenido.
 function validarDatosObligacion(datos: DatosObligacion): string[] {
   const errores: string[] = [];
-  if (datos.plazoDias <= 0) errores.push('el plazo debe ser positivo');
-  if (datos.diasAviso < 0) errores.push('los días de aviso no pueden ser negativos');
+  if (!Number.isInteger(datos.contenidoId) || datos.contenidoId <= 0) {
+    errores.push('elegí el contenido de la obligación');
+  }
+  if (!Number.isInteger(datos.responsableSeguimientoId) || datos.responsableSeguimientoId <= 0) {
+    errores.push('elegí quién responde por el seguimiento');
+  }
+  if (!(datos.fechaInicio instanceof Date) || Number.isNaN(datos.fechaInicio.getTime())) {
+    errores.push('la fecha de inicio no es válida');
+  }
+  if (!Number.isFinite(datos.plazoDias) || datos.plazoDias <= 0) {
+    errores.push('el plazo debe ser positivo');
+  }
+  if (!Number.isFinite(datos.diasAviso) || datos.diasAviso < 0) {
+    errores.push('los días de aviso no pueden ser negativos');
+  }
   const cuantos = [datos.alcancePersonaId, datos.alcanceCargoId, datos.alcanceAreaId].filter((v) => v !== undefined).length;
   if (datos.alcance !== 'TODOS' && cuantos !== 1) {
     errores.push('el alcance exige exactamente un destino');

@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { agregarEntradaContexto, crearRiesgoOrganizacional } from '@/app/sig/acciones/estrategico';
+import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaDofa {
   id: number;
@@ -38,6 +39,7 @@ export default function DofaClient({
   entradas: EntradaDofa[];
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
@@ -58,6 +60,18 @@ export default function DofaClient({
           </span>
         )}
       </div>
+
+      {analisisId === null && (
+        <div className="mt-6">
+          <CrearAnalisis tipo="DOFA" />
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-4 text-12_5" style={{ color: 'var(--hf-danger-text)' }}>
+          {error}
+        </p>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-5">
         {Object.entries(CASILLAS).map(([casilla, meta]) => {
@@ -91,20 +105,37 @@ export default function DofaClient({
                 <input
                   value={nuevas[casilla] ?? ''}
                   onChange={(e) => setNuevas({ ...nuevas, [casilla]: e.target.value })}
-                  placeholder="Nueva entrada"
+                  placeholder={analisisId === null ? `Creá el ${'DOFA'} primero` : 'Nueva entrada'}
+                  disabled={analisisId === null}
                   className="flex-1 rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12_5"
                 />
                 <button
+                  disabled={analisisId === null}
                   onClick={async () => {
-                    if (!nuevas[casilla]?.trim() || analisisId === null) return;
-                    await agregarEntradaContexto(analisisId, {
+                    // Antes acá había un `return` pelado: sin análisis o sin texto, el
+                    // clic no hacía nada y la pantalla no lo decía. Un botón que se traga
+                    // el clic es peor que uno deshabilitado.
+                    if (analisisId === null) {
+                      setError('Primero hay que crear el análisis.');
+                      return;
+                    }
+                    if (!nuevas[casilla]?.trim()) {
+                      setError('Escribí la entrada antes de agregarla.');
+                      return;
+                    }
+                    setError(null);
+                    const r = await agregarEntradaContexto(analisisId, {
                       casilla,
-                      texto: nuevas[casilla],
+                      texto: nuevas[casilla].trim(),
                       efecto: meta.color === '#0b5c44' || meta.color === '#12437f' ? 'FAVORABLE' : 'ADVERSO',
                     });
+                    if (!r.ok) {
+                      setError(r.mensaje);
+                      return;
+                    }
                     window.location.reload();
                   }}
-                  className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white"
+                  className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white disabled:opacity-40"
                   style={{ background: 'var(--hf-brand-nav)' }}
                 >
                   +

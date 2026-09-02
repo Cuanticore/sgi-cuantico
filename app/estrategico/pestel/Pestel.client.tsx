@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { agregarEntradaContexto } from '@/app/sig/acciones/estrategico';
+import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaPestel {
   id: number;
@@ -38,6 +39,7 @@ export default function PestelClient({
   entradas: EntradaPestel[];
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
@@ -57,6 +59,18 @@ export default function PestelClient({
           <span className="h-2.5 w-1.5 rounded-sm" style={{ background: '#a52016' }} /> Adverso
         </span>
       </div>
+
+      {analisisId === null && (
+        <div className="mt-6">
+          <CrearAnalisis tipo="PESTEL" />
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-4 text-12_5" style={{ color: 'var(--hf-danger-text)' }}>
+          {error}
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-3 gap-5">
         {Object.entries(DIMENSIONES).map(([casilla, meta]) => {
@@ -112,16 +126,36 @@ export default function PestelClient({
                 <input
                   value={nuevas[casilla] ?? ''}
                   onChange={(e) => setNuevas({ ...nuevas, [casilla]: e.target.value })}
-                  placeholder="Nueva entrada"
+                  placeholder={analisisId === null ? 'Creá el PESTEL primero' : 'Nueva entrada'}
+                  disabled={analisisId === null}
                   className="flex-1 rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12_5"
                 />
                 <button
+                  disabled={analisisId === null}
                   onClick={async () => {
-                    if (!nuevas[casilla]?.trim() || analisisId === null) return;
-                    await agregarEntradaContexto(analisisId, { casilla, texto: nuevas[casilla], efecto: 'FAVORABLE' });
+                    // Antes acá había un `return` pelado: sin análisis o sin texto, el
+                    // clic no hacía nada y la pantalla no lo decía.
+                    if (analisisId === null) {
+                      setError('Primero hay que crear el análisis.');
+                      return;
+                    }
+                    if (!nuevas[casilla]?.trim()) {
+                      setError('Escribí la entrada antes de agregarla.');
+                      return;
+                    }
+                    setError(null);
+                    const r = await agregarEntradaContexto(analisisId, {
+                      casilla,
+                      texto: nuevas[casilla].trim(),
+                      efecto: 'FAVORABLE',
+                    });
+                    if (!r.ok) {
+                      setError(r.mensaje);
+                      return;
+                    }
                     window.location.reload();
                   }}
-                  className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white"
+                  className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white disabled:opacity-40"
                   style={{ background: 'var(--hf-brand-nav)' }}
                 >
                   +
