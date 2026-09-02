@@ -7,7 +7,7 @@
 // DOS CASOS DE ACCESO, NO MÁS (decisión del líder del SIG, 01/09/2026)
 //
 //   Mi SIG          toda cuenta autenticada de la organización, sin pertenecer a nada
-//   Todo lo demás   solo quien está en `Responsables SIG`
+//   Todo lo demás   solo quien está en `Líderes SIG`
 //
 // Antes había tres grupos —`SIG-Seguridad`, `SIG-Propietarios` y `SIG-Auditoría`— con
 // escalones intermedios: valorar sin parametrizar, leer sin escribir. Se retiraron. Dos de
@@ -20,7 +20,7 @@
 //
 // EL PISO ES COLABORADOR
 //
-// Quien no está en `Responsables SIG` es Colaborador: ve sus propias tareas en Mi SIG y
+// Quien no está en `Líderes SIG` es Colaborador: ve sus propias tareas en Mi SIG y
 // nada más. No es un grupo del Directorio — es lo que queda cuando no hay ninguno, y por
 // eso `Rol.grupos` viene vacío.
 //
@@ -119,9 +119,14 @@ const COLABORADOR: Rol = {
 /// also why an object id nobody has confirmed does not go in: an id whose group is a
 /// guess is a guess about who runs the SGSI.
 ///
-/// `Responsables SIG` is Cuantico's own group and the only one that grants anything.
-/// `SIG-Seguridad` stays listed as its canonical name so a tenant that names the group
-/// that way keeps working; both forms map to the same single role.
+/// `Líderes SIG` is the group that grants access, and the only one. `SIG-Seguridad` stays
+/// listed as its canonical name so a tenant that names the group that way keeps working;
+/// both forms map to the same single role.
+///
+/// The Microsoft 365 group it replaced was retired from here on 01/09/2026. It still
+/// exists in the Directory for collaboration — mailbox, Teams, SharePoint — and that is
+/// precisely why it must not grant anything: a group people are added to for a chat is a
+/// group nobody reviews before handing out the asset register.
 const ALIAS: Readonly<Record<string, Grupo>> = {
   [GRUPOS.seguridad]: GRUPOS.seguridad,
 
@@ -134,23 +139,6 @@ const ALIAS: Readonly<Record<string, Grupo>> = {
   'Líderes SIG': GRUPOS.seguridad,
   '2e0f4290-e91c-4f45-a663-77ece2d2a50e': GRUPOS.seguridad,
 
-  // El grupo de Microsoft 365 al que reemplaza. Se conserva mientras se verifica que el
-  // nuevo funciona; una vez confirmado hay que retirarlo, porque un grupo de colaboración
-  // que además otorga el sistema entero es una segunda puerta que nadie recuerda cerrar.
-  'Responsables SIG': GRUPOS.seguridad,
-
-  // Los dos object ids del mismo grupo. Se conservan ambos porque no hay forma de
-  // comprobar desde la aplicación cuál está vigente: el registro de Azure no tiene
-  // `Group.Read.All`, así que Graph responde 403 a cualquier consulta sobre grupos.
-  //
-  // `d04a62e7…` venía de antes y nunca abrió una sesión real. `f51b3ad7…` es el que el
-  // líder del SIG confirmó el 01/09/2026 como el grupo al que pertenece, después de que
-  // su cuenta quedara en Colaborador teniendo la membresía puesta — que es el síntoma
-  // exacto de un identificador ausente de esta tabla.
-  //
-  // Dejar el viejo no otorga nada de más: si ya no existe, ningún token lo presenta.
-  'd04a62e7-11ce-4faf-a1b2-7e77fb7ba59b': GRUPOS.seguridad,
-  'f51b3ad7-497b-43ea-b646-d1dc482cff5d': GRUPOS.seguridad,
 };
 
 function reconocidos(valores: readonly string[]): Grupo[] {
@@ -171,7 +159,7 @@ function reconocidos(valores: readonly string[]): Grupo[] {
 }
 
 /// Groups to impersonate while developing, from `SGI_ROL_DEV`. Accepts the same
-/// identifiers the Directory claim carries: `Responsables SIG` or `SIG-Seguridad`.
+/// identifiers the Directory claim carries: `Líderes SIG` or `SIG-Seguridad`.
 ///
 /// This is the SAME capability `SGI_ACCESO_SIN_GRUPO` had, and that variable was retired
 /// because it granted the whole SGSI — assets, risks, the Ley 1581 flags, the method's

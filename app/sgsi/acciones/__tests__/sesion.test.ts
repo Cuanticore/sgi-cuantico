@@ -77,7 +77,7 @@ describe('rolActual', () => {
   });
 
   it('deriva el rol del grupo del token', async () => {
-    conSesion('ada@cuantico.com', ['Responsables SIG']);
+    conSesion('ada@cuantico.com', ['Líderes SIG']);
     const rol = await rolActual();
     expect(rol.grupos).toEqual([GRUPOS.seguridad]);
     expect(rol.permisos.has('bitacora:ver')).toBe(true);
@@ -115,7 +115,7 @@ describe('autorConPermiso', () => {
   });
 
   it('con el permiso devuelve el autor a registrar', async () => {
-    conSesion('lider@cuantico.com', ['Responsables SIG']);
+    conSesion('lider@cuantico.com', ['Líderes SIG']);
     await expect(autorConPermiso('sgsi:escribir')).resolves.toBe('lider@cuantico.com');
   });
 
