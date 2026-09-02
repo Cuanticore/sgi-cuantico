@@ -451,6 +451,20 @@ export async function reasignarAsignacion(
 }
 
 import { registrarAlta } from '@/lib/sgsi/bitacora';
+import {
+  planificarItems,
+  versionTrasEditar,
+  type ItemPropuesto,
+} from '@/lib/sig/contenidos';
+
+/// El prefijo del código por tipo. `VERIFICACION` es `LVE` —lista de verificación— y no
+/// `VER`, porque así se nombran en el repositorio documental de Cuántico.
+const PREFIJO_CODIGO: Record<DatosContenido['tipo'], string> = {
+  CAPACITACION: 'CAP',
+  LECTURA: 'LEC',
+  VERIFICACION: 'LVE',
+  TAREA: 'TAR',
+};
 
 export interface DatosContenido {
   tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA';
@@ -494,13 +508,7 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
         update: { ultimoValor: { increment: 1 } },
         create: { tipo: datos.tipo, ultimoValor: 1 },
       });
-      const prefijo: Record<DatosContenido['tipo'], string> = {
-        CAPACITACION: 'CAP',
-        LECTURA: 'LEC',
-        VERIFICACION: 'LVE',
-        TAREA: 'TAR',
-      };
-      const codigo = `${prefijo[datos.tipo]}-${String(contador.ultimoValor).padStart(3, '0')}`;
+      const codigo = `${PREFIJO_CODIGO[datos.tipo]}-${String(contador.ultimoValor).padStart(3, '0')}`;
 
       const creado = await tx.contenidoSig.create({
         data: {
@@ -537,21 +545,53 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
   });
 }
 
-export interface DatosEditarContenido extends Partial<DatosContenido> {}
+export interface DatosEditarContenido extends Omit<Partial<DatosContenido>, 'items'> {
+  /// Los ítems COMPLETOS de la lista, en el orden que quedan. Con `id` se edita el que
+  /// existe; sin `id` se crea. Lo que no venga se borra —si nadie lo respondió.
+  items?: ItemPropuesto[];
+}
 
 /// R10: si el contenido ya tiene asignaciones, la edición sube la versión; los acuses
 /// previos conservan la versión que se realizó.
 export async function editarContenido(id: number, datos: DatosEditarContenido): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('operacion:escribir');
+    exigirId(id, 'el contenido');
     const contenido = await prisma.contenidoSig.findUnique({
       where: { id },
-      include: { _count: { select: { obligaciones: true } } },
+      include: {
+        _count: { select: { obligaciones: true } },
+        items: {
+          orderBy: { orden: 'asc' },
+          include: { _count: { select: { respuestas: true } } },
+        },
+      },
     });
     if (!contenido) return { ok: false, mensaje: 'El contenido no existe.' };
 
     const conAsignaciones = contenido._count.obligaciones > 0;
-    const version = conAsignaciones ? contenido.version + 1 : contenido.version;
+    const version = versionTrasEditar(contenido.version, conAsignaciones);
+
+    // Los ítems los decide el módulo puro. La regla que protege es que un ítem ya
+    // respondido no se borra: esa respuesta es la evidencia de que la verificación se
+    // hizo, y sin el ítem la lista deja de explicar qué se verificó.
+    const plan =
+      datos.items === undefined
+        ? null
+        : planificarItems(
+            contenido.items.map((i) => ({
+              id: i.id,
+              orden: i.orden,
+              texto: i.texto,
+              obligatorio: i.obligatorio,
+              permiteNoAplica: i.permiteNoAplica,
+              respuestas: i._count.respuestas,
+            })),
+            datos.items,
+          );
+    if (plan && plan.errores.length > 0) {
+      return { ok: false, mensaje: plan.errores.join('. ') };
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.contenidoSig.update({
@@ -571,6 +611,34 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
           version,
         },
       });
+
+      if (plan) {
+        // El orden se libera antes de reasignarlo. La unique (contenidoId, orden) no
+        // deja pasar un intercambio directo: mover el 2 al 1 choca con el 1 que todavía
+        // está ahí, y un `update` por ítem falla a mitad de camino. Los negativos son
+        // libres porque `orden` siempre se escribe positivo.
+        for (const a of plan.actualizar) {
+          await tx.itemVerificacion.update({ where: { id: a.id }, data: { orden: -a.orden } });
+        }
+        for (const idBorrar of plan.borrar) {
+          await tx.itemVerificacion.delete({ where: { id: idBorrar } });
+        }
+        for (const a of plan.actualizar) {
+          await tx.itemVerificacion.update({
+            where: { id: a.id },
+            data: {
+              orden: a.orden,
+              texto: a.texto,
+              obligatorio: a.obligatorio,
+              permiteNoAplica: a.permiteNoAplica,
+            },
+          });
+        }
+        for (const c of plan.crear) {
+          await tx.itemVerificacion.create({ data: { contenidoId: id, ...c } });
+        }
+      }
+
       await registrar(tx, autor, [
         {
           tabla: 'contenido_sig',
@@ -582,13 +650,101 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
             ? 'edición de contenido publicado: sube la versión'
             : 'edición sin asignaciones: la versión no cambia',
         },
+        ...(plan && plan.crear.length + plan.borrar.length > 0
+          ? [
+              {
+                tabla: 'contenido_sig',
+                registroId: String(id),
+                campo: 'items',
+                anterior: contenido.items.length,
+                nuevo: plan.actualizar.length + plan.crear.length,
+                motivo: `${plan.crear.length} ítem(s) agregado(s), ${plan.borrar.length} quitado(s)`,
+              },
+            ]
+          : []),
       ]);
     });
 
+    const itemsDichos =
+      plan && plan.crear.length + plan.borrar.length > 0
+        ? ` ${plan.crear.length} ítem(s) agregado(s), ${plan.borrar.length} quitado(s).`
+        : '';
     return {
       ok: true,
-      mensaje: conAsignaciones ? 'Contenido editado: la versión subió.' : 'Contenido editado.',
+      mensaje:
+        (conAsignaciones ? 'Contenido editado: la versión subió.' : 'Contenido editado.') +
+        itemsDichos,
     };
+  });
+}
+
+/// «Duplicar» del lienzo: copia el contenido con un código nuevo y la versión en 1.
+///
+/// No copia las obligaciones. Duplicar sirve para partir de algo parecido —una lista de
+/// verificación de respaldos que se adapta a otro sistema—, y un duplicado que arrastra
+/// las obligaciones del original le generaría asignaciones a gente que nadie decidió
+/// incluir. La copia nace sin asignar.
+export async function duplicarContenido(id: number): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    exigirId(id, 'el contenido');
+
+    const original = await prisma.contenidoSig.findUnique({
+      where: { id },
+      include: { items: { orderBy: { orden: 'asc' } } },
+    });
+    if (!original) return { ok: false, mensaje: 'El contenido no existe.' };
+
+    let codigo = '';
+    await prisma.$transaction(async (tx) => {
+      const contador = await tx.contadorContenido.upsert({
+        where: { tipo: original.tipo },
+        update: { ultimoValor: { increment: 1 } },
+        create: { tipo: original.tipo, ultimoValor: 1 },
+      });
+      codigo = `${PREFIJO_CODIGO[original.tipo]}-${String(contador.ultimoValor).padStart(3, '0')}`;
+
+      const copia = await tx.contenidoSig.create({
+        data: {
+          codigo,
+          tipo: original.tipo,
+          // El título dice que es una copia. Dos filas con el mismo título en una lista de
+          // 24 es la forma más rápida de editar la equivocada.
+          titulo: `${original.titulo} (copia)`,
+          descripcion: original.descripcion,
+          procedimientoOrigen: original.procedimientoOrigen,
+          documentoCodigo: original.documentoCodigo,
+          documentoNombre: original.documentoNombre,
+          documentoVersion: original.documentoVersion,
+          documentoUrl: original.documentoUrl,
+          duracionHoras: original.duracionHoras,
+          modalidad: original.modalidad,
+          exigeEvaluacion: original.exigeEvaluacion,
+          notaMinima: original.notaMinima,
+          items: {
+            create: original.items.map((i) => ({
+              orden: i.orden,
+              texto: i.texto,
+              obligatorio: i.obligatorio,
+              permiteNoAplica: i.permiteNoAplica,
+            })),
+          },
+        },
+      });
+      await registrarAlta(tx, autor, 'contenido_sig', String(copia.id));
+      await registrar(tx, autor, [
+        {
+          tabla: 'contenido_sig',
+          registroId: String(copia.id),
+          campo: 'codigo',
+          anterior: original.codigo,
+          nuevo: codigo,
+          motivo: `duplicado de ${original.codigo}`,
+        },
+      ]);
+    });
+
+    return { ok: true, mensaje: `Creado ${codigo} como copia de ${original.codigo}.` };
   });
 }
 
