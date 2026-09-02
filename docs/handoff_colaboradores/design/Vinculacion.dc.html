@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Vinculación</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e9f0fb; color: #12437f">Mario Nieto</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 96ch; line-height: 1.55">Un solo proceso para nómina y contratistas. <strong style="font-weight: 600; color: #4a544f">Lo de seguridad de la información es idéntico</strong>; solo cambia lo administrativo.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Tipo de vinculación</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{tipos}}" as="t" hint-placeholder-count="2">
+          <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; padding-right: 3px">
+
+      <!-- Seguridad -->
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Seguridad de la información · igual para todos</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span class="mono" style="font-size: 9.5px; color: {{segColor}}">{{segConteo}}</span>
+        </span>
+        <sc-for list="{{seguridad}}" as="p" hint-placeholder-count="7">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 8px">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; background: {{p.iconoBg}}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{p.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 12px; color: {{p.color}}">{{p.texto}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #8a938e">{{p.fuente}}</span>
+            </span>
+            <span class="mono" style="flex: none; font-size: 9.5px; color: {{p.estadoColor}}">{{p.estado}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Administrativo -->
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #8a4407">Administrativo · {{adminEtiqueta}}</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{adminConteo}}</span>
+        </span>
+        <sc-for list="{{administrativo}}" as="p" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; background: {{p.iconoBg}}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{p.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; font-size: 12px; color: {{p.color}}">{{p.texto}}</span>
+            <span class="mono" style="flex: none; font-size: 9.5px; color: {{p.estadoColor}}">{{p.estado}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- La puerta -->
+    <aside style="flex: none; width: 340px; display: flex; flex-direction: column; gap: 13px">
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 17px 18px; background: {{puertaFondo}}; border: 1px solid {{puertaBorde}}; border-radius: 12px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: {{puertaColor}}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="{{puertaArco}}"></path></svg>
+          </span>
+          <span style="font-size: 13.5px; font-weight: 600; color: {{puertaColor}}">{{puertaTitulo}}</span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.6; color: {{puertaColor}}">{{puertaTexto}}</span>
+        <span style="height: 1px; background: {{puertaBorde}}"></span>
+        <span style="display: flex; align-items: baseline; gap: 9px">
+          <span class="mono" style="font-size: 26px; font-weight: 600; line-height: 1; color: {{puertaColor}}">{{firmados}}</span>
+          <span style="font-size: 11.5px; color: {{puertaColor}}">de 4 compromisos firmados</span>
+        </span>
+        <button style="{{botonEstilo}}">{{botonTexto}}</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Por qué una sola tabla</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Un contratista firma el mismo acuerdo de confidencialidad, recibe la misma inducción, se le revocan los accesos el mismo día y se le hace la misma acta de borrado.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">La seguridad no distingue el tipo de contrato.</strong> Lo que distingue son las afiliaciones y la liquidación, que son cinco casillas.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Separarlos en dos listas obligaría a duplicar el proceso entero para ahorrarse esas cinco, y garantizaría que los 32 contratistas queden fuera del control, que es lo que pasa hoy.</span>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 9px; margin-top: 2px">
+          <span class="mono" style="flex: none; font-size: 15px; font-weight: 600; color: #12437f">32</span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #6b7570">de las 38 personas activas son contratistas. La excepción es la nómina, no al revés.</span>
+        </span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const SEG = 'padding: 6px 13px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+// Los siete pasos de seguridad son los mismos para cualquier tipo de vinculación.
+// `firma` marca los cuatro compromisos que PRO-TAL-01 exige antes de cualquier acceso.
+const SEGURIDAD = [
+  { texto: 'Verificación de antecedentes', fuente: 'PRO-TAL-01 · A.6.1', hecho: true, firma: false },
+  { texto: 'Acuerdo de confidencialidad', fuente: 'PRO-TAL-01 · A.6.6 · leer, aceptar y firmar', hecho: true, firma: true },
+  { texto: 'Autorización de tratamiento de datos personales', fuente: 'Ley 1581 de 2012 · leer, aceptar y firmar', hecho: true, firma: true },
+  { texto: 'Aceptación de las políticas del SGSI y del uso aceptable', fuente: 'POL-SIG-02 · leer, aceptar y firmar', hecho: false, firma: true },
+  { texto: 'Lineamientos del puesto de trabajo remoto', fuente: 'PTR-TEC-02 · A.6.7 · leer, aceptar y firmar', hecho: false, firma: true },
+  { texto: 'Verificación del equipo: cifrado, bloqueo automático y antimalware', fuente: 'PRO-TAL-01 · Gestión Tecnológica', hecho: false, firma: false },
+  { texto: 'Inducción de seguridad de la información', fuente: 'PRO-TAL-04 · A.6.3', hecho: false, firma: false },
+];
+
+const ADMIN = {
+  nomina: {
+    etiqueta: 'nómina',
+    pasos: [
+      { texto: 'Contrato laboral suscrito', hecho: true },
+      { texto: 'Afiliación a EPS, pensión, ARL y caja de compensación', hecho: true },
+      { texto: 'Examen médico de ingreso', hecho: false },
+      { texto: 'Registro en nómina y política de retribución', hecho: false },
+    ],
+  },
+  contratista: {
+    etiqueta: 'prestación de servicios',
+    pasos: [
+      { texto: 'Contrato de prestación de servicios suscrito', hecho: true },
+      { texto: 'RUT y certificación bancaria', hecho: true },
+      { texto: 'Afiliación como independiente verificada', hecho: false },
+    ],
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tipo: 'contratista' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const adm = ADMIN[s.tipo];
+
+    const firmados = SEGURIDAD.filter((p) => p.firma && p.hecho).length;
+    const segHechos = SEGURIDAD.filter((p) => p.hecho).length;
+    const admHechos = adm.pasos.filter((p) => p.hecho).length;
+    const abierto = firmados === 4;
+
+    return {
+      tipos: [
+        { id: 'nomina', etiqueta: 'Nómina' },
+        { id: 'contratista', etiqueta: 'Prestación de servicios' },
+      ].map((t) => ({ ...t, estilo: s.tipo === t.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ tipo: t.id }) })),
+
+      seguridad: SEGURIDAD.map((p) => ({
+        texto: p.texto,
+        fuente: p.fuente,
+        tilde: p.hecho ? 1 : 0,
+        iconoBg: p.hecho ? '#0f7a5a' : '#eceeed',
+        fondo: p.hecho ? '#ffffff' : '#fbfcfb',
+        borde: p.hecho ? '#e2e6e3' : (p.firma ? '#f2b473' : '#eceeed'),
+        color: p.hecho ? '#1a211e' : '#4a544f',
+        estado: p.hecho ? 'Cumplido' : p.firma ? 'Pendiente de firma' : 'Pendiente',
+        estadoColor: p.hecho ? '#0b5c44' : p.firma ? '#8a4407' : '#a3aca7',
+      })),
+      segConteo: segHechos + ' de ' + SEGURIDAD.length,
+      segColor: segHechos === SEGURIDAD.length ? '#0b5c44' : '#8a4407',
+
+      adminEtiqueta: adm.etiqueta,
+      adminConteo: admHechos + ' de ' + adm.pasos.length,
+      administrativo: adm.pasos.map((p) => ({
+        texto: p.texto,
+        tilde: p.hecho ? 1 : 0,
+        iconoBg: p.hecho ? '#0f7a5a' : '#eceeed',
+        color: p.hecho ? '#1a211e' : '#4a544f',
+        estado: p.hecho ? 'Cumplido' : 'Pendiente',
+        estadoColor: p.hecho ? '#0b5c44' : '#a3aca7',
+      })),
+
+      firmados: String(firmados),
+      puertaTitulo: abierto ? 'Accesos habilitables' : 'Accesos bloqueados',
+      puertaColor: abierto ? '#0b5c44' : '#a52016',
+      puertaFondo: abierto ? '#f7fbf9' : '#fffbfa',
+      puertaBorde: abierto ? '#c9e3d8' : '#f2cdc6',
+      // Candado cerrado mientras falten firmas; abierto cuando estén las cuatro.
+      puertaArco: abierto ? 'M8 10V7a4 4 0 0 1 8 0' : 'M8 10V7a4 4 0 0 1 8 0v3',
+      puertaTexto: abierto
+        ? 'Los cuatro compromisos están firmados. Ya se pueden tramitar las solicitudes de acceso a los sistemas.'
+        : 'PRO-TAL-01: «Ningún acceso se habilita antes de que estas obligaciones estén suscritas». La cuenta del Directorio existe y solo permite entrar a Mi SIG, que es donde se firma.',
+      botonTexto: abierto ? 'Solicitar accesos' : 'Enviar recordatorio de firma',
+      botonEstilo:
+        'width: 100%; padding: 10px 0; font-size: 12.5px; font-weight: 600; border-radius: 6px; ' +
+        (abierto
+          ? 'background: #12437f; border: 1px solid #0c2461; color: #ffffff;'
+          : 'background: #ffffff; border: 1px solid #f2cdc6; color: #a52016;'),
+    };
+  }
+}
+</script>
+</body>
+</html>

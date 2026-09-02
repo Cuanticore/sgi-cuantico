@@ -1,0 +1,240 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Colaboradores</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 106ch; line-height: 1.55">Una sola tabla con activos e inactivos, sincronizada del Directorio Activo. <strong style="font-weight: 600; color: #4a544f">El estado no se almacena</strong>: se calcula de la fecha de retiro, así que el tipo de contrato sobrevive al retiro.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 5px">
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="opacity: 0.6">{{f.n}}</span></button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <!-- Tabla -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 11px 16px 10px; border-bottom: 1px solid #eceeed; background: #fbfcfb">
+        <span class="th" style="flex: 1; min-width: 0">Persona</span>
+        <span class="th" style="flex: none; width: 128px">Vinculación</span>
+        <span class="th" style="flex: none; width: 78px">Proyecto</span>
+        <span class="th" style="flex: none; width: 64px; text-align: center">Cuenta</span>
+        <span class="th" style="flex: none; width: 74px; text-align: center">Compromisos</span>
+        <span class="th" style="flex: none; width: 62px; text-align: center">Accesos</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px">
+        <sc-for list="{{personas}}" as="p" hint-placeholder-count="12">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 9px 9px; margin-bottom: 3px; border-radius: 8px; background: {{p.fondo}}; border: 1px solid {{p.borde}}">
+            <span style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px">
+              <span class="mono" style="flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; font-size: 9px; font-weight: 700; background: {{p.avBg}}; color: {{p.avFg}}">{{p.iniciales}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                <span style="font-size: 12px; color: {{p.nombreColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.nombre}}</span>
+                <span class="mono" style="font-size: 8.5px; color: #8a938e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.cargo}}</span>
+              </span>
+            </span>
+            <span style="flex: none; width: 128px; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 10.5px; color: #4a544f">{{p.contrato}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #a3aca7">{{p.colaborador}}</span>
+            </span>
+            <span class="mono" style="flex: none; width: 78px; font-size: 9.5px; color: #6b7570">{{p.proyecto}}</span>
+            <span style="flex: none; width: 64px; display: flex; justify-content: center">
+              <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{p.cuentaBg}}; color: {{p.cuentaFg}}">{{p.cuenta}}</span>
+            </span>
+            <span style="flex: none; width: 74px; display: flex; justify-content: center">
+              <span class="mono" style="font-size: 10px; font-weight: 600; color: {{p.compColor}}">{{p.compromisos}}</span>
+            </span>
+            <span style="flex: none; width: 62px; display: flex; justify-content: center">
+              <span class="mono" style="font-size: 10px; font-weight: 600; color: {{p.accColor}}">{{p.accesos}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Anomalías -->
+    <aside style="flex: none; width: 344px; display: flex; flex-direction: column; gap: 12px; min-height: 0">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Lo que esta lista responde sola</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{anomalias}}" as="a" hint-placeholder-count="4">
+          <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: {{a.fondo}}; border: 1px solid {{a.borde}}; border-radius: 9px">
+            <span class="mono" style="flex: none; width: 22px; text-align: center; font-size: 15px; font-weight: 600; color: {{a.color}}">{{a.n}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11px; line-height: 1.5; color: {{a.textoColor}}">{{a.texto}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Composición real</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{composicion}}" as="c" hint-placeholder-count="5">
+          <span style="display: flex; align-items: center; gap: 10px">
+            <span style="flex: none; width: 132px; font-size: 11px; color: #4a544f">{{c.etiqueta}}</span>
+            <span style="flex: 1; height: 7px; border-radius: 999px; background: #eceeed; overflow: hidden">
+              <span style="display: block; width: {{c.ancho}}; height: 100%; background: {{c.color}}"></span>
+            </span>
+            <span class="mono" style="flex: none; width: 22px; text-align: right; font-size: 10px; font-weight: 600; color: {{c.color}}">{{c.n}}</span>
+          </span>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.6; margin-top: 4px">Solo 6 de 38 son de nómina. Los otros 32 son contratistas, y PRO-TAL-04 también les exige capacitación: por eso todos necesitan cuenta del Directorio, o el motor de tareas no los alcanza.</span>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 9px; margin-top: 2px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #b8791a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #8a4407">En el Excel de origen, «Prestación de Servicios» está escrito de tres formas distintas, una con error de digitación. Acá el tipo es un catálogo cerrado de cuatro valores.</span>
+        </span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const CHIP = 'display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const CHIP_OFF = CHIP + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const CHIP_ON = CHIP + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+// `cuenta`: si tiene objeto en el Directorio Activo. Un activo sin cuenta es
+// anomalía; un inactivo con cuenta habilitada es acceso sin sustento.
+const PERSONAS = [
+  { nombre: 'Daniel Lorenzo Medina Salcedo', iniciales: 'DM', cargo: 'Gerente General', contrato: 'Nómina', colaborador: 'Base', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 6 },
+  { nombre: 'Lina Paola Medina Salcedo', iniciales: 'LM', cargo: 'Director de Ventas', contrato: 'Nómina', colaborador: 'Base', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 3 },
+  { nombre: 'Beycy Yuliet Rojas Acero', iniciales: 'YR', cargo: 'Gerente de Operaciones', contrato: 'Nómina', colaborador: 'Base', proyecto: 'SICOV', activo: true, cuenta: true, compromisos: 4, accesos: 5 },
+  { nombre: 'Laura Teresa Agudelo Cáceres', iniciales: 'LA', cargo: 'Director de Consultoría', contrato: 'Nómina', colaborador: 'Base', proyecto: 'SICOV', activo: true, cuenta: true, compromisos: 4, accesos: 4 },
+  { nombre: 'Albeiro Medina', iniciales: 'AM', cargo: 'Líder Administrativo', contrato: 'Nómina', colaborador: 'Base', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 3 },
+  { nombre: 'Katherine Quiroga', iniciales: 'KQ', cargo: 'Líder del SIG', contrato: 'Nómina', colaborador: 'Base', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 4 },
+  { nombre: 'Marcela Molina', iniciales: 'MM', cargo: 'Chief Legal Officer', contrato: 'Prestación de servicios', colaborador: 'Recurrente', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 2 },
+  { nombre: 'Andrés Felipe Jaramillo Martín', iniciales: 'AJ', cargo: 'Analista de Soporte Técnico', contrato: 'Prestación de servicios', colaborador: 'Recurrente', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 4, accesos: 3 },
+  { nombre: 'Brayan Junou Ruz Navarro', iniciales: 'BR', cargo: 'Profesional de Calidad', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'CUANTICO', activo: true, cuenta: true, compromisos: 2, accesos: 2 },
+  { nombre: 'Mario Nieto', iniciales: 'MN', cargo: 'Ingeniero de Desarrollo', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'SICOV', activo: true, cuenta: false, compromisos: 0, accesos: 0 },
+  { nombre: 'Yesid Roldán', iniciales: 'YR', cargo: 'Ingeniero de Desarrollo', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'SICOV', activo: true, cuenta: false, compromisos: 0, accesos: 0 },
+
+  { nombre: 'Camilo Andrés Ocampo Bermúdez', iniciales: 'CO', cargo: 'Analista de Soporte', contrato: 'Prestación de servicios', colaborador: 'Recurrente', proyecto: 'CUANTICO', activo: false, cuenta: true, compromisos: 4, accesos: 2, borrado: false },
+  { nombre: 'Jesús Antonio Bocanegra Padilla', iniciales: 'JB', cargo: 'Desarrollador', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'CUANTICO', activo: false, cuenta: false, compromisos: 4, accesos: 0, borrado: true },
+  { nombre: 'Jhon Stiven Guevara Velasco', iniciales: 'JG', cargo: 'Ingeniero de Desarrollo', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'SICOV', activo: false, cuenta: false, compromisos: 4, accesos: 0, borrado: true },
+  { nombre: 'Wilber Alexander Rodríguez Rojas', iniciales: 'WR', cargo: 'Gerente de Desarrollo', contrato: 'Prestación de servicios', colaborador: 'Temporal', proyecto: 'SICOV', activo: false, cuenta: false, compromisos: 4, accesos: 0, borrado: false },
+  { nombre: 'Cristhiam Arley Zambrano Ortega', iniciales: 'CZ', cargo: 'Revisor Fiscal', contrato: 'Prestación de servicios', colaborador: 'Recurrente', proyecto: 'CUANTICO', activo: false, cuenta: false, compromisos: 4, accesos: 0, borrado: true },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'anomalia' };
+  }
+
+  // Cuatro anomalías, todas cruces entre listas que hoy viven separadas.
+  anomalo(p) {
+    if (p.activo && !p.cuenta) return true;              // activo sin cuenta
+    if (!p.activo && p.accesos > 0) return true;         // inactivo con accesos
+    if (!p.activo && p.borrado === false) return true;   // salió sin acta de borrado
+    if (p.activo && p.compromisos < 4 && p.accesos > 0) return true; // accesos sin firmar todo
+    return false;
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const activos = PERSONAS.filter((p) => p.activo);
+    const inactivos = PERSONAS.filter((p) => !p.activo);
+    const conAnomalia = PERSONAS.filter((p) => this.anomalo(p));
+
+    const grupos = {
+      todos: PERSONAS,
+      activos: activos,
+      inactivos: inactivos,
+      anomalia: conAnomalia,
+    };
+    const vis = grupos[s.filtro] || PERSONAS;
+
+    const comp = [
+      { etiqueta: 'Prestación de servicios', n: 25, color: '#12437f' },
+      { etiqueta: 'Nómina', n: 6, color: '#0f7a5a' },
+      { etiqueta: 'Familiar', n: 5, color: '#b8791a' },
+      { etiqueta: 'Activa por proveedor', n: 1, color: '#6b7570' },
+      { etiqueta: 'Por horas', n: 1, color: '#6b7570' },
+    ];
+
+    return {
+      filtros: [
+        { id: 'todos', etiqueta: 'Todos', n: 56 },
+        { id: 'activos', etiqueta: 'Activos', n: 38 },
+        { id: 'inactivos', etiqueta: 'Inactivos', n: 18 },
+        { id: 'anomalia', etiqueta: 'Con anomalía', n: conAnomalia.length },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+
+      personas: vis.map((p) => {
+        const mal = this.anomalo(p);
+        const sinCuenta = p.activo && !p.cuenta;
+        return {
+          nombre: p.nombre,
+          iniciales: p.iniciales,
+          cargo: p.cargo,
+          contrato: p.contrato,
+          colaborador: p.colaborador,
+          proyecto: p.proyecto,
+          cuenta: p.cuenta ? 'Sí' : 'No',
+          cuentaBg: p.cuenta ? '#e6efe9' : '#fdeeeb',
+          cuentaFg: p.cuenta ? '#0b5c44' : '#a52016',
+          compromisos: p.compromisos + '/4',
+          compColor: p.compromisos === 4 ? '#0b5c44' : '#a52016',
+          accesos: String(p.accesos),
+          accColor: !p.activo && p.accesos > 0 ? '#a52016' : '#4a544f',
+          fondo: mal ? '#fffbfa' : '#ffffff',
+          borde: mal ? '#f2cdc6' : 'transparent',
+          nombreColor: p.activo ? '#1a211e' : '#8a938e',
+          avBg: p.activo ? (sinCuenta ? '#fdeeeb' : '#e9f0fb') : '#f5f7f6',
+          avFg: p.activo ? (sinCuenta ? '#a52016' : '#12437f') : '#a3aca7',
+        };
+      }),
+
+      anomalias: [
+        { n: activos.filter((p) => !p.cuenta).length, texto: 'personas activas sin cuenta del Directorio. No pueden recibir asignaciones ni firmar, así que su vinculación está incompleta.', grave: true },
+        { n: inactivos.filter((p) => p.accesos > 0).length, texto: 'personas inactivas con accesos vigentes. Es el mismo caso que la pantalla de Accesos marca como «sin sustento».', grave: true },
+        { n: inactivos.filter((p) => p.borrado === false).length, texto: 'salieron sin acta de borrado seguro FOR-SIG-18. La desvinculación no está cerrada.', grave: true },
+        { n: activos.filter((p) => p.compromisos < 4 && p.accesos > 0).length, texto: 'tienen accesos sin haber firmado los cuatro compromisos. PRO-TAL-01 dice que ningún acceso se habilita antes.', grave: true },
+      ].map((a) => ({
+        n: String(a.n),
+        texto: a.texto,
+        color: a.n > 0 ? '#a52016' : '#0b5c44',
+        textoColor: a.n > 0 ? '#8a1f16' : '#4a544f',
+        fondo: a.n > 0 ? '#fffbfa' : '#f7fbf9',
+        borde: a.n > 0 ? '#f2cdc6' : '#c9e3d8',
+      })),
+
+      composicion: comp.map((c) => ({
+        etiqueta: c.etiqueta,
+        n: String(c.n),
+        color: c.color,
+        ancho: Math.round((c.n / 25) * 100) + '%',
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

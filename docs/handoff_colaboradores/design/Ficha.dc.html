@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    .tarjeta { display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px">
+    <span class="mono" style="flex: none; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 999px; font-size: 15px; font-weight: 700; background: #e9f0fb; color: #12437f">AJ</span>
+    <div style="display: flex; flex-direction: column; gap: 5px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em">Andrés Felipe Jaramillo Martín</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44">Activo</span>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">Prestación de servicios</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570">Analista de Soporte Técnico y Gestión · CUANTICO · desde el 02/01/2026</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 6px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <!-- Columna izquierda -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; padding-right: 3px">
+
+      <div class="tarjeta">
+        <span class="cab"><span>Identidad y vinculación</span><span class="regla"></span></span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px">
+          <sc-for list="{{identidad}}" as="d" hint-placeholder-count="8">
+            <span style="display: flex; flex-direction: column; gap: 3px">
+              <span class="etq">{{d.etiqueta}}</span>
+              <span style="font-size: 12px; color: #1a211e">{{d.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #6b7570">No se guardan EPS, pensión, ARL, caja, cesantías, hijos ni edad. Son datos de nómina: el SIG necesita identificar, contactar, asignar y controlar accesos, no gestionar la seguridad social.</span>
+        </span>
+      </div>
+
+      <div class="tarjeta">
+        <span class="cab"><span>Accesos vigentes</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">3 perfiles</span></span>
+        <sc-for list="{{accesos}}" as="a" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; background: {{a.fondo}}; border: 1px solid {{a.borde}}; border-radius: 8px">
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11.5px; color: #1a211e">{{a.perfil}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #8a938e">{{a.sistema}} · desde {{a.desde}}</span>
+            </span>
+            <span class="mono" style="flex: none; font-size: 9.5px; color: {{a.color}}">{{a.sustento}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="tarjeta">
+        <span class="cab"><span>Activos a cargo</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">2 activos</span></span>
+        <sc-for list="{{activos}}" as="a" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+            <span class="mono" style="flex: none; font-size: 9.5px; font-weight: 600; color: #12437f">{{a.codigo}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: #1a211e">{{a.nombre}}</span>
+            <span class="mono" style="flex: none; font-size: 9px; color: #8a938e">{{a.rol}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Columna derecha -->
+    <div style="flex: none; width: 452px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto">
+
+      <div class="tarjeta">
+        <span class="cab"><span>Compromisos firmados</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #0b5c44">4 de 4</span></span>
+        <sc-for list="{{actas}}" as="a" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 8px">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 999px; background: #0f7a5a">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11.5px; color: #1a211e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.titulo}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #8a938e">{{a.codigo}} · {{a.fecha}}</span>
+            </span>
+            <a href="#" style="flex: none; padding: 4px 9px; font-size: 10px; font-weight: 600; border-radius: 5px; background: #efeafb; color: #5b3fa0">Acta PDF</a>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="tarjeta">
+        <span class="cab"><span>Formación y competencia</span><span class="regla"></span></span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{formacion}}" as="f" hint-placeholder-count="4">
+            <span style="display: flex; flex-direction: column; gap: 4px; padding: 11px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 9px">
+              <span class="etq">{{f.etiqueta}}</span>
+              <span style="font-size: 13px; font-weight: 600; color: {{f.color}}">{{f.valor}}</span>
+              <span style="font-size: 10px; color: #8a938e">{{f.nota}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #0f7a5a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #6b7570">Estas dos fechas hoy se mantienen a mano en el Excel de Talento Humano. Acá las produce el motor de tareas, así que hay una sola verdad.</span>
+        </span>
+      </div>
+
+      <div class="tarjeta" style="flex: 1; min-height: 0">
+        <span class="cab"><span>Últimos registros</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">ver todos</span></span>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{registros}}" as="r" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 11px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+              <span style="flex: none; width: 6px; height: 6px; border-radius: 50%; background: {{r.color}}"></span>
+              <span class="mono" style="flex: none; width: 58px; font-size: 9px; color: #8a938e">{{r.fecha}}</span>
+              <span style="flex: 1; min-width: 0; font-size: 11px; color: #3a443f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.texto}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const TAB = 'padding: 7px 13px; font-size: 11.5px; border-radius: 6px;';
+const TAB_OFF = TAB + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const TAB_ON = TAB + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff; font-weight: 600;';
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'ficha' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    return {
+      tabs: [
+        { id: 'ficha', etiqueta: 'Ficha' },
+        { id: 'vinculacion', etiqueta: 'Vinculación' },
+        { id: 'historial', etiqueta: 'Historial' },
+      ].map((t) => ({ ...t, estilo: s.tab === t.id ? TAB_ON : TAB_OFF, elegir: () => this.setState({ tab: t.id }) })),
+
+      identidad: [
+        { etiqueta: 'Documento', valor: '1030685304' },
+        { etiqueta: 'Cuenta del Directorio', valor: 'ajaramillo@cuanticore.com' },
+        { etiqueta: 'Tipo de colaborador', valor: 'Recurrente' },
+        { etiqueta: 'Proyecto', valor: 'CUANTICO' },
+        { etiqueta: 'Inicio del contrato', valor: '02/01/2026' },
+        { etiqueta: 'Terminación', valor: 'Indefinido' },
+        { etiqueta: 'Teléfono', valor: '+57 310 ••• ••34' },
+        { etiqueta: 'Ciudad', valor: 'Bogotá D.C.' },
+      ],
+
+      accesos: [
+        { perfil: 'Soporte de mesa de servicio', sistema: 'Zoho Desk', desde: '02/01/2026', sustento: 'SOL-2026-0004', ok: true },
+        { perfil: 'Colaborador de proyectos', sistema: 'Repositorio de proyectos', desde: '02/01/2026', sustento: 'SOL-2026-0004', ok: true },
+        { perfil: 'Consulta de indicadores', sistema: 'SIG-CUANTICO', desde: '15/03/2026', sustento: 'Sin sustento', ok: false },
+      ].map((a) => ({
+        ...a,
+        color: a.ok ? '#0b5c44' : '#a52016',
+        fondo: a.ok ? '#ffffff' : '#fffbfa',
+        borde: a.ok ? '#e2e6e3' : '#f2cdc6',
+      })),
+
+      activos: [
+        { codigo: 'TEC-EQU-0022', nombre: 'Portátil Dell Latitude 5440', rol: 'custodio' },
+        { codigo: 'TEC-CLA-0031', nombre: 'Token de acceso remoto', rol: 'custodio' },
+      ],
+
+      actas: [
+        { titulo: 'Acuerdo de confidencialidad', codigo: 'ACT-2026-0009', fecha: '02/01/2026' },
+        { titulo: 'Autorización de tratamiento de datos personales', codigo: 'ACT-2026-0010', fecha: '02/01/2026' },
+        { titulo: 'Aceptación de políticas del SGSI y uso aceptable', codigo: 'ACT-2026-0011', fecha: '02/01/2026' },
+        { titulo: 'Lineamientos del puesto de trabajo remoto', codigo: 'ACT-2026-0012', fecha: '03/01/2026' },
+        { titulo: 'Autoevaluación del puesto de trabajo', codigo: 'ACT-2026-0038', fecha: '11/08/2026' },
+      ],
+
+      formacion: [
+        { etiqueta: 'Última capacitación', valor: '21/08/2026', color: '#0b5c44', nota: 'Formación anual en seguridad' },
+        { etiqueta: 'Calificación', valor: '92 %', color: '#0b5c44', nota: 'Aprobado · mínimo 80 %' },
+        { etiqueta: 'Evaluación de desempeño', valor: 'No aplica', color: '#8a938e', nota: 'Solo personal de nómina' },
+        { etiqueta: 'Inducción', valor: '05/01/2026', color: '#0b5c44', nota: 'Antes de otorgar accesos' },
+      ],
+
+      registros: [
+        { fecha: '21/08/26', texto: 'Capacitación · Formación anual en seguridad · aprobado', color: '#0f7a5a' },
+        { fecha: '11/08/26', texto: 'Firma · Autoevaluación del puesto de trabajo', color: '#5b3fa0' },
+        { fecha: '31/07/26', texto: 'Verificación · Respaldos de julio · 4 de 4 ítems', color: '#8a4407' },
+        { fecha: '14/07/26', texto: 'Lectura · Política de Viáticos POL-FIN-01 v1', color: '#12437f' },
+        { fecha: '30/06/26', texto: 'Tarea · Cierre de tickets del trimestre', color: '#6b7570' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

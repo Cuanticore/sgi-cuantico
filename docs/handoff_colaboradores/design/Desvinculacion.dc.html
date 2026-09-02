@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Desvinculación</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #f5f7f6; color: #6b7570">Camilo Ocampo</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">Terminación el <strong style="font-weight: 600; color: #4a544f">31/08/2026</strong> · Analista de Soporte · prestación de servicios. El mismo trámite aplica a un <strong style="font-weight: 600; color: #4a544f">cambio de cargo</strong> que deja accesos sin sustento.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Simular el día</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{dias}}" as="d" hint-placeholder-count="3">
+          <button onClick="{{d.elegir}}" style="{{d.estilo}}">{{d.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; padding-right: 3px">
+
+      <div style="display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; background: {{avisoFondo}}; border: 1px solid {{avisoBorde}}; border-radius: 10px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{avisoColor}}" stroke-width="2.2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+        <span style="flex: 1; font-size: 12px; line-height: 1.6; color: {{avisoColor}}">{{avisoTexto}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Trámite</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{conteo}}</span>
+        </span>
+        <sc-for list="{{pasos}}" as="p" hint-placeholder-count="6">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 13px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 9px">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 999px; background: {{p.iconoBg}}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{p.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 12.5px; font-weight: 500; color: {{p.color}}">{{p.texto}}</span>
+              <span style="font-size: 11px; line-height: 1.5; color: #6b7570">{{p.detalle}}</span>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span class="mono" style="font-size: 9.5px; font-weight: 600; color: {{p.estadoColor}}">{{p.estado}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #a3aca7">{{p.plazo}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 340px; display: flex; flex-direction: column; gap: 13px">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 17px 18px; background: {{accFondo}}; border: 1px solid {{accBorde}}; border-radius: 12px">
+        <span class="etq" style="color: {{accColor}}">Accesos vigentes</span>
+        <span style="display: flex; align-items: baseline; gap: 9px">
+          <span class="mono" style="font-size: 30px; font-weight: 600; line-height: 1; color: {{accColor}}">{{accesos}}</span>
+          <span style="font-size: 11.5px; color: {{accColor}}">{{accTexto}}</span>
+        </span>
+        <span style="font-size: 11px; line-height: 1.6; color: {{accColor}}">{{accNota}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Obligaciones subsistentes</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{subsistentes}}" as="o" hint-placeholder-count="2">
+          <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 9px">
+            <span class="mono" style="flex: none; width: 62px; font-size: 10px; font-weight: 600; color: #12437f">{{o.plazo}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11px; line-height: 1.5; color: #4a544f">{{o.texto}}</span>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">No se borran al retirar a la persona: por eso el registro se conserva aunque quede inactivo.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">La regla que se implementa al revés</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">PRO-TAL-03: <strong style="font-weight: 600">«La revocación de accesos se ejecuta el mismo día de la terminación, sin esperar a la liquidación ni al paz y salvo»</strong>.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Si la pantalla encadena los pasos en orden, está contradiciendo el procedimiento. Por eso la revocación no depende de nada de lo que viene después.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const SEG = 'padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+// `dia` 0 = el de la terminación; 3 y 15 son días después. Ningún paso depende de
+// otro: la revocación no espera al paz y salvo, que es la regla de PRO-TAL-03.
+const PASOS = [
+  { texto: 'Revocación de accesos', detalle: 'Deshabilitar la cuenta, revocar sesiones activas y retirar del gestor de contraseñas.', plazo: 'El mismo día', hechoEn: 15, critico: true },
+  { texto: 'Devolución de activos', detalle: 'Portátil, token de acceso y llave de oficina. Solicitud SOL-2026-0091.', plazo: 'A la terminación', hechoEn: 3, critico: false },
+  { texto: 'Acta de borrado seguro FOR-SIG-18', detalle: 'Borrado por medio que impida la reconstrucción, con constancia y evidencia.', plazo: 'Tras la devolución', hechoEn: 99, critico: true },
+  { texto: 'Paz y salvo FOR-TAL-03', detalle: 'Emitido por el líder del proceso: sin pendientes de información ni entregables.', plazo: 'Antes de liquidar', hechoEn: 3, critico: false },
+  { texto: 'Liquidación y desafiliaciones', detalle: 'No aplica a prestación de servicios: se tramita la terminación del contrato.', plazo: 'Según el contrato', hechoEn: 15, critico: false },
+  { texto: 'Retiro del inventario de activos a cargo', detalle: 'Los dos activos asignados quedan sin custodio y vuelven al pool.', plazo: 'Tras la devolución', hechoEn: 3, critico: false },
+];
+
+const DIAS = [
+  { id: 0, etiqueta: 'Día 0' },
+  { id: 3, etiqueta: 'Día 3' },
+  { id: 15, etiqueta: 'Día 15' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dia: 0 };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const hechos = PASOS.filter((p) => s.dia >= p.hechoEn);
+    const revocado = s.dia >= PASOS[0].hechoEn;
+    const accesos = revocado ? 0 : 2;
+
+    // El caso incómodo: al día 0 la revocación no está hecha aunque el procedimiento
+    // la exija ese mismo día. La pantalla lo dice en vez de disimularlo.
+    const alDia = revocado;
+
+    return {
+      dias: DIAS.map((d) => ({
+        etiqueta: d.etiqueta,
+        estilo: s.dia === d.id ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ dia: d.id }),
+      })),
+
+      avisoColor: alDia ? '#0b5c44' : '#a52016',
+      avisoFondo: alDia ? '#f7fbf9' : '#fffbfa',
+      avisoBorde: alDia ? '#c9e3d8' : '#f2cdc6',
+      avisoTexto: alDia
+        ? 'Los accesos ya están revocados. La desvinculación puede continuar con el resto del trámite a su propio ritmo.'
+        : 'Han pasado ' + s.dia + ' días desde la terminación y los accesos siguen vigentes. El procedimiento exige revocarlos el mismo día, sin esperar a la liquidación ni al paz y salvo.',
+
+      conteo: hechos.length + ' de ' + PASOS.length,
+      pasos: PASOS.map((p) => {
+        const hecho = s.dia >= p.hechoEn;
+        const vencido = !hecho && p.critico;
+        return {
+          texto: p.texto,
+          detalle: p.detalle,
+          plazo: p.plazo,
+          tilde: hecho ? 1 : 0,
+          iconoBg: hecho ? '#0f7a5a' : vencido ? '#a52016' : '#eceeed',
+          fondo: hecho ? '#ffffff' : vencido ? '#fffbfa' : '#fbfcfb',
+          borde: hecho ? '#e2e6e3' : vencido ? '#f2cdc6' : '#eceeed',
+          color: hecho ? '#1a211e' : vencido ? '#8a1f16' : '#4a544f',
+          estado: hecho ? 'Hecho' : vencido ? 'Vencido' : 'Pendiente',
+          estadoColor: hecho ? '#0b5c44' : vencido ? '#a52016' : '#a3aca7',
+        };
+      }),
+
+      accesos: String(accesos),
+      accTexto: accesos === 0 ? 'ninguno' : accesos === 1 ? 'acceso sin sustento' : 'accesos sin sustento',
+      accColor: accesos === 0 ? '#0b5c44' : '#a52016',
+      accFondo: accesos === 0 ? '#f7fbf9' : '#fffbfa',
+      accBorde: accesos === 0 ? '#c9e3d8' : '#f2cdc6',
+      accNota: accesos === 0
+        ? 'Las relaciones de acceso quedaron cerradas con fecha, no borradas: el histórico se conserva y sigue siendo consultable a cualquier fecha.'
+        : 'Aparecen en rojo en la pantalla de Accesos y en la lista de Colaboradores. Es el hallazgo más común de la revisión trimestral.',
+
+      subsistentes: [
+        { plazo: '5 años', texto: 'Confidencialidad de la información a la que accedió por razón del cargo.' },
+        { plazo: 'Indefinido', texto: 'Secretos empresariales y código fuente.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
