@@ -355,7 +355,7 @@ async function contexto(personaIds: Map<string, number>): Promise<void> {
 /// puesto y el seguimiento vacío es el caso que hay que poder recorrer, porque es el
 /// estado real de una matriz a mitad de año.
 async function partesInteresadas(personaIds: Map<string, number>): Promise<void> {
-  const marcela = personaIds.get('marcela.molina@cuantico.com');
+  const katherine = personaIds.get('katherine.quiroga@cuantico.com');
   const daniel = personaIds.get('daniel.medina@cuantico.com');
   const anio = new Date().getUTCFullYear();
 
@@ -398,7 +398,7 @@ async function partesInteresadas(personaIds: Map<string, number>): Promise<void>
           generaRequisitosSgsi: true,
           requisitoCambioClimatico: false,
           requiereCambioAlcanceSig: true,
-          responsableId: marcela,
+          responsableId: katherine,
           seguimiento: [],
         },
       ],
@@ -446,7 +446,7 @@ async function partesInteresadas(personaIds: Map<string, number>): Promise<void>
           generaRequisitosSgsi: true,
           requisitoCambioClimatico: false,
           requiereCambioAlcanceSig: false,
-          responsableId: marcela,
+          responsableId: katherine,
           seguimiento: [],
         },
         {
@@ -460,7 +460,7 @@ async function partesInteresadas(personaIds: Map<string, number>): Promise<void>
           generaRequisitosSgsi: false,
           requisitoCambioClimatico: true,
           requiereCambioAlcanceSig: false,
-          responsableId: marcela,
+          responsableId: katherine,
           seguimiento: [],
         },
       ],
@@ -505,7 +505,7 @@ async function partesInteresadas(personaIds: Map<string, number>): Promise<void>
 /// HAL-2026-9001 dice que está sin diligenciar, así que se siembran pocas filas — y una
 /// sin evaluar, que es el estado que la pantalla tiene que saber mostrar.
 async function requisitosLegales(personaIds: Map<string, number>): Promise<void> {
-  const marcela = personaIds.get('marcela.molina@cuantico.com');
+  const katherine = personaIds.get('katherine.quiroga@cuantico.com');
   const daniel = personaIds.get('daniel.medina@cuantico.com');
 
   const definidos = [
@@ -519,7 +519,7 @@ async function requisitosLegales(personaIds: Map<string, number>): Promise<void>
       aplicacion: 'Tratamiento de datos de clientes y empleados',
       sistemaGestion: 'SGSI',
       procesoEncargado: 'Gestión Legal y Compras',
-      responsableId: marcela,
+      responsableId: katherine,
       enlace: 'https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981',
       periodicidadRevision: 'ANUAL',
       evaluacion: { resultado: 'PARCIAL' as const, evidencia: 'Aviso de privacidad publicado; falta el registro de bases.' },
@@ -534,7 +534,7 @@ async function requisitosLegales(personaIds: Map<string, number>): Promise<void>
       aplicacion: 'Autorización y aviso de privacidad',
       sistemaGestion: 'SGSI',
       procesoEncargado: 'Gestión Legal y Compras',
-      responsableId: marcela,
+      responsableId: katherine,
       enlace: null,
       periodicidadRevision: 'ANUAL',
       evaluacion: { resultado: 'CUMPLE' as const, evidencia: 'Autorizaciones firmadas en el expediente de cada cliente.' },
@@ -566,7 +566,7 @@ async function requisitosLegales(personaIds: Map<string, number>): Promise<void>
       aplicacion: 'Puestos de trabajo remotos',
       sistemaGestion: 'SGC',
       procesoEncargado: 'Gestión Humana',
-      responsableId: marcela,
+      responsableId: katherine,
       enlace: null,
       periodicidadRevision: 'BIANUAL',
       evaluacion: { resultado: 'NO_CUMPLE' as const, evidencia: 'No hay inspección documentada de puestos remotos.' },
@@ -583,13 +583,13 @@ async function requisitosLegales(personaIds: Map<string, number>): Promise<void>
     if (ya) continue;
     const creado = await prisma.requisitoLegal.create({ data: campos, select: { id: true } });
     creados++;
-    if (evaluacion && marcela) {
+    if (evaluacion && katherine) {
       await prisma.evaluacionCumplimiento.create({
         data: {
           requisitoId: creado.id,
           resultado: evaluacion.resultado,
           evidencia: evaluacion.evidencia,
-          evaluadoPorId: d.responsableId ?? marcela,
+          evaluadoPorId: d.responsableId ?? katherine,
         },
       });
     }
@@ -605,7 +605,7 @@ async function requisitosLegales(personaIds: Map<string, number>): Promise<void>
 /// porque es lo que el método propone, no un dato de entrada.
 async function riesgosOrganizacionales(personaIds: Map<string, number>): Promise<void> {
   const daniel = personaIds.get('daniel.medina@cuantico.com');
-  const marcela = personaIds.get('marcela.molina@cuantico.com');
+  const katherine = personaIds.get('katherine.quiroga@cuantico.com');
 
   const [factores, probabilidades, impactos, tipos, eficacias] = await Promise.all([
     prisma.factorRiesgo.findMany({ select: { id: true, nombre: true } }),
@@ -652,7 +652,7 @@ async function riesgosOrganizacionales(personaIds: Map<string, number>): Promise
       factorId: factor('Legal'),
       probabilidadId: prob(2),
       impactoId: imp(5),
-      responsableId: marcela,
+      responsableId: katherine,
       controles: [
         { descripcion: 'Revisión anual de la matriz de requisitos legales', tipo: 'Detectivo', eficacia: 'Media' },
       ],
@@ -685,7 +685,7 @@ async function riesgosOrganizacionales(personaIds: Map<string, number>): Promise
       factorId: factor('Reputacional'),
       probabilidadId: prob(3),
       impactoId: imp(3),
-      responsableId: marcela,
+      responsableId: katherine,
       controles: [],
     },
   ];
@@ -715,6 +715,98 @@ async function riesgosOrganizacionales(personaIds: Map<string, number>): Promise
   console.log(`  riesgos org.       ${creados} nuevo(s) de ${definidos.length}`);
 }
 
+/// FOR-CAL-04: el programa del año con sus procesos programados, y los perfiles de auditor
+/// aprobados que habilitan a crear auditorías (C3).
+///
+/// Se siembra la ENTRADA: el programa, qué procesos van en qué mes, y quién tiene perfil.
+/// Las auditorías NO se siembran: se crean desde la matriz, que es el camino legítimo, y
+/// el estado de cada fila sale de si su auditoría existe y tiene informe emitido.
+async function programaAuditoria(personaIds: Map<string, number>): Promise<void> {
+  const laura = personaIds.get('laura.agudelo@cuantico.com');
+  const daniel = personaIds.get('daniel.medina@cuantico.com');
+  const katherine = personaIds.get('katherine.quiroga@cuantico.com');
+  if (!laura || !daniel || !katherine) {
+    console.log('  programa           omitido: faltan personas del censo');
+    return;
+  }
+  const anio = new Date().getUTCFullYear();
+
+  const programa = await prisma.programaAuditoria.upsert({
+    where: { anio },
+    update: {},
+    create: {
+      anio,
+      alcance:
+        'Prestación de servicios de asesoramiento y construcción de productos digitales para la industria GovTech',
+      objetivo:
+        'Evidenciar la conformidad con los requisitos de la norma ISO 9001:2015 y con la documentación de la organización',
+      criterios: 'Norma ISO 9001:2015 y documentación del SIG',
+      metodos: 'Visitas en sitio o remotas, entrevistas a responsables y revisión documental',
+      aprobadoPorId: laura,
+      fechaAprobacion: new Date(Date.UTC(anio, 1, 10)),
+    },
+    select: { id: true },
+  });
+
+  const programadas = [
+    { procesoRef: 'Gestión de Calidad', meses: '2', responsableId: laura },
+    { procesoRef: 'Gestión Tecnológica', meses: '2,8', responsableId: daniel },
+    { procesoRef: 'Gestión Legal y Compras', meses: '3', responsableId: katherine },
+    { procesoRef: 'Gestión Financiera', meses: '9', responsableId: daniel },
+  ];
+
+  let nuevas = 0;
+  for (const p of programadas) {
+    const ya = await prisma.auditoriaProgramada.findFirst({
+      where: { programaId: programa.id, procesoRef: p.procesoRef },
+      select: { id: true },
+    });
+    if (ya) continue;
+    await prisma.auditoriaProgramada.create({
+      data: { programaId: programa.id, ...p, plazoInformeDias: 4 },
+    });
+    nuevas++;
+  }
+
+  // Sin un perfil aprobado, `crearAuditoria` rechaza: es el primer eslabón de C3 y sin él
+  // la matriz no deja crear nada.
+  const perfiles = [
+    {
+      personaId: laura,
+      formacion: 'Ingeniería industrial',
+      certificacion: 'Auditor interno ISO 9001:2015',
+      entidadCertificadora: 'ICONTEC',
+      vigencia: new Date(Date.UTC(anio + 2, 5, 30)),
+      experienciaAnios: 6,
+    },
+    {
+      personaId: daniel,
+      formacion: 'Ingeniería de sistemas',
+      certificacion: 'Auditor interno ISO 27001:2022',
+      entidadCertificadora: 'ICONTEC',
+      vigencia: new Date(Date.UTC(anio + 1, 10, 15)),
+      experienciaAnios: 4,
+    },
+  ];
+
+  let perfilesNuevos = 0;
+  for (const p of perfiles) {
+    const ya = await prisma.perfilAuditor.findFirst({
+      where: { personaId: p.personaId, certificacion: p.certificacion },
+      select: { id: true },
+    });
+    if (ya) continue;
+    await prisma.perfilAuditor.create({
+      data: { ...p, aprobadoPorId: laura, aprobadoEn: new Date(Date.UTC(anio, 0, 20)) },
+    });
+    perfilesNuevos++;
+  }
+
+  console.log(
+    `  programa ${anio}      ${nuevas} proceso(s) programado(s), ${perfilesNuevos} perfil(es)`,
+  );
+}
+
 async function main(): Promise<void> {
   console.log(`\nDatos de prueba · base local «${new URL(url!).pathname.slice(1)}»\n`);
 
@@ -726,11 +818,13 @@ async function main(): Promise<void> {
   await partesInteresadas(personaIds);
   await requisitosLegales(personaIds);
   await riesgosOrganizacionales(personaIds);
+  await programaAuditoria(personaIds);
 
   console.log('\nListo. Lo que NO se sembró, a propósito:');
   console.log('  · asignaciones y registros de realizado — se generan con generarAsignaciones()');
   console.log('  · riesgos del SGSI y cifras derivadas   — se calculan al leer');
   console.log('  · niveles inherente, residual y del mapa — se calculan al leer');
+  console.log('  · auditorias — se crean desde la matriz del programa');
   console.log('\nSiguiente paso: entrar a Operación y correr la generación de asignaciones.\n');
 }
 

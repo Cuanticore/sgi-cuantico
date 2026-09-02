@@ -39,7 +39,22 @@ export default async function AuditoriasPage() {
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
-      <h1 className="titulo-pagina">Auditorías</h1>
+      <div className="flex items-start gap-5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="titulo-pagina">Auditorías</h1>
+          <p className="max-w-[80ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Las auditorías ejecutadas con su estado calculado. Lo que se va a auditar y cuándo
+            vive en el programa del año.
+          </p>
+        </div>
+        <Link
+          href="/sig/auditorias/programa"
+          className="ml-auto flex-none rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-secondary"
+        >
+          Programa de auditoría →
+        </Link>
+      </div>
+
       <div className="mt-5 overflow-hidden rounded-tarjeta border border-border-field bg-surface">
         <table className="w-full text-left text-12_5">
           <thead>

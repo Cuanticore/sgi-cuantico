@@ -20,6 +20,11 @@ export async function crearPrograma(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:administrar');
+    // El año es la clave única del programa: uno malo crea un programa fantasma que
+    // ninguna pantalla vuelve a encontrar.
+    if (!Number.isInteger(datos.anio) || datos.anio < 2000 || datos.anio > 2100) {
+      return { ok: false, mensaje: 'El año del programa no es válido.' };
+    }
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
@@ -50,7 +55,17 @@ export async function programarAuditoria(
   },
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
-    const autor = await autorConPermiso('auditoria:administrar');
+    await autorConPermiso('auditoria:administrar');
+    exigirId(datos.programaId, 'el programa');
+    exigirId(datos.responsableId, 'el responsable');
+    if (datos.procesoRef.trim() === '') {
+      return { ok: false, mensaje: 'Falta el proceso a auditar.' };
+    }
+    // El plazo del informe se calcula contra esta cifra, así que un cero convierte cada
+    // auditoría en vencida el mismo día que se ejecuta.
+    if (!Number.isInteger(datos.plazoInformeDias) || datos.plazoInformeDias < 1) {
+      return { ok: false, mensaje: 'El plazo del informe tiene que ser al menos un día.' };
+    }
     await prisma.auditoriaProgramada.create({ data: datos });
     return { ok: true, mensaje: 'Auditoría programada.' };
   });
@@ -334,6 +349,12 @@ export async function aprobarPerfilAuditor(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:administrar');
+    idOpcional(datos.personaId, 'la persona del perfil');
+    // Un perfil sin persona ni nombre externo no identifica a nadie, y es el perfil que
+    // después habilita a alguien a auditar.
+    if (datos.personaId === undefined && !datos.nombreExterno?.trim()) {
+      return { ok: false, mensaje: 'El perfil necesita una persona del censo o un nombre externo.' };
+    }
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
