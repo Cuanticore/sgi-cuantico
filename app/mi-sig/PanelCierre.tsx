@@ -99,6 +99,22 @@ export default function PanelCierre({
                 Versión {tarjeta.version}
                 {tarjeta.documentoVersion ? ` · ${tarjeta.documentoVersion}` : ''}
               </span>
+              {/*
+                El lienzo pone «Abrir el documento →» acá, y con razón: pedirle a alguien que
+                declare haber leído un documento que no puede abrir convierte el acuse en una
+                formalidad. `documentoUrl` ya llegaba al cliente y nadie lo usaba.
+              */}
+              {tarjeta.documentoUrl && (
+                <a
+                  href={tarjeta.documentoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-fit text-12 font-semibold underline underline-offset-2"
+                  style={{ color: 'var(--hf-brand-nav)' }}
+                >
+                  Abrir el documento →
+                </a>
+              )}
             </div>
             <label className="flex items-start gap-2 text-12_5 text-primary">
               <input
@@ -115,6 +131,7 @@ export default function PanelCierre({
 
         {tarjeta.tipo === 'CAPACITACION' && (
           <section className="flex flex-col gap-3">
+            <span className="etiqueta-campo">Asistencia</span>
             <div className="flex gap-2">
               {[true, false].map((v) => (
                 <button
@@ -188,23 +205,29 @@ export default function PanelCierre({
           </section>
         )}
 
-        {tarjeta.tipo === 'TAREA' && (
-          <p className="text-11_5 text-muted">Describe qué se hizo.</p>
-        )}
-
         {(tarjeta.tipo === 'TAREA' || tarjeta.tipo === 'CAPACITACION') && (
           <label className="flex flex-col gap-1">
-            <span className="etiqueta-campo">Anexo (opcional)</span>
+            <span className="etiqueta-campo">Anexo · opcional</span>
             <input
               type="file"
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5"
             />
+            {/* El lienzo nombra qué se espera: un anexo sin ejemplo se deja vacío. */}
+            <span className="text-11 text-muted">
+              {archivo
+                ? archivo.name
+                : tarjeta.tipo === 'CAPACITACION'
+                  ? 'Certificado o constancia · arrastra un archivo o busca en tu equipo'
+                  : 'Arrastra un archivo o busca en tu equipo'}
+            </span>
           </label>
         )}
 
         <label className="flex flex-col gap-1">
-          <span className="etiqueta-campo">Nota</span>
+          <span className="etiqueta-campo">
+            {tarjeta.tipo === 'TAREA' ? 'Qué se hizo' : 'Nota'}
+          </span>
           <textarea
             value={nota}
             onChange={(e) => setNota(e.target.value)}
