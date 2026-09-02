@@ -106,6 +106,36 @@ Eventos, verificaciones y solicitudes —los antiguos M3, M4 y M6— pasan de se
 
 ---
 
+---
+
+## 5. Ciclo de vida de desarrollo seguro
+
+Decisiones tomadas tras revisar `7. Desarrollo Seguro` — FOR-TEC-04, PRO-TEC-04, PTR-TEC-03 y FOR-LCO-05. El análisis completo está en [hoja-de-vida-for-tec-04.md](../handoff_tecnologia/hoja-de-vida-for-tec-04.md).
+
+### D14 · Un producto agrupa varios sistemas
+
+`Producto` **sobrevive** como el nivel 1 `PRODUCTOS` de la jerarquía de activos, y **`Sistema` cuelga de él**. MINTRACE es un producto compuesto por varios desplegables con ciclo de vida independiente.
+
+Consecuencias que hay que escribir en la spec:
+
+- La **hoja de vida es del sistema, no del producto**. Las seis puertas de control, los 73 ítems de verificación y las ocho fases F0–F7 pertenecen a `Sistema`. `Producto` no tiene ciclo de vida propio.
+- `Producto` queda reducido a lo que es: un agrupador con nombre, responsable y cliente. **`VersionProducto` y `EtapaCicloVida` de REQ-SIG-06 §3.5 se retiran** — la versión y el ciclo son del sistema.
+- La pantalla «Hoja de vida del producto» del prototipo pasa a mostrar **el resumen de los sistemas que lo componen**, con el estado de puertas de cada uno, y la hoja de vida detallada se abre al entrar a un sistema.
+
+### D15 · La tercera metodología de riesgo va al comité
+
+No se construye nada de riesgos del sistema hasta que el comité unifique las metodologías. La hoja `Riesgos` de FOR-TEC-04 valora probabilidad 1-5 × impacto 1-5, que no es MAGERIT ni ISO 31000.
+
+**Queda como brecha documentada.** Mientras tanto, la spec del ciclo de vida se escribe **sin** la entidad de riesgo del sistema, y con una nota de que ese hueco es deliberado. Si el comité decide que son riesgos MAGERIT, no hay nada que deshacer; si decide que son propios, se agrega la entidad después.
+
+### D16 · Orden: primero Operación del SGSI, después Desarrollo Seguro
+
+Se respeta el orden de D13. Operación del SGSI tiene los seis artboards aprobados y solo le falta la spec. El ciclo de vida de desarrollo seguro (REQ-SIG-07) entra después, con D14 y D15 ya resueltas.
+
+> **Riesgo del orden, y hay que vigilarlo:** REQ-SIG-06 §3.5 sigue en el paquete con el modelo viejo. Está marcada como provisional y con la advertencia de no construirla, pero si el desarrollador llega a Gestión Tecnológica antes de que exista REQ-SIG-07, va a construir `Producto` con un ciclo de vida que D14 ya retiró. **La nota tiene que sobrevivir en el PR.**
+
+---
+
 ## Lo que sigue abierto
 
 1. **Quién autoriza el alta de una organización** tras la fusión de D4.

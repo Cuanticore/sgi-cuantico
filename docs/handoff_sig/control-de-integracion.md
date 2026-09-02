@@ -166,8 +166,9 @@ Alcance del cambio en código: `app/components/sgsi/EncabezadoSig.tsx` y los tí
 | B · Mejora NC/ACPM (REQ-SIG-03) | v1.1 | Sí |
 | C · Auditorías internas (REQ-SIG-04) | v1.1 | Sí, salvo permiso de auditor por asignación |
 | D · Gestión estratégica (REQ-SIG-05) | v1.1 | Sí |
-| E · Gestión tecnológica (REQ-SIG-06) | v1.0 | **No** |
-| Operación del SGSI (M3/M4/M6) | Solo diseño | **No** |
+| E · Gestión tecnológica (REQ-SIG-06) | v1.0 · §3.5 provisional por D14 | **No** |
+| F · Operación del SGSI (REQ-SIG-07) | v1.0 | **No** |
+| G · Ciclo de vida de desarrollo seguro (REQ-SIG-08) | Solo análisis | **No** |
 
 Brechas abiertas, en orden de impacto. Las decisiones del 02/09/2026 están en [decisiones-2026-09-02.md](decisiones-2026-09-02.md); acá queda lo que falta **construir**.
 
@@ -177,11 +178,11 @@ Brechas abiertas, en orden de impacto. Las decisiones del 02/09/2026 están en [
 | 2 | REQ-SIG-06 completo (§2.6) | Sin construir |
 | 3 | Entidad `Proceso` y migración de auditorías, indicadores, requisitos legales y dueños de tarea (§2.3) | **D1, D2** |
 | 4 | Fusión de `Proveedor` y `ParteInteresada` (§2.4) | **D4** |
-| 5 | `Hallazgo.activoId` y origen tipado, hoy `origenReferencia String` (§2.2) | Pendiente |
+| 5 | `Hallazgo.activoId` y origen tipado, hoy `origenReferencia String` (§2.2) | Pendiente — pero **`ActivoAfectado` de REQ-SIG-07 §3.2 ya abre la primera costura al activo** |
 | 6 | `Anclaje` (R12) — especificado en REQ-SIG-02, sin `ANCLADA`/`FLOTANTE` en el esquema | Pendiente |
 | 7 | Versionado de `ContenidoSig` sin invalidar registros | **D6** |
 | 8 | `Evidencia` con dueño obligatorio | **D5** |
-| 9 | Spec de Operación del SGSI (M3/M4/M6) | **D13** — por escribir |
+| 9 | Operación del SGSI | **D13** — spec escrita 02/09/2026, sin construir |
 | 10 | Permiso de auditor por asignación — `PerfilAuditor.aprobadoEn` sí se exige, la habilitación por asignación no se construyó | Pendiente |
 | 11 | Tres comentarios obsoletos en `lib/sgsi/permisos.ts` y uno en `app/sgsi/acciones/controles.ts:502` que describen un modelo de roles retirado | Limpieza |
 

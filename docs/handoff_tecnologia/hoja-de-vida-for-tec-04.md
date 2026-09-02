@@ -120,4 +120,6 @@ En el mismo repositorio están, sin versionar pero en la carpeta de trabajo, `.e
 4. **Cargar los 73 ítems como contenido del módulo A**, no como motor nuevo.
 5. **Rotar el secreto de Azure** y abrir el hallazgo del ítem 31.
 
-Esto es material para una spec propia —REQ-SIG-07, Ciclo de Vida de Desarrollo Seguro— que es del mismo tamaño que Gestión Tecnológica. No la escribo sin que decidas lo primero.
+Esto es material para una spec propia —**REQ-SIG-08, Ciclo de Vida de Desarrollo Seguro**— del mismo tamaño que Gestión Tecnológica. Por D16 va después de REQ-SIG-07 (Operación del SGSI), que ya está escrita.
+
+**Una costura que ya quedó resuelta:** la solicitud de cambio `CAM-2026-041` que FOR-TEC-04 exige en la puerta P5 es la `Solicitud` de tipo `CAMBIO_TI` de REQ-SIG-07 §3.5. No hay que crear otra entidad.
