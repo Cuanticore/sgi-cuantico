@@ -1,0 +1,33 @@
+{
+  "artboards": [
+    { "file": "Sistemas.dc.html", "x": 0, "y": 0, "w": 1340, "h": 900, "title": "Hoja de vida del sistema", "is_interactive": true },
+    { "file": "Excepciones.dc.html", "x": 1440, "y": 0, "w": 1196, "h": 880, "title": "Excepciones de seguridad", "is_interactive": true },
+
+    { "file": "Verificacion.dc.html", "x": 0, "y": 1040, "w": 1340, "h": 880, "title": "Verificación · 73 ítems", "is_interactive": true },
+    { "file": "DatosPersonales.dc.html", "x": 1440, "y": 1040, "w": 1196, "h": 880, "title": "Datos personales", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -320,
+      "w": 900,
+      "text": "Ciclo de Vida de Desarrollo Seguro · REQ-SIG-08\n\nNo hubo que inventar el modelo: PRO-TEC-04 define ocho fases y seis puertas, FOR-TEC-04 es la hoja de vida con doce hojas, PTR-TEC-03 enumera 73 ítems trazados al Anexo A, y FOR-LCO-05 traslada lo mismo a los contratistas.\n\nDos huecos son deliberados y están dichos en la spec: no hay entidad de riesgo del sistema —sería una tercera metodología, y va al comité (D15)— y las puertas no bloquean el avance en el software (D17). La aplicación registra y señala."
+    },
+    {
+      "id": "exc",
+      "x": 1440,
+      "y": -320,
+      "w": 820,
+      "text": "Excepciones · la entidad que ninguna spec tenía\n\nEs la única forma documentada de avanzar sin cumplir una puerta. Por eso lo que hay que vigilar no es que existan, sino que se cierren.\n\nToda excepción nace con fecha de cierre; sin ella no se guarda. Una excepción sin fecha es una exención permanente disfrazada, y es lo primero que busca un auditor cuando pregunta cómo se autorizó saltarse un control.\n\nMira la EXC-2026-007: venció hace tres días y sigue abierta. Eso deja de ser excepción y pasa a ser incumplimiento."
+    },
+    {
+      "id": "abajo",
+      "x": 0,
+      "y": 1960,
+      "w": 900,
+      "text": "Prueba estas dos\n\n· Verificación: cambia de puerta arriba. Los 73 ítems son un CONTENIDO del módulo A, no un motor nuevo: el catálogo es un ContenidoSig, cada ítem un ItemVerificacion, cada ejecución una Asignacion. Construir un segundo planificador duplicaría calendario, vencimientos y avisos que ya están probados.\n\nEn la puerta Construcción están los ítems 30 y 31 en rojo: son los que el secreto de Azure encontrado hoy incumple, y se los exigimos por contrato a los proveedores.\n\n· Datos personales: elige SIS-009. Un sistema marcado como que trata datos personales y sin base de legitimación ni retención aparece incompleto, y eso es condición de la puerta P1."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

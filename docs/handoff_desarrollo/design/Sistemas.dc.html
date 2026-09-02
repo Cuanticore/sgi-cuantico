@@ -1,0 +1,354 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Hoja de vida del sistema</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">FOR-TEC-04. Registro único y acumulativo desde la concepción hasta el retiro. <strong style="font-weight: 600; color: #4a544f">Un sistema sin hoja de vida abierta no debe desplegarse en productivo.</strong></span>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <!-- Lista de sistemas -->
+    <div style="flex: none; width: 288px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto">
+      <sc-for list="{{sistemas}}" as="s" hint-placeholder-count="3">
+        <button onClick="{{s.elegir}}" style="{{s.estilo}}">
+          <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <span class="mono" style="flex: none; font-size: 9.5px; font-weight: 600; color: #12437f">{{s.codigo}}</span>
+            <span class="mono" style="margin-left: auto; flex: none; padding: 2px 6px; font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 3px; background: {{s.faseBg}}; color: {{s.faseFg}}">{{s.fase}}</span>
+          </span>
+          <span style="width: 100%; font-size: 12px; text-align: left; line-height: 1.35; color: #1a211e">{{s.nombre}}</span>
+          <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <span style="flex: 1; height: 5px; border-radius: 999px; background: #eceeed; overflow: hidden">
+              <span style="display: block; width: {{s.ancho}}; height: 100%; background: {{s.color}}"></span>
+            </span>
+            <span class="mono" style="flex: none; font-size: 8.5px; font-weight: 600; color: {{s.color}}">{{s.puertas}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <div style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 9px">
+        <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+        <span style="font-size: 10.5px; line-height: 1.55; color: #6b7570">El código <span class="mono" style="font-size: 10px">SIS-000</span> es inmutable y sobrevive al renombre. Es lo que sostiene la trazabilidad cuando el sistema cambia de nombre comercial.</span>
+      </div>
+    </div>
+
+    <!-- Ficha -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+
+      <div style="flex: none; display: flex; flex-direction: column; gap: 11px; padding: 15px 18px 0">
+        <div style="display: flex; align-items: flex-start; gap: 14px">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="display: flex; align-items: center; gap: 9px">
+              <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">{{f.codigo}}</span>
+              <span class="mono" style="padding: 2px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{f.critBg}}; color: {{f.critFg}}">{{f.criticidad}}</span>
+              <sc-if value="{{f.pii}}" hint-placeholder-val="{{ true }}">
+                <span class="mono" style="padding: 2px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #efeafb; color: #5b3fa0">Datos personales</span>
+              </sc-if>
+            </span>
+            <span style="font-size: 16px; font-weight: 600; line-height: 1.3">{{f.nombre}}</span>
+          </div>
+          <span style="margin-left: auto; display: flex; gap: 9px">
+            <sc-for list="{{f.objetivos}}" as="o" hint-placeholder-count="2">
+              <span style="display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+                <span class="etq">{{o.etiqueta}}</span>
+                <span class="mono" style="font-size: 13px; font-weight: 600; color: #12437f">{{o.valor}}</span>
+              </span>
+            </sc-for>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #e2e6e3">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+            <button onClick="{{t.elegir}}" style="{{t.estilo}}">
+              <span>{{t.etiqueta}}</span>
+              <span class="mono" style="font-size: 8px; padding: 1px 5px; border-radius: 3px; background: {{t.nBg}}; color: {{t.nFg}}">{{t.n}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 15px 18px 18px">
+
+        <!-- IDENTIDAD -->
+        <sc-if value="{{esIdentidad}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px">
+            <sc-for list="{{f.identidad}}" as="d" hint-placeholder-count="9">
+              <span style="display: flex; flex-direction: column; gap: 3px">
+                <span class="etq">{{d.etiqueta}}</span>
+                <span style="font-size: 12px; color: {{d.color}}">{{d.valor}}</span>
+              </span>
+            </sc-for>
+          </div>
+          <span style="display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 9px">
+            <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+            <span style="font-size: 10.5px; line-height: 1.6; color: #6b7570">Los objetivos de recuperación no son decorativos: son el insumo del <strong style="font-weight: 600; color: #4a544f">análisis de impacto al negocio</strong> que el sistema de continuidad exige cada año, y hoy no existen en ninguna parte.</span>
+          </span>
+        </sc-if>
+
+        <!-- REQUISITOS -->
+        <sc-if value="{{esRequisitos}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{f.requisitos}}" as="r" hint-placeholder-count="6">
+              <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 13px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 8px">
+                <span class="mono" style="flex: none; width: 54px; font-size: 9.5px; font-weight: 600; color: #12437f; padding-top: 1px">{{r.codigo}}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 12px; line-height: 1.45">{{r.texto}}</span>
+                  <span class="mono" style="font-size: 8.5px; color: #8a938e">{{r.categoria}} · origen {{r.origen}}</span>
+                </span>
+                <span class="mono" style="flex: none; font-size: 9.5px; font-weight: 600; color: {{r.color}}">{{r.estado}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- PRUEBAS -->
+        <sc-if value="{{esPruebas}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 7px">
+            <sc-for list="{{f.pruebas}}" as="p" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 13px; padding: 12px 14px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 9px">
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                  <span style="display: flex; align-items: center; gap: 9px">
+                    <span class="mono" style="font-size: 9.5px; font-weight: 600; color: #12437f">{{p.codigo}}</span>
+                    <span style="font-size: 12px; font-weight: 500">{{p.tipo}}</span>
+                  </span>
+                  <span class="mono" style="font-size: 8.5px; color: #8a938e">versión {{p.version}} · {{p.fecha}} · {{p.ejecutor}}</span>
+                </span>
+                <span style="flex: none; display: flex; gap: 5px">
+                  <sc-for list="{{p.severidades}}" as="s" hint-placeholder-count="4">
+                    <span style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 40px; padding: 5px 0; border-radius: 6px; background: {{s.bg}}">
+                      <span class="mono" style="font-size: 13px; font-weight: 600; color: {{s.fg}}">{{s.n}}</span>
+                      <span class="mono" style="font-size: 7.5px; letter-spacing: 0.04em; text-transform: uppercase; color: {{s.fg}}">{{s.etiqueta}}</span>
+                    </span>
+                  </sc-for>
+                </span>
+                <span class="mono" style="flex: none; width: 96px; text-align: right; font-size: 9.5px; font-weight: 600; color: {{p.bloqueaColor}}">{{p.bloquea}}</span>
+              </div>
+            </sc-for>
+            <span style="display: flex; align-items: flex-start; gap: 10px; margin-top: 6px; padding: 12px 14px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 9px">
+              <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+              <span style="font-size: 10.5px; line-height: 1.6; color: #6b7570">Los cuatro conteos se capturan; <strong style="font-weight: 600; color: #4a544f">si bloquea o no se calcula</strong> contra los criterios de aceptación y la excepción, si la hay. La severidad que bloquea es un parámetro, no un número en el código.</span>
+            </span>
+          </div>
+        </sc-if>
+
+        <!-- COMPONENTES -->
+        <sc-if value="{{esComponentes}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{f.componentes}}" as="c" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 13px; background: {{c.fondo}}; border: 1px solid {{c.borde}}; border-radius: 8px">
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 12px">{{c.nombre}}</span>
+                  <span class="mono" style="font-size: 8.5px; color: #8a938e">{{c.funcion}} · licencia {{c.licencia}}</span>
+                </span>
+                <span class="mono" style="flex: none; width: 88px; text-align: right; font-size: 9.5px; color: #6b7570">{{c.evaluacion}}</span>
+                <span class="mono" style="flex: none; width: 128px; text-align: right; font-size: 9.5px; font-weight: 600; color: {{c.color}}">{{c.vulnerabilidades}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":900}}'>
+const CARD = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 12px 13px; border-radius: 9px;';
+const CARD_OFF = CARD + ' background: #ffffff; border: 1px solid #e2e6e3;';
+const CARD_ON = CARD + ' background: #eef2f8; border: 1px solid #12437f;';
+
+const FASE = {
+  'F6 · Operación': { bg: '#e6efe9', fg: '#0b5c44', color: '#0f7a5a' },
+  'F4 · Verificación': { bg: '#fdeeeb', fg: '#a52016', color: '#a52016' },
+  'F2 · Diseño': { bg: '#e9f0fb', fg: '#12437f', color: '#12437f' },
+};
+
+const SISTEMAS = [
+  {
+    codigo: 'SIS-001', nombre: 'Portal de trazabilidad de registros', fase: 'F6 · Operación',
+    puertas: 5, criticidad: 'Crítico', pii: true, rto: '4 h', rpo: '1 h',
+    identidad: [
+      ['Tipo', 'Aplicación web', 1], ['Producto', 'MINTRACE', 1], ['Proyecto', 'PRY-2026-014', 1],
+      ['Cliente o proceso', 'Entidad territorial', 1], ['Clasificación', 'Confidencial', 1], ['Rol en el tratamiento', 'Encargado', 1],
+      ['Propietario', 'Daniel Medina', 1], ['Responsable técnico', 'Yuliet Rojas', 1], ['Activo en el inventario', 'TEC-APP-0021', 1],
+    ],
+    requisitos: [
+      ['REQ-001', 'El acceso a los registros de un cliente se restringe a los usuarios de esa entidad, validado en el servidor y no solo en la interfaz.', 'Control de acceso', 'Clasificación', 'Verificado'],
+      ['REQ-002', 'Cifrado en tránsito con TLS 1.3 y en reposo con AES-256 sobre la base y los respaldos.', 'Cifrado', 'Política', 'Verificado'],
+      ['REQ-003', 'Registro de eventos de seguridad de la aplicación, con la lista de eventos auditables mínimos.', 'Registro de eventos', 'Política', 'Verificado'],
+      ['REQ-004', 'Minimización: el portal solo expone los campos necesarios para certificar la trazabilidad.', 'Datos personales', 'Ley 1581', 'Verificado'],
+      ['REQ-005', 'Gestión de errores sin exposición de información técnica al usuario.', 'Manejo de errores', 'Guía', 'Pendiente'],
+    ],
+    pruebas: [
+      ['PRB-003', 'Análisis dinámico', '1.4.0', '16/05/2026', 'Proveedor externo', 0, 1, 4, 7, 'Con excepción'],
+      ['PRB-002', 'Análisis de composición', '1.4.0', '15/05/2026', 'Pipeline', 0, 1, 2, 5, 'Con excepción'],
+      ['PRB-001', 'Análisis estático', '1.4.0', '15/05/2026', 'Pipeline', 0, 0, 3, 11, 'No bloquea'],
+    ],
+    componentes: [
+      ['Proveedor de servicios en la nube', 'Alojamiento de la aplicación y la base', 'Contrato', '10/04/2026', 'Ninguna abierta', true],
+      ['Biblioteca de generación de PDF', 'Certificados de trazabilidad', 'MIT', '18/05/2026', '1 alta sin parche · EXC-2026-007', false],
+      ['Framework de la aplicación', 'Base del portal', 'MIT', '02/06/2026', 'Ninguna abierta', true],
+      ['Cliente de base de datos', 'Acceso a postgres', 'Apache 2.0', '02/06/2026', 'Ninguna abierta', true],
+    ],
+  },
+  {
+    codigo: 'SIS-004', nombre: 'API de integración con registros públicos', fase: 'F4 · Verificación',
+    puertas: 3, criticidad: 'Alto', pii: false, rto: '8 h', rpo: '4 h',
+    identidad: [
+      ['Tipo', 'API', 1], ['Producto', 'MINTRACE', 1], ['Proyecto', 'PRY-2026-021', 1],
+      ['Cliente o proceso', 'Gestión Tecnológica', 1], ['Clasificación', 'Privada', 1], ['Rol en el tratamiento', 'No aplica', 0],
+      ['Propietario', 'Daniel Medina', 1], ['Responsable técnico', 'Yuliet Rojas', 1], ['Activo en el inventario', 'Sin asociar', 0],
+    ],
+    requisitos: [
+      ['REQ-001', 'Autenticación de máquina a máquina con credenciales rotables por entorno.', 'Autenticación', 'Arquitectura', 'Verificado'],
+      ['REQ-002', 'Límite de tasa por consumidor, para que un cliente no agote la cuota de los demás.', 'Disponibilidad', 'Arquitectura', 'Verificado'],
+      ['REQ-003', 'Validación estricta de entradas contra el esquema publicado.', 'Validación', 'Guía', 'Pendiente'],
+    ],
+    pruebas: [
+      ['PRB-007', 'Análisis dinámico', '0.9.2', '25/08/2026', 'Proveedor externo', 2, 3, 6, 4, 'Bloquea'],
+      ['PRB-006', 'Análisis estático', '0.9.2', '24/08/2026', 'Pipeline', 0, 2, 5, 9, 'No bloquea'],
+    ],
+    componentes: [
+      ['Servicios de Información / Apollo', 'Consulta de registros', 'Contrato', '11/07/2026', 'Ninguna abierta', true],
+      ['Servicios de Información / RNEC', 'Verificación de identidad', 'Contrato', '11/07/2026', 'Ninguna abierta', true],
+      ['Servicios de Información / ANM', 'Consulta minera', 'Contrato', 'Sin evaluar', 'Sin inventario de dependencias · EXC-2026-011', false],
+    ],
+  },
+  {
+    codigo: 'SIS-007', nombre: 'Panel de administración interno', fase: 'F2 · Diseño',
+    puertas: 2, criticidad: 'Medio', pii: false, rto: '24 h', rpo: '24 h',
+    identidad: [
+      ['Tipo', 'Aplicación web', 1], ['Producto', 'Sin producto', 0], ['Proyecto', 'PRY-2026-030', 1],
+      ['Cliente o proceso', 'Gestión Tecnológica', 1], ['Clasificación', 'Interna', 1], ['Rol en el tratamiento', 'No aplica', 0],
+      ['Propietario', 'Daniel Medina', 1], ['Responsable técnico', 'Yuliet Rojas', 1], ['Activo en el inventario', 'Sin asociar', 0],
+    ],
+    requisitos: [
+      ['REQ-001', 'Acceso restringido a la red interna y a cuentas con privilegio administrativo.', 'Control de acceso', 'Política', 'Aprobado'],
+      ['REQ-002', 'Requisitos de cifrado en reposo pendientes de la migración del plan de base de datos.', 'Cifrado', 'Política', 'Excepción'],
+    ],
+    pruebas: [],
+    componentes: [],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'SIS-001', tab: 'pruebas' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = SISTEMAS.find((x) => x.codigo === s.sel) || SISTEMAS[0];
+    const fa = FASE[f.fase];
+
+    const tabs = [
+      { id: 'identidad', etiqueta: 'Identidad', n: '' },
+      { id: 'requisitos', etiqueta: 'Requisitos', n: String(f.requisitos.length) },
+      { id: 'pruebas', etiqueta: 'Pruebas', n: String(f.pruebas.length) },
+      { id: 'componentes', etiqueta: 'Componentes', n: String(f.componentes.length) },
+    ];
+    const tabActiva = tabs.find((t) => t.id === s.tab) ? s.tab : 'identidad';
+
+    const sev = (n, etiqueta, malo) => ({
+      n: String(n),
+      etiqueta,
+      bg: n === 0 ? '#f5f7f6' : malo ? '#fdeeeb' : '#fff3e6',
+      fg: n === 0 ? '#a3aca7' : malo ? '#a52016' : '#8a4407',
+    });
+
+    return {
+      sistemas: SISTEMAS.map((x) => {
+        const fx = FASE[x.fase];
+        return {
+          codigo: x.codigo,
+          nombre: x.nombre,
+          fase: x.fase,
+          faseBg: fx.bg,
+          faseFg: fx.fg,
+          puertas: x.puertas + '/6',
+          ancho: Math.round((x.puertas / 6) * 100) + '%',
+          color: fx.color,
+          estilo: s.sel === x.codigo ? CARD_ON : CARD_OFF,
+          elegir: () => this.setState({ sel: x.codigo }),
+        };
+      }),
+
+      tabs: tabs.map((t) => ({
+        etiqueta: t.etiqueta,
+        n: t.n,
+        nBg: tabActiva === t.id ? '#e9f0fb' : '#f5f7f6',
+        nFg: tabActiva === t.id ? '#12437f' : '#a3aca7',
+        estilo:
+          'display: flex; align-items: center; gap: 7px; padding: 9px 14px 8px; font-size: 12px; border: 0; border-bottom: 2px solid ' +
+          (tabActiva === t.id ? '#12437f' : 'transparent') +
+          '; background: transparent; color: ' + (tabActiva === t.id ? '#12437f' : '#6b7570') +
+          '; font-weight: ' + (tabActiva === t.id ? 600 : 500) + '; border-radius: 6px 6px 0 0;',
+        elegir: () => this.setState({ tab: t.id }),
+      })),
+
+      esIdentidad: tabActiva === 'identidad',
+      esRequisitos: tabActiva === 'requisitos',
+      esPruebas: tabActiva === 'pruebas',
+      esComponentes: tabActiva === 'componentes',
+
+      f: {
+        codigo: f.codigo,
+        nombre: f.nombre,
+        criticidad: f.criticidad,
+        critBg: f.criticidad === 'Crítico' ? '#fdeeeb' : f.criticidad === 'Alto' ? '#fff3e6' : '#e6efe9',
+        critFg: f.criticidad === 'Crítico' ? '#a52016' : f.criticidad === 'Alto' ? '#8a4407' : '#0b5c44',
+        pii: f.pii,
+        objetivos: [
+          { etiqueta: 'RTO objetivo', valor: f.rto },
+          { etiqueta: 'RPO objetivo', valor: f.rpo },
+        ],
+        identidad: f.identidad.map(([etiqueta, valor, ok]) => ({
+          etiqueta,
+          valor,
+          color: ok ? '#1a211e' : '#8a4407',
+        })),
+        requisitos: f.requisitos.map(([codigo, texto, categoria, origen, estado]) => ({
+          codigo, texto, categoria, origen, estado,
+          color: estado === 'Verificado' ? '#0b5c44' : estado === 'Excepción' ? '#8a4407' : '#a3aca7',
+        })),
+        pruebas: f.pruebas.map(([codigo, tipo, version, fecha, ejecutor, c, a, m, b, bloquea]) => ({
+          codigo, tipo, version, fecha, ejecutor, bloquea,
+          severidades: [sev(c, 'Crít', true), sev(a, 'Alt', true), sev(m, 'Med', false), sev(b, 'Baj', false)],
+          bloqueaColor: bloquea === 'Bloquea' ? '#a52016' : bloquea === 'Con excepción' ? '#b8791a' : '#0b5c44',
+          fondo: bloquea === 'Bloquea' ? '#fffbfa' : '#ffffff',
+          borde: bloquea === 'Bloquea' ? '#f2cdc6' : '#e2e6e3',
+        })),
+        componentes: f.componentes.map(([nombre, funcion, licencia, evaluacion, vulnerabilidades, ok]) => ({
+          nombre, funcion, licencia, evaluacion, vulnerabilidades,
+          color: ok ? '#0b5c44' : '#a52016',
+          fondo: ok ? '#ffffff' : '#fffbfa',
+          borde: ok ? '#e2e6e3' : '#f2cdc6',
+        })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
