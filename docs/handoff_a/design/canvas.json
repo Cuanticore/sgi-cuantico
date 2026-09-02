@@ -1,5 +1,6 @@
 {
   "artboards": [
+    { "file": "Navegacion.dc.html", "x": -1440, "y": 0, "w": 1340, "h": 900, "title": "Navegación", "is_interactive": true },
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Mi SIG", "is_interactive": true },
     { "file": "Sistema.dc.html", "x": 1540, "y": 0, "w": 1196, "h": 1040, "title": "Vocabulario del módulo" },
     { "file": "Obligaciones.dc.html", "x": 0, "y": 1180, "w": 1440, "h": 900, "title": "Actividades · Obligaciones", "is_interactive": true },
@@ -10,6 +11,13 @@
     { "file": "Procesos.dc.html", "x": 3900, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Procesos", "is_interactive": true }
   ],
   "annotations": [
+    {
+      "id": "nav",
+      "x": -1440,
+      "y": -300,
+      "w": 900,
+      "text": "Navegación · agregada el 02/09/2026\n\nCon nueve módulos, el header ya no cabía. Siete pestañas y una barra lateral por pestaña.\n\nCambia el rol arriba a la derecha: un Colaborador ve UNA pestaña. Las demás no se renderizan en gris — no existen para él, porque una pestaña deshabilitada enseña que hay algo que no le dejan tocar.\n\nDos cosas que esta estructura resuelve: «Tablero» es el puesto del líder del SIG, que era lo que faltaba —nueve módulos y ningún sitio que respondiera «¿cómo está el sistema hoy?»—, y Configuración sale de las pestañas al engranaje, porque se toca una vez al trimestre."
+    },
     {
       "id": "brief",
       "x": 0,

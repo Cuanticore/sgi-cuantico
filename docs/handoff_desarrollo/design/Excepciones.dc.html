@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Excepciones de seguridad</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">La única forma documentada de avanzar sin cumplir una puerta. Por eso lo que hay que vigilar no es que existan, sino <strong style="font-weight: 600; color: #4a544f">que se cierren</strong>.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 5px">
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="3">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="opacity: 0.6">{{f.n}}</span></button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="display: flex; gap: 11px; margin-bottom: 14px">
+    <sc-for list="{{tarjetas}}" as="t" hint-placeholder-count="3">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 5px; padding: 13px 15px; background: {{t.fondo}}; border: 1px solid {{t.borde}}; border-radius: 10px">
+        <span class="mono" style="font-size: 24px; font-weight: 600; line-height: 1; color: {{t.color}}">{{t.n}}</span>
+        <span style="font-size: 11.5px; color: {{t.color}}">{{t.etiqueta}}</span>
+      </span>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px">
+        <sc-for list="{{excepciones}}" as="e" hint-placeholder-count="6">
+          <button onClick="{{e.elegir}}" style="{{e.estilo}}">
+            <span style="flex: none; width: 4px; align-self: stretch; border-radius: 999px; background: {{e.color}}"></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span style="display: flex; align-items: center; gap: 9px">
+                <span class="mono" style="flex: none; font-size: 9.5px; font-weight: 600; color: #12437f">{{e.codigo}}</span>
+                <span class="mono" style="flex: none; padding: 2px 6px; font-size: 8px; font-weight: 600; border-radius: 4px; background: #f5f7f6; color: #6b7570">{{e.puerta}}</span>
+                <span style="flex: 1; min-width: 0; font-size: 10.5px; color: #8a938e; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{e.sistema}}</span>
+              </span>
+              <span style="font-size: 12px; line-height: 1.45; text-align: left; color: #1a211e">{{e.titulo}}</span>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span class="mono" style="font-size: 10.5px; font-weight: 600; color: {{e.color}}">{{e.plazo}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #a3aca7">cierre {{e.cierre}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="flex: none; display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-top: 1px solid #eceeed; background: #fbfcfb">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 10.5px; line-height: 1.6; color: #4a544f"><strong style="font-weight: 600">Toda excepción nace con fecha de cierre; sin ella no se guarda.</strong> Una excepción sin fecha es una exención permanente disfrazada, y es exactamente lo que un auditor busca cuando pregunta cómo se autorizó saltarse un control.</span>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 400px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto">
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid {{sel.borde}}; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+          <span class="mono" style="margin-left: auto; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{sel.estadoBg}}; color: {{sel.estadoFg}}">{{sel.estado}}</span>
+        </span>
+        <span style="font-size: 13px; font-weight: 600; line-height: 1.4">{{sel.titulo}}</span>
+        <span class="mono" style="font-size: 9.5px; color: #8a938e">{{sel.sistema}} · puerta {{sel.puerta}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Justificación</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.6; color: #3a443f">{{sel.justificacion}}</span>
+        <span class="cab" style="margin-top: 4px"><span>Evaluación del riesgo</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.6; color: #3a443f">{{sel.riesgo}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Autorización y plazo</span><span class="regla"></span></span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{sel.campos}}" as="c" hint-placeholder-count="4">
+            <span style="display: flex; flex-direction: column; gap: 3px">
+              <span class="etq">{{c.etiqueta}}</span>
+              <span style="font-size: 11.5px; color: {{c.color}}">{{c.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: {{sel.avisoFondo}}; border: 1px solid {{sel.avisoBorde}}; border-radius: 9px; margin-top: 2px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: {{sel.avisoColor}}"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: {{sel.avisoColor}}">{{sel.aviso}}</span>
+        </span>
+      </div>
+
+      <div style="display: flex; gap: 9px">
+        <button style="flex: 1; padding: 9px 0; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Cerrar la excepción</button>
+        <button style="flex: none; padding: 9px 14px; font-size: 12px; font-weight: 500; color: #6b7570; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">Prorrogar</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const CHIP = 'display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const CHIP_OFF = CHIP + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const CHIP_ON = CHIP + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const FILA = 'display: flex; align-items: stretch; gap: 12px; width: 100%; padding: 11px 12px; margin-bottom: 4px; border-radius: 8px;';
+const FILA_OFF = FILA + ' background: #ffffff; border: 1px solid #e2e6e3;';
+const FILA_ON = FILA + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+// `dias`: positivo = quedan; negativo = vencida. `cerrada` la saca del conteo vigente.
+const EXCEPCIONES = [
+  { codigo: 'EXC-2026-007', sistema: 'SIS-001 · Portal de trazabilidad', puerta: 'P4', dias: -3, cierre: '30/08/26', cerrada: false,
+    titulo: 'Hallazgo alto en una biblioteca sin parche disponible',
+    justificacion: 'La biblioteca de generación de PDF tiene un hallazgo alto sin parche publicado por el fabricante. Se mitigó restringiendo la entrada al componente y aislando su ejecución.',
+    riesgo: 'Explotable solo con un archivo malformado cargado por un usuario autenticado de la entidad. Con la mitigación aplicada, la probabilidad baja a improbable y el impacto se contiene al contenedor.',
+    aprueba: 'Daniel Medina', aprobada: '18/05/2026' },
+  { codigo: 'EXC-2026-011', sistema: 'SIS-004 · API de registros públicos', puerta: 'P3', dias: 12, cierre: '14/09/26', cerrada: false,
+    titulo: 'Arquitectura aprobada sin el análisis de composición completo',
+    justificacion: 'Dos de los ocho servicios externos no publican inventario de dependencias. Se aprueba la arquitectura con el compromiso de completar el análisis antes de la liberación.',
+    riesgo: 'Riesgo de cadena de suministro no valorado en dos componentes. Se acota exigiendo el inventario por contrato antes de P4.',
+    aprueba: 'Daniel Medina', aprobada: '28/07/2026' },
+  { codigo: 'EXC-2026-009', sistema: 'SIS-007 · Panel de administración', puerta: 'P2', dias: 41, cierre: '13/10/26', cerrada: false,
+    titulo: 'Requisitos de cifrado en reposo pendientes de definir',
+    justificacion: 'El proveedor de base de datos cambia de plan en octubre y los algoritmos disponibles dependen de esa migración. Se aprueban los demás requisitos.',
+    riesgo: 'El sistema no trata datos personales ni información confidencial, así que el impacto de la demora es bajo.',
+    aprueba: 'Daniel Medina', aprobada: '26/08/2026' },
+  { codigo: 'EXC-2025-018', sistema: 'SIS-001 · Portal de trazabilidad', puerta: 'P5', dias: 0, cierre: '12/02/26', cerrada: true,
+    titulo: 'Paso a producción sin plan de reversión probado',
+    justificacion: 'Primera liberación del sistema: no existía versión anterior a la que revertir.',
+    riesgo: 'Sin versión previa, la reversión equivale a retirar el servicio. Se aceptó por ser una puesta en marcha.',
+    aprueba: 'Daniel Medina', aprobada: '10/02/2026' },
+  { codigo: 'EXC-2025-022', sistema: 'SIS-004 · API de registros públicos', puerta: 'P4', dias: 0, cierre: '30/04/26', cerrada: true,
+    titulo: 'Análisis dinámico ejecutado sobre staging y no sobre producción',
+    justificacion: 'El entorno de producción no estaba disponible en la ventana de pruebas. Se ejecutó sobre staging con la misma configuración.',
+    riesgo: 'Diferencias de configuración entre entornos podrían ocultar hallazgos. Se repitió el análisis tras la liberación, sin hallazgos nuevos.',
+    aprueba: 'Daniel Medina', aprobada: '22/04/2026' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'vigentes', sel: 'EXC-2026-007' };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const vigentes = EXCEPCIONES.filter((e) => !e.cerrada);
+    const vencidas = vigentes.filter((e) => e.dias < 0);
+    const cerradas = EXCEPCIONES.filter((e) => e.cerrada);
+
+    const grupos = { vigentes: vigentes, vencidas: vencidas, cerradas: cerradas };
+    const vis = (grupos[s.filtro] || vigentes).slice().sort((a, b) => a.dias - b.dias);
+
+    const f = EXCEPCIONES.find((e) => e.codigo === s.sel) || EXCEPCIONES[0];
+    const fVencida = !f.cerrada && f.dias < 0;
+
+    const pinta = (e) => {
+      if (e.cerrada) return '#0f7a5a';
+      return e.dias < 0 ? '#a52016' : e.dias <= 15 ? '#b8791a' : '#12437f';
+    };
+
+    return {
+      filtros: [
+        { id: 'vigentes', etiqueta: 'Vigentes', n: vigentes.length },
+        { id: 'vencidas', etiqueta: 'Vencidas', n: vencidas.length },
+        { id: 'cerradas', etiqueta: 'Cerradas', n: cerradas.length },
+      ].map((x) => ({ ...x, estilo: s.filtro === x.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: x.id }) })),
+
+      tarjetas: [
+        { n: vigentes.length, etiqueta: 'excepciones vigentes', color: '#12437f', fondo: '#ffffff', borde: '#d3dceb' },
+        { n: vencidas.length, etiqueta: vencidas.length === 1 ? 'venció sin cerrarse · es hallazgo' : 'vencieron sin cerrarse · son hallazgo',
+          color: vencidas.length ? '#a52016' : '#0b5c44', fondo: vencidas.length ? '#fffbfa' : '#f7fbf9', borde: vencidas.length ? '#f2cdc6' : '#c9e3d8' },
+        { n: cerradas.length, etiqueta: 'cerradas en el año', color: '#0b5c44', fondo: '#f7fbf9', borde: '#c9e3d8' },
+      ].map((t) => ({ ...t, n: String(t.n) })),
+
+      excepciones: vis.map((e) => ({
+        codigo: e.codigo,
+        sistema: e.sistema,
+        puerta: e.puerta,
+        titulo: e.titulo,
+        cierre: e.cierre,
+        color: pinta(e),
+        plazo: e.cerrada ? 'Cerrada' : e.dias < 0 ? Math.abs(e.dias) + ' d vencida' : e.dias + ' d',
+        estilo: s.sel === e.codigo ? FILA_ON : FILA_OFF,
+        elegir: () => this.setState({ sel: e.codigo }),
+      })),
+
+      sel: {
+        codigo: f.codigo,
+        sistema: f.sistema,
+        puerta: f.puerta,
+        titulo: f.titulo,
+        justificacion: f.justificacion,
+        riesgo: f.riesgo,
+        borde: fVencida ? '#f2cdc6' : '#d3dceb',
+        estado: f.cerrada ? 'Cerrada' : fVencida ? 'Vencida' : 'Vigente',
+        estadoBg: f.cerrada ? '#e6efe9' : fVencida ? '#fdeeeb' : '#e9f0fb',
+        estadoFg: f.cerrada ? '#0b5c44' : fVencida ? '#a52016' : '#12437f',
+        campos: [
+          { etiqueta: 'Aprobada por', valor: f.aprueba, color: '#1a211e' },
+          { etiqueta: 'Fecha de aprobación', valor: f.aprobada, color: '#1a211e' },
+          { etiqueta: 'Fecha de cierre', valor: f.cierre, color: fVencida ? '#a52016' : '#1a211e' },
+          { etiqueta: 'Rol que autoriza', valor: 'Responsable de Seguridad', color: '#6b7570' },
+        ],
+        avisoColor: f.cerrada ? '#0b5c44' : fVencida ? '#a52016' : '#8a4407',
+        avisoFondo: f.cerrada ? '#f7fbf9' : fVencida ? '#fffbfa' : '#fffaf3',
+        avisoBorde: f.cerrada ? '#c9e3d8' : fVencida ? '#f2cdc6' : '#f2b473',
+        aviso: f.cerrada
+          ? 'Cerrada dentro del plazo. Queda en el histórico como evidencia de que la puerta se resolvió, no de que se ignoró.'
+          : fVencida
+            ? 'Pasó la fecha de cierre y sigue abierta. Se levanta hallazgo automáticamente: una excepción vencida deja de ser una excepción y pasa a ser un incumplimiento.'
+            : 'Dentro del plazo. Al llegar la fecha de cierre sin cerrarse, se levanta hallazgo sin que nadie tenga que revisarlo.',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
