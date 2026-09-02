@@ -8,7 +8,10 @@ import { Suspense } from 'react';
 function SignInContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  // Mi SIG es el destino por defecto, no el tablero de Indicadores: es lo único que toda
+  // cuenta de la organización puede usar, y lo que le dice a la persona qué tiene pendiente.
+  // Quien llegó desde una pantalla concreta vuelve a ella — `callbackUrl` sigue mandando.
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/mi-sig';
 
   return (
     <div className="flex h-screen">

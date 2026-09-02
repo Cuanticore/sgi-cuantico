@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/hallazgos/nuevo/Reportar.client.tsx
+// app/mi-sig/reportar/Reportar.client.tsx
 //
 // El formulario de reporte (FOR-CAL-02): origen con su referencia, descripción,
 // requisito incumplido, evidencia objetiva, área y fecha. Todo se valida en el

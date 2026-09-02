@@ -8,15 +8,23 @@
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
-import { rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { puede, rolDesdeGrupos, type Permiso } from '@/lib/sgsi/permisos';
 import HeaderCorporativo, { type Pestana } from './HeaderCorporativo';
 
-const TODAS: Pestana[] = [
-  { etiqueta: 'Mi SIG', href: '/mi-sig' },
-  { etiqueta: 'Indicadores', href: '/' },
-  { etiqueta: 'Estratégico', href: '/estrategico/riesgos' },
-  { etiqueta: 'SGSI', href: '/sgsi' },
-  { etiqueta: 'Operación', href: '/sig/obligaciones' },
+/// Cada pestaña con el permiso que la habilita. `null` es abierta a toda la organización:
+/// Mi SIG son las tareas propias, e Indicadores es el tablero del SGC, que existía antes de
+/// que hubiera módulos con permisos y no se cierra ahora.
+///
+/// Se filtra por PERMISO y no por cantidad de grupos. Con el filtro anterior —«¿tiene algún
+/// grupo?»— bastaba con que alguien quedara sin grupo para esconderle todo, y con que
+/// tuviera uno para mostrarle todo, incluidas pestañas que solo llevan a «no tenés acceso».
+/// Una pestaña que no lleva a ninguna parte no informa: frustra.
+const TODAS: { pestana: Pestana; permiso: Permiso | null }[] = [
+  { pestana: { etiqueta: 'Mi SIG', href: '/mi-sig' }, permiso: null },
+  { pestana: { etiqueta: 'Indicadores', href: '/' }, permiso: null },
+  { pestana: { etiqueta: 'Estratégico', href: '/estrategico/riesgos' }, permiso: 'estrategico:ver' },
+  { pestana: { etiqueta: 'SGSI', href: '/sgsi' }, permiso: 'sgsi:ver' },
+  { pestana: { etiqueta: 'Operación', href: '/sig/obligaciones' }, permiso: 'operacion:ver' },
 ];
 
 export default async function EncabezadoSig() {
@@ -26,10 +34,9 @@ export default async function EncabezadoSig() {
   const usuario = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const cuenta = (session?.user?.email ?? 'usuario').split('@')[0];
 
-  // Un Colaborador ve lo que puede usar y nada más: sus tareas e Indicadores, que es
-  // información del SGC abierta a la organización. Estratégico, SGSI y Operación no se
-  // renderizan — una pestaña que solo lleva a «no tenés acceso» no informa, frustra.
-  const pestanas = rol.grupos.length === 0 ? [TODAS[0], TODAS[1]] : TODAS;
+  const pestanas = TODAS.filter(({ permiso }) => permiso === null || puede(rol, permiso)).map(
+    ({ pestana }) => pestana,
+  );
 
   return (
     <HeaderCorporativo

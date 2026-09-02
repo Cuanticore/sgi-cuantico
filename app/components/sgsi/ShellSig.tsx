@@ -86,10 +86,22 @@ export default async function ShellSig({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-app">
       <EncabezadoSig />
-      <div className="flex items-start">
-        <SidebarSgsi contadores={contadores} />
+      {/*
+        La barra lateral es del SGSI, así que solo la ve quien puede entrar al SGSI.
+        Antes se renderizaba siempre y a un Colaborador le mostraba el módulo entero
+        —inventario, matrices, controles, parámetros— con todos los contadores en cero y
+        cada entrada llevando a la misma negativa. Ocultar los números no alcanzaba: el
+        menú en sí insinúa que hay algo del otro lado, y Indicadores es una pantalla
+        abierta a la organización que no tiene por qué venir con el menú de otro módulo.
+      */}
+      {veSgsi ? (
+        <div className="flex items-start">
+          <SidebarSgsi contadores={contadores} />
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
+      ) : (
         <div className="min-w-0 flex-1">{children}</div>
-      </div>
+      )}
     </div>
   );
 }

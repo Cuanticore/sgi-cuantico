@@ -55,12 +55,27 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
               : 'Mi SIG'}
           </p>
         </div>
-        <Link
-          href="/mi-sig/historial"
-          className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
-        >
-          Mi historial
-        </Link>
+        {/*
+          Reportar vive acá porque cualquiera reporta (B3) y este es el único lugar del
+          sistema al que todo el mundo llega. Estuvo enlazado solo desde la grilla de
+          Operación, que un Colaborador no puede abrir: la capacidad existía y no había
+          por dónde ejercerla.
+        */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/mi-sig/reportar"
+            className="rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"
+            style={{ background: 'var(--hf-accent-500)' }}
+          >
+            Reportar hallazgo
+          </Link>
+          <Link
+            href="/mi-sig/historial"
+            className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
+          >
+            Mi historial
+          </Link>
+        </div>
       </section>
 
       <section className="mt-6 grid grid-cols-3 gap-4">

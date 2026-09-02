@@ -87,7 +87,7 @@ export default function GrillaClient({
           </p>
         </div>
         <Link
-          href="/sig/hallazgos/nuevo"
+          href="/mi-sig/reportar"
           className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white"
           style={{ background: 'var(--hf-brand-nav)' }}
         >

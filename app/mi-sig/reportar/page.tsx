@@ -1,8 +1,15 @@
-// app/sig/hallazgos/nuevo/page.tsx
+// app/mi-sig/reportar/page.tsx
 //
-// B3: cualquiera reporta. El hallazgo nace sin clasificar y no consume plazos;
-// el líder del SIG lo clasifica después. La pantalla de reporte vive fuera del
-// gate de la grilla porque hasta el Colaborador puede reportar.
+// B3: cualquiera reporta. El hallazgo nace sin clasificar y no consume plazos; el líder del
+// SIG lo clasifica después.
+//
+// Vive bajo /mi-sig y no bajo /sig porque reportar es un acto personal, no una tarea de
+// Operación. Estuvo en `/sig/hallazgos/nuevo`, y ahí el layout de Operación la cerraba con
+// `operacion:ver` — un permiso que el Colaborador no tiene. El resultado era que
+// `mejora:reportar` existía en el modelo y ninguna ruta lo honraba: la acción de servidor
+// aceptaba a cualquiera con sesión, y la pantalla para invocarla era inalcanzable.
+//
+// La grilla de hallazgos SÍ es de Operación y se queda donde está.
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
