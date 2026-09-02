@@ -71,6 +71,44 @@ export function esVencida(
   return diaDe(hoy) > diaDe(fechaLimite);
 }
 
+/// Los cuatro estados que la interfaz pinta, con el mismo vocabulario en todas partes.
+///
+/// «Por vencer» es pendiente, en plazo, y a siete días o menos. El umbral estaba escrito
+/// dos veces —`lib/sig/resumen.ts` para el correo semanal y `app/mi-sig/bandeja.client.tsx`
+/// para la bandeja— y el calendario, que tiene «Por vencer» en su leyenda, no lo aplicaba:
+/// pintaba un color que la malla nunca usaba. Una leyenda que promete un color inexistente
+/// es peor que no tener leyenda, porque enseña a leer mal la pantalla.
+///
+/// Los días se cuentan por día calendario, igual que `esVencida`: la hora no entra.
+export type EstadoVencimiento = 'VENCIDA' | 'POR_VENCER' | 'PENDIENTE' | 'REALIZADA';
+
+export const DIAS_POR_VENCER = 7;
+
+export function estadoDeVencimiento(
+  estado: string,
+  fechaLimite: Date,
+  hoy: Date,
+): EstadoVencimiento {
+  if (estado !== 'PENDIENTE') return 'REALIZADA';
+  const dias = diasHasta(fechaLimite, hoy);
+  if (dias < 0) return 'VENCIDA';
+  return dias <= DIAS_POR_VENCER ? 'POR_VENCER' : 'PENDIENTE';
+}
+
+/// Días calendario que faltan para la fecha límite. Negativo si ya pasó.
+///
+/// No se resta `diaDe`: ése devuelve un entero empaquetado `YYYYMMDD`, y restarlo daría
+/// 100 «días» entre el 31 de enero y el 1 de febrero. Se normaliza cada fecha a la
+/// medianoche UTC de su día y ahí sí la diferencia son días.
+export function diasHasta(fechaLimite: Date, hoy: Date): number {
+  const MS_DIA = 86_400_000;
+  return Math.round((medianocheUtc(fechaLimite) - medianocheUtc(hoy)) / MS_DIA);
+}
+
+function medianocheUtc(fecha: Date): number {
+  return Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate());
+}
+
 /// Extemporáneo se deduce de las fechas: cerró después de la fecha límite.
 export function esExtemporaneo(fechaCierre: Date | null, fechaLimite: Date): boolean {
   if (!fechaCierre) return false;
