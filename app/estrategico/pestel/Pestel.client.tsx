@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import { agregarEntradaContexto } from '@/app/sig/acciones/estrategico';
 import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/OriginarRiesgo.client';
+import PanelTrazabilidad from '@/app/estrategico/PanelTrazabilidad.client';
+import type { RiesgoOriginado } from '@/app/estrategico/trazabilidad';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaPestel {
@@ -17,6 +19,8 @@ export interface EntradaPestel {
   texto: string;
   efecto: 'FAVORABLE' | 'ADVERSO';
   riesgos: number;
+  /// Los riesgos que salieron de esta entrada, con su nivel calculado al leer.
+  originados: RiesgoOriginado[];
 }
 
 const DIMENSIONES: Record<string, { etiqueta: string; inicial: string }> = {
@@ -43,15 +47,27 @@ export default function PestelClient({
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [elegida, setElegida] = useState<EntradaPestel | null>(null);
 
   return (
-    <main className="flex-1 px-8 pt-7 pb-14">
-      <div className="flex flex-col gap-0.5">
-        <h1 className="titulo-pagina">PESTEL</h1>
-        <p className="text-12_5 text-muted">
-          {anio ? `Análisis de contexto ${anio}` : 'Sin análisis'} ·{' '}
-          {acta ? `acta ${acta}` : 'sin acta de aprobación'}
-        </p>
+    <main className="flex flex-1 gap-5 px-8 pt-7 pb-14">
+      <div className="min-w-0 flex-1">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="titulo-pagina">{anio ? `PESTEL ${anio}` : 'PESTEL'}</h1>
+          <p className="text-12_5 text-muted">
+            {anio ? `Análisis de contexto ${anio}` : 'Sin análisis'} ·{' '}
+            {acta ? `acta ${acta}` : 'sin acta de aprobación'}
+          </p>
+        </div>
+        {acta && (
+          <span
+            className="flex-none rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold uppercase"
+            style={{ background: '#e6efe9', color: '#0b5c44' }}
+          >
+            Aprobado
+          </span>
+        )}
       </div>
 
       <div className="mt-4 flex items-center gap-4 text-11_5 text-muted">
@@ -102,11 +118,22 @@ export default function PestelClient({
               {deLaCasilla.map((e) => (
                 <div
                   key={e.id}
-                  className="flex items-stretch gap-2 rounded-campo border border-border-default bg-surface"
+                  className="flex items-stretch gap-2 rounded-campo"
+                  style={{
+                    background: elegida?.id === e.id ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                    border: `1px solid ${elegida?.id === e.id ? 'var(--hf-brand-nav)' : 'var(--hf-border-default)'}`,
+                  }}
                 >
                   <span className="w-1.5 flex-none rounded-l-campo" style={{ background: e.efecto === 'FAVORABLE' ? '#0f7a5a' : '#a52016' }} />
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-3">
-                    <span className="min-w-0 flex-1 text-12_5 text-primary">{e.texto}</span>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 py-2 pr-3">
+                    {/* La entrada es el botón: hacer clic muestra qué salió de ella. */}
+                    <button
+                      onClick={() => setElegida(elegida?.id === e.id ? null : e)}
+                      aria-pressed={elegida?.id === e.id}
+                      className="min-w-0 flex-1 text-left text-12_5 text-primary"
+                    >
+                      {e.texto}
+                    </button>
                     <span
                       className="flex-none rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
                       style={
@@ -176,6 +203,14 @@ export default function PestelClient({
           );
         })}
       </div>
+      </div>
+
+      <PanelTrazabilidad
+        entradaTexto={elegida?.texto ?? null}
+        riesgos={elegida?.originados ?? []}
+        vacioTexto="Ninguna entrada de esta dimensión originó un riesgo."
+        climatico
+      />
     </main>
   );
 }

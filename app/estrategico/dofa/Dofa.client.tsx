@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import { agregarEntradaContexto } from '@/app/sig/acciones/estrategico';
 import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/OriginarRiesgo.client';
+import PanelTrazabilidad from '@/app/estrategico/PanelTrazabilidad.client';
+import type { RiesgoOriginado } from '@/app/estrategico/trazabilidad';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaDofa {
@@ -17,6 +19,8 @@ export interface EntradaDofa {
   texto: string;
   orden: number;
   riesgos: number;
+  /// Los riesgos que salieron de esta entrada, con su nivel calculado al leer.
+  originados: RiesgoOriginado[];
 }
 
 const CASILLAS: Record<string, { etiqueta: string; color: string; interno: boolean }> = {
@@ -43,12 +47,14 @@ export default function DofaClient({
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [elegida, setElegida] = useState<EntradaDofa | null>(null);
 
   return (
-    <main className="flex-1 px-8 pt-7 pb-14">
+    <main className="flex flex-1 gap-5 px-8 pt-7 pb-14">
+      <div className="min-w-0 flex-1">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
-          <h1 className="titulo-pagina">DOFA</h1>
+          <h1 className="titulo-pagina">{anio ? `DOFA ${anio}` : 'DOFA'}</h1>
           <p className="text-12_5 text-muted">
             {anio ? `Análisis de contexto ${anio}` : 'Sin análisis'} ·{' '}
             {acta ? `acta ${acta} · ${aprobadoPor ?? ''}` : 'sin acta de aprobación'}
@@ -90,8 +96,23 @@ export default function DofaClient({
                 {meta.color === '#0b5c44' || meta.color === '#12437f' ? 'favorable' : 'adverso'}
               </h2>
               {deLaCasilla.map((e) => (
-                <div key={e.id} className="flex items-center justify-between gap-3 rounded-campo border border-border-default bg-surface px-3 py-2">
-                  <span className="min-w-0 flex-1 text-12_5 text-primary">{e.texto}</span>
+                <div
+                  key={e.id}
+                  className="flex items-center justify-between gap-3 rounded-campo px-3 py-2"
+                  style={{
+                    background: elegida?.id === e.id ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                    border: `1px solid ${elegida?.id === e.id ? 'var(--hf-brand-nav)' : 'var(--hf-border-default)'}`,
+                  }}
+                >
+                  {/* La entrada es el botón: hacer clic muestra qué salió de ella. Es el
+                      camino inverso al de originar, y el que el Excel nunca pudo hacer. */}
+                  <button
+                    onClick={() => setElegida(elegida?.id === e.id ? null : e)}
+                    aria-pressed={elegida?.id === e.id}
+                    className="min-w-0 flex-1 text-left text-12_5 text-primary"
+                  >
+                    {e.texto}
+                  </button>
                   <span
                     className="flex-none rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
                     style={
@@ -156,6 +177,13 @@ export default function DofaClient({
           );
         })}
       </div>
+      </div>
+
+      <PanelTrazabilidad
+        entradaTexto={elegida?.texto ?? null}
+        riesgos={elegida?.originados ?? []}
+        vacioTexto="Esta entrada no originó ningún riesgo todavía. Una debilidad que nadie convirtió en riesgo es una debilidad que el sistema no va a volver a mirar."
+      />
     </main>
   );
 }

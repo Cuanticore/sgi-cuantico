@@ -6,6 +6,7 @@
 import { prisma } from '@/lib/db';
 import PestelClient from './Pestel.client';
 import { catalogosDeRiesgo } from '@/app/estrategico/catalogos';
+import { riesgosPorEntrada } from '@/app/estrategico/trazabilidad';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export default async function PestelPage() {
     },
   });
 
-  const catalogos = await catalogosDeRiesgo();
+  const [catalogos, porEntrada] = await Promise.all([catalogosDeRiesgo(), riesgosPorEntrada('PESTEL')]);
 
   const vigente = analisis.find((a) => a.vigente) ?? analisis[0] ?? null;
   const entradas = (vigente?.entradas ?? []).map((e) => ({
@@ -30,6 +31,7 @@ export default async function PestelPage() {
     texto: e.texto,
     efecto: e.efecto,
     riesgos: e._count.riesgos,
+    originados: porEntrada.get(e.id) ?? [],
   }));
 
   return (

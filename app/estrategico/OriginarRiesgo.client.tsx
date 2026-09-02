@@ -71,10 +71,10 @@ export default function OriginarRiesgo({
         onClick={() => setAbierto(true)}
         title="Originar un riesgo u oportunidad desde esta entrada"
         aria-label="Originar un riesgo desde esta entrada"
-        className="flex-none rounded-campo px-2 py-0.5 font-mono text-9_5"
+        className="flex-none whitespace-nowrap rounded-campo px-2 py-1 text-9_5"
         style={{ color: 'var(--hf-brand-nav)', border: '1px dashed var(--hf-brand-border)' }}
       >
-        + riesgo
+        + Originar un riesgo desde aquí
       </button>
     );
   }
