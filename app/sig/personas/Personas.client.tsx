@@ -48,10 +48,14 @@ export default function PersonasClient({
   filas,
   administra,
   rolesConsultables,
+  motivoSinRoles,
 }: {
   filas: PersonaFila[];
   administra: boolean;
   rolesConsultables: boolean;
+  /// La causa REAL de que no se pudieran leer los roles, ya redactada. Es `null` cuando
+  /// sí se pudieron: no hay nada que explicar.
+  motivoSinRoles: string | null;
 }) {
   const [filtro, setFiltro] = useState<'activas' | 'inactivas' | 'todas'>('activas');
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -156,10 +160,9 @@ export default function PersonasClient({
         >
           <strong className="font-semibold">El rol no se pudo consultar.</strong> Lo dan los
           grupos del Directorio y la aplicación no guarda roles, así que se pregunta a
-          Microsoft Graph al abrir la pantalla. Hoy esa consulta no responde: falta el permiso{' '}
-          <code className="font-mono">GroupMember.Read.All</code> en el registro de la
-          aplicación. La columna queda en «sin consultar» a propósito — pintar a todos como
-          Colaborador sería una tabla de permisos que miente.
+          Microsoft Graph al abrir la pantalla. {motivoSinRoles ?? 'Esa consulta no respondió.'}{' '}
+          La columna queda en «sin consultar» a propósito — pintar a todos como Colaborador
+          sería una tabla de permisos que miente.
         </p>
       )}
 

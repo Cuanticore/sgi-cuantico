@@ -12,7 +12,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
-import { leerDirectorioCompleto } from '@/lib/sgsi/directorio';
+import { explicarFallo, leerDirectorioCompleto } from '@/lib/sgsi/directorio';
 import { planificarSincronizacion } from '@/lib/sig/personas';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
 
@@ -30,13 +30,14 @@ export async function sincronizarDirectorio(): Promise<ResultadoSincronizacion> 
   return ejecutar<ResultadoSincronizacion>(async () => {
     const autor = await autorConPermiso('personas:administrar');
 
+    // El mensaje decía «no está configurado O no respondió» porque no sabía cuál de las
+    // dos era. Ahora la consulta trae la causa, así que se dice: falta tal variable, el
+    // secreto está vencido, falta tal permiso, o no hubo salida a internet.
     const directorio = await leerDirectorioCompleto();
-    if (directorio === null) {
+    if (!directorio.ok) {
       return {
         ok: false,
-        mensaje:
-          'Microsoft Graph no está configurado (SHAREPOINT_TENANT_ID / CLIENT_ID / CLIENT_SECRET) ' +
-          'o no respondió. No se cambió nada.',
+        mensaje: `${explicarFallo(directorio.fallo)} No se cambió nada.`,
         ...VACIO,
       };
     }
@@ -45,7 +46,7 @@ export async function sincronizarDirectorio(): Promise<ResultadoSincronizacion> 
       select: { oid: true, nombre: true, correo: true, activa: true },
     });
 
-    const plan = planificarSincronizacion(directorio, existentes);
+    const plan = planificarSincronizacion(directorio.datos, existentes);
     if (plan.abortado) {
       return { ok: false, mensaje: plan.motivo as string, ...VACIO };
     }

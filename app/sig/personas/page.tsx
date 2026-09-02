@@ -7,7 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
 import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
-import { oidsDelGrupoSig } from '@/lib/sgsi/directorio';
+import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
 import PersonasClient from './Personas.client';
 
@@ -31,7 +31,7 @@ export default async function PersonasPage() {
       select: { personaId: true, fechaLimite: true },
     }),
     // El rol no está en la base y no va a estar: lo dan los grupos del Directorio. Se
-    // pregunta al leer, junto con el censo, y `null` significa que no se pudo saber.
+    // pregunta al leer, junto con el censo, y cuando no se puede, viene la causa.
     oidsDelGrupoSig(),
   ]);
 
@@ -52,14 +52,15 @@ export default async function PersonasPage() {
     activa: p.activa,
     sincronizadaEn: p.sincronizadaEn?.toISOString() ?? null,
     pendientes: porPersona.get(p.id) ?? 0,
-    rol: rolDeLaPersona(p.oid, miembrosDelGrupo),
+    rol: rolDeLaPersona(p.oid, miembrosDelGrupo.ok ? miembrosDelGrupo.datos : null),
   }));
 
   return (
     <PersonasClient
       filas={filas}
       administra={administra}
-      rolesConsultables={miembrosDelGrupo !== null}
+      rolesConsultables={miembrosDelGrupo.ok}
+      motivoSinRoles={miembrosDelGrupo.ok ? null : explicarFallo(miembrosDelGrupo.fallo)}
     />
   );
 }
