@@ -41,7 +41,7 @@ La composición sorprende y cambia el diseño:
 
 | Campo | Tipo | Nota |
 |---|---|---|
-| `origen` | `enum` — `DIRECTORIO` · `MANUAL` | La costura del problema de los contratistas: quien tiene cuenta se sincroniza; quien no, se crea a mano y no puede entrar a la aplicación, pero sí figura, se le controla y se le exige |
+| `origen` | `enum` — `DIRECTORIO` · `MANUAL` | Ver §2.4: `MANUAL` es la excepción y es, en sí misma, una anomalía que hay que mostrar |
 | `documentoIdentidad` | `String?` | |
 | `tipoContratoId` | → catálogo | Cerrado. Cuatro valores, no siete |
 | `tipoColaboradorId` | → catálogo | Base · Recurrente · Temporal. **Sin `inactivo`** |
@@ -59,6 +59,27 @@ EPS, pensiones, ARL, caja de compensación, cesantías, hijos, edad y fecha de c
 Son datos de nómina y bienestar, no del sistema de gestión. El SIG necesita **identificar, contactar, asignar tareas y controlar accesos**; no necesita saber la EPS de nadie. Traerlos convertiría la aplicación en un sistema de nómina y multiplicaría por diez la superficie de datos personales que hay que proteger, justificar y retener.
 
 > Si Talento Humano los necesita en un solo lugar, la respuesta correcta es que ese lugar sea su propio sistema y que el SIG referencie a la persona, no que el SIG los copie.
+
+### 2.4 Todo colaborador activo tiene cuenta del Directorio — decisión del 02/09/2026
+
+Confirmado: **los 38 activos deben tener cuenta**, contratistas incluidos. Eso simplifica el diseño y agrega un control.
+
+- El motor de tareas alcanza a todos. Las capacitaciones que PRO-TAL-04 exige a los contratistas dejan de ser inasignables.
+- `origen = MANUAL` queda como excepción transitoria, para quien todavía no tiene cuenta creada. **La lista lo muestra en rojo**, porque una persona activa sin cuenta es una anomalía del proceso de vinculación, no una categoría válida.
+- Y el reverso, que es el hallazgo más útil: **una cuenta habilitada de alguien inactivo** es exactamente el «acceso sin sustento» que la pantalla de Accesos de REQ-SIG-07 ya marca en rojo. Con las dos listas conciliadas, ese cruce se responde solo.
+
+#### El problema de secuencia, y cómo se resuelve
+
+PRO-TAL-01 dice que **ningún acceso se habilita antes de que los compromisos estén suscritos**. Pero firmar exige autenticarse, y autenticarse exige la cuenta. Si la cuenta se crea al final, no hay cómo firmar; si se crea al principio con sus accesos, se incumple el procedimiento.
+
+La aplicación ya tiene la salida construida: **el piso de permisos del rol Colaborador es `misig:ver`**. Entonces la secuencia es:
+
+1. Se crea la cuenta del Directorio **sin acceso a ningún sistema**. Solo entra a Mi SIG.
+2. Desde Mi SIG firma los cuatro compromisos con el mecanismo de [leer, aceptar y firmar](lectura-aceptacion-firma.md).
+3. Gestión Tecnológica verifica el equipo.
+4. **Recién entonces** se tramitan las solicitudes de acceso a los sistemas.
+
+Una cuenta que solo permite firmar no es un acceso a la información, así que el procedimiento se cumple al pie de la letra. Vale la pena que PRO-TAL-01 lo diga con esas palabras, porque hoy se lee como si la cuenta misma fuera el acceso.
 
 ### 2.3 `ActaBorradoSeguro` — FOR-SIG-18
 
@@ -123,7 +144,7 @@ Lo que la lista tiene que dejar ver de un golpe, porque es lo que hoy no se ve:
 
 ## 5. Decisiones pendientes
 
-1. **Los 32 contratistas: ¿tienen cuenta del Directorio Activo?** De la respuesta depende si el motor de tareas puede alcanzarlos o si hay que darles una vía de acceso distinta. Es la decisión que más condiciona el diseño.
+1. ~~¿Los 32 contratistas tienen cuenta del Directorio Activo?~~ **Resuelto el 02/09/2026: todo colaborador activo debe tenerla.** Ver §2.4.
 2. **Quién administra este listado.** El Excel lo mantiene Talento Humano; la aplicación lo sincroniza del Directorio. Hay que decidir quién manda cuando difieren.
 3. **Retención.** Cuánto tiempo se conservan los datos de una persona inactiva, y qué se borra al cumplirse. MAT-SIG-04 Matriz de Retención Documental debería decirlo.
 4. **Contratistas y acuerdos de confidencialidad.** Los acuerdos de `06. GESTION LEGAL Y COMPRAS` están por archivo suelto, con una sola convención de nombre. Si se quiere que la aplicación muestre «esta persona tiene acuerdo firmado», hay que decidir si se referencia el archivo o se registra la marca.

@@ -98,7 +98,20 @@ Los cuatro primeros son la condición que PRO-TAL-01 pone con todas las letras: 
 
 ---
 
-## 6. Lo que queda por decidir
+## 6. Dónde se ven las actas
+
+En dos lugares, con dos públicos distintos:
+
+- **Mi SIG · Mi historial.** Cada persona ve sus propias actas, junto a sus capacitaciones, lecturas, verificaciones y tareas, con enlace al PDF. Es la respuesta a «¿qué firmé y cuándo?».
+- **Registros.** El punto central de evidencia. Un líder de proceso ve los registros de su módulo; el **Líder del SIG los ve todos**. Se filtra por numeral de la norma —`A.6.6` acuerdos de confidencialidad, `7.2` competencia, `A.8.10` borrado— y se exporta el paquete con los soportes enlazados.
+
+**`Registros` no es una tabla nueva.** Cada fila vive en su módulo: el acta en Mi SIG, la ejecución en Operación del SGSI, la puerta de control en el sistema, el hallazgo en Mejora. Copiarlas a un registro central crearía una segunda verdad que se desincroniza el primer día. Es una vista con una proyección común: **qué pasó, quién, cuándo, contra qué requisito, y dónde está el soporte**.
+
+Lo que convierte esa pantalla en herramienta de auditoría y no en bitácora es el filtro por requisito. La pregunta de un auditor nunca es «qué pasó en agosto»: es «muéstreme la evidencia del 7.2».
+
+---
+
+## 7. Lo que queda por decidir
 
 1. **El texto de la declaración por defecto.** El del documento base es una propuesta; hay que revisarlo con Legal antes de usarlo.
 2. **Si el documento de identidad se teclea o se muestra.** Tecleado es un acto deliberado; mostrado desde el perfil es más cómodo y menos probatorio. La plantilla soporta las dos.
