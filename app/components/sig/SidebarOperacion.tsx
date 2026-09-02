@@ -49,6 +49,7 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
       { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
       { etiqueta: 'Notificaciones', abreviatura: 'NOT', href: '/sig/notificaciones' },
+      { etiqueta: 'Cumplimiento', abreviatura: 'CUM', href: '/sig/tablero-tareas' },
     ],
   },
   {
