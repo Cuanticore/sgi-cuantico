@@ -1,0 +1,317 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Impacto</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">La misma relación leída en las dos direcciones y en cadena. «Dependencias» declara la arista; esta pantalla la interpreta.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: flex-end; gap: 16px">
+      <span style="display: flex; flex-direction: column; gap: 5px">
+        <span class="etq">Activo</span>
+        <span style="display: flex; gap: 5px">
+          <sc-for list="{{bases}}" as="b" hint-placeholder-count="3">
+            <button onClick="{{b.elegir}}" style="{{b.estilo}}">{{b.nombre}}</button>
+          </sc-for>
+        </span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 5px">
+        <span class="etq">Alcance</span>
+        <span style="display: flex; gap: 5px">
+          <sc-for list="{{alcances}}" as="p" hint-placeholder-count="2">
+            <button onClick="{{p.elegir}}" style="{{p.estilo}}">{{p.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; align-items: stretch; gap: 13px">
+
+    <!-- Aguas arriba -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 5px; padding: 13px 16px 12px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #8a4407; font-weight: 600">Aguas arriba · de qué depende</span>
+          <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">{{arribaConteo}}</span>
+        </span>
+        <span style="font-size: 11px; color: #6b7570; line-height: 1.5">Si algo de esta columna cae, <strong style="font-weight: 600; color: #4a544f">{{nombreBase}}</strong> se ve afectado.</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 9px">
+        <sc-for list="{{arriba}}" as="n" hint-placeholder-count="7">
+          <div style="{{n.fila}}">
+            <span class="mono" style="flex: none; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 600; border-radius: 4px; background: {{n.saltoBg}}; color: {{n.saltoFg}}">{{n.salto}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.nombre}}</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{n.codigo}}</span>
+                <span class="mono" style="font-size: 8.5px; color: #b6bdb9">·</span>
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{n.via}}</span>
+              </span>
+            </span>
+            <span style="flex: none; display: flex; align-items: center; gap: 5px">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: {{n.critColor}}"></span>
+              <span class="mono" style="font-size: 8.5px; color: {{n.critColor}}">{{n.crit}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{hayAsimetria}}" hint-placeholder-val="{{ true }}">
+        <div style="flex: none; display: flex; align-items: flex-start; gap: 9px; padding: 11px 15px; border-top: 1px solid #eceeed; background: #fffaf3">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #b8791a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #8a4407">{{textoAsimetria}}</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- El activo -->
+    <div style="flex: none; width: 292px; display: flex; flex-direction: column; justify-content: center; gap: 13px">
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 20px 18px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px; box-shadow: 0 1px 3px rgba(12, 36, 97, 0.06)">
+        <span style="display: flex; align-items: center; gap: 8px">
+          <span class="mono" style="font-size: 10px; font-weight: 600; color: #12437f">{{codigoBase}}</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 5px">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: {{critBaseColor}}"></span>
+            <span class="mono" style="font-size: 9px; color: {{critBaseColor}}">{{critBase}}</span>
+          </span>
+        </span>
+        <span style="font-size: 16px; font-weight: 600; line-height: 1.3">{{nombreBase}}</span>
+        <span style="font-size: 11px; color: #6b7570">{{claseBase}}</span>
+        <span style="height: 1px; background: #eceeed"></span>
+        <span style="display: flex; gap: 10px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 19px; font-weight: 600; color: #8a4407">{{nArriba}}</span>
+            <span class="etq" style="line-height: 1.4">Depende de</span>
+          </span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 19px; font-weight: 600; color: #12437f">{{nAbajo}}</span>
+            <span class="etq" style="line-height: 1.4">Dependen de él</span>
+          </span>
+        </span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 14px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 10.5px; line-height: 1.55; color: #4a544f">El número de saltos no es una jerarquía: es la distancia en la cadena. Un activo puede aparecer en las dos columnas de otro activo sin que haya ciclo.</span>
+      </div>
+    </div>
+
+    <!-- Aguas abajo -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 5px; padding: 13px 16px 12px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Aguas abajo · qué depende de él</span>
+          <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">{{abajoConteo}}</span>
+        </span>
+        <span style="font-size: 11px; color: #6b7570; line-height: 1.5">Si <strong style="font-weight: 600; color: #4a544f">{{nombreBase}}</strong> cae, esto se ve afectado. Es la columna del BIA.</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 9px">
+        <sc-for list="{{abajo}}" as="n" hint-placeholder-count="7">
+          <div style="{{n.fila}}">
+            <span class="mono" style="flex: none; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 600; border-radius: 4px; background: {{n.saltoBg}}; color: {{n.saltoFg}}">{{n.salto}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.nombre}}</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{n.codigo}}</span>
+                <span class="mono" style="font-size: 8.5px; color: #b6bdb9">·</span>
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{n.via}}</span>
+              </span>
+            </span>
+            <span style="flex: none; display: flex; align-items: center; gap: 5px">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: {{n.critColor}}"></span>
+              <span class="mono" style="font-size: 8.5px; color: {{n.critColor}}">{{n.crit}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-top: 1px solid #eceeed; background: #fbfcfb">
+        <span style="flex: 1; font-size: 11px; line-height: 1.55; color: #1a211e">{{veredicto}}</span>
+        <button style="flex: none; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #12437f; background: #ffffff; border: 1px solid #d3dceb; border-radius: 6px">Exportar</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const CHIP = 'padding: 6px 11px; font-size: 11px; border-radius: 20px;';
+const OFF = CHIP + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const ON = CHIP + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const CRIT_COLOR = {
+  'Muy alto': '#a52016',
+  'Alto': '#b8791a',
+  'Medio': '#0f7a5a',
+  'Bajo': '#6b7570',
+  'Sin valorar': '#b6bdb9',
+};
+const CRIT_ORDEN = { 'Muy alto': 4, 'Alto': 3, 'Medio': 2, 'Bajo': 1, 'Sin valorar': 0 };
+
+// El tono del salto se aclara con la distancia: lo directo pesa más que lo lejano.
+const SALTO_COLOR = [
+  { bg: '#e9f0fb', fg: '#12437f' },
+  { bg: '#eef2f8', fg: '#4a6fa5' },
+  { bg: '#f3f5f8', fg: '#8a938e' },
+];
+
+const A = {
+  a1:  { codigo: 'TEC-APP-0021', nombre: 'Mintrace CRM', clase: 'Aplicación', crit: 'Alto' },
+  a2:  { codigo: 'TEC-DAT-0051', nombre: 'mintrace_postgres', clase: 'Base de datos', crit: 'Muy alto' },
+  a3:  { codigo: 'TEC-SER-0014', nombre: 'Servicio de Directorio Activo', clase: 'Servicio', crit: 'Muy alto' },
+  a4:  { codigo: 'TEC-CLA-0007', nombre: 'Credencial / ILC Fabric', clase: 'Credencial', crit: 'Alto' },
+  a5:  { codigo: 'TEC-SER-0031', nombre: 'Servicios de Información / Apollo', clase: 'Servicio externo', crit: 'Medio' },
+  a6:  { codigo: 'TEC-SER-0032', nombre: 'Servicios de Información / RNEC', clase: 'Servicio externo', crit: 'Medio' },
+  a7:  { codigo: 'TEC-APP-0026', nombre: 'Coolify · orquestador', clase: 'Aplicación', crit: 'Alto' },
+  a8:  { codigo: 'TEC-INF-0003', nombre: 'Servidor de producción', clase: 'Infraestructura', crit: 'Muy alto' },
+  a9:  { codigo: 'TEC-SER-0040', nombre: 'Proveedor de nube', clase: 'Servicio externo', crit: 'Alto' },
+  a10: { codigo: 'TEC-APP-0009', nombre: 'Portal de clientes', clase: 'Aplicación', crit: 'Alto' },
+  a11: { codigo: 'TEC-APP-0015', nombre: 'Mi SIG', clase: 'Aplicación', crit: 'Medio' },
+  a12: { codigo: 'TEC-APP-0018', nombre: 'Tablero de indicadores', clase: 'Aplicación', crit: 'Bajo' },
+  a13: { codigo: 'TEC-SER-0038', nombre: 'Servicios de Información / ANM', clase: 'Servicio externo', crit: 'Sin valorar' },
+};
+
+// [depende, de, tipo]
+const ARISTAS = [
+  ['a1', 'a5', 'usa'],
+  ['a1', 'a6', 'usa'],
+  ['a1', 'a13', 'usa'],
+  ['a1', 'a4', 'autentica con'],
+  ['a1', 'a2', 'almacena en'],
+  ['a2', 'a8', 'se aloja en'],
+  ['a4', 'a3', 'autentica con'],
+  ['a3', 'a8', 'se aloja en'],
+  ['a7', 'a8', 'se aloja en'],
+  ['a8', 'a9', 'se aloja en'],
+  ['a10', 'a1', 'usa'],
+  ['a10', 'a4', 'autentica con'],
+  ['a11', 'a3', 'autentica con'],
+  ['a11', 'a2', 'almacena en'],
+  ['a12', 'a2', 'almacena en'],
+];
+
+// Recorrido en anchura. `haciaArriba` sigue la arista en su sentido (de qué depende);
+// al revés responde quién depende de él. El primer salto en que se alcanza un nodo es
+// el que vale: por eso se marca como visto antes de encolarlo.
+function recorrer(raiz, haciaArriba, maxSalto) {
+  const visto = {};
+  visto[raiz] = true;
+  const salida = [];
+  let frente = [{ id: raiz, via: '' }];
+  for (let salto = 1; salto <= maxSalto && frente.length; salto++) {
+    const siguiente = [];
+    frente.forEach((nodo) => {
+      ARISTAS.forEach((ar) => {
+        const desde = haciaArriba ? ar[0] : ar[1];
+        const hasta = haciaArriba ? ar[1] : ar[0];
+        if (desde !== nodo.id || visto[hasta]) return;
+        visto[hasta] = true;
+        const via = salto === 1 ? ar[2] : ar[2] + ' · vía ' + A[nodo.id].nombre;
+        salida.push({ id: hasta, salto: salto, via: via });
+        siguiente.push({ id: hasta, via: via });
+      });
+    });
+    frente = siguiente;
+  }
+  return salida;
+}
+
+const FILA = 'display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 11px; margin-bottom: 4px; border-radius: 8px; background: #ffffff; border: 1px solid ';
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { base: 'a8', profundo: true };
+  }
+
+  decorar(lista) {
+    return lista.map((n) => {
+      const a = A[n.id];
+      const tono = SALTO_COLOR[Math.min(n.salto, 3) - 1];
+      return {
+        nombre: a.nombre,
+        codigo: a.codigo,
+        crit: a.crit,
+        critColor: CRIT_COLOR[a.crit],
+        via: n.via,
+        salto: n.salto,
+        saltoBg: tono.bg,
+        saltoFg: tono.fg,
+        fila: FILA + (n.salto === 1 ? '#d3dceb;' : '#eceeed;'),
+      };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const base = A[s.base];
+    const max = s.profundo ? 9 : 1;
+
+    const arriba = recorrer(s.base, true, max);
+    const abajo = recorrer(s.base, false, max);
+
+    // La asimetría que importa: depender de algo peor valorado que uno mismo.
+    const flojos = arriba.filter((n) => CRIT_ORDEN[A[n.id].crit] < CRIT_ORDEN[base.crit]);
+    const sinValorar = arriba.filter((n) => A[n.id].crit === 'Sin valorar');
+
+    const graves = abajo.filter((n) => CRIT_ORDEN[A[n.id].crit] >= 3).length;
+    const veredicto =
+      abajo.length === 0
+        ? 'Ningún activo depende de ' + base.nombre + '. Su indisponibilidad no se propaga.'
+        : 'Si ' + base.nombre + ' no está disponible, ' + abajo.length +
+          (abajo.length === 1 ? ' activo se ve afectado' : ' activos se ven afectados') +
+          (graves ? ', ' + graves + ' de criticidad alta o superior.' : '.');
+
+    return {
+      bases: [
+        { id: 'a8', nombre: 'Servidor de producción' },
+        { id: 'a3', nombre: 'Directorio Activo' },
+        { id: 'a1', nombre: 'Mintrace CRM' },
+      ].map((b) => ({ ...b, estilo: s.base === b.id ? ON : OFF, elegir: () => this.setState({ base: b.id }) })),
+      alcances: [
+        { id: false, etiqueta: 'Directas' },
+        { id: true, etiqueta: 'Cadena completa' },
+      ].map((p) => ({ ...p, estilo: s.profundo === p.id ? ON : OFF, elegir: () => this.setState({ profundo: p.id }) })),
+
+      nombreBase: base.nombre,
+      codigoBase: base.codigo,
+      claseBase: base.clase,
+      critBase: base.crit,
+      critBaseColor: CRIT_COLOR[base.crit],
+
+      arriba: this.decorar(arriba),
+      abajo: this.decorar(abajo),
+      nArriba: arriba.length,
+      nAbajo: abajo.length,
+      arribaConteo: arriba.length + (s.profundo ? ' en cadena' : ' directas'),
+      abajoConteo: abajo.length + (s.profundo ? ' en cadena' : ' directos'),
+
+      hayAsimetria: flojos.length > 0,
+      textoAsimetria:
+        base.nombre + ' es de criticidad ' + base.crit.toLowerCase() + ' y depende de ' +
+        flojos.length + (flojos.length === 1 ? ' activo peor valorado' : ' activos peor valorados') +
+        (sinValorar.length ? ', ' + sinValorar.length + ' de ellos sin valorar' : '') +
+        '. La cadena vale lo que su eslabón más flojo.',
+
+      veredicto: veredicto,
+    };
+  }
+}
+</script>
+</body>
+</html>

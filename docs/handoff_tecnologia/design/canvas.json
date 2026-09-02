@@ -3,6 +3,7 @@
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1340, "h": 900, "title": "Mapa tecnológico", "is_interactive": true },
     { "file": "Ambientes.dc.html", "x": 1440, "y": 0, "w": 1340, "h": 880, "title": "Ambientes y despliegues", "is_interactive": true },
     { "file": "Dependencias.dc.html", "x": 2880, "y": 0, "w": 1340, "h": 880, "title": "Dependencias entre activos", "is_interactive": true },
+    { "file": "Impacto.dc.html", "x": 4320, "y": 0, "w": 1340, "h": 880, "title": "Impacto", "is_interactive": true },
 
     { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Hoja de vida del producto", "is_interactive": true },
     { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos y flota", "is_interactive": true },
@@ -21,7 +22,7 @@
       "x": 1440,
       "y": -300,
       "w": 820,
-      "text": "El levantamiento de ambientes ya encontró cosas\n\nDos servicios legacy/abandonado —uno con 5.822 reinicios— sirviendo el mismo dominio que producción desde otro servidor, y una imagen de contenedor sin tag que no se puede rastrear.\n\nLa pantalla los muestra en rojo en vez de esconderlos en una tabla ordenada, y conserva de dónde salió cada dato y con qué confianza. En el mapa, abre el nodo «Legacy PM2»."
+      "text": "Declarar no es visualizar\n\n«Dependencias» es un editor: sirve para crear la arista. No responde la pregunta que importa, que es qué se cae si esto se cae.\n\n«Impacto» sí: lee el grafo en las dos direcciones y en cadena, marca a cuántos saltos está cada activo y avisa cuando uno crítico cuelga de otro peor valorado. Es la columna que alimenta el BIA anual.\n\nPrueba «Servidor de producción» con Cadena completa.\n\n---\n\nEl levantamiento de ambientes ya encontró cosas\n\nDos servicios legacy/abandonado —uno con 5.822 reinicios— sirviendo el mismo dominio que producción desde otro servidor, y una imagen de contenedor sin tag que no se puede rastrear.\n\nLa pantalla los muestra en rojo en vez de esconderlos en una tabla ordenada, y conserva de dónde salió cada dato y con qué confianza. En el mapa, abre el nodo «Legacy PM2»."
     },
     {
       "id": "abajo",

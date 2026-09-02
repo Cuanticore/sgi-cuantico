@@ -102,10 +102,12 @@ Es lo que convierte el inventario en algo verificable: la ficha del producto pue
 |---|---|
 | `activoId` | `Int` → `Activo` · el activo base |
 | `dependeDeId` | `Int` → `Activo` · el activo relacionado |
-| `tipo` | `enum TipoDependencia` — `USA` · `SE_DESPLIEGA_EN` · `AUTENTICA_CON` · `ALMACENA_EN` |
+| `tipo` | `enum TipoDependencia` — `USA` · `SE_ALOJA_EN` · `AUTENTICA_CON` · `ALMACENA_EN` |
 | `nota` | `String?` |
 
-`@@unique([activoId, dependeDeId, tipo])`, y **una regla que el Excel no puede tener: no se admite un ciclo.** Si A depende de B y B de A, el mapa tecnológico deja de ser un árbol y el drill-down no termina.
+> **Corrección del 02/09/2026.** El cuarto valor era `SE_DESPLIEGA_EN` y se cambió a `SE_ALOJA_EN`. «Se despliega en» describe exactamente lo que registra `Despliegue` (§3.4), así que dejarlo como tipo de dependencia crea dos lugares para el mismo hecho y contradice la decisión de que un despliegue no es un activo. `SE_ALOJA_EN` sí es una relación activo↔activo legítima: la base de datos se aloja en el servidor, y ninguna de las dos es un despliegue.
+
+`@@unique([activoId, dependeDeId, tipo])`, y **una regla que el Excel no puede tener: no se admite un ciclo.** **De ninguna longitud:** ni A→B→A, ni A→B→C→A. La validación del servidor recorre la cadena completa antes de aceptar la arista; comprobar solo la reciprocidad directa deja pasar el ciclo largo, que es justo el que hace que el drill-down no termine.
 
 **Convive con `superiorId`, no lo reemplaza.** Son dos relaciones distintas y confundirlas es el error clásico de estos inventarios:
 
@@ -170,10 +172,23 @@ Pestaña nueva en el header: **Tecnología**, junto a Mi SIG · Indicadores · E
 | **Niveles** | Administración de la jerarquía de tres grados y de las plantillas por clase. |
 | **Ambientes** | Los despliegues: importación, asociación al activo padre, y los pendientes de asociar. Con el estado y la confianza a la vista. |
 | **Productos y proyectos** | Listado y **hoja de vida**: versiones y cumplimiento de las etapas del ciclo de vida. |
-| **Dependencias** | El esquema de dos listas —activos de información a la izquierda, relacionados a la derecha— con selección múltiple. |
+| **Dependencias** | El esquema de dos listas —activos de información a la izquierda, relacionados a la derecha— con selección múltiple. **Declara** la arista; no la interpreta. |
+| **Impacto** | La lectura del grafo, agregada el 02/09/2026. El activo al centro, aguas arriba a la izquierda (de qué depende) y aguas abajo a la derecha (qué depende de él), con la distancia en saltos y la criticidad de cada nodo. Alternable entre dependencias directas y cadena completa. |
 | **Equipos** | Personas del Directorio cruzadas con los activos que tienen a cargo, y quién no tiene ninguno. |
 
 Y un cambio en una pantalla existente: **el inventario de activos gana agrupación por niveles**, junto a los filtros que ya tiene.
+
+### 5.1 Por qué «Impacto» es una pantalla y no una pestaña de «Dependencias»
+
+Una dependencia se declara una vez y se consulta muchas, y quien consulta no es quien declara: el que registra la arista es Tecnología, el que pregunta «¿qué se cae si cae esto?» es el comité de continuidad. Son dos públicos y dos momentos.
+
+La pantalla responde tres cosas que la lista de edición no puede:
+
+1. **La dirección inversa.** «De qué depende el CRM» la contesta el editor. «Quién depende del Directorio Activo» no la contesta nadie hoy, y es la que alimenta el **BIA anual** que exige el sistema de continuidad.
+2. **La cadena.** Las dependencias son transitivas: el CRM depende de postgres, que se aloja en el servidor, que está en el proveedor de nube. Cortar en el primer salto oculta la mitad del riesgo.
+3. **La asimetría.** Un activo de criticidad alta que depende de uno sin valorar es un hallazgo, no un dato. La pantalla lo dice en palabras en vez de dejarlo para que alguien lo note.
+
+**Dos saltos no son dos niveles.** La distancia en la cadena no es la jerarquía de `NivelActivo`, y un activo puede aparecer aguas arriba de uno y aguas abajo de otro sin que exista ciclo.
 
 ---
 
