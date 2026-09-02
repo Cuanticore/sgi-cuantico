@@ -7,6 +7,7 @@
 // el botón «NO_CUMPLE â†’ hallazgo» (D7) y «derogar» (D8).
 
 import { useMemo, useState } from 'react';
+import NuevoRequisito from './NuevoRequisito.client';
 import { evaluarCumplimiento, derogarRequisito } from '@/app/sig/acciones/estrategico';
 
 export interface RequisitoFila {
@@ -37,7 +38,15 @@ const RESULTADO_CHIP: Record<string, { fondo: string; texto: string; etiqueta: s
   NO_CUMPLE: { fondo: '#fdeeeb', texto: '#a52016', etiqueta: 'No cumple' },
 };
 
-export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
+export default function LegalClient({
+  filas,
+  personas,
+  areas,
+}: {
+  filas: RequisitoFila[];
+  personas: { id: number; nombre: string }[];
+  areas: { id: number; nombre: string }[];
+}) {
   const [filtro, setFiltro] = useState<'todos' | 'SGC' | 'SGSI' | 'vencida'>('todos');
   const [seleccion, setSeleccion] = useState<RequisitoFila | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -61,7 +70,10 @@ export default function LegalClient({ filas }: { filas: RequisitoFila[] }) {
   return (
     <main className="flex flex-1 px-8 pt-7 pb-14">
       <div className="min-w-0 flex-1">
-        <h1 className="titulo-pagina">Requisitos legales</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="titulo-pagina">Requisitos legales</h1>
+          <NuevoRequisito personas={personas} areas={areas} />
+        </div>
         <p
           className="mt-3 rounded-campo px-4 py-3 text-11_5"
           style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}

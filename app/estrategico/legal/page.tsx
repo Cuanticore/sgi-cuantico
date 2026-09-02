@@ -44,5 +44,20 @@ export default async function LegalPage() {
     };
   });
 
-  return <LegalClient filas={filas} />;
+  // El formulario de alta necesita a quién asignar y qué proceso encargar. Se leen acá,
+  // en el servidor, y no en el cliente: son catálogos, no estado de la pantalla.
+  const [personas, areas] = await Promise.all([
+    prisma.persona.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    }),
+    prisma.area.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true },
+      orderBy: { orden: 'asc' },
+    }),
+  ]);
+
+  return <LegalClient filas={filas} personas={personas} areas={areas} />;
 }
