@@ -90,7 +90,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
 
 /// De dónde salió el rol. Toda pantalla que muestre permisos tiene que poder decirlo: un
 /// acceso que no vino del Directorio y se ve idéntico a uno que sí, engaña al que lee.
-export type OrigenRol = 'directorio' | 'lista-puente' | 'simulado';
+export type OrigenRol = 'directorio' | 'simulado';
 
 export interface Rol {
   grupos: Grupo[];
@@ -105,47 +105,6 @@ const COLABORADOR: Rol = {
   origen: 'directorio',
 };
 
-// ─────────────────────────────────────────────────────────────────────────────────────
-// PUENTE TEMPORAL — tiene fecha de vencimiento, y está escrita abajo.
-//
-// El Directorio no nos deja preguntar quién pertenece a `Responsables SIG`:
-//
-//   · el claim `groups` filtra por tipo de grupo y `Responsables SIG` es de Microsoft 365,
-//     así que con `groupMembershipClaims: SecurityGroup` no viaja nunca;
-//   · y `/users/{oid}/memberOf` responde 403 porque el registro de la aplicación no tiene
-//     `GroupMember.Read.All`.
-//
-// Con las dos puertas cerradas no hay forma de derivar el permiso de la fuente correcta, y
-// el sistema queda inutilizable para las nueve personas que SÍ están en el grupo.
-//
-// Esta lista las nombra a mano. Es una copia, y como toda copia se desactualiza: alguien
-// que salga del grupo en el Directorio sigue entrando acá hasta que se borre esta línea.
-// Por eso está en el código y no en una variable de entorno — un commit tiene autor, fecha
-// y revisor, que es lo que un auditor pide cuando pregunta quién autorizó un permiso.
-//
-// CÓMO SE RETIRA, y hay que retirarla: cuando se conceda `GroupMember.Read.All` (permiso de
-// aplicación, con consentimiento de administrador), `gruposDePersona()` empieza a responder
-// y esta lista deja de usarse sola, porque solo actúa cuando el Directorio no contestó.
-// Ahí se borra este bloque entero y no queda nada más que hacer.
-//
-// Tomada de la pantalla de miembros del grupo el 01/09/2026 · 9 miembros.
-const LISTA_PUENTE: readonly string[] = [
-  'albeiro.medina@cuantico.com',
-  'daniel.medina@cuantico.com',
-  'diego.munoz@cuantico.com',
-  'jhon.tamayo@cuantico.com',
-  'katherine.quiroga@cuantico.com',
-  'laura.agudelo@cuantico.com',
-  'lina.medina@cuantico.com',
-  'michael.medina@cuantico.com',
-  'yuliet.rojas@cuantico.com',
-];
-
-function estaEnLaListaPuente(correo: string | null | undefined): boolean {
-  if (!correo) return false;
-  const normalizado = correo.trim().toLowerCase();
-  return LISTA_PUENTE.includes(normalizado);
-}
 
 /// Every identifier the Directory may present for the one group that grants access.
 ///
@@ -242,18 +201,10 @@ function gruposDeDesarrollo(): Grupo[] {
 ///
 /// `correo` es opcional para no obligar a cada llamador a tenerlo, pero sin él la lista
 /// puente no puede aplicar: quien derive el rol de una sesión debería pasarlo.
-export function rolDesdeGrupos(
-  grupos: readonly string[] | undefined | null,
-  correo?: string | null,
-): Rol {
+export function rolDesdeGrupos(grupos: readonly string[] | undefined | null): Rol {
   const encontrados = reconocidos(grupos ?? []);
   if (encontrados.length > 0) {
     return { grupos: encontrados, permisos: permisosDe(encontrados), origen: 'directorio' };
-  }
-
-  if (estaEnLaListaPuente(correo)) {
-    const puente = [GRUPOS.seguridad];
-    return { grupos: puente, permisos: permisosDe(puente), origen: 'lista-puente' };
   }
 
   const desarrollo = gruposDeDesarrollo();

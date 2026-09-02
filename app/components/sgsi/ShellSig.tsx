@@ -40,7 +40,7 @@ export default async function ShellSig({ children }: { children: React.ReactNode
         .catch(() => 0),
     ]);
 
-  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
+  const rol = rolDesdeGrupos(session?.user?.grupos);
   const usuario = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const cuenta = (session?.user?.email ?? 'usuario').split('@')[0];
 
@@ -72,8 +72,6 @@ export default async function ShellSig({ children }: { children: React.ReactNode
       ? `${
           rol.origen === 'simulado'
             ? `ROL SIMULADO para pruebas · SGI_ROL_DEV=${rol.grupos.join(', ')} · NO viene del Directorio Activo`
-            : rol.origen === 'lista-puente'
-              ? 'Acceso por la lista puente del código · el Directorio todavía no puede confirmar la pertenencia a Líderes SIG'
               : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
         } · ${
           puede(rol, 'sgsi:escribir')

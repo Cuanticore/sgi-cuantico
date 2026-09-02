@@ -50,7 +50,7 @@ const ORDEN = Object.keys(QUE_ABRE) as Permiso[];
 export default async function DiagnosticoPage() {
   const session = await getServerSession(authOptions);
   const crudos = session?.user?.grupos;
-  const rol = rolDesdeGrupos(crudos, session?.user?.email);
+  const rol = rolDesdeGrupos(crudos);
   const reconocidos = new Set<string>(rol.grupos);
 
   const sinReclamo = crudos === undefined;

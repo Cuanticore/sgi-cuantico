@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function EstrategicoLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
+  const rol = rolDesdeGrupos(session?.user?.grupos);
 
   if (!puede(rol, 'estrategico:ver')) {
     return (

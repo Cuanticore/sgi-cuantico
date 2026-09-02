@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function SigLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
+  const rol = rolDesdeGrupos(session?.user?.grupos);
 
   if (!puede(rol, 'operacion:ver')) {
     return (
