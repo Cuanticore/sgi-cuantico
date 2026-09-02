@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db';
 import DofaClient from './Dofa.client';
+import { catalogosDeRiesgo } from '@/app/estrategico/catalogos';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,11 @@ export default async function DofaPage() {
       },
     },
   });
+
+  // El botón que el comentario de cabecera del cliente prometía —«+ Originar un riesgo
+  // desde aquí»— no existía, y `crearRiesgoOrganizacional` estaba importada ahí sin
+  // invocarse. Los catálogos que pide vienen de un solo lugar.
+  const catalogos = await catalogosDeRiesgo();
 
   const vigente = analisis.find((a) => a.vigente) ?? analisis[0] ?? null;
   const entradas = (vigente?.entradas ?? []).map((e) => ({
@@ -36,6 +42,7 @@ export default async function DofaPage() {
       acta={vigente?.actaReferencia ?? null}
       aprobadoPor={vigente?.aprobadoPor?.nombre ?? null}
       entradas={entradas}
+      catalogos={catalogos}
     />
   );
 }

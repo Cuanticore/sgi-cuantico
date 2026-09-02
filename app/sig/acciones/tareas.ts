@@ -831,6 +831,7 @@ export async function crearObligacion(datos: DatosObligacion): Promise<Resultado
 export async function desactivarObligacion(id: number, motivo: string): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('operacion:escribir');
+    exigirId(id, 'la obligación');
     if (!motivo.trim()) return { ok: false, mensaje: 'La desactivación exige motivo.' };
 
     const obligacion = await prisma.obligacion.findUnique({ where: { id } });

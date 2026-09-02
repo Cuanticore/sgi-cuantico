@@ -12,6 +12,7 @@
 // fila. La pantalla pintaba los cuatro tipos del mismo azul.
 
 import { useMemo, useState } from 'react';
+import { desactivarObligacion } from '@/app/sig/acciones/tareas';
 
 export type TipoObligacion = 'LECTURA' | 'VERIFICACION' | 'CAPACITACION' | 'TAREA';
 
@@ -51,6 +52,7 @@ function plegar(texto: string): string {
 export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] }) {
   const [tipo, setTipo] = useState<TipoObligacion | 'TODOS'>('TODOS');
   const [busqueda, setBusqueda] = useState('');
+  const [desactivando, setDesactivando] = useState<ObligacionFila | null>(null);
 
   const conteos = useMemo(() => {
     const mapa = new Map<TipoObligacion, number>();
@@ -133,6 +135,7 @@ export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] 
               <th className="px-4 py-3 text-right font-semibold">Plazo</th>
               <th className="px-4 py-3 font-semibold">Seguimiento</th>
               <th className="px-4 py-3 text-right font-semibold">Último periodo</th>
+              <th className="w-24 px-4 py-3" />
             </tr>
           </thead>
           <tbody>
@@ -166,11 +169,23 @@ export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] 
                 <td className="px-4 py-3 text-right">
                   <Cumplimiento porciento={o.cumplimiento} />
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => setDesactivando(o)}
+                    className="rounded-campo px-2 py-1 text-11"
+                    style={{
+                      color: 'var(--hf-danger-text)',
+                      border: '1px solid var(--hf-danger-border)',
+                    }}
+                  >
+                    Desactivar
+                  </button>
+                </td>
               </tr>
             ))}
             {visibles.length === 0 && (
               <tr className="border-t border-border-default">
-                <td colSpan={8} className="px-4 py-8 text-center text-12 text-muted">
+                <td colSpan={9} className="px-4 py-8 text-center text-12 text-muted">
                   {filas.length === 0
                     ? 'Todavía no hay obligaciones activas.'
                     : 'Ninguna obligación coincide con la búsqueda.'}
@@ -186,7 +201,86 @@ export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] 
         asignaciones del periodo. No se almacena, y por eso nunca puede contradecir a la
         bandeja.
       </p>
+
+      {desactivando && (
+        <PanelDesactivar
+          obligacion={desactivando}
+          onCerrar={() => setDesactivando(null)}
+        />
+      )}
     </>
+  );
+}
+
+/// `desactivarObligacion` no tenía llamador, así que una obligación que dejaba de aplicar
+/// —un procedimiento derogado, un cargo que ya no existe— seguía generando asignaciones y
+/// no había forma de detenerla salvo por la base de datos.
+///
+/// Desactivar NO borra ni cancela lo ya generado: las asignaciones abiertas siguen
+/// abiertas, porque alguien las debe y su registro de realizado sostiene una auditoría. Lo
+/// que se detiene es la generación futura, y eso se dice en la pantalla para que nadie use
+/// este botón esperando limpiar la bandeja de alguien.
+function PanelDesactivar({
+  obligacion,
+  onCerrar,
+}: {
+  obligacion: ObligacionFila;
+  onCerrar: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
+      <div className="flex w-full max-w-lg flex-col gap-3 rounded-tarjeta border border-border-field bg-surface p-5">
+        <h2 className="text-15 font-bold text-primary">Desactivar {obligacion.codigo}</h2>
+        <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+          {obligacion.titulo}. Deja de generar asignaciones nuevas.{' '}
+          <strong className="font-semibold">Las ya generadas no cambian</strong>: alguien las
+          debe, y su registro de realizado sostiene una auditoría.
+        </p>
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Motivo (obligatorio)</span>
+          <textarea
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            rows={2}
+            autoFocus
+            placeholder="El procedimiento de origen se derogó en la versión 3."
+            className="entrada-campo leading-relaxed"
+          />
+        </label>
+        {error && (
+          <p className="text-12" style={{ color: 'var(--hf-danger-text)' }}>
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button onClick={onCerrar} className="rounded-campo px-3 py-1.5 text-12 text-muted">
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              setOcupado(true);
+              setError(null);
+              const r = await desactivarObligacion(obligacion.id, motivo);
+              setOcupado(false);
+              if (r.ok) {
+                window.location.reload();
+                return;
+              }
+              setError(r.mensaje);
+            }}
+            disabled={motivo.trim() === '' || ocupado}
+            className="rounded-campo px-3.5 py-1.5 text-12 font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--hf-danger-text)' }}
+          >
+            {ocupado ? 'Desactivando…' : 'Desactivar'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

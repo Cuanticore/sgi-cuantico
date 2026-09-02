@@ -3,8 +3,11 @@
 // app/sig/acciones/envios.ts
 //
 // El disparo «enviar los resúmenes pendientes hasta hoy» (N7): se puede correr de nuevo
-// si el servidor estuvo caído, sin duplicar. También la lectura de ítems para el panel
-// de cierre de Mi SIG.
+// si el servidor estuvo caído, sin duplicar.
+//
+// Acá vivía también `leerItemsVerificacion`, que nadie llamaba: `app/mi-sig/bandeja.query.ts`
+// ya trae los ítems con la asignación, en la misma consulta. Se borró en vez de conectarla,
+// porque una segunda consulta para lo mismo es una que mañana devuelve otro orden.
 
 import { prisma } from '@/lib/db';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
@@ -205,15 +208,6 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
       omitidos,
       avisos,
     };
-  });
-}
-
-// ── Lectura de ítems para el panel de cierre (verificación) ──
-export async function leerItemsVerificacion(contenidoId: number) {
-  return prisma.itemVerificacion.findMany({
-    where: { contenidoId },
-    orderBy: { orden: 'asc' },
-    select: { id: true, orden: true, texto: true, obligatorio: true, permiteNoAplica: true },
   });
 }
 

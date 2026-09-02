@@ -7,7 +7,8 @@
 // riesgos que originó; «+ Originar un riesgo desde aquí» guarda la referencia tipada.
 
 import { useState } from 'react';
-import { agregarEntradaContexto, crearRiesgoOrganizacional } from '@/app/sig/acciones/estrategico';
+import { agregarEntradaContexto } from '@/app/sig/acciones/estrategico';
+import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/OriginarRiesgo.client';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaDofa {
@@ -31,12 +32,14 @@ export default function DofaClient({
   acta,
   aprobadoPor,
   entradas,
+  catalogos,
 }: {
   analisisId: number | null;
   anio: number | null;
   acta: string | null;
   aprobadoPor: string | null;
   entradas: EntradaDofa[];
+  catalogos: CatalogosRiesgo;
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +102,14 @@ export default function DofaClient({
                   >
                     {e.riesgos > 0 ? `${e.riesgos} riesgo(s)` : '—'}
                   </span>
+                  <OriginarRiesgo
+                    fuente="DOFA"
+                    entradaId={e.id}
+                    entradaTexto={e.texto}
+                    favorable={meta.color === '#0b5c44' || meta.color === '#12437f'}
+                    catalogos={catalogos}
+                    setError={setError}
+                  />
                 </div>
               ))}
               <div className="flex gap-2">

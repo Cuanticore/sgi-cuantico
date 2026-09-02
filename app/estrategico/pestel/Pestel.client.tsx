@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { agregarEntradaContexto } from '@/app/sig/acciones/estrategico';
+import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/OriginarRiesgo.client';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
 
 export interface EntradaPestel {
@@ -32,11 +33,13 @@ export default function PestelClient({
   anio,
   acta,
   entradas,
+  catalogos,
 }: {
   analisisId: number | null;
   anio: number | null;
   acta: string | null;
   entradas: EntradaPestel[];
+  catalogos: CatalogosRiesgo;
 }) {
   const [nuevas, setNuevas] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +117,14 @@ export default function PestelClient({
                     >
                       {e.riesgos > 0 ? `${e.riesgos} riesgo(s)` : '—'}
                     </span>
+                    <OriginarRiesgo
+                      fuente="PESTEL"
+                      entradaId={e.id}
+                      entradaTexto={e.texto}
+                      favorable={e.efecto === 'FAVORABLE'}
+                      catalogos={catalogos}
+                      setError={setError}
+                    />
                   </div>
                 </div>
               ))}
