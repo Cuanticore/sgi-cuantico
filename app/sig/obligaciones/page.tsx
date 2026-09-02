@@ -6,6 +6,7 @@
 import { prisma } from '@/lib/db';
 import { cumplimientoDePeriodo } from '@/lib/sig/cumplimiento';
 import NuevaObligacion from './NuevaObligacion';
+import GenerarAsignaciones from './GenerarAsignaciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,10 @@ export default async function ObligacionesPage() {
             La lista maestra del control operacional · {filas.length} obligaciones activas
           </p>
         </div>
-        <NuevaObligacion />
+        <div className="flex items-start gap-2">
+          <GenerarAsignaciones />
+          <NuevaObligacion />
+        </div>
       </div>
 
       <div className="mt-6 overflow-hidden rounded-tarjeta border border-border-field bg-surface">
