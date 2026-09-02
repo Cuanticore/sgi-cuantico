@@ -6,6 +6,7 @@
 // adjunto es obligatorio (C8) y los hallazgos capturados.
 
 import { useMemo, useState } from 'react';
+import NuevaExterna from './NuevaExterna.client';
 
 export interface ExternaFila {
   id: number;
@@ -25,7 +26,13 @@ const TIPO_BADGE: Record<string, { fondo: string; texto: string; etiqueta: strin
   PROVEEDOR: { fondo: '#e8f4ef', texto: '#0b5c44', etiqueta: 'Proveedor' },
 };
 
-export default function ExternasClient({ filas }: { filas: ExternaFila[] }) {
+export default function ExternasClient({
+  filas,
+  personas,
+}: {
+  filas: ExternaFila[];
+  personas: { id: number; nombre: string }[];
+}) {
   const [filtro, setFiltro] = useState<'todas' | 'EXTERNA' | 'PROVEEDOR'>('todas');
   const [seleccion, setSeleccion] = useState<ExternaFila | null>(null);
 
@@ -37,7 +44,10 @@ export default function ExternasClient({ filas }: { filas: ExternaFila[] }) {
   return (
     <main className="flex flex-1 px-8 pt-7 pb-14">
       <div className="min-w-0 flex-1">
-        <h1 className="titulo-pagina">Auditorías externas y a proveedores</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="titulo-pagina">Auditorías externas y a proveedores</h1>
+          <NuevaExterna personas={personas} />
+        </div>
         <nav className="mt-4 flex items-center gap-2">
           {(['todas', 'EXTERNA', 'PROVEEDOR'] as const).map((t) => (
             <button

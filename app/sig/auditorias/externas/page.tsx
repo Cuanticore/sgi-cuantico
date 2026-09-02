@@ -30,5 +30,13 @@ export default async function ExternasPage() {
     hallazgos: a.celdas.flatMap((c) => c.notas.filter((n) => n.hallazgoId !== null)).length,
   }));
 
-  return <ExternasClient filas={filas} />;
+  // Quién responde por la auditoría del lado de Cuántico. Se lee en el servidor: es un
+  // catálogo, no estado de la pantalla.
+  const personas = await prisma.persona.findMany({
+    where: { activa: true },
+    select: { id: true, nombre: true },
+    orderBy: { nombre: 'asc' },
+  });
+
+  return <ExternasClient filas={filas} personas={personas} />;
 }
