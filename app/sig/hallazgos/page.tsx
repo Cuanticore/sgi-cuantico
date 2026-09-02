@@ -4,7 +4,12 @@
 // reincidentes, y la tabla con el semáforo del plazo. El estado se calcula (B3, B8).
 
 import { prisma } from '@/lib/db';
-import { estadoCalculado, vencidoContra } from '@/lib/sig/hallazgos';
+import {
+  estadoCalculado,
+  vencidoContra,
+  estaClasificado,
+  etiquetaDeTipo,
+} from '@/lib/sig/hallazgos';
 import GrillaClient from './Grilla.client';
 
 export const dynamic = 'force-dynamic';
@@ -51,6 +56,10 @@ export default async function HallazgosPage() {
       descripcion: h.descripcion,
       requisito: h.requisitoIncumplido,
       tipo: h.tipo,
+      // La etiqueta se resuelve en el servidor porque la regla es del dominio: un hallazgo
+      // sin fecha de clasificacion no tiene tipo elegido por nadie.
+      tipoEtiqueta: etiquetaDeTipo(h.tipo, h.fechaClasificacion),
+      clasificado: estaClasificado(h.fechaClasificacion),
       origen: h.origen,
       origenReferencia: h.origenReferencia,
       responsable: h.responsable?.nombre ?? null,

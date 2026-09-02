@@ -10,6 +10,8 @@ import {
   exigeTabla,
   codigoHallazgo,
   motivoQueImpideCerrar,
+  estaClasificado,
+  etiquetaDeTipo,
 } from '../hallazgos';
 
 function d(iso: string): Date {
@@ -184,5 +186,34 @@ describe('motivoQueImpideCerrar', () => {
     expect(
       motivoQueImpideCerrar({ ...base, tipo: 'NC_MAYOR', anuladoEn: new Date() }),
     ).toContain('anulado');
+  });
+});
+
+// Un hallazgo recien reportado tiene un tipo guardado que NADIE eligio: la columna no
+// admite nulo. Mostrar ese tipo como si fuera una clasificacion rompe B3 —quien reporta no
+// clasifica— en la primera pantalla donde el lider del SIG lo ve.
+describe('estaClasificado y etiquetaDeTipo', () => {
+  it('sin fecha de clasificacion, no esta clasificado', () => {
+    expect(estaClasificado(null)).toBe(false);
+  });
+
+  it('con fecha, si', () => {
+    expect(estaClasificado(new Date('2026-09-01T00:00:00.000Z'))).toBe(true);
+  });
+
+  it('la etiqueta ignora el tipo guardado mientras no haya clasificacion', () => {
+    for (const tipo of ['NC_MAYOR', 'NC_MENOR', 'OBSERVACION', 'OPORTUNIDAD']) {
+      expect(etiquetaDeTipo(tipo, null)).toBe('Sin clasificar');
+    }
+  });
+
+  it('clasificado, muestra el tipo en palabras', () => {
+    const fecha = new Date('2026-09-01T00:00:00.000Z');
+    expect(etiquetaDeTipo('NC_MAYOR', fecha)).toBe('NC mayor');
+    expect(etiquetaDeTipo('OPORTUNIDAD', fecha)).toBe('Oportunidad');
+  });
+
+  it('un tipo desconocido se muestra tal cual en vez de desaparecer', () => {
+    expect(etiquetaDeTipo('LO_QUE_SEA', new Date())).toBe('LO_QUE_SEA');
   });
 });

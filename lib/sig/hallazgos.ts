@@ -112,3 +112,30 @@ export function motivoQueImpideCerrar(h: DatosCierre): string | null {
 function diaDe(fecha: Date): number {
   return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
+/// Si el hallazgo ya lo clasificó alguien.
+///
+/// El enum `TipoHallazgo` no tiene `SIN_CLASIFICAR`, así que un hallazgo recién reportado
+/// tiene un tipo guardado que NADIE eligió: lo pone `reportarHallazgo` porque la columna
+/// no admite nulo. La verdad está en `fechaClasificacion`, y toda pantalla que muestre el
+/// tipo tiene que consultar esto antes — o afirma una clasificación que no ocurrió.
+///
+/// B3 y el lienzo del formulario dicen lo mismo desde el principio: quien reporta no
+/// clasifica. Mostrar «NC menor» sobre un reporte que nadie miró rompe esa promesa en la
+/// primera pantalla donde el líder del SIG lo ve.
+export function estaClasificado(fechaClasificacion: Date | null): boolean {
+  return fechaClasificacion !== null;
+}
+
+/// La etiqueta del tipo para la interfaz: el tipo real si ya se clasificó, y si no, lo que
+/// de verdad es.
+export function etiquetaDeTipo(tipo: string, fechaClasificacion: Date | null): string {
+  if (!estaClasificado(fechaClasificacion)) return 'Sin clasificar';
+  return (
+    {
+      NC_MAYOR: 'NC mayor',
+      NC_MENOR: 'NC menor',
+      OBSERVACION: 'Observación',
+      OPORTUNIDAD: 'Oportunidad',
+    }[tipo] ?? tipo
+  );
+}

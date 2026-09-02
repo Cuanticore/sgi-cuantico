@@ -52,7 +52,14 @@ export async function reportarHallazgo(datos: DatosReporte): Promise<Resultado> 
       const creado = await tx.hallazgo.create({
         data: {
           codigo: codigoHallazgo(anio, contador.ultimoValor),
-          tipo: 'NC_MENOR',
+          // El enum no tiene SIN_CLASIFICAR y agregarlo es una migración, así que la
+          // columna guarda el valor MÁS BENIGNO y la verdad está en
+          // `fechaClasificacion === null`: eso es lo que las pantallas leen para decir «sin
+          // clasificar». Antes acá había `NC_MENOR`, o sea que el sistema clasificaba por
+          // el Colaborador —y como no conformidad— justo lo que B3 y el lienzo dicen que
+          // no debe pasar: una oportunidad de mejora entraba al histórico como NC hasta que
+          // alguien la reclasificara, y las que nadie mira se quedan así.
+          tipo: 'OBSERVACION',
           origen: datos.origen,
           origenReferencia: datos.origenReferencia,
           descripcion: datos.descripcion,

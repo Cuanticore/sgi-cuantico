@@ -32,10 +32,11 @@ export default async function ReportarHallazgoPage() {
     <div className="flex min-h-screen flex-col bg-app">
       <EncabezadoSig />
       <main className="mx-auto w-full max-w-[720px] flex-1 px-8 pb-16 pt-8">
-        <h1 className="text-23 font-bold text-primary">Reportar hallazgo</h1>
-        <p className="mt-1 text-12_5 text-muted">
-          Cualquiera reporta; el líder del SIG clasifica (B3). Un reporte sin clasificar
-          existe y es visible, pero no consume plazos.
+        <h1 className="text-23 font-bold text-primary">Reportar un hallazgo</h1>
+        <p className="mt-1.5 max-w-[70ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
+          Cuéntanos qué viste.{' '}
+          <strong className="font-semibold text-secondary">No tienes que clasificarlo</strong> ni
+          decidir si es una no conformidad: de eso se encarga el líder del SIG.
         </p>
         <ReportarHallazgoClient
           correo={correo}

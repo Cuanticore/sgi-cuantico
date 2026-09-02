@@ -14,6 +14,9 @@ export interface FilaHallazgo {
   descripcion: string;
   requisito: string;
   tipo: string;
+  /// Ya resuelta en el servidor: «Sin clasificar» mientras nadie la haya clasificado.
+  tipoEtiqueta: string;
+  clasificado: boolean;
   origen: string;
   origenReferencia: string;
   responsable: string | null;
@@ -30,6 +33,9 @@ const TIPO_BADGE: Record<string, { fondo: string; texto: string; etiqueta: strin
   OBSERVACION: { fondo: '#faf1d3', texto: '#6b5410', etiqueta: 'Observación' },
   OPORTUNIDAD: { fondo: '#e8f4ef', texto: '#0b5c44', etiqueta: 'Oportunidad' },
 };
+
+/// Un reporte que nadie clasifico todavia. No es un tipo mas: es la ausencia de tipo.
+const SIN_CLASIFICAR = { fondo: '#f5f7f6', texto: '#6b7570', etiqueta: 'Sin clasificar' };
 
 const ESTADO_BADGE: Record<string, { fondo: string; texto: string }> = {
   ABIERTO: { fondo: '#eef2f8', texto: '#12437f' },
@@ -63,7 +69,10 @@ export default function GrillaClient({
   const visibles = useMemo(
     () =>
       filas.filter((f) => {
-        if (tipo !== 'todos' && f.tipo !== tipo) return false;
+        // «Sin clasificar» filtra por la ausencia de clasificación, no por el tipo que la
+        // columna guarda: es el montón que el líder del SIG tiene que atender primero.
+        if (tipo === 'SIN_CLASIFICAR') return !f.clasificado;
+        if (tipo !== 'todos' && (f.tipo !== tipo || !f.clasificado)) return false;
         if (soloVencidos && !f.vencido) return false;
         if (soloReincidentes && !f.reincidente) return false;
         return true;
@@ -73,7 +82,11 @@ export default function GrillaClient({
 
   const conteos = useMemo(() => {
     const m = new Map<string, number>();
-    for (const f of filas) m.set(f.tipo, (m.get(f.tipo) ?? 0) + 1);
+    for (const f of filas) {
+      // Un hallazgo sin clasificar NO cuenta en su tipo guardado: contarlo ahí infla el
+      // chip de un tipo que nadie eligió.
+      m.set(f.clasificado ? f.tipo : 'SIN_CLASIFICAR', (m.get(f.clasificado ? f.tipo : 'SIN_CLASIFICAR') ?? 0) + 1);
+    }
     return m;
   }, [filas]);
 
@@ -103,7 +116,7 @@ export default function GrillaClient({
       </section>
 
       <nav className="mt-5 flex items-center gap-2">
-        {['todos', 'NC_MAYOR', 'NC_MENOR', 'OBSERVACION', 'OPORTUNIDAD'].map((t) => (
+        {['todos', 'SIN_CLASIFICAR', 'NC_MAYOR', 'NC_MENOR', 'OBSERVACION', 'OPORTUNIDAD'].map((t) => (
           <button
             key={t}
             onClick={() => setTipo(t)}
@@ -116,7 +129,12 @@ export default function GrillaClient({
               fontWeight: tipo === t ? 600 : 500,
             }}
           >
-            {t === 'todos' ? 'Todos' : TIPO_BADGE[t]?.etiqueta ?? t} ·{' '}
+            {t === 'todos'
+              ? 'Todos'
+              : t === 'SIN_CLASIFICAR'
+                ? SIN_CLASIFICAR.etiqueta
+                : (TIPO_BADGE[t]?.etiqueta ?? t)}{' '}
+            ·{' '}
             {t === 'todos' ? filas.length : (conteos.get(t) ?? 0)}
           </button>
         ))}
@@ -140,7 +158,12 @@ export default function GrillaClient({
           </thead>
           <tbody>
             {visibles.map((f) => {
-              const badgeTipo = TIPO_BADGE[f.tipo] ?? TIPO_BADGE.OPORTUNIDAD;
+              // Sin clasificar lleva su propio color: gris, no el del tipo que la columna
+              // guarda por obligación del esquema. Pintarlo con el color de un tipo real
+              // es afirmar una clasificación que nadie hizo.
+              const badgeTipo = f.clasificado
+                ? (TIPO_BADGE[f.tipo] ?? TIPO_BADGE.OPORTUNIDAD)
+                : SIN_CLASIFICAR;
               const badgeEstado = ESTADO_BADGE[f.estado] ?? ESTADO_BADGE.ABIERTO;
               return (
                 <tr
@@ -168,7 +191,17 @@ export default function GrillaClient({
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
                       <span className="font-medium text-primary">{f.descripcion}</span>
-                      <span className="font-mono text-10_5 text-muted">{f.requisito}</span>
+                      {f.requisito.trim() === '' ? (
+                        <span
+                          className="font-mono text-10_5"
+                          title="El numeral lo define el líder del SIG al clasificar: no se le pide a quien reporta."
+                          style={{ color: 'var(--hf-text-label)' }}
+                        >
+                          numeral por definir
+                        </span>
+                      ) : (
+                        <span className="font-mono text-10_5 text-muted">{f.requisito}</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -176,7 +209,7 @@ export default function GrillaClient({
                       className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
                       style={{ background: badgeTipo.fondo, color: badgeTipo.texto }}
                     >
-                      {badgeTipo.etiqueta}
+                      {f.tipoEtiqueta}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted">
