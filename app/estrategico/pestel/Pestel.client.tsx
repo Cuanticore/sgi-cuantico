@@ -12,6 +12,7 @@ import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/Originar
 import PanelTrazabilidad from '@/app/estrategico/PanelTrazabilidad.client';
 import type { RiesgoOriginado } from '@/app/estrategico/trazabilidad';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
+import NavegadorAnio from '@/app/estrategico/NavegadorAnio.client';
 
 export interface EntradaPestel {
   id: number;
@@ -35,12 +36,18 @@ const DIMENSIONES: Record<string, { etiqueta: string; inicial: string }> = {
 export default function PestelClient({
   analisisId,
   anio,
+  anioMostrado,
+  aniosConAnalisis,
   acta,
   entradas,
   catalogos,
 }: {
   analisisId: number | null;
+  /// El año del análisis mostrado, o `null` si ese año no tiene ninguno.
   anio: number | null;
+  /// El año sobre el que están paradas las flechas. Siempre hay uno.
+  anioMostrado: number;
+  aniosConAnalisis: number[];
   acta: string | null;
   entradas: EntradaPestel[];
   catalogos: CatalogosRiesgo;
@@ -52,22 +59,34 @@ export default function PestelClient({
   return (
     <main className="flex flex-1 gap-5 px-8 pt-7 pb-14">
       <div className="min-w-0 flex-1">
-      <div className="flex items-start justify-between gap-4">
+      {/* El chip va pegado al título, como en el lienzo: califica al análisis que se está
+          mirando, y al otro extremo de la barra deja de leerse junto a él. */}
+      <div className="flex items-start gap-5">
         <div className="flex flex-col gap-0.5">
-          <h1 className="titulo-pagina">{anio ? `PESTEL ${anio}` : 'PESTEL'}</h1>
+          <span className="flex items-center gap-2.5">
+            <h1 className="titulo-pagina">{anioMostrado ? `PESTEL ${anioMostrado}` : 'PESTEL'}</h1>
+            {acta && (
+              <span
+                className="flex-none rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold uppercase"
+                style={{ background: '#e6efe9', color: '#0b5c44' }}
+              >
+                Aprobado
+              </span>
+            )}
+          </span>
           <p className="text-12_5 text-muted">
-            {anio ? `Análisis de contexto ${anio}` : 'Sin análisis'} ·{' '}
+            {anio ? `Análisis de contexto ${anio}` : 'Sin análisis en este año'} ·{' '}
             {acta ? `acta ${acta}` : 'sin acta de aprobación'}
           </p>
         </div>
-        {acta && (
-          <span
-            className="flex-none rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold uppercase"
-            style={{ background: '#e6efe9', color: '#0b5c44' }}
-          >
-            Aprobado
-          </span>
-        )}
+        <span className="ml-auto">
+          <NavegadorAnio
+            anio={anioMostrado}
+            aniosConAnalisis={aniosConAnalisis}
+            ruta="/estrategico/pestel"
+            etiqueta="PESTEL"
+          />
+        </span>
       </div>
 
       <div className="mt-4 flex items-center gap-4 text-11_5 text-muted">

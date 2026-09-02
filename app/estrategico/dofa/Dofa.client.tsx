@@ -12,6 +12,7 @@ import OriginarRiesgo, { type CatalogosRiesgo } from '@/app/estrategico/Originar
 import PanelTrazabilidad from '@/app/estrategico/PanelTrazabilidad.client';
 import type { RiesgoOriginado } from '@/app/estrategico/trazabilidad';
 import CrearAnalisis from '@/app/estrategico/CrearAnalisis.client';
+import NavegadorAnio from '@/app/estrategico/NavegadorAnio.client';
 
 export interface EntradaDofa {
   id: number;
@@ -33,13 +34,20 @@ const CASILLAS: Record<string, { etiqueta: string; color: string; interno: boole
 export default function DofaClient({
   analisisId,
   anio,
+  anioMostrado,
+  aniosConAnalisis,
   acta,
   aprobadoPor,
   entradas,
   catalogos,
 }: {
   analisisId: number | null;
+  /// El año del análisis que se está mostrando, o `null` si ese año no tiene ninguno.
   anio: number | null;
+  /// El año que dice el navegador. Siempre hay uno, aunque no haya análisis: es el año
+  /// sobre el que están paradas las flechas.
+  anioMostrado: number;
+  aniosConAnalisis: number[];
   acta: string | null;
   aprobadoPor: string | null;
   entradas: EntradaDofa[];
@@ -52,22 +60,35 @@ export default function DofaClient({
   return (
     <main className="flex flex-1 gap-5 px-8 pt-7 pb-14">
       <div className="min-w-0 flex-1">
-      <div className="flex items-center justify-between">
+      {/* El lienzo pone el chip PEGADO al título —«DOFA 2026 · Aprobado»—, no flotando al
+          otro extremo de la barra: dice algo del análisis que se está mirando, y a 1196 px
+          de distancia deja de leerse junto a él. */}
+      <div className="flex items-start gap-5">
         <div className="flex flex-col gap-0.5">
-          <h1 className="titulo-pagina">{anio ? `DOFA ${anio}` : 'DOFA'}</h1>
+          <span className="flex items-center gap-2.5">
+            <h1 className="titulo-pagina">{anioMostrado ? `DOFA ${anioMostrado}` : 'DOFA'}</h1>
+            {acta && (
+              <span
+                className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
+                style={{ background: '#e6efe9', color: '#0b5c44' }}
+              >
+                Aprobado
+              </span>
+            )}
+          </span>
           <p className="text-12_5 text-muted">
-            {anio ? `Análisis de contexto ${anio}` : 'Sin análisis'} ·{' '}
+            {anio ? `Análisis de contexto ${anio}` : 'Sin análisis en este año'} ·{' '}
             {acta ? `acta ${acta} · ${aprobadoPor ?? ''}` : 'sin acta de aprobación'}
           </p>
         </div>
-        {acta && (
-          <span
-            className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
-            style={{ background: '#e6efe9', color: '#0b5c44' }}
-          >
-            Aprobado
-          </span>
-        )}
+        <span className="ml-auto">
+          <NavegadorAnio
+            anio={anioMostrado}
+            aniosConAnalisis={aniosConAnalisis}
+            ruta="/estrategico/dofa"
+            etiqueta="DOFA"
+          />
+        </span>
       </div>
 
       {analisisId === null && (
