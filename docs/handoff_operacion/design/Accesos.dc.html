@@ -1,0 +1,245 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 11px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Accesos y perfiles</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 92ch; line-height: 1.55">Persona y perfil son una <strong style="font-weight: 600; color: #4a544f">relación con vigencia</strong>, no una casilla en una cuadrícula. Por eso se puede preguntar quién tenía qué en una fecha pasada.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Solicitar acceso</button>
+  </div>
+
+  <!-- El control que lo cambia todo: la fecha de consulta -->
+  <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 14px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+    <span style="display: flex; flex-direction: column; gap: 3px">
+      <span class="etq" style="color: #12437f">Estado de los accesos a fecha</span>
+      <span style="font-size: 11.5px; color: #6b7570">Es la pregunta que hace un auditor, y la que una cuadrícula de casillas no puede responder.</span>
+    </span>
+    <span style="margin-left: auto; display: flex; gap: 5px; padding: 3px; background: #f5f7f6; border: 1px solid #e2e6e3; border-radius: 6px">
+      <sc-for list="{{fechas}}" as="f" hint-placeholder-count="4">
+        <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 15px 18px 12px; border-bottom: 1px solid #eceeed">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Vigentes al {{fechaTexto}}</span>
+        <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{conteo}}</span>
+        <span style="margin-left: auto; display: flex; gap: 12px">
+          <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="2">
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="width: 9px; height: 9px; border-radius: 2px; background: {{l.color}}"></span>
+              <span style="font-size: 11px; color: #4a544f">{{l.etiqueta}}</span>
+            </span>
+          </sc-for>
+        </span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px 8px">
+        <table style="width: 100%; border-collapse: collapse">
+          <thead>
+            <tr>
+              <th class="th" style="width: 158px">Persona</th>
+              <th class="th">Perfil</th>
+              <th class="th" style="width: 92px">Desde</th>
+              <th class="th" style="width: 92px">Hasta</th>
+              <th class="th" style="width: 132px">Sustento</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{accesos}}" as="a" hint-placeholder-count="10">
+              <tr style="background: {{a.fila}}">
+                <td class="td">
+                  <span style="display: flex; align-items: center; gap: 8px">
+                    <span style="display: flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; border-radius: 999px; font-size: 9px; font-weight: 700; background: #e9f0fb; color: #12437f">{{a.iniciales}}</span>
+                    <span style="font-size: 12px; color: #1a211e">{{a.persona}}</span>
+                  </span>
+                </td>
+                <td class="td" style="padding-right: 14px">
+                  <span style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-size: 12.5px; font-weight: 500">{{a.perfil}}</span>
+                    <span class="mono" style="font-size: 9.5px; color: #8a938e">{{a.sistema}}</span>
+                  </span>
+                </td>
+                <td class="td"><span class="mono" style="font-size: 11px; color: #4a544f">{{a.desde}}</span></td>
+                <td class="td"><span class="mono" style="font-size: 11px; color: {{a.hastaColor}}">{{a.hasta}}</span></td>
+                <td class="td">
+                  <sc-if value="{{a.conSustento}}" hint-placeholder-val="{{ true }}">
+                    <a href="#" class="mono" style="font-size: 10px; font-weight: 500">{{a.sustento}}</a>
+                  </sc-if>
+                  <sc-if value="{{a.sinSustento}}" hint-placeholder-val="{{ true }}">
+                    <span class="mono" style="padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fdeeeb; color: #a52016">Sin sustento</span>
+                  </sc-if>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 336px; display: flex; flex-direction: column; gap: 14px; min-height: 0">
+
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Revisión del periodo</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{resumen}}" as="r" hint-placeholder-count="3">
+          <span style="display: flex; align-items: baseline; gap: 10px">
+            <span class="mono" style="flex: none; width: 30px; text-align: right; font-size: 17px; font-weight: 600; color: {{r.color}}">{{r.valor}}</span>
+            <span style="flex: 1; font-size: 11.5px; line-height: 1.5; color: #4a544f">{{r.etiqueta}}</span>
+          </span>
+        </sc-for>
+        <button style="margin-top: 4px; padding: 9px 14px; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Cerrar la revisión trimestral</button>
+      </div>
+
+      <sc-if value="{{hayHallazgo}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+            <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #a52016; font-weight: 600">Accesos sin sustento</span>
+          </span>
+          <span style="font-size: 11.5px; line-height: 1.6; color: #a52016">{{textoHallazgo}}</span>
+          <button style="padding: 8px 13px; font-size: 11.5px; font-weight: 600; color: #ffffff; background: #a52016; border: 1px solid #8a1f16; border-radius: 6px">Levantar hallazgo</button>
+        </div>
+      </sc-if>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Lo que esto reemplaza</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">
+          La matriz del consultor pone <strong style="font-weight: 600">una columna por empleado</strong>: Daniel M, Laura A, Yuliet R… Cada ingreso o salida obliga a alterar la estructura de la tabla, y el histórico de quién tuvo qué acceso se pierde al sobrescribir la celda.
+        </span>
+        <div style="display: flex; flex-direction: column; gap: 7px; padding: 12px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+          <span class="mono" style="font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #a3aca7">En el sistema</span>
+          <span style="font-size: 11.5px; line-height: 1.6; color: #3a443f">Una fila por relación, con fecha de inicio y de fin. Dar de alta a alguien es insertar filas; darlo de baja es cerrarlas. La estructura nunca cambia y el pasado no se pierde.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const SEG_BASE = 'padding: 6px 12px; font-size: 11.5px; font-weight: 500; border-radius: 4px; border: 0; white-space: nowrap;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #ffffff; color: #12437f; font-weight: 600; border: 1px solid #d3dceb;';
+
+// Relaciones persona–perfil con vigencia. `hasta: null` = sigue vigente.
+const RELACIONES = [
+  { persona: 'Daniel Medina', iniciales: 'DM', perfil: 'Administrador de infraestructura', sistema: 'Azure · nube', desde: '2024-02-01', hasta: null, sustento: 'SOL-2024-0012' },
+  { persona: 'Daniel Medina', iniciales: 'DM', perfil: 'Administrador del repositorio', sistema: 'GitHub', desde: '2024-02-01', hasta: null, sustento: 'SOL-2024-0012' },
+  { persona: 'Laura Agudelo', iniciales: 'LA', perfil: 'Líder del SIG', sistema: 'SIG-CUANTICO', desde: '2025-01-15', hasta: null, sustento: 'SOL-2025-0004' },
+  { persona: 'Laura Agudelo', iniciales: 'LA', perfil: 'Colaborador de proyectos', sistema: 'Repositorio de proyectos', desde: '2025-01-15', hasta: null, sustento: 'SOL-2025-0004' },
+  { persona: 'Lina Medina', iniciales: 'LM', perfil: 'Consulta financiera', sistema: 'Consolidados', desde: '2025-03-01', hasta: null, sustento: '' },
+  { persona: 'Marcela Molina', iniciales: 'MM', perfil: 'Gestión de contratos', sistema: 'Repositorio legal', desde: '2025-06-10', hasta: null, sustento: 'SOL-2025-0031' },
+  { persona: 'Yuliet Rojas', iniciales: 'YR', perfil: 'Soporte de mesa de servicio', sistema: 'Zoho Desk', desde: '2025-02-20', hasta: null, sustento: 'SOL-2025-0009' },
+  { persona: 'Yuliet Rojas', iniciales: 'YR', perfil: 'Administrador de infraestructura', sistema: 'Azure · nube', desde: '2026-07-01', hasta: null, sustento: '' },
+  { persona: 'Katherine Quiroga', iniciales: 'KQ', perfil: 'Líder del SIG', sistema: 'SIG-CUANTICO', desde: '2026-08-01', hasta: null, sustento: 'SOL-2026-0072' },
+  { persona: 'Camilo Restrepo', iniciales: 'CR', perfil: 'Ejecutivo comercial', sistema: 'CRM', desde: '2025-04-01', hasta: '2026-05-31', sustento: 'SOL-2025-0018' },
+  { persona: 'Camilo Restrepo', iniciales: 'CR', perfil: 'Consulta financiera', sistema: 'Consolidados', desde: '2025-04-01', hasta: '2026-07-15', sustento: '' },
+  { persona: 'Albeiro Medina', iniciales: 'AM', perfil: 'Gestión de talento humano', sistema: 'Nómina', desde: '2026-02-26', hasta: null, sustento: 'SOL-2026-0021' },
+];
+
+const FECHAS = [
+  { id: 'hoy', etiqueta: 'Hoy', iso: '2026-08-31', texto: '31 de agosto de 2026' },
+  { id: 't2', etiqueta: '30 jun 2026', iso: '2026-06-30', texto: '30 de junio de 2026' },
+  { id: 't1', etiqueta: '31 mar 2026', iso: '2026-03-31', texto: '31 de marzo de 2026' },
+  { id: 'cierre', etiqueta: '31 dic 2025', iso: '2025-12-31', texto: '31 de diciembre de 2025' },
+];
+
+function fmt(iso) {
+  if (!iso) return '—';
+  const p = iso.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0].slice(2);
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { fecha: 'hoy' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = FECHAS.find((x) => x.id === s.fecha) || FECHAS[0];
+
+    // Vigente a la fecha = empezó antes y no había terminado.
+    const vigentes = RELACIONES.filter((r) => r.desde <= f.iso && (r.hasta === null || r.hasta >= f.iso));
+
+    const accesos = vigentes.map((r) => {
+      const sin = r.sustento === '';
+      return {
+        persona: r.persona,
+        iniciales: r.iniciales,
+        perfil: r.perfil,
+        sistema: r.sistema,
+        desde: fmt(r.desde),
+        hasta: r.hasta === null ? 'Vigente' : fmt(r.hasta),
+        hastaColor: r.hasta === null ? '#0b5c44' : '#8a4407',
+        sustento: r.sustento,
+        conSustento: !sin,
+        sinSustento: sin,
+        fila: sin ? '#fdeeeb' : '#ffffff',
+      };
+    });
+
+    const sinSustento = accesos.filter((a) => a.sinSustento).length;
+    const personas = accesos.reduce((set, a) => (set.indexOf(a.persona) === -1 ? set.concat([a.persona]) : set), []).length;
+
+    return {
+      fechas: FECHAS.map((x) => ({
+        etiqueta: x.etiqueta,
+        estilo: s.fecha === x.id ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ fecha: x.id }),
+      })),
+      fechaTexto: f.texto,
+      conteo: accesos.length + ' relaciones · ' + personas + ' personas',
+      leyenda: [
+        { etiqueta: 'Con sustento', color: '#0f7a5a' },
+        { etiqueta: 'Sin sustento', color: '#a52016' },
+      ],
+      accesos,
+      resumen: [
+        { valor: accesos.length, etiqueta: 'accesos vigentes a la fecha consultada', color: '#12437f' },
+        { valor: sinSustento, etiqueta: 'sin una solicitud que los respalde', color: sinSustento > 0 ? '#a52016' : '#0b5c44' },
+        { valor: personas, etiqueta: 'personas con al menos un acceso', color: '#12437f' },
+      ],
+      hayHallazgo: sinSustento > 0,
+      textoHallazgo:
+        sinSustento === 1
+          ? 'Un acceso vigente no tiene solicitud que lo respalde. La revisión debe explicar por qué existe o retirarlo.'
+          : sinSustento + ' accesos vigentes no tienen solicitud que los respalde. La revisión debe explicar por qué existen o retirarlos.',
+    };
+  }
+}
+</script>
+</body>
+</html>
