@@ -10,6 +10,7 @@
 // aproximados de la tabla brand/*." Everything else — the gradient's three stops at 96°,
 // the white CQ tile with dark blue type, the sizes, the tab weights — is the prototype's.
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -57,18 +58,22 @@ export default function HeaderCorporativo({ usuario, rol, cuenta, pestanas }: Pr
       }}
     >
       <Link href="/" className="flex items-center" style={{ gap: 11 }}>
+        {/* El guepardo de la marca, en la baldosa blanca que el prototipo dibuja para
+            «CQ». La imagen viene sin su círculo de fondo: la baldosa ya es blanca, y
+            superponer otro blanco deja un borde visible si los dos no coinciden exacto.
+            Va a 120 px para el tamaño final de 30, así que se ve nítido en retina. */}
         <span
-          className="flex flex-none items-center justify-center rounded-campo font-mono font-bold"
-          style={{
-            width: 30,
-            height: 30,
-            background: '#ffffff',
-            color: 'var(--hf-brand-700)',
-            fontSize: 10,
-          }}
-          aria-hidden
+          className="flex flex-none items-center justify-center overflow-hidden rounded-campo"
+          style={{ width: 30, height: 30, background: '#ffffff' }}
         >
-          CQ
+          <Image
+            src="/guepardo.png"
+            alt="Cuántico"
+            width={120}
+            height={120}
+            priority
+            style={{ width: 26, height: 26, objectFit: 'contain' }}
+          />
         </span>
         <span className="flex flex-col" style={{ lineHeight: 1.1 }}>
           <span
