@@ -402,3 +402,147 @@ export async function congelarLineaBase(nombre: string, acta: string): Promise<R
     return { ok: true, mensaje: 'Línea base congelada.' };
   });
 }
+// ── Restauración de los catálogos del método (MAN-CAL-01) ──
+
+/// Los valores normativos del manual. Viven acá y no importados del seed a propósito: el
+/// seed es un script de arranque que abre su propio cliente de Prisma, y una acción de
+/// servidor no puede depender de eso. Duplicarlos tiene un costo —dos lugares que hay que
+/// mover juntos— y se paga a cambio de que la restauración corra en UNA transacción con su
+/// bitácora, que es lo que un auditor pide al ver un botón llamado «restaurar».
+const NORMATIVOS = {
+  probabilidad: [
+    [1, 'Muy baja', 'Casi nunca', '#e6efe9'],
+    [2, 'Baja', 'Ocasionalmente', '#eef7f1'],
+    [3, 'Media', 'Con cierta frecuencia', '#faf1d3'],
+    [4, 'Alta', 'Frecuentemente', '#fbe6d2'],
+    [5, 'Muy alta', 'Casi siempre', '#f7dcd9'],
+  ] as const,
+  impactoRiesgo: [
+    [1, 'Insignificante', '1', '70000000'],
+    [2, 'Menor', '3', '210000000'],
+    [3, 'Moderado', '7', '490000000'],
+    [4, 'Mayor', '12', '840000000'],
+    [5, 'Catastrófico', '20', '1400000000'],
+  ] as const,
+  impactoOportunidad: [
+    [1, 'Menor'],
+    [2, 'Moderada'],
+    [3, 'Significativa'],
+    [4, 'Importante'],
+    [5, 'Excepcional'],
+  ] as const,
+  tiposControl: [
+    ['Preventivo', 'PROBABILIDAD', 'Evita que el riesgo ocurra'],
+    ['Correctivo', 'IMPACTO', 'Reduce el daño cuando ocurre'],
+    ['Preventivo y correctivo', 'AMBOS', 'Actúa antes y después'],
+    ['Reforzador', 'PROBABILIDAD', 'Hace más probable la oportunidad'],
+    ['Reactivo', 'IMPACTO', 'Definido en el manual; la matriz no lo usa'],
+    ['Proactivo', 'AMBOS', 'Refuerza y amplía la oportunidad'],
+  ] as const,
+  eficacias: [
+    ['Débil', '0.100', 'Reduce el 10 %'],
+    ['Moderado', '0.400', 'Reduce el 40 %'],
+    ['Fuerte', '0.800', 'Reduce el 80 %'],
+  ] as const,
+  niveles: [
+    [0, 4, 'Aceptable', '#0b5c44', 'Aceptar', 'Esperar'],
+    [5, 12, 'Moderado', '#c25a1e', 'Mitigar o reducir', 'Mejorar'],
+    [13, 25, 'Inaceptable', '#a52016', 'Evitar', 'Explotar'],
+  ] as const,
+};
+
+export interface ResultadoRestauracion extends Resultado {
+  cambios: number;
+}
+
+/// Devuelve los catálogos del método a los valores de MAN-CAL-01.
+///
+/// El botón que la invoca existía desde el principio y NO restauraba nada: escribía «valores
+/// restaurados» y no tocaba la base. Un control que afirma haber restaurado datos es peor que
+/// uno que no anda: quien lo pulsó cree que el método volvió a su línea normativa, y sigue
+/// calculando con los valores que quiso corregir.
+///
+/// Exige motivo porque cambiar una escala recalcula los 66 registros al leer, y una
+/// restauración sin razón escrita es indistinguible de un accidente.
+export async function restaurarCatalogosDelMetodo(motivo: string): Promise<ResultadoRestauracion> {
+  return ejecutar<ResultadoRestauracion>(async () => {
+    const autor = await autorConPermiso('estrategico:parametrizar');
+    if (!motivo.trim()) {
+      return { ok: false, mensaje: 'La restauración exige motivo: queda en bitácora.', cambios: 0 };
+    }
+
+    let cambios = 0;
+    await prisma.$transaction(async (tx) => {
+      for (const [valor, etiqueta, descripcion, color] of NORMATIVOS.probabilidad) {
+        const previo = await tx.escalaProbabilidad.findUnique({ where: { valor } });
+        if (previo?.etiqueta === etiqueta && previo?.descripcion === descripcion) continue;
+        await tx.escalaProbabilidad.upsert({
+          where: { valor },
+          update: { etiqueta, descripcion, color },
+          create: { valor, etiqueta, descripcion, color },
+        });
+        cambios++;
+      }
+      for (const [valor, etiqueta, pct, cop] of NORMATIVOS.impactoRiesgo) {
+        await tx.escalaImpactoRiesgo.upsert({
+          where: { valor },
+          update: { etiqueta, porcentajePatrimonio: pct, referenciaCop: cop },
+          create: { valor, etiqueta, porcentajePatrimonio: pct, referenciaCop: cop },
+        });
+        cambios++;
+      }
+      for (const [valor, etiqueta] of NORMATIVOS.impactoOportunidad) {
+        await tx.escalaImpactoOportunidad.upsert({
+          where: { valor },
+          update: { etiqueta },
+          create: { valor, etiqueta },
+        });
+        cambios++;
+      }
+      for (const nombre of ['Legal', 'Operacional', 'Personal', 'Tecnológico', 'Reputacional', 'Externo']) {
+        await tx.factorRiesgo.upsert({ where: { nombre }, update: {}, create: { nombre } });
+      }
+      for (const [nombre, reduce, descripcion] of NORMATIVOS.tiposControl) {
+        await tx.tipoControlRiesgo.upsert({
+          where: { nombre },
+          update: { reduce, descripcion },
+          create: { nombre, reduce, descripcion },
+        });
+        cambios++;
+      }
+      for (const [nombre, valor, descripcion] of NORMATIVOS.eficacias) {
+        await tx.eficaciaControl.upsert({
+          where: { nombre },
+          update: { valor, descripcion },
+          create: { nombre, valor, descripcion },
+        });
+        cambios++;
+      }
+      for (const [minimo, maximo, etiqueta, color, accionRiesgo, accionOportunidad] of NORMATIVOS.niveles) {
+        await tx.nivelRiesgo.upsert({
+          where: { minimo },
+          update: { maximo, etiqueta, color, accionRiesgo, accionOportunidad },
+          create: { minimo, maximo, etiqueta, color, accionRiesgo, accionOportunidad },
+        });
+        cambios++;
+      }
+
+      await registrar(tx, autor, [
+        {
+          tabla: 'parametro',
+          registroId: 'catalogos-metodo-estrategico',
+          campo: 'restauracion',
+          anterior: 'valores en uso',
+          nuevo: 'valores normativos de MAN-CAL-01',
+          motivo,
+        },
+      ]);
+    });
+
+    return {
+      ok: true,
+      mensaje: `Catálogos devueltos a MAN-CAL-01 · ${cambios} valores aplicados. El residual de los riesgos se recalcula al leer.`,
+      cambios,
+    };
+  });
+}

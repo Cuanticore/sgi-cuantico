@@ -8,6 +8,7 @@
 // sin tocar datos (los registros guardan la referencia, no el número — D4).
 
 import { useState } from 'react';
+import Restaurar from './Restaurar.client';
 
 type Pestana = 'probabilidad' | 'impactoRiesgo' | 'impactoOportunidad' | 'tipos' | 'eficacias' | 'niveles';
 
@@ -49,12 +50,7 @@ export default function ParametrosClient({
             Cambiar una escala recalcula los 66 registros al instante: guardan la referencia al nivel, no el número.
           </p>
         </div>
-        <button
-          onClick={() => setAviso('Valores del MAN-CAL-01 restaurados (seed). Todo cambio exige motivo y queda en bitácora.')}
-          className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 font-medium text-muted"
-        >
-          Restaurar valores del MAN-CAL-01
-        </button>
+        <Restaurar />
       </div>
 
       <nav className="mt-5 flex border-b border-border-default">
