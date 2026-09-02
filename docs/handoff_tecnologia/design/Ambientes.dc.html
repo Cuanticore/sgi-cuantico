@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; text-align: left; padding: 0 0 9px; }
+    .td { padding: 10px 0; border-top: 1px solid #f2f4f3; vertical-align: middle; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Ambientes y despliegues</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">Dónde vive cada componente. <strong style="font-weight: 600; color: #4a544f">Un despliegue no es un activo</strong>: cuelga del activo y no genera riesgos propios.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; display: flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Importar exportación
+    </button>
+  </div>
+
+  <!-- Resultado de la última importación -->
+  <div style="display: flex; align-items: center; gap: 16px; padding: 13px 18px; margin-bottom: 14px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+    <sc-for list="{{corrida}}" as="c" hint-placeholder-count="4">
+      <span style="display: flex; align-items: baseline; gap: 8px">
+        <span class="mono" style="font-size: 18px; font-weight: 600; color: {{c.color}}">{{c.valor}}</span>
+        <span style="font-size: 11.5px; color: #4a544f">{{c.etiqueta}}</span>
+      </span>
+      <span style="width: 1px; height: 18px; background: #eceeed"></span>
+    </sc-for>
+    <span style="font-size: 11.5px; color: #8a938e; line-height: 1.5">Idempotente por repo, ambiente y servidor: reimportar actualiza, nunca duplica.</span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+      <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="3">
+        <span style="display: inline-flex; align-items: center; gap: 6px">
+          <span style="width: 9px; height: 9px; border-radius: 2px; background: {{l.color}}"></span>
+          <span style="font-size: 11px; color: #4a544f">{{l.etiqueta}}</span>
+        </span>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 16px 18px 8px">
+    <table style="width: 100%; border-collapse: collapse; min-width: 1180px">
+      <thead>
+        <tr>
+          <th class="th" style="width: 168px">Activo padre</th>
+          <th class="th" style="width: 150px">Componente</th>
+          <th class="th" style="width: 118px">Ambiente</th>
+          <th class="th" style="width: 138px">Servidor · IP</th>
+          <th class="th">URL</th>
+          <th class="th" style="width: 104px">Rama · tag</th>
+          <th class="th" style="width: 132px">Estado</th>
+          <th class="th" style="width: 74px">Confianza</th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{filas}}" as="d" hint-placeholder-count="10">
+          <tr style="background: {{d.fila}}">
+            <td class="td" style="padding-right: 12px">
+              <sc-if value="{{d.conPadre}}" hint-placeholder-val="{{ true }}">
+                <span style="display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 12px; font-weight: 500; color: #1a211e">{{d.padre}}</span>
+                  <span class="mono" style="font-size: 9px; color: #12437f">{{d.padreCodigo}}</span>
+                </span>
+              </sc-if>
+              <sc-if value="{{d.sinPadre}}" hint-placeholder-val="{{ true }}">
+                <button style="display: flex; align-items: center; gap: 7px; padding: 5px 10px; font-size: 11px; font-weight: 600; color: #a52016; background: #ffffff; border: 1px dashed #f2cdc6; border-radius: 6px">+ Asociar activo</button>
+              </sc-if>
+            </td>
+            <td class="td" style="padding-right: 12px"><span style="font-size: 12px; color: #3a443f">{{d.componente}}</span></td>
+            <td class="td">
+              <span class="mono" style="display: inline-block; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{d.ambBg}}; color: {{d.ambFg}}">{{d.ambiente}}</span>
+            </td>
+            <td class="td" style="padding-right: 12px">
+              <span style="display: flex; flex-direction: column; gap: 2px">
+                <span style="font-size: 11.5px; color: #3a443f">{{d.servidor}}</span>
+                <span class="mono" style="font-size: 9.5px; color: #8a938e">{{d.ip}}</span>
+              </span>
+            </td>
+            <td class="td" style="padding-right: 12px"><span class="mono" style="font-size: 10.5px; color: #12437f">{{d.url}}</span></td>
+            <td class="td"><span class="mono" style="font-size: 10.5px; color: #4a544f">{{d.rama}}</span></td>
+            <td class="td">
+              <span class="mono" style="display: inline-block; padding: 3px 8px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{d.estBg}}; color: {{d.estFg}}">{{d.estado}}</span>
+            </td>
+            <td class="td"><span class="mono" style="font-size: 10.5px; font-weight: 600; color: {{d.confColor}}">{{d.confianza}}</span></td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display: flex; align-items: flex-start; gap: 11px; padding: 13px 16px; margin-top: 12px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+    <span style="flex: 1; font-size: 12px; line-height: 1.6; color: #a52016">
+      <strong style="font-weight: 600">Lo que el levantamiento ya encontró y esta pantalla no debe esconder:</strong>
+      dos servicios <span class="mono" style="font-size: 11px">legacy / abandonado</span> —uno con 5.822 reinicios— sirviendo el mismo dominio que producción desde otro servidor, y una imagen de contenedor sin tag ni registro que no se puede rastrear. Son hallazgos, y desde aquí se levantan como tales en Mejora.
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const AMB = {
+  'produccion': { t: 'Producción', bg: '#fdeeeb', fg: '#a52016' },
+  'staging': { t: 'Staging', bg: '#fff3e6', fg: '#8a4407' },
+  'desarrollo': { t: 'Desarrollo', bg: '#e9f0fb', fg: '#12437f' },
+  'experimental': { t: 'Experimental', bg: '#eef2f8', fg: '#12437f' },
+  'legacy': { t: 'Legacy', bg: '#f5f7f6', fg: '#6b7570' },
+};
+
+const EST = {
+  running: { t: 'Running', bg: '#e6efe9', fg: '#0b5c44' },
+  detenido: { t: 'Detenido', bg: '#fdeeeb', fg: '#a52016' },
+};
+
+const FILAS = [
+  { padre: 'CRM Cuantico', padreCodigo: 'TEC-APP-0020', componente: 'App web CRM', amb: 'staging', servidor: 'stack-cuanticore', ip: '52.90.119.107', url: 'https://crm.cuanticore.com', rama: 'development', est: 'running', conf: 'alta' },
+  { padre: 'CRM Cuantico', padreCodigo: 'TEC-APP-0020', componente: 'App web CRM', amb: 'desarrollo', servidor: 'stack-cuanticore', ip: '52.90.119.107', url: 'https://dev-crm.cuanticore.com', rama: 'dev', est: 'running', conf: 'alta' },
+  { padre: 'CRM Cuantico', padreCodigo: 'TEC-APP-0020', componente: 'Frontend Next.js', amb: 'experimental', servidor: 'stack-cuanticore', ip: '52.90.119.107', url: 'https://crm-next.cuanticore.com', rama: 'nextjs-migration', est: 'running', conf: 'alta' },
+  { padre: 'Mintrace CRM', padreCodigo: 'TEC-APP-0021', componente: 'App web CRM', amb: 'produccion', servidor: 'mintrace-crm-prod', ip: '54.86.37.61', url: 'https://crm.mintrace.com', rama: 'master', est: 'running', conf: 'alta' },
+  { padre: '', padreCodigo: '', componente: 'App web CRM (legacy PM2)', amb: 'legacy', servidor: 'srv-ottm-db-cluster', ip: '107.22.230.147', url: 'https://crm.mintrace.com', rama: '—', est: 'detenido', conf: 'alta', alerta: true },
+  { padre: '', padreCodigo: '', componente: 'MCP CRM', amb: 'produccion', servidor: 'mintrace-crm-prod', ip: '54.86.37.61', url: 'https://mcp-crm.mintrace.com', rama: 'sin tag', est: 'running', conf: 'media', alerta: true },
+  { padre: '', padreCodigo: '', componente: 'MCP CRM (legacy PM2)', amb: 'legacy', servidor: 'srv-ottm-db-cluster', ip: '107.22.230.147', url: 'https://mcp-crm.mintrace.com', rama: '—', est: 'detenido', conf: 'alta', alerta: true },
+  { padre: 'Conducpro', padreCodigo: 'TEC-APP-0025', componente: 'API de trámites', amb: 'produccion', servidor: 'conducpro-prod', ip: '3.94.12.88', url: 'https://api.conducpro.co', rama: 'main', est: 'running', conf: 'alta' },
+  { padre: 'Conducpro', padreCodigo: 'TEC-APP-0025', componente: 'API de trámites', amb: 'staging', servidor: 'stack-cuanticore', ip: '52.90.119.107', url: 'https://stg-api.conducpro.co', rama: 'develop', est: 'running', conf: 'alta' },
+  { padre: 'SIG-CUANTICO', padreCodigo: 'TEC-APP-0030', componente: 'Aplicación del SIG', amb: 'produccion', servidor: 'srv-cert-front', ip: '98.83.132.206', url: 'https://sig.cuanticore.com', rama: 'main', est: 'running', conf: 'alta' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const visibles =
+      s.filtro === 'todos' ? FILAS
+        : s.filtro === 'pendientes' ? FILAS.filter((f) => f.padre === '')
+          : s.filtro === 'produccion' ? FILAS.filter((f) => f.amb === 'produccion')
+            : s.filtro === 'legacy' ? FILAS.filter((f) => f.amb === 'legacy')
+              : FILAS.filter((f) => f.conf !== 'alta');
+
+    return {
+      corrida: [
+        { valor: 130, etiqueta: 'despliegues importados', color: '#12437f' },
+        { valor: 106, etiqueta: 'asociados a su activo', color: '#0b5c44' },
+        { valor: 24, etiqueta: 'pendientes de asociar', color: '#a52016' },
+        { valor: 9, etiqueta: 'con confianza media o baja', color: '#b8791a' },
+      ],
+      filtros: [
+        { id: 'todos', etiqueta: 'Todos', conteo: FILAS.length },
+        { id: 'pendientes', etiqueta: 'Sin activo padre', conteo: FILAS.filter((f) => f.padre === '').length },
+        { id: 'produccion', etiqueta: 'Producción', conteo: FILAS.filter((f) => f.amb === 'produccion').length },
+        { id: 'legacy', etiqueta: 'Legacy', conteo: FILAS.filter((f) => f.amb === 'legacy').length },
+        { id: 'confianza', etiqueta: 'Confianza no alta', conteo: FILAS.filter((f) => f.conf !== 'alta').length },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      leyenda: [
+        { etiqueta: 'Producción', color: '#a52016' },
+        { etiqueta: 'Preproducción', color: '#b8791a' },
+        { etiqueta: 'Desarrollo', color: '#12437f' },
+      ],
+      filas: visibles.map((f) => ({
+        ...f,
+        ambiente: AMB[f.amb].t,
+        ambBg: AMB[f.amb].bg,
+        ambFg: AMB[f.amb].fg,
+        estado: EST[f.est].t,
+        estBg: EST[f.est].bg,
+        estFg: EST[f.est].fg,
+        confianza: f.conf,
+        confColor: f.conf === 'alta' ? '#0b5c44' : '#b8791a',
+        conPadre: f.padre !== '',
+        sinPadre: f.padre === '',
+        fila: f.alerta ? '#fdeeeb' : '#ffffff',
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1340, "h": 900, "title": "Mapa tecnológico", "is_interactive": true },
+    { "file": "Ambientes.dc.html", "x": 1440, "y": 0, "w": 1340, "h": 880, "title": "Ambientes y despliegues", "is_interactive": true },
+    { "file": "Dependencias.dc.html", "x": 2880, "y": 0, "w": 1340, "h": 880, "title": "Dependencias entre activos", "is_interactive": true },
+
+    { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Hoja de vida del producto", "is_interactive": true },
+    { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos y flota", "is_interactive": true },
+    { "file": "Inventario.dc.html", "x": 2600, "y": 1030, "w": 1340, "h": 880, "title": "Inventario agrupado por niveles", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "modelo",
+      "x": 0,
+      "y": -300,
+      "w": 860,
+      "text": "Gestión Tecnológica · REQ-SIG-06\n\nDos decisiones de modelo que se ven en todas las pantallas:\n\n· Un despliegue NO es un activo. Cuelga del activo y no genera riesgos. Si cada una de las 130 filas fuera un activo, el motor produciría ~1.200 riesgos que nadie valoraría.\n\n· La dependencia no es la jerarquía. «Está dentro de» tiene un padre; «depende de» tiene muchos. Conviven."
+    },
+    {
+      "id": "hallazgos",
+      "x": 1440,
+      "y": -300,
+      "w": 820,
+      "text": "El levantamiento de ambientes ya encontró cosas\n\nDos servicios legacy/abandonado —uno con 5.822 reinicios— sirviendo el mismo dominio que producción desde otro servidor, y una imagen de contenedor sin tag que no se puede rastrear.\n\nLa pantalla los muestra en rojo en vez de esconderlos en una tabla ordenada, y conserva de dónde salió cada dato y con qué confianza. En el mapa, abre el nodo «Legacy PM2»."
+    },
+    {
+      "id": "abajo",
+      "x": 0,
+      "y": 1980,
+      "w": 860,
+      "text": "Prueba estas tres\n\n· Hoja de vida: cambia de v3.2 a v3.0 y mira cómo el ciclo de vida se vacía. Cada versión repite las siete etapas — la pregunta del auditor es por la que está en producción hoy.\n\n· Equipos: parte de las personas del Directorio, no del inventario. Por eso puede decir quién no tiene equipo.\n\n· Inventario: cambia la agrupación entre los tres niveles."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

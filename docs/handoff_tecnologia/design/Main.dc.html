@@ -1,0 +1,352 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Mapa tecnológico</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 96ch; line-height: 1.55">De la empresa al contenedor. Cada nodo abre el siguiente, y el activo se edita sin salir del árbol.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 9px">
+      <span style="display: flex; gap: 3px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+        <sc-for list="{{vistas}}" as="v" hint-placeholder-count="2">
+          <button onClick="{{v.elegir}}" style="{{v.estilo}}">{{v.etiqueta}}</button>
+        </sc-for>
+      </span>
+      <button onClick="{{expandirTodo}}" style="padding: 9px 14px; font-size: 12px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">{{textoExpandir}}</button>
+      <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Exportar</button>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <!-- El árbol -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #eceeed">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Árbol de dependencias</span>
+        <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{conteo}}</span>
+        <span style="margin-left: auto; display: flex; gap: 12px">
+          <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="4">
+            <span style="display: inline-flex; align-items: center; gap: 6px">
+              <span style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 4px; background: {{l.bg}}; color: {{l.fg}}">{{l.icono}}</span>
+              <span style="font-size: 10.5px; color: #4a544f">{{l.etiqueta}}</span>
+            </span>
+          </sc-for>
+        </span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 12px 10px">
+        <sc-for list="{{nodos}}" as="n" hint-placeholder-count="18">
+          <button onClick="{{n.tocar}}" style="{{n.estilo}}">
+            <span style="flex: none; width: {{n.sangria}}"></span>
+            <span style="flex: none; width: 14px; font-size: 9px; color: #a3aca7; text-align: center">{{n.flecha}}</span>
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 5px; background: {{n.iconoBg}}; color: {{n.iconoFg}}">{{n.icono}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 9px; text-align: left">
+              <span style="font-size: {{n.tamano}}; font-weight: {{n.peso}}; color: {{n.color}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.nombre}}</span>
+              <span class="mono" style="flex: none; font-size: 9.5px; color: #a3aca7">{{n.meta}}</span>
+            </span>
+            <sc-if value="{{n.tieneMarca}}" hint-placeholder-val="{{ true }}">
+              <span class="mono" style="flex: none; padding: 2px 7px; font-size: 7.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{n.marcaBg}}; color: {{n.marcaFg}}">{{n.marca}}</span>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Panel del nodo -->
+    <aside style="flex: none; width: 386px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px 14px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; background: {{sel.iconoBg}}; color: {{sel.iconoFg}}">{{sel.icono}}</span>
+          <span class="etq">{{sel.clase}}</span>
+          <sc-if value="{{sel.tieneCodigo}}" hint-placeholder-val="{{ true }}">
+            <span class="mono" style="margin-left: auto; font-size: 10.5px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+          </sc-if>
+        </span>
+        <span style="font-size: 15px; font-weight: 600; line-height: 1.35">{{sel.nombre}}</span>
+        <span style="font-size: 11.5px; color: #6b7570; line-height: 1.5">{{sel.ruta}}</span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 16px">
+        <sc-if value="{{sel.esActivo}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+              <sc-for list="{{sel.campos}}" as="c" hint-placeholder-count="4">
+                <span style="display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+                  <span class="etq">{{c.etiqueta}}</span>
+                  <span style="font-size: 12px; color: {{c.color}}; font-weight: {{c.peso}}">{{c.valor}}</span>
+                </span>
+              </sc-for>
+            </div>
+            <button style="align-self: flex-start; padding: 8px 14px; font-size: 12px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Editar el activo aquí</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{sel.tieneDependencias}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 9px">
+            <span class="cab"><span>Depende de</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{sel.conteoDep}}</span></span>
+            <sc-for list="{{sel.dependencias}}" as="d" hint-placeholder-count="4">
+              <span style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+                <span class="mono" style="flex: none; padding: 2px 6px; font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 3px; background: #e9f0fb; color: #12437f">{{d.tipo}}</span>
+                <span style="flex: 1; min-width: 0; font-size: 11.5px; color: #1a211e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{d.nombre}}</span>
+              </span>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{sel.tieneDespliegue}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 9px">
+            <span class="cab"><span>Despliegue</span><span class="regla"></span></span>
+            <sc-for list="{{sel.despliegue}}" as="d" hint-placeholder-count="6">
+              <span style="display: flex; align-items: baseline; gap: 10px">
+                <span class="etq" style="flex: none; width: 88px">{{d.etiqueta}}</span>
+                <span class="mono" style="flex: 1; min-width: 0; font-size: 11px; color: {{d.color}}; word-break: break-all">{{d.valor}}</span>
+              </span>
+            </sc-for>
+            <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; margin-top: 3px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+              <span class="etq" style="flex: none; width: 60px; padding-top: 1px">Evidencia</span>
+              <span style="flex: 1; font-size: 11px; line-height: 1.5; color: #4a544f">{{sel.evidencia}}</span>
+            </span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{sel.tieneAviso}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 10px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+            <span style="font-size: 11.5px; line-height: 1.55; color: #a52016">{{sel.aviso}}</span>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":900}}'>
+const SEG_BASE = 'padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+// Iconos por clase de nodo. Formas simples, no emoji: escalan y recolorean.
+const ICONO = {
+  nivel1: { c: '▣', bg: '#0c2461', fg: '#ffffff' },
+  nivel2: { c: '◆', bg: '#e9f0fb', fg: '#12437f' },
+  nivel3: { c: '▤', bg: '#eef2f8', fg: '#12437f' },
+  repo:   { c: '⌥', bg: '#e8f4ef', fg: '#0b5c44' },
+  app:    { c: '▶', bg: '#e8f4ef', fg: '#0b5c44' },
+  servicio:{ c: '⬡', bg: '#e9f0fb', fg: '#12437f' },
+  ambiente:{ c: '⬒', bg: '#fff3e6', fg: '#8a4407' },
+  credencial:{ c: '⚿', bg: '#fdeeeb', fg: '#a52016' },
+  doc:    { c: '▭', bg: '#f5f7f6', fg: '#4a544f' },
+  servidor:{ c: '▥', bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+// Árbol tomado del FOR-SIG-12 de Gestión Tecnológica.
+const ARBOL = [
+  { id: 'emp', nivel: 0, clase: 'nivel1', nombre: 'EMPRESA', meta: '18 activos' },
+  { id: 'emp-sb', nivel: 1, clase: 'nivel2', nombre: 'Servicios Base', meta: '12 activos', padre: 'emp' },
+  { id: 'emp-dc', nivel: 2, clase: 'nivel3', nombre: 'Datacenter', meta: '3', padre: 'emp-sb' },
+  { id: 'a-dir', nivel: 3, clase: 'servicio', nombre: 'Servicio de Directorio Activo', codigo: 'TEC-SER-0011', meta: 'Microsoft 365', padre: 'emp-dc', activo: true, valor: '4 — Alto' },
+  { id: 'a-mon', nivel: 3, clase: 'servicio', nombre: 'Servicio de Monitoreo de identidades', codigo: 'TEC-SER-0012', meta: 'Microsoft 365', padre: 'emp-dc', activo: true, valor: '4 — Alto' },
+  { id: 'a-alm', nivel: 3, clase: 'servicio', nombre: 'Servicio de Almacenamiento', codigo: 'TEC-SER-0013', meta: 'Microsoft 365', padre: 'emp-dc', activo: true, valor: '4 — Alto' },
+  { id: 'emp-seg', nivel: 2, clase: 'nivel3', nombre: 'Seguridad', meta: '1', padre: 'emp-sb' },
+  { id: 'a-vpn', nivel: 3, clase: 'app', nombre: 'Servicio conexión segura', codigo: 'TEC-APP-0004', meta: 'Microsoft 365', padre: 'emp-seg', activo: true, valor: '4 — Alto' },
+
+  { id: 'prod', nivel: 0, clase: 'nivel1', nombre: 'PRODUCTOS', meta: '2 productos' },
+  { id: 'mt', nivel: 1, clase: 'nivel2', nombre: 'MINTRACE', meta: '14 activos · v3.2', padre: 'prod' },
+  { id: 'mt-cf', nivel: 2, clase: 'nivel3', nombre: 'Código Fuente', meta: '1', padre: 'mt' },
+  { id: 'mt-repo', nivel: 3, clase: 'repo', nombre: 'cuantico-crm-pry-l', codigo: 'TEC-APP-0021', meta: 'GitHub', padre: 'mt-cf', activo: true, valor: '5 — Muy alto' },
+  { id: 'mt-amb', nivel: 2, clase: 'nivel3', nombre: 'Ambientes', meta: '2 de 3', padre: 'mt', falta: 'Falta staging' },
+  { id: 'mt-prod', nivel: 3, clase: 'ambiente', nombre: 'Producción · mintrace-crm-prod', meta: '54.86.37.61', padre: 'mt-amb', despliegue: 'prod' },
+  { id: 'mt-leg', nivel: 3, clase: 'ambiente', nombre: 'Legacy PM2 · abandonado', meta: 'DETENIDO', padre: 'mt-amb', despliegue: 'legacy', alerta: true },
+  { id: 'mt-dep', nivel: 2, clase: 'nivel3', nombre: 'Dependencias', meta: '9', padre: 'mt' },
+  { id: 'mt-apollo', nivel: 3, clase: 'servicio', nombre: 'Servicios de Información / Apollo', codigo: 'TEC-SER-0031', meta: 'externo', padre: 'mt-dep', activo: true, valor: '3 — Medio' },
+  { id: 'mt-rnec', nivel: 3, clase: 'servicio', nombre: 'Servicios de Información / RNEC', codigo: 'TEC-SER-0032', meta: 'externo', padre: 'mt-dep', activo: true, valor: '4 — Alto' },
+  { id: 'mt-cred', nivel: 3, clase: 'credencial', nombre: 'Credencial / ILC Fabric', codigo: 'TEC-CLA-0007', meta: 'clave', padre: 'mt-dep', activo: true, valor: '5 — Muy alto' },
+  { id: 'mt-doc', nivel: 2, clase: 'nivel3', nombre: 'Documentación', meta: '1 de 3', padre: 'mt', falta: 'Faltan confidencial y pública' },
+  { id: 'mt-docp', nivel: 3, clase: 'doc', nombre: 'Documentación privada', codigo: 'TEC-DAT-0044', meta: 'SharePoint', padre: 'mt-doc', activo: true, valor: '3 — Medio' },
+
+  { id: 'cp', nivel: 1, clase: 'nivel2', nombre: 'CONDUCPRO', meta: '9 activos · v1.4', padre: 'prod' },
+
+  { id: 'pry', nivel: 0, clase: 'nivel1', nombre: 'PROYECTOS', meta: '1 proyecto' },
+  { id: 'crm', nivel: 1, clase: 'nivel2', nombre: 'CRM Cuantico', meta: '3 despliegues', padre: 'pry' },
+];
+
+const DESPLIEGUES = {
+  prod: {
+    campos: [
+      ['Ambiente', 'producción', '#a52016'],
+      ['Plataforma', 'Docker + nginx', '#4a544f'],
+      ['Servidor', 'mintrace-crm-prod', '#4a544f'],
+      ['IP', '54.86.37.61', '#4a544f'],
+      ['URL', 'https://crm.mintrace.com', '#12437f'],
+      ['Rama', 'master', '#4a544f'],
+      ['Contenedor', 'mintrace_crm', '#4a544f'],
+      ['Estado', 'running (5 días)', '#0b5c44'],
+      ['Confianza', 'alta', '#0b5c44'],
+    ],
+    evidencia: 'nginx sites-enabled + docker ps',
+    aviso: '',
+  },
+  legacy: {
+    campos: [
+      ['Ambiente', 'legacy / abandonado', '#a52016'],
+      ['Plataforma', 'PM2 + nginx', '#4a544f'],
+      ['Servidor', 'srv-ottm-db-cluster', '#4a544f'],
+      ['IP', '107.22.230.147', '#4a544f'],
+      ['Estado', 'DETENIDO · 5.822 reinicios', '#a52016'],
+      ['Confianza', 'alta', '#0b5c44'],
+    ],
+    evidencia: 'pm2 list + nginx',
+    aviso: 'Vhost del mismo dominio que el ambiente de producción, sobre un servidor distinto y con el servicio detenido. Mientras exista, una petición puede resolver contra el servidor equivocado. Es un hallazgo, no un dato de inventario.',
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      vista: 'arbol',
+      sel: 'mt-leg',
+      abiertos: ['emp', 'emp-sb', 'emp-dc', 'prod', 'mt', 'mt-amb', 'mt-dep', 'pry'],
+    };
+  }
+
+  visibles() {
+    const ab = this.state.abiertos;
+    return ARBOL.filter((n) => {
+      let p = n.padre;
+      while (p) {
+        if (ab.indexOf(p) === -1) return false;
+        const padre = ARBOL.find((x) => x.id === p);
+        p = padre ? padre.padre : null;
+      }
+      return true;
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const conHijos = (id) => ARBOL.some((n) => n.padre === id);
+
+    const nodos = this.visibles().map((n) => {
+      const ic = ICONO[n.clase];
+      const abierto = s.abiertos.indexOf(n.id) !== -1;
+      const tiene = conHijos(n.id);
+      const elegido = s.sel === n.id;
+      const esGrupo = n.clase.indexOf('nivel') === 0;
+      return {
+        nombre: n.nombre,
+        meta: n.meta || '',
+        icono: ic.c,
+        iconoBg: ic.bg,
+        iconoFg: ic.fg,
+        sangria: n.nivel * 22 + 'px',
+        flecha: tiene ? (abierto ? '▾' : '▸') : '',
+        tamano: n.nivel === 0 ? '13.5px' : '12.5px',
+        peso: esGrupo ? 600 : 500,
+        color: n.alerta ? '#a52016' : '#1a211e',
+        tieneMarca: Boolean(n.falta) || Boolean(n.alerta),
+        marca: n.alerta ? 'Riesgo' : (n.falta || ''),
+        marcaBg: n.alerta ? '#fdeeeb' : '#fff3e6',
+        marcaFg: n.alerta ? '#a52016' : '#8a4407',
+        estilo:
+          'display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border-radius: 7px; text-align: left; border: 1px solid ' +
+          (elegido ? '#d3dceb' : 'transparent') + '; background: ' + (elegido ? '#eef2f8' : 'transparent') + ';',
+        tocar: () =>
+          this.setState({
+            sel: n.id,
+            abiertos: tiene
+              ? (abierto ? s.abiertos.filter((x) => x !== n.id) : s.abiertos.concat([n.id]))
+              : s.abiertos,
+          }),
+      };
+    });
+
+    const n = ARBOL.find((x) => x.id === s.sel) || ARBOL[0];
+    const ic = ICONO[n.clase];
+    const ruta = [];
+    let p = n.padre;
+    while (p) {
+      const padre = ARBOL.find((x) => x.id === p);
+      if (!padre) break;
+      ruta.unshift(padre.nombre);
+      p = padre.padre;
+    }
+    const dep = n.despliegue ? DESPLIEGUES[n.despliegue] : null;
+
+    return {
+      vistas: [
+        { id: 'arbol', etiqueta: 'Árbol' },
+        { id: 'grafo', etiqueta: 'Grafo' },
+      ].map((v) => ({ ...v, estilo: s.vista === v.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ vista: v.id }) })),
+      expandirTodo: () =>
+        this.setState({ abiertos: s.abiertos.length > 6 ? ['emp', 'prod', 'pry'] : ARBOL.map((x) => x.id) }),
+      textoExpandir: s.abiertos.length > 6 ? 'Colapsar' : 'Expandir todo',
+      conteo: nodos.length + ' nodos visibles · 3 niveles',
+      leyenda: [
+        { etiqueta: 'Nivel', icono: '◆', bg: '#e9f0fb', fg: '#12437f' },
+        { etiqueta: 'Activo', icono: '⬡', bg: '#e8f4ef', fg: '#0b5c44' },
+        { etiqueta: 'Ambiente', icono: '⬒', bg: '#fff3e6', fg: '#8a4407' },
+        { etiqueta: 'Credencial', icono: '⚿', bg: '#fdeeeb', fg: '#a52016' },
+      ],
+      nodos,
+      sel: {
+        nombre: n.nombre,
+        clase: n.clase.indexOf('nivel') === 0 ? 'Nivel ' + (n.nivel + 1) : 'Activo',
+        icono: ic.c,
+        iconoBg: ic.bg,
+        iconoFg: ic.fg,
+        codigo: n.codigo || '',
+        tieneCodigo: Boolean(n.codigo),
+        ruta: ruta.length ? ruta.join('  ›  ') : 'Raíz del mapa',
+        esActivo: Boolean(n.activo),
+        campos: n.activo
+          ? [
+              { etiqueta: 'Valor del activo', valor: n.valor, color: '#a52016', peso: 600 },
+              { etiqueta: 'Proceso', valor: 'Gestión Tecnológica', color: '#4a544f', peso: 400 },
+              { etiqueta: 'Custodio', valor: 'Daniel Medina', color: '#4a544f', peso: 400 },
+              { etiqueta: 'Expuesto a Internet', valor: 'Sí', color: '#8a4407', peso: 600 },
+            ]
+          : [],
+        tieneDependencias: n.id === 'mt' || n.id === 'mt-repo',
+        conteoDep: '9 activos',
+        dependencias: [
+          { tipo: 'usa', nombre: 'Servicios de Información / Apollo' },
+          { tipo: 'usa', nombre: 'Servicios de Información / RNEC' },
+          { tipo: 'autentica', nombre: 'Credencial / ILC Fabric' },
+          { tipo: 'almacena', nombre: 'mintrace_postgres' },
+        ],
+        tieneDespliegue: Boolean(dep),
+        despliegue: dep ? dep.campos.map(([etiqueta, valor, color]) => ({ etiqueta, valor, color })) : [],
+        evidencia: dep ? dep.evidencia : '',
+        tieneAviso: Boolean(dep && dep.aviso),
+        aviso: dep ? dep.aviso : '',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

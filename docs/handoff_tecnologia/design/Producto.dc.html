@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 7px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">MINTRACE</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">Producto</span>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{estadoBg}}; color: {{estadoFg}}">{{estado}}</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570">Hoja de vida · 14 activos · responsable Daniel Medina</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: flex-end; gap: 9px">
+      <span style="display: flex; flex-direction: column; gap: 5px">
+        <span class="etq">Versión</span>
+        <span style="display: flex; gap: 3px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+          <sc-for list="{{versiones}}" as="v" hint-placeholder-count="3">
+            <button onClick="{{v.elegir}}" style="{{v.estilo}}">{{v.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </span>
+      <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nueva versión</button>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <!-- Ciclo de vida -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 15px 18px 13px; border-bottom: 1px solid #eceeed">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Ciclo de vida seguro · {{versionActual}}</span>
+        <span style="margin-left: auto; display: flex; align-items: center; gap: 9px">
+          <span style="width: 108px; height: 6px; border-radius: 999px; background: #eceeed; overflow: hidden">
+            <span style="display: block; width: {{avance}}; height: 100%; background: {{avanceColor}}"></span>
+          </span>
+          <span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{avanceColor}}">{{avanceTexto}}</span>
+        </span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px">
+        <sc-for list="{{etapas}}" as="e" hint-placeholder-count="7">
+          <div style="display: flex; align-items: flex-start; gap: 14px; padding: 13px 15px; margin-bottom: 8px; background: {{e.fondo}}; border: 1px solid {{e.borde}}; border-radius: 10px">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: {{e.iconoBg}}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{e.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span style="display: flex; align-items: center; gap: 9px">
+                <span style="font-size: 13px; font-weight: 600; color: {{e.color}}">{{e.nombre}}</span>
+                <span class="mono" style="font-size: 9px; color: #a3aca7">{{e.control}}</span>
+              </span>
+              <span style="font-size: 11.5px; line-height: 1.5; color: #6b7570">{{e.evidencia}}</span>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span class="mono" style="font-size: 10.5px; color: {{e.fechaColor}}">{{e.fecha}}</span>
+              <span style="font-size: 10.5px; color: #8a938e">{{e.responsable}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Configuración mínima -->
+    <aside style="flex: none; width: 372px; display: flex; flex-direction: column; gap: 14px; min-height: 0">
+
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid {{plantillaBorde}}; border-radius: 10px">
+        <span class="cab"><span style="color: {{plantillaColor}}">Configuración mínima</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: {{plantillaColor}}">{{plantillaConteo}}</span></span>
+        <sc-for list="{{plantilla}}" as="p" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; background: {{p.bg}}; color: {{p.fg}}; font-size: 10px; font-weight: 700">{{p.marca}}</span>
+              <span style="flex: 1; font-size: 12.5px; font-weight: 500; color: #1a211e">{{p.nivel3}}</span>
+              <span class="mono" style="font-size: 9.5px; color: {{p.fg}}">{{p.conteo}}</span>
+            </span>
+            <sc-if value="{{p.tieneFaltantes}}" hint-placeholder-val="{{ true }}">
+              <span style="font-size: 10.5px; line-height: 1.5; color: #8a4407; padding-left: 26px">Falta: {{p.faltantes}}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55; margin-top: 2px">La plantilla no bloquea: señala. Un producto incompleto se puede guardar; lo que no se puede es que nadie lo sepa.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Historial de versiones</span><span class="regla"></span></span>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{historial}}" as="h" hint-placeholder-count="3">
+            <div style="display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; background: {{h.fondo}}; border: 1px solid {{h.borde}}; border-radius: 8px">
+              <span class="mono" style="flex: none; font-size: 11px; font-weight: 600; color: {{h.color}}">{{h.version}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                <span style="font-size: 11.5px; line-height: 1.45; color: #3a443f">{{h.notas}}</span>
+                <span class="mono" style="font-size: 9px; color: #8a938e">{{h.fecha}} · {{h.etapas}}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">Cada versión repite el ciclo. No basta con que el producto lo cumpliera una vez: la pregunta del auditor es por la versión que está en producción hoy.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const SEG_BASE = 'padding: 6px 12px; font-size: 11.5px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+// Etapas del ciclo de vida seguro, de A.8.25 a A.8.31. Catálogo parametrizable.
+const ETAPAS = [
+  { nombre: 'Requisitos de seguridad', control: 'A.8.26' },
+  { nombre: 'Diseño y arquitectura segura', control: 'A.8.27' },
+  { nombre: 'Desarrollo con codificación segura', control: 'A.8.28' },
+  { nombre: 'Pruebas de seguridad', control: 'A.8.29' },
+  { nombre: 'Separación de entornos', control: 'A.8.31' },
+  { nombre: 'Paso a producción autorizado', control: 'A.8.32' },
+  { nombre: 'Retiro seguro de la versión anterior', control: 'A.8.10' },
+];
+
+const VERSIONES = {
+  'v3.2': {
+    vigente: true, fecha: '15/07/2026', notas: 'Migración del CRM a la infraestructura de Coolify.',
+    cumplidas: {
+      0: ['Documento de requisitos con los controles aplicables', '20/05/2026', 'Daniel Medina'],
+      1: ['Diagrama de arquitectura revisado en comité técnico', '02/06/2026', 'Daniel Medina'],
+      2: ['Revisión de código con lista de verificación OWASP', '25/06/2026', 'Laura Agudelo'],
+      4: ['Ambientes separados: producción en servidor propio', '10/07/2026', 'Daniel Medina'],
+      5: ['Solicitud SOL-2026-0085 autorizada', '15/07/2026', 'Daniel Medina'],
+    },
+    plantilla: [
+      ['Código Fuente', 1, 1, ''],
+      ['Ambientes', 2, 3, 'staging'],
+      ['Dependencias o Relacionados', 9, 1, ''],
+      ['Documentación', 1, 3, 'confidencial y pública'],
+    ],
+  },
+  'v3.1': {
+    vigente: false, fecha: '04/03/2026', notas: 'Corrección de la integración con RNEC.',
+    cumplidas: {
+      0: ['Requisitos heredados de v3.0', '10/02/2026', 'Daniel Medina'],
+      1: ['Sin cambios de arquitectura', '12/02/2026', 'Daniel Medina'],
+      2: ['Revisión de código del módulo afectado', '25/02/2026', 'Laura Agudelo'],
+      3: ['Pruebas de regresión sobre la integración', '01/03/2026', 'Laura Agudelo'],
+      4: ['Ambientes separados', '02/03/2026', 'Daniel Medina'],
+      5: ['Paso a producción autorizado', '04/03/2026', 'Daniel Medina'],
+      6: ['Versión anterior retirada del servidor', '06/03/2026', 'Daniel Medina'],
+    },
+    plantilla: [
+      ['Código Fuente', 1, 1, ''],
+      ['Ambientes', 3, 3, ''],
+      ['Dependencias o Relacionados', 8, 1, ''],
+      ['Documentación', 3, 3, ''],
+    ],
+  },
+  'v3.0': {
+    vigente: false, fecha: '18/11/2025', notas: 'Primera versión bajo el SGSI.',
+    cumplidas: {
+      0: ['Requisitos iniciales', '01/09/2025', 'Daniel Medina'],
+      2: ['Desarrollo sin revisión formal de código', '20/10/2025', 'Daniel Medina'],
+      5: ['Paso a producción sin autorización registrada', '18/11/2025', 'Daniel Medina'],
+    },
+    plantilla: [
+      ['Código Fuente', 1, 1, ''],
+      ['Ambientes', 1, 3, 'staging y desarrollo'],
+      ['Dependencias o Relacionados', 4, 1, ''],
+      ['Documentación', 0, 3, 'privada, confidencial y pública'],
+    ],
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { version: 'v3.2' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const v = VERSIONES[s.version];
+    const cumplidas = Object.keys(v.cumplidas).length;
+    const pct = Math.round((cumplidas / ETAPAS.length) * 100);
+    const color = pct === 100 ? '#0b5c44' : pct >= 60 ? '#b8791a' : '#a52016';
+
+    const faltan = v.plantilla.filter((p) => p[1] < p[2]).length;
+
+    return {
+      estado: v.vigente ? 'Versión vigente' : 'Versión histórica',
+      estadoBg: v.vigente ? '#e6efe9' : '#f5f7f6',
+      estadoFg: v.vigente ? '#0b5c44' : '#6b7570',
+      versiones: Object.keys(VERSIONES).map((k) => ({
+        etiqueta: k,
+        estilo: s.version === k ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ version: k }),
+      })),
+      versionActual: s.version,
+      avance: pct + '%',
+      avanceColor: color,
+      avanceTexto: cumplidas + ' de ' + ETAPAS.length,
+      etapas: ETAPAS.map((e, i) => {
+        const c = v.cumplidas[i];
+        return {
+          nombre: e.nombre,
+          control: e.control,
+          evidencia: c ? c[0] : 'Sin evidencia registrada',
+          fecha: c ? c[1] : '—',
+          responsable: c ? c[2] : '',
+          tilde: c ? 1 : 0,
+          iconoBg: c ? '#0f7a5a' : '#eceeed',
+          fondo: c ? '#ffffff' : '#fbfcfb',
+          borde: c ? '#e2e6e3' : '#f2b473',
+          color: c ? '#1a211e' : '#8a4407',
+          fechaColor: c ? '#4a544f' : '#a3aca7',
+        };
+      }),
+      plantillaColor: faltan > 0 ? '#8a4407' : '#0b5c44',
+      plantillaBorde: faltan > 0 ? '#f2b473' : '#c9e3d8',
+      plantillaConteo: faltan === 0 ? 'completa' : faltan + ' incompletos',
+      plantilla: v.plantilla.map(([nivel3, hay, esperado, faltantes]) => {
+        const ok = hay >= esperado;
+        return {
+          nivel3,
+          conteo: hay + ' de ' + esperado,
+          marca: ok ? '✓' : '!',
+          bg: ok ? '#e6efe9' : '#fff3e6',
+          fg: ok ? '#0b5c44' : '#8a4407',
+          tieneFaltantes: faltantes !== '',
+          faltantes,
+        };
+      }),
+      historial: Object.keys(VERSIONES).map((k) => {
+        const x = VERSIONES[k];
+        const n = Object.keys(x.cumplidas).length;
+        return {
+          version: k,
+          notas: x.notas,
+          fecha: x.fecha,
+          etapas: n + ' de 7 etapas',
+          fondo: k === s.version ? '#eef2f8' : '#fbfcfb',
+          borde: k === s.version ? '#d3dceb' : '#e2e6e3',
+          color: x.vigente ? '#0b5c44' : '#12437f',
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>
