@@ -347,6 +347,374 @@ async function contexto(personaIds: Map<string, number>): Promise<void> {
   }
 }
 
+/// MAT-EST-02: partes interesadas con sus necesidades. Sin partes, la pantalla de
+/// Partes muestra los cuatro cuadrantes en cero y no hay ficha que abrir — que es
+/// exactamente por qué la comparación contra el lienzo daba 1 de 7.
+///
+/// El seguimiento anual NO se siembra completo a propósito: una necesidad con el plan
+/// puesto y el seguimiento vacío es el caso que hay que poder recorrer, porque es el
+/// estado real de una matriz a mitad de año.
+async function partesInteresadas(personaIds: Map<string, number>): Promise<void> {
+  const marcela = personaIds.get('marcela.molina@cuantico.com');
+  const daniel = personaIds.get('daniel.medina@cuantico.com');
+  const anio = new Date().getUTCFullYear();
+
+  const definidas = [
+    {
+      tipo: 'EXTERNA' as const,
+      descripcion: 'Clientes corporativos del sector financiero',
+      necesidades: [
+        {
+          texto: 'Continuidad del servicio ante una interrupción del proveedor de nube',
+          clase: 'NECESIDAD' as const,
+          poder: 'ALTO',
+          interes: 'ALTO',
+          riesgoOportunidadTexto:
+            'Riesgo: una caída prolongada activa las cláusulas de nivel de servicio del contrato.',
+          esRiesgo: true,
+          esOportunidad: false,
+          generaRequisitosSgsi: true,
+          requisitoCambioClimatico: false,
+          requiereCambioAlcanceSig: false,
+          responsableId: daniel,
+          seguimiento: [
+            {
+              anio,
+              planAccion: 'Documentar el plan de continuidad y probar la restauración en el segundo semestre.',
+              seguimiento: '',
+              evidencia: '',
+            },
+          ],
+        },
+        {
+          texto: 'Certificación ISO 27001 vigente como requisito de contratación',
+          clase: 'EXPECTATIVA' as const,
+          poder: 'ALTO',
+          interes: 'ALTO',
+          riesgoOportunidadTexto:
+            'Oportunidad: habilita licitaciones que hoy quedan fuera de alcance.',
+          esRiesgo: false,
+          esOportunidad: true,
+          generaRequisitosSgsi: true,
+          requisitoCambioClimatico: false,
+          requiereCambioAlcanceSig: true,
+          responsableId: marcela,
+          seguimiento: [],
+        },
+      ],
+    },
+    {
+      tipo: 'INTERNA' as const,
+      descripcion: 'Equipo de desarrollo',
+      necesidades: [
+        {
+          texto: 'Reglas claras de acceso a los ambientes productivos',
+          clase: 'NECESIDAD' as const,
+          poder: 'BAJO',
+          interes: 'ALTO',
+          riesgoOportunidadTexto:
+            'Riesgo: sin reglas escritas, cada acceso se decide caso por caso y no queda rastro.',
+          esRiesgo: true,
+          esOportunidad: false,
+          generaRequisitosSgsi: true,
+          requisitoCambioClimatico: false,
+          requiereCambioAlcanceSig: false,
+          responsableId: daniel,
+          seguimiento: [
+            {
+              anio: anio - 1,
+              planAccion: 'Publicar el procedimiento de creación y administración de usuarios.',
+              seguimiento: 'Publicado como PRO-TEC-01 en marzo.',
+              evidencia: 'PRO-TEC-01 v1',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      tipo: 'EXTERNA' as const,
+      descripcion: 'Entes reguladores y de vigilancia',
+      necesidades: [
+        {
+          texto: 'Cumplimiento demostrable de la Ley 1581 sobre datos personales',
+          clase: 'NECESIDAD' as const,
+          poder: 'ALTO',
+          interes: 'BAJO',
+          riesgoOportunidadTexto: 'Riesgo: una sanción por tratamiento indebido de datos personales.',
+          esRiesgo: true,
+          esOportunidad: false,
+          generaRequisitosSgsi: true,
+          requisitoCambioClimatico: false,
+          requiereCambioAlcanceSig: false,
+          responsableId: marcela,
+          seguimiento: [],
+        },
+        {
+          texto: 'Reporte de huella de carbono de la operación',
+          clase: 'EXPECTATIVA' as const,
+          poder: 'BAJO',
+          interes: 'BAJO',
+          riesgoOportunidadTexto: 'Riesgo emergente: dos clientes ya lo piden en el pliego.',
+          esRiesgo: true,
+          esOportunidad: false,
+          generaRequisitosSgsi: false,
+          requisitoCambioClimatico: true,
+          requiereCambioAlcanceSig: false,
+          responsableId: marcela,
+          seguimiento: [],
+        },
+      ],
+    },
+  ];
+
+  let partes = 0;
+  let necesidades = 0;
+  for (const d of definidas) {
+    let parte = await prisma.parteInteresada.findFirst({
+      where: { descripcion: d.descripcion },
+      select: { id: true },
+    });
+    if (!parte) {
+      parte = await prisma.parteInteresada.create({
+        data: { tipo: d.tipo, descripcion: d.descripcion },
+        select: { id: true },
+      });
+      partes++;
+    }
+    for (const n of d.necesidades) {
+      const { seguimiento, ...campos } = n;
+      const ya = await prisma.necesidadExpectativa.findFirst({
+        where: { parteId: parte.id, texto: n.texto },
+        select: { id: true },
+      });
+      if (ya) continue;
+      const creada = await prisma.necesidadExpectativa.create({
+        data: { parteId: parte.id, ...campos },
+        select: { id: true },
+      });
+      necesidades++;
+      for (const s of seguimiento) {
+        await prisma.seguimientoParteAnual.create({ data: { necesidadId: creada.id, ...s } });
+      }
+    }
+  }
+  console.log(`  partes            ${partes} nueva(s), ${necesidades} necesidad(es)`);
+}
+
+/// MAT-EST-01: la matriz de requisitos legales. Es la matriz que el hallazgo
+/// HAL-2026-9001 dice que está sin diligenciar, así que se siembran pocas filas — y una
+/// sin evaluar, que es el estado que la pantalla tiene que saber mostrar.
+async function requisitosLegales(personaIds: Map<string, number>): Promise<void> {
+  const marcela = personaIds.get('marcela.molina@cuantico.com');
+  const daniel = personaIds.get('daniel.medina@cuantico.com');
+
+  const definidos = [
+    {
+      consecutivo: 1,
+      normatividad: 'Ley 1581 de 2012',
+      articulo: 'Art. 4, 8, 17',
+      expedidaPor: 'Congreso de la República',
+      tipo: 'Ley',
+      objeto: 'Protección de datos personales',
+      aplicacion: 'Tratamiento de datos de clientes y empleados',
+      sistemaGestion: 'SGSI',
+      procesoEncargado: 'Gestión Legal y Compras',
+      responsableId: marcela,
+      enlace: 'https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981',
+      periodicidadRevision: 'ANUAL',
+      evaluacion: { resultado: 'PARCIAL' as const, evidencia: 'Aviso de privacidad publicado; falta el registro de bases.' },
+    },
+    {
+      consecutivo: 2,
+      normatividad: 'Decreto 1377 de 2013',
+      articulo: 'Art. 5, 10',
+      expedidaPor: 'Presidencia de la República',
+      tipo: 'Decreto',
+      objeto: 'Reglamentación parcial de la Ley 1581',
+      aplicacion: 'Autorización y aviso de privacidad',
+      sistemaGestion: 'SGSI',
+      procesoEncargado: 'Gestión Legal y Compras',
+      responsableId: marcela,
+      enlace: null,
+      periodicidadRevision: 'ANUAL',
+      evaluacion: { resultado: 'CUMPLE' as const, evidencia: 'Autorizaciones firmadas en el expediente de cada cliente.' },
+    },
+    {
+      consecutivo: 3,
+      normatividad: 'Ley 1273 de 2009',
+      articulo: 'Art. 269A a 269J',
+      expedidaPor: 'Congreso de la República',
+      tipo: 'Ley',
+      objeto: 'Delitos informáticos',
+      aplicacion: 'Acceso abusivo a sistemas y protección de la información',
+      sistemaGestion: 'SGSI',
+      procesoEncargado: 'Gestión Tecnológica',
+      responsableId: daniel,
+      enlace: null,
+      periodicidadRevision: 'ANUAL',
+      // Sin evaluar a propósito: es el estado que la pantalla tiene que mostrar sin
+      // inventarse un resultado.
+      evaluacion: null,
+    },
+    {
+      consecutivo: 4,
+      normatividad: 'Resolución 2400 de 1979',
+      articulo: 'Título III',
+      expedidaPor: 'Ministerio de Trabajo',
+      tipo: 'Resolución',
+      objeto: 'Condiciones de seguridad e higiene en el trabajo',
+      aplicacion: 'Puestos de trabajo remotos',
+      sistemaGestion: 'SGC',
+      procesoEncargado: 'Gestión Humana',
+      responsableId: marcela,
+      enlace: null,
+      periodicidadRevision: 'BIANUAL',
+      evaluacion: { resultado: 'NO_CUMPLE' as const, evidencia: 'No hay inspección documentada de puestos remotos.' },
+    },
+  ];
+
+  let creados = 0;
+  for (const d of definidos) {
+    const { evaluacion, ...campos } = d;
+    const ya = await prisma.requisitoLegal.findFirst({
+      where: { normatividad: d.normatividad },
+      select: { id: true },
+    });
+    if (ya) continue;
+    const creado = await prisma.requisitoLegal.create({ data: campos, select: { id: true } });
+    creados++;
+    if (evaluacion && marcela) {
+      await prisma.evaluacionCumplimiento.create({
+        data: {
+          requisitoId: creado.id,
+          resultado: evaluacion.resultado,
+          evidencia: evaluacion.evidencia,
+          evaluadoPorId: d.responsableId ?? marcela,
+        },
+      });
+    }
+  }
+  console.log(`  requisitos legales ${creados} nuevo(s) de ${definidos.length}`);
+}
+
+/// MAT-CAL-02: riesgos y oportunidades organizacionales, con sus controles.
+///
+/// Se siembra la ENTRADA del riesgo —clase, proceso, fuente, causa, efecto, y las escalas
+/// de probabilidad e impacto que alguien declaró—, no el resultado. El nivel inherente, el
+/// residual y el nivel del mapa se calculan al leer, y `nivelSugerido` queda en `null`
+/// porque es lo que el método propone, no un dato de entrada.
+async function riesgosOrganizacionales(personaIds: Map<string, number>): Promise<void> {
+  const daniel = personaIds.get('daniel.medina@cuantico.com');
+  const marcela = personaIds.get('marcela.molina@cuantico.com');
+
+  const [factores, probabilidades, impactos, tipos, eficacias] = await Promise.all([
+    prisma.factorRiesgo.findMany({ select: { id: true, nombre: true } }),
+    prisma.escalaProbabilidad.findMany({ select: { id: true, valor: true } }),
+    prisma.escalaImpactoRiesgo.findMany({ select: { id: true, valor: true } }),
+    prisma.tipoControlRiesgo.findMany({ select: { id: true, nombre: true } }),
+    prisma.eficaciaControl.findMany({ select: { id: true, nombre: true } }),
+  ]);
+  if (factores.length === 0 || probabilidades.length === 0 || impactos.length === 0) {
+    console.log('  riesgos            omitidos: faltan los catálogos del método (MAN-CAL-01)');
+    return;
+  }
+
+  const factor = (n: string) => factores.find((f) => f.nombre === n)?.id ?? factores[0].id;
+  const prob = (v: number) =>
+    probabilidades.find((p) => p.valor === v)?.id ?? probabilidades[0].id;
+  const imp = (v: number) => impactos.find((i) => i.valor === v)?.id ?? impactos[0].id;
+
+  const definidos = [
+    {
+      codigo: 'R1',
+      clase: 'RIESGO' as const,
+      proceso: 'Gestión Tecnológica',
+      fuente: 'PROCESO' as const,
+      descripcion: 'Pérdida de disponibilidad del servicio por falla del proveedor de nube',
+      causa: 'Dependencia de un único proveedor sin plan de continuidad probado',
+      efecto: 'Incumplimiento de los niveles de servicio contratados',
+      factorId: factor('Tecnológico'),
+      probabilidadId: prob(3),
+      impactoId: imp(4),
+      responsableId: daniel,
+      controles: [
+        { descripcion: 'Respaldo diario con retención de 30 días y prueba de restauración', tipo: 'Preventivo', eficacia: 'Alta' },
+      ],
+    },
+    {
+      codigo: 'R2',
+      clase: 'RIESGO' as const,
+      proceso: 'Gestión Legal y Compras',
+      fuente: 'PARTE_INTERESADA' as const,
+      descripcion: 'Sanción por tratamiento indebido de datos personales',
+      causa: 'Registro de bases de datos incompleto ante la autoridad',
+      efecto: 'Multa y daño reputacional frente a clientes del sector financiero',
+      factorId: factor('Legal'),
+      probabilidadId: prob(2),
+      impactoId: imp(5),
+      responsableId: marcela,
+      controles: [
+        { descripcion: 'Revisión anual de la matriz de requisitos legales', tipo: 'Detectivo', eficacia: 'Media' },
+      ],
+    },
+    {
+      codigo: 'R3',
+      clase: 'RIESGO' as const,
+      proceso: 'Gestión Tecnológica',
+      fuente: 'PESTEL' as const,
+      descripcion: 'Compromiso de credenciales por phishing dirigido',
+      causa: 'Aumento del phishing al sector y ausencia de segundo factor en un sistema',
+      efecto: 'Acceso no autorizado a información de clientes',
+      factorId: factor('Externo'),
+      probabilidadId: prob(4),
+      impactoId: imp(4),
+      responsableId: daniel,
+      controles: [
+        { descripcion: 'Segundo factor de autenticación en los sistemas expuestos', tipo: 'Preventivo', eficacia: 'Alta' },
+        { descripcion: 'Capacitación anual en seguridad de la información', tipo: 'Preventivo', eficacia: 'Baja' },
+      ],
+    },
+    {
+      codigo: 'O1',
+      clase: 'OPORTUNIDAD' as const,
+      proceso: 'Gestión Comercial',
+      fuente: 'DOFA' as const,
+      descripcion: 'Acceso a licitaciones que exigen certificación ISO 27001',
+      causa: 'La contratación pública incorporó requisitos de seguridad de la información',
+      efecto: 'Ampliación del mercado atendible',
+      factorId: factor('Reputacional'),
+      probabilidadId: prob(3),
+      impactoId: imp(3),
+      responsableId: marcela,
+      controles: [],
+    },
+  ];
+
+  let creados = 0;
+  for (const d of definidos) {
+    const { controles, ...campos } = d;
+    const ya = await prisma.riesgoOrganizacional.findUnique({
+      where: { codigo: d.codigo },
+      select: { id: true },
+    });
+    if (ya) continue;
+    const creado = await prisma.riesgoOrganizacional.create({
+      data: campos,
+      select: { id: true },
+    });
+    creados++;
+    for (const c of controles) {
+      const tipoId = tipos.find((t) => t.nombre === c.tipo)?.id ?? tipos[0]?.id;
+      const eficaciaId = eficacias.find((e) => e.nombre === c.eficacia)?.id ?? eficacias[0]?.id;
+      if (!tipoId || !eficaciaId) continue;
+      await prisma.controlRiesgoOrg.create({
+        data: { riesgoId: creado.id, descripcion: c.descripcion, tipoId, eficaciaId },
+      });
+    }
+  }
+  console.log(`  riesgos org.       ${creados} nuevo(s) de ${definidos.length}`);
+}
+
 async function main(): Promise<void> {
   console.log(`\nDatos de prueba · base local «${new URL(url!).pathname.slice(1)}»\n`);
 
@@ -355,10 +723,14 @@ async function main(): Promise<void> {
   await obligaciones(contenidoIds, personaIds);
   await hallazgos(personaIds);
   await contexto(personaIds);
+  await partesInteresadas(personaIds);
+  await requisitosLegales(personaIds);
+  await riesgosOrganizacionales(personaIds);
 
   console.log('\nListo. Lo que NO se sembró, a propósito:');
   console.log('  · asignaciones y registros de realizado — se generan con generarAsignaciones()');
   console.log('  · riesgos del SGSI y cifras derivadas   — se calculan al leer');
+  console.log('  · niveles inherente, residual y del mapa — se calculan al leer');
   console.log('\nSiguiente paso: entrar a Operación y correr la generación de asignaciones.\n');
 }
 

@@ -2,6 +2,11 @@
 //
 // MAT-EST-02: la grilla agrupada por tipo con el mapa poder×interés y la ficha de
 // cada necesidad con su seguimiento año por año.
+//
+// La pantalla era de sólo lectura. Tres acciones del servidor no tenían quien las llamara:
+// `crearParteInteresada` y `agregarNecesidad` no se importaban en ninguna parte, y
+// `guardarSeguimientoParte` se importaba en el cliente y no se invocaba nunca — la más
+// engañosa de las tres, porque el import hacía parecer que estaba conectada.
 
 import { prisma } from '@/lib/db';
 import PartesClient from './Partes.client';
@@ -9,15 +14,25 @@ import PartesClient from './Partes.client';
 export const dynamic = 'force-dynamic';
 
 export default async function PartesPage() {
-  const partes = await prisma.parteInteresada.findMany({
-    where: { activa: true },
-    orderBy: { descripcion: 'asc' },
-    include: {
-      necesidades: {
-        include: { seguimiento: { orderBy: { anio: 'desc' } }, responsable: { select: { nombre: true } } },
+  const [partes, personas] = await Promise.all([
+    prisma.parteInteresada.findMany({
+      where: { activa: true },
+      orderBy: { descripcion: 'asc' },
+      include: {
+        necesidades: {
+          include: {
+            seguimiento: { orderBy: { anio: 'desc' } },
+            responsable: { select: { id: true, nombre: true } },
+          },
+        },
       },
-    },
-  });
+    }),
+    prisma.persona.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    }),
+  ]);
 
   const filas = partes.map((p) => ({
     id: p.id,
@@ -29,11 +44,14 @@ export default async function PartesPage() {
       clase: n.clase,
       poder: n.poder,
       interes: n.interes,
-      banderas: [
-        n.generaRequisitosSgsi ? 'SGSI' : null,
-        n.requisitoCambioClimatico ? 'CLIMA' : null,
-        n.requiereCambioAlcanceSig ? 'ALC' : null,
-      ].filter(Boolean) as string[],
+      riesgoOportunidadTexto: n.riesgoOportunidadTexto ?? '',
+      esRiesgo: n.esRiesgo,
+      esOportunidad: n.esOportunidad,
+      banderas: {
+        sgsi: n.generaRequisitosSgsi,
+        clima: n.requisitoCambioClimatico,
+        alcance: n.requiereCambioAlcanceSig,
+      },
       responsable: n.responsable?.nombre ?? null,
       seguimiento: n.seguimiento.map((s) => ({
         anio: s.anio,
@@ -44,5 +62,5 @@ export default async function PartesPage() {
     })),
   }));
 
-  return <PartesClient filas={filas} />;
+  return <PartesClient filas={filas} personas={personas} anioActual={new Date().getUTCFullYear()} />;
 }

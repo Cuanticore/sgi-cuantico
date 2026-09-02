@@ -93,6 +93,12 @@ export async function agregarNecesidad(
     clase: 'NECESIDAD' | 'EXPECTATIVA';
     poder: 'ALTO' | 'MEDIO' | 'BAJO';
     interes: 'ALTO' | 'MEDIO' | 'BAJO';
+    /// «Riesgo u oportunidad que genera» del lienzo. El modelo lo tenía desde el primer
+    /// día y la acción no lo aceptaba, así que la columna de MAT-EST-02 que explica POR
+    /// QUÉ la necesidad importa no se podía llenar por ninguna vía.
+    riesgoOportunidadTexto?: string;
+    esRiesgo?: boolean;
+    esOportunidad?: boolean;
     generaRequisitosSgsi?: boolean;
     requisitoCambioClimatico?: boolean;
     requiereCambioAlcanceSig?: boolean;
@@ -117,6 +123,10 @@ export async function guardarSeguimientoParte(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(necesidadId, 'la necesidad');
+    if (!Number.isInteger(datos.anio) || datos.anio < 2000 || datos.anio > 2100) {
+      return { ok: false, mensaje: 'El año no es válido.' };
+    }
     await prisma.$transaction(async (tx) => {
       const seg = await tx.seguimientoParteAnual.upsert({
         where: { necesidadId_anio: { necesidadId, anio: datos.anio } },
