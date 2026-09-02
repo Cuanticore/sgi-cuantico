@@ -40,7 +40,15 @@ export default function HistorialClient({
   resumen: { registros: number; aTiempo: number; cierresAdministrativos: number };
   filas: HistorialFila[];
 }) {
-  const [anio, setAnio] = useState<'2026' | '2025' | 'todo'>('todo');
+  const [anio, setAnio] = useState<string>('todo');
+
+  // Los años salen de los registros, no de una lista escrita a mano. Estaban cableados
+  // como `'2026' | '2025'`: en 2027 el historial de 2027 no se podía filtrar, y el chip de
+  // 2025 seguía ahí para una persona que entró después.
+  const anios = useMemo(
+    () => [...new Set(filas.map((f) => String(f.fechaHora.getUTCFullYear())))].sort().reverse(),
+    [filas],
+  );
   const [tipo, setTipo] = useState<'todos' | string>('todos');
 
   const visibles = useMemo(
@@ -98,7 +106,7 @@ export default function HistorialClient({
       </section>
 
       <nav className="mt-5 flex items-center gap-2 print:hidden">
-        {(['todo', '2026', '2025'] as const).map((a) => (
+        {['todo', ...anios].map((a) => (
           <button
             key={a}
             onClick={() => setAnio(a)}
