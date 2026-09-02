@@ -31,7 +31,12 @@ export default async function RiesgosPage() {
   const filas = riesgos.map((r) => {
     const p = r.probabilidad.valor;
     const i = r.impacto.valor;
-    const control = r.controles[0];
+    // El control MÁS EFICAZ, no el primero de la lista. `residualDe` recibe uno solo y
+    // MAN-CAL-01 no define cómo se componen dos: multiplicar sus eficacias sería inventar
+    // aritmética normativa. Mismo criterio que el mapa de calor.
+    const control = [...r.controles].sort(
+      (a, b) => Number(b.eficacia.valor) - Number(a.eficacia.valor),
+    )[0];
     const calculo = control
       ? residualDe(p, i, tipoToken(control.tipo.nombre), medicionDe(control.eficacia.nombre))
       : { inherente: p * i, pRes: p, iRes: i, residual: p * i };
@@ -53,6 +58,13 @@ export default async function RiesgosPage() {
       control: control
         ? `${control.tipo.nombre} · ${control.eficacia.nombre} ${Number(control.eficacia.valor) * 100} %`
         : null,
+      // Los IDS del control, no sólo su texto. El cliente venía adivinando el tipo con
+      // `control.startsWith(nombre)` —parseando de vuelta un formato de presentación—, y
+      // ese redondeo por string se rompe el día que alguien renombre un tipo de control.
+      controlDescripcion: control?.descripcion ?? null,
+      controlTipoId: control?.tipoId ?? null,
+      controlEficaciaId: control?.eficaciaId ?? null,
+      controles: r.controles.length,
     };
   });
 

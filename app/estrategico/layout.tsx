@@ -39,19 +39,35 @@ export default async function EstrategicoLayout({ children }: { children: React.
   }
 
   const correo = (session?.user?.email ?? '').toLowerCase();
-  const [persona, partes, requisitos, riesgos, materializaciones, lineaBase] = await Promise.all([
-    prisma.persona.findUnique({ where: { correo }, select: { nombre: true } }),
-    prisma.parteInteresada.count({ where: { activa: true } }),
-    prisma.requisitoLegal.count({ where: { vigente: true } }),
-    prisma.riesgoOrganizacional.count({ where: { activo: true } }),
-    prisma.materializacionRiesgo.count(),
-    prisma.lineaBase.findFirst({ orderBy: { fecha: 'desc' } }),
-  ]);
+  const [persona, partes, requisitos, riesgos, oportunidades, materializaciones, lineaBase, procesos] =
+    await Promise.all([
+      prisma.persona.findUnique({ where: { correo }, select: { nombre: true } }),
+      prisma.parteInteresada.count({ where: { activa: true } }),
+      prisma.requisitoLegal.count({ where: { vigente: true } }),
+      prisma.riesgoOrganizacional.count({ where: { activo: true, clase: 'RIESGO' } }),
+      prisma.riesgoOrganizacional.count({ where: { activo: true, clase: 'OPORTUNIDAD' } }),
+      prisma.materializacionRiesgo.count(),
+      prisma.lineaBase.findFirst({ orderBy: { fecha: 'desc' } }),
+      // Cuántos procesos distintos tienen al menos un registro. El lienzo lo pone junto a
+      // los otros dos conteos porque dice qué tanto de la organización está cubierto: 66
+      // riesgos en dos procesos y 66 en once no son la misma matriz.
+      prisma.riesgoOrganizacional.findMany({
+        where: { activo: true },
+        distinct: ['proceso'],
+        select: { proceso: true },
+      }),
+    ]);
 
   const contadores: ContadoresEstrategico = {
     partes,
     requisitos,
     riesgos,
+    oportunidades,
+    // El contador de la entrada del menú suma las dos clases: la pantalla se llama
+    // «Riesgos y oportunidades» y lista ambas. El pie las separa, porque ahí la cifra
+    // describe la composición de la matriz.
+    registros: riesgos + oportunidades,
+    procesos: procesos.length,
     materializaciones,
     lineaBase: lineaBase?.nombre ?? 'sin congelar',
     usuario: persona?.nombre ?? session?.user?.name ?? 'Usuario',

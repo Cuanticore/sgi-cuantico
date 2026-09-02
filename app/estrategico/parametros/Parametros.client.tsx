@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import Restaurar from './Restaurar.client';
+import CongelarLineaBase from './CongelarLineaBase.client';
 
 type Pestana = 'probabilidad' | 'impactoRiesgo' | 'impactoOportunidad' | 'tipos' | 'eficacias' | 'niveles';
 
@@ -20,6 +21,8 @@ export default function ParametrosClient({
   tipos,
   eficacias,
   niveles,
+  lineaBase,
+  registros,
 }: {
   probabilidad: { id: number; valor: number; etiqueta: string; descripcion: string | null; color: string }[];
   impactoRiesgo: { id: number; valor: number; etiqueta: string; pct: number | null; cop: number | null }[];
@@ -28,6 +31,10 @@ export default function ParametrosClient({
   tipos: { id: number; nombre: string; reduce: string; descripcion: string | null }[];
   eficacias: { id: number; nombre: string; valor: number }[];
   niveles: { id: number; minimo: number; maximo: number; etiqueta: string; color: string; accionRiesgo: string; accionOportunidad: string }[];
+  /// La linea base mas reciente, o null si nunca se congelo.
+  lineaBase: string | null;
+  /// Cuantos riesgos activos hay de verdad. 66 eran los del Excel de referencia.
+  registros: number;
 }) {
   const [pestana, setPestana] = useState<Pestana>('probabilidad');
   const [aviso, setAviso] = useState<string | null>(null);
@@ -47,10 +54,13 @@ export default function ParametrosClient({
         <div className="flex flex-col gap-0.5">
           <h1 className="titulo-pagina">Parámetros del modelo</h1>
           <p className="text-12_5 text-muted">
-            Cambiar una escala recalcula los 66 registros al instante: guardan la referencia al nivel, no el número.
+            Cambiar una escala recalcula los {registros} registros al instante: guardan la referencia al nivel, no el número.
           </p>
         </div>
-        <Restaurar />
+        <div className="flex flex-none items-start gap-2">
+          <CongelarLineaBase vigente={lineaBase} />
+          <Restaurar />
+        </div>
       </div>
 
       <nav className="mt-5 flex border-b border-border-default">
@@ -120,7 +130,7 @@ export default function ParametrosClient({
               filas={eficacias.map((e) => [e.nombre, `${e.valor * 100} %`, `Reduce el ${e.valor * 100} %`])}
             />
             <p className="mt-3 text-11_5 text-muted">
-              Cambiar Fuerte de 80 % a 90 % recalcula los 66 al instante, sin tocar datos.
+              Cambiar Fuerte de 80 % a 90 % recalcula los {registros} al instante, sin tocar datos.
             </p>
           </>
         )}

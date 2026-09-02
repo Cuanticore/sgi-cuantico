@@ -302,6 +302,14 @@ export interface DatosRiesgo {
 export async function crearRiesgoOrganizacional(datos: DatosRiesgo): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    // Las tres escalas son obligatorias y son claves ajenas: sin la guarda, un id ausente
+    // llega a Prisma y sale como un error crudo en la pantalla.
+    exigirId(datos.factorId, 'el factor de riesgo');
+    exigirId(datos.probabilidadId, 'la probabilidad');
+    exigirId(datos.impactoId, 'el impacto');
+    idOpcional(datos.responsableId, 'el responsable');
+    idOpcional(datos.necesidadExpectativaId, 'la necesidad de la parte interesada');
+    idOpcional(datos.entradaContextoId, 'la entrada del contexto');
     await prisma.$transaction(async (tx) => {
       const ultimo = await tx.riesgoOrganizacional.findFirst({ orderBy: { codigo: 'desc' } });
       const siguiente = ultimo ? Number(ultimo.codigo.slice(1)) + 1 : 1;

@@ -9,16 +9,29 @@ import ParametrosClient from './Parametros.client';
 export const dynamic = 'force-dynamic';
 
 export default async function ParametrosPage() {
-  const [probabilidad, impactoRiesgo, impactoOportunidad, factores, tipos, eficacias, niveles] =
-    await Promise.all([
-      prisma.escalaProbabilidad.findMany({ orderBy: { valor: 'asc' } }),
-      prisma.escalaImpactoRiesgo.findMany({ orderBy: { valor: 'asc' } }),
-      prisma.escalaImpactoOportunidad.findMany({ orderBy: { valor: 'asc' } }),
-      prisma.factorRiesgo.findMany({ orderBy: { nombre: 'asc' } }),
-      prisma.tipoControlRiesgo.findMany({ orderBy: { id: 'asc' } }),
-      prisma.eficaciaControl.findMany({ orderBy: { valor: 'asc' } }),
-      prisma.nivelRiesgo.findMany({ orderBy: { minimo: 'asc' } }),
-    ]);
+  const [
+    probabilidad,
+    impactoRiesgo,
+    impactoOportunidad,
+    factores,
+    tipos,
+    eficacias,
+    niveles,
+    lineaBase,
+    registros,
+  ] = await Promise.all([
+    prisma.escalaProbabilidad.findMany({ orderBy: { valor: 'asc' } }),
+    prisma.escalaImpactoRiesgo.findMany({ orderBy: { valor: 'asc' } }),
+    prisma.escalaImpactoOportunidad.findMany({ orderBy: { valor: 'asc' } }),
+    prisma.factorRiesgo.findMany({ orderBy: { nombre: 'asc' } }),
+    prisma.tipoControlRiesgo.findMany({ orderBy: { id: 'asc' } }),
+    prisma.eficaciaControl.findMany({ orderBy: { valor: 'asc' } }),
+    prisma.nivelRiesgo.findMany({ orderBy: { minimo: 'asc' } }),
+    prisma.lineaBase.findFirst({ orderBy: { fecha: 'desc' }, select: { nombre: true } }),
+    // El conteo real. La pantalla decía «los 66 registros» en dos lugares: 66 son los del
+    // Excel de referencia, y afirmarlo con la base en otro número es contar de memoria.
+    prisma.riesgoOrganizacional.count({ where: { activo: true } }),
+  ]);
 
   return (
     <ParametrosClient
@@ -43,6 +56,8 @@ export default async function ParametrosPage() {
         accionRiesgo: n.accionRiesgo,
         accionOportunidad: n.accionOportunidad,
       }))}
+      lineaBase={lineaBase?.nombre ?? null}
+      registros={registros}
     />
   );
 }

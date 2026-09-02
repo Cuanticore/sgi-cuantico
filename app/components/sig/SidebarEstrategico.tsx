@@ -17,6 +17,10 @@ export interface ContadoresEstrategico {
   riesgos: number;
   materializaciones: number;
   lineaBase: string;
+  oportunidades: number;
+  /// Riesgos + oportunidades: es el contador de la entrada del menu.
+  registros: number;
+  procesos: number;
   usuario: string;
   cuenta: string;
   permisos: string;
@@ -30,7 +34,7 @@ interface Entrada {
 }
 
 const ENTRADAS: Entrada[] = [
-  { etiqueta: 'Riesgos y oportunidades', abreviatura: 'RIE', href: '/estrategico/riesgos', contador: 'riesgos' },
+  { etiqueta: 'Riesgos y oportunidades', abreviatura: 'RIE', href: '/estrategico/riesgos', contador: 'registros' },
   { etiqueta: 'Mapa de calor', abreviatura: 'MAP', href: '/estrategico/mapa' },
   { etiqueta: 'Partes interesadas', abreviatura: 'PER', href: '/estrategico/partes', contador: 'partes' },
   { etiqueta: 'Requisitos legales', abreviatura: 'LEG', href: '/estrategico/legal', contador: 'requisitos' },
@@ -79,7 +83,22 @@ export default function SidebarEstrategico({ contadores }: { contadores: Contado
             </span>
             <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
           </div>
-          {ENTRADAS.map((e) => (
+          {ENTRADAS.filter((e) => e.href !== '/estrategico/parametros').map((e) => (
+            <Item key={e.href} entrada={e} abierto={abierto} ruta={ruta} contadores={contadores} />
+          ))}
+
+          {/* «Configuración» aparte, como en el lienzo: los parámetros del método no son
+              una pantalla más de la matriz — tocarlos recalcula todo lo de arriba. */}
+          <div className="flex items-center gap-2 px-[11px]" style={{ margin: '14px 0 6px' }}>
+            <span
+              className="whitespace-nowrap font-mono text-9 uppercase tracking-[0.07em]"
+              style={{ color: 'var(--hf-text-label)' }}
+            >
+              {abierto ? 'Configuración' : 'CFG'}
+            </span>
+            <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
+          </div>
+          {ENTRADAS.filter((e) => e.href === '/estrategico/parametros').map((e) => (
             <Item key={e.href} entrada={e} abierto={abierto} ruta={ruta} contadores={contadores} />
           ))}
         </div>
@@ -97,7 +116,8 @@ export default function SidebarEstrategico({ contadores }: { contadores: Contado
             </span>
             <span className="text-12_5 font-medium text-primary">{contadores.lineaBase}</span>
             <span className="text-11_5" style={{ color: 'var(--hf-text-faint)' }}>
-              {contadores.riesgos} riesgos y oportunidades
+              {contadores.riesgos} riesgos · {contadores.oportunidades} oportunidades ·{' '}
+              {contadores.procesos} procesos
             </span>
           </div>
           <div
