@@ -131,23 +131,29 @@ Dos campos que no se pierden porque son la mitad del valor de la hoja:
 
 `ambiente` y `estado` son catálogos, no texto: sin eso no se puede contar cuántos servicios `legacy / abandonado` hay, que es justo lo que el levantamiento encontró.
 
-### 3.5 Producto y su hoja de vida
+### 3.5 Producto — solo el agrupador
 
-> **Provisional desde el 02/09/2026 — no construir sin leer antes [hoja-de-vida-for-tec-04.md](../../handoff_tecnologia/hoja-de-vida-for-tec-04.md).**
->
-> El sistema documental ya tiene esta hoja de vida, y es mucho más precisa que lo que sigue: **FOR-TEC-04** con doce hojas, **PRO-TEC-04** con ocho fases F0–F7 y seis puertas de control que bloquean el avance, y **PTR-TEC-03** con setenta y tres ítems de verificación trazados al Anexo A. Las siete etapas que enumero abajo las deduje de la norma sin saber que el procedimiento ya existía.
->
-> Lo que sigue se mantiene solo como referencia hasta que se decida si «producto» y «sistema de información» son el mismo objeto. Si lo son, esta sección se retira entera y su lugar lo toma una spec propia del ciclo de vida de desarrollo seguro.
+**Reescrita el 02/09/2026 por D14.** La versión anterior definía `Producto`, `VersionProducto` y `EtapaCicloVida` con siete etapas que deduje de ISO/IEC 27001 `A.8.25`–`A.8.31`. El sistema documental ya tenía todo eso, mejor: **FOR-TEC-04** con doce hojas, **PRO-TEC-04** con ocho fases F0–F7 y seis puertas de control, y **PTR-TEC-03** con setenta y tres ítems trazados al Anexo A.
+
+**`VersionProducto` y `EtapaCicloVida` se retiran de esta spec.** La versión y el ciclo de vida no son del producto: son del **sistema**, y viven en REQ-SIG-08.
 
 | Entidad | Contenido |
 |---|---|
-| **`Producto`** | `nivelId` (grado 1 clase PRODUCTO o PROYECTO), `nombre`, `descripcion`, `responsableId` → `Persona`, `clienteRef?`, `activo` |
-| **`VersionProducto`** | `productoId`, `version`, `fecha`, `notas`, `vigente` |
-| **`EtapaCicloVida`** | `versionId`, `etapa`, `cumplida`, `evidencia`, `responsableId`, `fecha` |
+| **`Producto`** | `nivelId` (grado 1, clase `PRODUCTOS` o `PROYECTOS`), `nombre`, `descripcion`, `responsableId` → `Persona`, `clienteRef?`, `activo` |
 
-Las etapas salen del ciclo de vida seguro que pide ISO/IEC 27001 en `A.8.25` a `A.8.31`: **requisitos de seguridad · diseño seguro · desarrollo · pruebas de seguridad · separación de entornos · paso a producción · retiro**. Son un catálogo parametrizable, no un enum en el código.
+Eso es todo. **Un producto agrupa sistemas y agrupa activos; no tiene ciclo de vida propio.** MINTRACE se compone de varios desplegables con ciclo independiente, y preguntar «¿en qué fase está MINTRACE?» no tiene respuesta: la tienen sus tres sistemas, cada uno en la suya.
 
-**Cada versión repite el ciclo.** Es lo que hace la hoja de vida útil en auditoría: no basta con que el producto haya cumplido las etapas una vez en 2024; la pregunta es si la versión que está en producción hoy las cumplió.
+Lo que sí sigue siendo del producto es la **plantilla mínima** de §3.2 —Código Fuente, Ambientes, Dependencias, Documentación— porque describe qué activos debe tener, no cómo se construyó.
+
+#### Lo que la pantalla muestra
+
+«Producto» pasa a ser un resumen: los sistemas que lo componen con su fase actual y sus puertas superadas, y del sistema seleccionado, el detalle de las seis puertas con resultado, evidencia, quién verificó y la excepción si la hubo. La hoja de vida completa —requisitos, pruebas, datos personales, proveedores y los 73 ítems— se abre entrando al sistema, y se especifica en REQ-SIG-08.
+
+#### La aplicación no bloquea (D17)
+
+PRO-TEC-04 dice que una puerta no superada impide avanzar de fase. **Ese bloqueo no se implementa en el software**: la aplicación registra el resultado y señala lo que el procedimiento no permite, pero no impide guardar ni avanzar. La `Excepcion` se conserva como registro exigido por el procedimiento, no como llave que desbloquea.
+
+La consecuencia hay que aceptarla con los ojos abiertos: el control vive en el procedimiento y en la gerencia de proyectos, y la aplicación es evidencia de que el estado se conoció, no de que el control operó.
 
 ---
 

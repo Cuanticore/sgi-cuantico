@@ -134,6 +134,16 @@ Se respeta el orden de D13. Operación del SGSI tiene los seis artboards aprobad
 
 > **Riesgo del orden, y hay que vigilarlo:** REQ-SIG-06 §3.5 sigue en el paquete con el modelo viejo. Está marcada como provisional y con la advertencia de no construirla, pero si el desarrollador llega a Gestión Tecnológica antes de que exista REQ-SIG-07, va a construir `Producto` con un ciclo de vida que D14 ya retiró. **La nota tiene que sobrevivir en el PR.**
 
+### D17 · Las puertas de control no bloquean en el software
+
+En REQ-SIG-08, la aplicación **registra y señala; no impide**. No se implementa el bloqueo de avance por puerta no superada, ni la excepción como llave que lo desbloquea.
+
+- La **`Excepcion` sigue existiendo** como registro —PRO-TEC-04 la exige documentada, justificada, evaluada por riesgo, aprobada por el Responsable de Seguridad y con fecha de cierre— pero es un hecho que se anota, no un permiso que el sistema concede.
+- Una puerta no superada se ve, se cuenta y sale en el tablero. Nadie queda trabado esperando una aprobación dentro de la herramienta.
+- Es coherente con lo que la plantilla mínima del producto ya hace: *«no bloquea: señala»*.
+
+> **Lo que esto implica, para que quede dicho.** El control de «una puerta no superada impide avanzar» pasa a vivir **en el procedimiento y en la gerencia de proyectos, no en el software**. La aplicación deja de ser evidencia de que el control operó y pasa a ser evidencia de que el estado se conoció. Si un auditor pregunta cómo se impide desplegar sin P4, la respuesta es PRO-TEC-04 y el líder del proyecto, no una validación de servidor. Es una decisión razonable —una herramienta que bloquea sin conocer el contexto termina obligando a mentirle— pero conviene que el procedimiento lo diga con esas palabras.
+
 ---
 
 ## Lo que sigue abierto

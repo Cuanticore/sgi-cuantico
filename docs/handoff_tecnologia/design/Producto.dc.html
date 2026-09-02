@@ -93,6 +93,11 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
           <span style="font-size: 10.5px; line-height: 1.6; color: #6b7570">F3 Construcción y F6 Operación no tienen puerta: llevan controles continuos —revisión de código, análisis en cada integración, gestión de vulnerabilidades— que se verifican con los 73 ítems de PTR-TEC-03, no en un punto de corte.</span>
         </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; padding: 12px 15px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 10.5px; line-height: 1.6; color: #12437f"><strong style="font-weight: 600">La aplicación no bloquea el avance.</strong> Registra el resultado de cada puerta y señala lo que el procedimiento no permite, pero no impide guardar ni pasar de fase. Quien decide es PRO-TEC-04, no el software: una herramienta que bloquea sin conocer el contexto termina obligando a mentirle.</span>
+        </div>
       </div>
     </div>
 
@@ -190,7 +195,7 @@ const SISTEMAS = [
       P2: ['ok', 'Requisitos de seguridad aprobados antes del kick off.', '11/07/2026', 'Daniel Medina', '', ''],
       P3: ['ok', 'Arquitectura revisada. Ocho servicios externos evaluados.', '28/07/2026', 'Yuliet Rojas', '', ''],
       P4: ['no', 'Dos hallazgos críticos abiertos en el análisis dinámico del 25/08.', '25/08/2026', 'Yuliet Rojas', '', ''],
-      P5: ['pendiente', 'No puede avanzar: P4 no superada y sin excepción aprobada.', '—', '', '', ''],
+      P5: ['pendiente', 'El procedimiento pide P4 superada antes de esta. La aplicación no lo impide: lo señala.', '—', '', '', ''],
       P6: ['pendiente', 'No aplica todavía.', '—', '', '', ''],
     },
   },
