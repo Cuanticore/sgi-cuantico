@@ -10,19 +10,24 @@ import 'server-only';
 // las evidencias — nunca se inventa una lista de personas.
 
 import { prisma } from '@/lib/db';
+import { OBJECT_ID_GRUPO_SIG } from '@/lib/sgsi/permisos';
 
 export interface PersonaDirectorio {
   nombre: string;
   correo: string;
 }
 
-async function desdeGraph(): Promise<PersonaDirectorio[] | null> {
+/// Token de aplicación para Graph, o `null` si falta configuración o el tenant no contesta.
+///
+/// Estaba escrito tres veces palabra por palabra. Una credencial que se pide en tres
+/// lugares es una credencial que mañana se arregla en dos.
+async function tokenDeGraph(): Promise<string | null> {
   const tenant = process.env.SHAREPOINT_TENANT_ID;
   const cliente = process.env.SHAREPOINT_CLIENT_ID;
   const secreto = process.env.SHAREPOINT_CLIENT_SECRET;
   if (!tenant || !cliente || !secreto) return null;
   try {
-    const tokenRes = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
+    const res = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -32,12 +37,21 @@ async function desdeGraph(): Promise<PersonaDirectorio[] | null> {
         scope: 'https://graph.microsoft.com/.default',
       }),
     });
-    if (!tokenRes.ok) return null;
-    const token = (await tokenRes.json()) as { access_token?: string };
-    if (!token.access_token) return null;
+    if (!res.ok) return null;
+    const cuerpo = (await res.json()) as { access_token?: string };
+    return cuerpo.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function desdeGraph(): Promise<PersonaDirectorio[] | null> {
+  const acceso = await tokenDeGraph();
+  if (!acceso) return null;
+  try {
     const res = await fetch(
       'https://graph.microsoft.com/v1.0/users?$select=displayName,userPrincipalName&$top=199&$orderby=displayName',
-      { headers: { Authorization: `Bearer ${token.access_token}` } },
+      { headers: { Authorization: `Bearer ${acceso}` } },
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -90,31 +104,15 @@ export interface PersonaDirectorioCompleta {
 /// bitácora, que no traen object id y no son el censo de la organización. Sincronizar
 /// contra una lista inventada es peor que no sincronizar.
 export async function leerDirectorioCompleto(): Promise<PersonaDirectorioCompleta[] | null> {
-  const tenant = process.env.SHAREPOINT_TENANT_ID;
-  const cliente = process.env.SHAREPOINT_CLIENT_ID;
-  const secreto = process.env.SHAREPOINT_CLIENT_SECRET;
-  if (!tenant || !cliente || !secreto) return null;
+  const acceso = await tokenDeGraph();
+  if (!acceso) return null;
   try {
-    const tokenRes = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: cliente,
-        client_secret: secreto,
-        scope: 'https://graph.microsoft.com/.default',
-      }),
-    });
-    if (!tokenRes.ok) return null;
-    const token = (await tokenRes.json()) as { access_token?: string };
-    if (!token.access_token) return null;
-
     // `accountEnabled` distingue a quien sigue en la organización de quien tiene la cuenta
     // bloqueada: una cuenta deshabilitada no debe recibir tareas.
     const res = await fetch(
       'https://graph.microsoft.com/v1.0/users' +
         '?$select=id,displayName,userPrincipalName,accountEnabled&$top=999&$orderby=displayName',
-      { headers: { Authorization: `Bearer ${token.access_token}` } },
+      { headers: { Authorization: `Bearer ${acceso}` } },
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -132,6 +130,42 @@ export async function leerDirectorioCompleto(): Promise<PersonaDirectorioComplet
         nombre: u.displayName as string,
         correo: u.userPrincipalName as string,
       }));
+  } catch {
+    return null;
+  }
+}
+
+/// Los object ids de quienes están en el grupo del SIG, para decir el rol de cada persona
+/// del censo. Devuelve `null` cuando no se pudo saber.
+///
+/// Ese `null` es la respuesta honesta, no un error tragado. Hoy Graph contesta 403: la
+/// aplicación tiene `User.Read.All` pero NO `GroupMember.Read.All`, y sin ese permiso la
+/// pertenencia a un grupo no se puede leer. Devolver un conjunto vacío pintaría a las 34
+/// personas como Colaborador —incluida la que sí administra el SIG— y sería una tabla de
+/// permisos que miente sin que nadie se entere. La pantalla dice que no pudo consultarse.
+///
+/// Nada de esto se guarda. La aplicación no almacena roles: el Directorio manda, y lo que
+/// se muestra se deriva al leer. Es la misma regla que sostiene `rolDesdeGrupos`.
+export async function oidsDelGrupoSig(): Promise<Set<string> | null> {
+  const acceso = await tokenDeGraph();
+  if (!acceso) return null;
+  try {
+    // Sólo el id: el nombre y el correo ya los tiene la tabla `persona`, y pedir menos
+    // campos es una llamada que no se degrada cuando el censo crece.
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${OBJECT_ID_GRUPO_SIG}/members` +
+        '/microsoft.graph.user?$select=id&$top=999',
+      { headers: { Authorization: `Bearer ${acceso}` } },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { value?: { id?: string }[] };
+    const oids = new Set<string>();
+    for (const m of data.value ?? []) {
+      if (m.id) oids.add(m.id.toLowerCase());
+    }
+    // Un grupo sin miembros es un dato posible pero no en este caso: el grupo existe
+    // porque alguien administra el SIG. Vacío se trata como «no se pudo saber».
+    return oids.size > 0 ? oids : null;
   } catch {
     return null;
   }

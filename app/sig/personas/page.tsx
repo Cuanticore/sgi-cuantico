@@ -6,7 +6,8 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
-import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
 import PersonasClient from './Personas.client';
 
@@ -17,7 +18,7 @@ export default async function PersonasPage() {
   const rol = rolDesdeGrupos(session?.user?.grupos);
   const administra = puede(rol, 'personas:administrar');
 
-  const [personas, pendientes] = await Promise.all([
+  const [personas, pendientes, miembrosDelGrupo] = await Promise.all([
     prisma.persona.findMany({
       orderBy: { nombre: 'asc' },
       include: {
@@ -29,6 +30,9 @@ export default async function PersonasPage() {
       where: { estado: 'PENDIENTE' },
       select: { personaId: true, fechaLimite: true },
     }),
+    // El rol no está en la base y no va a estar: lo dan los grupos del Directorio. Se
+    // pregunta al leer, junto con el censo, y `null` significa que no se pudo saber.
+    oidsDelGrupoSig(),
   ]);
 
   const hoy = new Date();
@@ -48,7 +52,14 @@ export default async function PersonasPage() {
     activa: p.activa,
     sincronizadaEn: p.sincronizadaEn?.toISOString() ?? null,
     pendientes: porPersona.get(p.id) ?? 0,
+    rol: rolDeLaPersona(p.oid, miembrosDelGrupo),
   }));
 
-  return <PersonasClient filas={filas} administra={administra} />;
+  return (
+    <PersonasClient
+      filas={filas}
+      administra={administra}
+      rolesConsultables={miembrosDelGrupo !== null}
+    />
+  );
 }

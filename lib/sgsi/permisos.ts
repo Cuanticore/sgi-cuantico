@@ -34,6 +34,14 @@ export const GRUPOS = {
   seguridad: 'SIG-Seguridad',
 } as const;
 
+/// Object id del grupo en el Directorio.
+///
+/// Lo necesita quien tenga que PREGUNTARLE a Graph por sus miembros —la tabla de personas,
+/// para decir el rol de cada una—, no quien sólo lea el token: ahí la pertenencia ya viene
+/// resuelta y no hay nada que consultar. Se declara junto a los demás identificadores del
+/// grupo para que no haya dos lugares distintos que digan cuál es el grupo del SIG.
+export const OBJECT_ID_GRUPO_SIG = '2e0f4290-e91c-4f45-a663-77ece2d2a50e';
+
 export type Grupo = (typeof GRUPOS)[keyof typeof GRUPOS];
 
 export type Permiso =
@@ -137,7 +145,7 @@ const ALIAS: Readonly<Record<string, Grupo>> = {
   // El acento va en el nombre porque así se llama: la comparación pliega mayúsculas pero
   // NO pliega acentos, y «Lideres SIG» no coincidiría.
   'Líderes SIG': GRUPOS.seguridad,
-  '2e0f4290-e91c-4f45-a663-77ece2d2a50e': GRUPOS.seguridad,
+  [OBJECT_ID_GRUPO_SIG]: GRUPOS.seguridad,
 
 };
 
@@ -211,6 +219,28 @@ function permisosDe(grupos: readonly Grupo[]): Set<Permiso> {
 
 export function puede(rol: Rol, permiso: Permiso): boolean {
   return rol.permisos.has(permiso);
+}
+
+/// El rol de OTRA persona — no el de la sesión.
+///
+/// `rolDesdeGrupos` responde por quien está mirando la pantalla, porque su token trae los
+/// grupos. Para el resto del censo no hay token: la pertenencia hay que preguntarla al
+/// Directorio, y `miembros` es la respuesta —el conjunto de object ids del grupo del SIG—
+/// o `null` cuando Graph no pudo contestar.
+///
+/// Ese `null` NO se traduce a Colaborador. No saber si alguien es responsable no es lo
+/// mismo que saber que no lo es, y en una tabla que un auditor lee como el reparto de
+/// permisos del sistema, esa diferencia es el hallazgo. Se devuelve `DESCONOCIDO` y la
+/// pantalla lo dice.
+export type RolDeclarado = 'RESPONSABLE' | 'COLABORADOR' | 'DESCONOCIDO';
+
+export function rolDeLaPersona(
+  oid: string,
+  miembros: ReadonlySet<string> | null,
+): RolDeclarado {
+  if (miembros === null) return 'DESCONOCIDO';
+  // Los object ids se comparan plegados: Azure no es consistente con la caja que emite.
+  return miembros.has(oid.trim().toLowerCase()) ? 'RESPONSABLE' : 'COLABORADOR';
 }
 
 /// Human-readable label for the header and the audit trail.

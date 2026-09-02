@@ -6,7 +6,7 @@
 // just as well before object ids were mapped at all — and back then every real token
 // produced «Sin acceso al SGSI».
 
-import { GRUPOS, rolDesdeGrupos, puede, nombreDelRol } from '../permisos';
+import { GRUPOS, rolDeLaPersona, rolDesdeGrupos, puede, nombreDelRol } from '../permisos';
 
 
 // Dos casos de acceso y nada más: Mi SIG para toda la organización, el resto para
@@ -252,4 +252,33 @@ describe('Líderes SIG', () => {
     expect(rolDesdeGrupos(['Lideres SIG']).grupos).toEqual([]);
   });
 
+});
+
+// El rol de OTRA persona. Lo que se prueba acá es la distinción que la pantalla tiene que
+// sostener: NO SABER si alguien es responsable no es lo mismo que saber que no lo es. Si
+// esa diferencia se pierde, la tabla de personas afirma un reparto de permisos falso con
+// la misma cara con la que afirmaría el verdadero.
+describe('rolDeLaPersona', () => {
+  const MIEMBRO = 'A1B2C3D4-0000-0000-0000-000000000001';
+  const AJENO = 'f51b3ad7-497b-43ea-b646-d1dc482cff5d';
+
+  it('reconoce al miembro del grupo, sin importar la caja del object id', () => {
+    const miembros = new Set([MIEMBRO.toLowerCase()]);
+    expect(rolDeLaPersona(MIEMBRO, miembros)).toBe('RESPONSABLE');
+    expect(rolDeLaPersona(MIEMBRO.toUpperCase(), miembros)).toBe('RESPONSABLE');
+    expect(rolDeLaPersona(`  ${MIEMBRO}  `, miembros)).toBe('RESPONSABLE');
+  });
+
+  it('a quien no está en el grupo lo deja en Colaborador', () => {
+    expect(rolDeLaPersona(AJENO, new Set([MIEMBRO.toLowerCase()]))).toBe('COLABORADOR');
+  });
+
+  it('sin respuesta del Directorio devuelve DESCONOCIDO, nunca COLABORADOR', () => {
+    expect(rolDeLaPersona(MIEMBRO, null)).toBe('DESCONOCIDO');
+    expect(rolDeLaPersona(AJENO, null)).toBe('DESCONOCIDO');
+  });
+
+  it('un conjunto vacío sí es una respuesta: nadie es responsable', () => {
+    expect(rolDeLaPersona(MIEMBRO, new Set())).toBe('COLABORADOR');
+  });
 });

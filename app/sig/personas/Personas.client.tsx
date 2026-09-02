@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
 import { reasignarAsignacion } from '@/app/sig/acciones/tareas';
+import type { RolDeclarado } from '@/lib/sgsi/permisos';
 
 export interface PersonaFila {
   id: number;
@@ -19,14 +20,38 @@ export interface PersonaFila {
   activa: boolean;
   sincronizadaEn: string | null;
   pendientes: number;
+  /// Derivado del Directorio al leer, nunca guardado. `DESCONOCIDO` no es Colaborador.
+  rol: RolDeclarado;
 }
+
+/// Cómo se ve cada rol. `DESCONOCIDO` no se pinta como un rol más: lleva los tokens de
+/// aviso, porque lo que informa es que el dato falta.
+const CHIP_ROL: Record<RolDeclarado, { fondo: string; texto: string; etiqueta: string }> = {
+  RESPONSABLE: {
+    fondo: 'var(--hf-brand-100)',
+    texto: 'var(--hf-brand-nav)',
+    etiqueta: 'Responsable SIG',
+  },
+  COLABORADOR: {
+    fondo: 'var(--hf-bg-subtle)',
+    texto: 'var(--hf-text-secondary)',
+    etiqueta: 'Colaborador',
+  },
+  DESCONOCIDO: {
+    fondo: 'var(--hf-warn-100)',
+    texto: 'var(--hf-warn-text)',
+    etiqueta: 'Sin consultar',
+  },
+};
 
 export default function PersonasClient({
   filas,
   administra,
+  rolesConsultables,
 }: {
   filas: PersonaFila[];
   administra: boolean;
+  rolesConsultables: boolean;
 }) {
   const [filtro, setFiltro] = useState<'activas' | 'inactivas' | 'todas'>('activas');
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -124,6 +149,20 @@ export default function PersonasClient({
         ))}
       </nav>
 
+      {!rolesConsultables && (
+        <p
+          className="mt-4 max-w-[86ch] rounded-campo px-3 py-2 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
+        >
+          <strong className="font-semibold">El rol no se pudo consultar.</strong> Lo dan los
+          grupos del Directorio y la aplicación no guarda roles, así que se pregunta a
+          Microsoft Graph al abrir la pantalla. Hoy esa consulta no responde: falta el permiso{' '}
+          <code className="font-mono">GroupMember.Read.All</code> en el registro de la
+          aplicación. La columna queda en «sin consultar» a propósito — pintar a todos como
+          Colaborador sería una tabla de permisos que miente.
+        </p>
+      )}
+
       <div className="mt-5 overflow-hidden rounded-tarjeta border border-border-field bg-surface">
         <table className="w-full text-left text-12_5">
           <thead>
@@ -131,6 +170,7 @@ export default function PersonasClient({
               <th className="px-4 py-3 font-semibold">Persona</th>
               <th className="px-4 py-3 font-semibold">Área</th>
               <th className="px-4 py-3 font-semibold">Cargo</th>
+              <th className="px-4 py-3 font-semibold">Rol en el SIG</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
               <th className="px-4 py-3 text-right font-semibold">Pendientes</th>
             </tr>
@@ -154,6 +194,14 @@ export default function PersonasClient({
                 </td>
                 <td className="px-4 py-3 text-muted">{p.area ?? '—'}</td>
                 <td className="px-4 py-3 text-muted">{p.cargo ?? '—'}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 uppercase"
+                    style={{ background: CHIP_ROL[p.rol].fondo, color: CHIP_ROL[p.rol].texto }}
+                  >
+                    {CHIP_ROL[p.rol].etiqueta}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 uppercase"
