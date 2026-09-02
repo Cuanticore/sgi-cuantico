@@ -56,7 +56,7 @@
 
       <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 15px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
-        <span style="font-size: 10.5px; line-height: 1.6; color: #4a544f"><strong style="font-weight: 600">Gerencia de Operaciones es dueña de dos procesos misionales</strong> —Proyectos, y Soporte y Servicio al Cliente— y son procesos distintos, no uno. Igual que Gestión Tecnológica es de apoyo y no es lo mismo que Soporte al Cliente, aunque en la conversación diaria se mezclen.</span>
+        <span style="font-size: 10.5px; line-height: 1.6; color: #4a544f"><strong style="font-weight: 600">Gerencia de Operaciones responde por tres de los nueve procesos</strong> —Proyectos, Soporte y Servicio al Cliente, y Gestión Tecnológica—. Los tres son distintos: Soporte al Cliente es misional y Gestión Tecnológica es de apoyo, aunque en la conversación diaria se mezclen.</span>
       </div>
     </div>
 
@@ -123,16 +123,16 @@ const BANDAS = {
 const PROCESOS = [
   { codigo: 'EST', banda: 'ESTRATEGICO', nombre: 'Gestión Estratégica', cargo: 'Gerencia General', persona: 'Daniel Medina', aud: 1, ind: 4, leg: 2, obl: 6 },
 
-  { codigo: 'COM', banda: 'MISIONAL', nombre: 'Gestión Comercial', cargo: 'Gerencia Comercial', persona: null, aud: 1, ind: 5, leg: 1, obl: 4,
-    nota: 'El cargo es Gerencia Comercial. En la relación de personal, Lina Medina figura como Director de Ventas: hay que confirmar si es el mismo cargo con dos nombres.' },
-  { codigo: 'PRY', banda: 'MISIONAL', nombre: 'Gestión de Proyectos', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 6, leg: 3, obl: 9 },
-  { codigo: 'SSC', banda: 'MISIONAL', nombre: 'Soporte y Servicio al Cliente', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 4, leg: 1, obl: 5,
+  { codigo: 'COM', banda: 'MISIONAL', nombre: 'Gestión Comercial', cargo: 'Gerencia Comercial', persona: 'Lina Medina', aud: 1, ind: 5, leg: 1, obl: 4,
+    nota: 'El mapa dice Gerencia Comercial; la relación de personal dice Director de Ventas. Es el mismo cargo con dos nombres, y hay que unificarlo antes de cargar: con el dueño convertido en cargo, un duplicado deja el proceso sin quien lo ocupe.' },
+  { codigo: 'PRO', banda: 'MISIONAL', nombre: 'Gestión de Proyectos', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 6, leg: 3, obl: 9 },
+  { codigo: 'SAC', banda: 'MISIONAL', nombre: 'Soporte y Servicio al Cliente', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 4, leg: 1, obl: 5,
     nota: 'Es un proceso misional distinto de Gestión Tecnológica, que es de apoyo. Confundirlos fue el error de la primera versión de esta pantalla.' },
 
   { codigo: 'TAL', banda: 'APOYO', nombre: 'Talento Humano', cargo: 'Líder Administrativo', persona: 'Albeiro Medina', aud: 1, ind: 3, leg: 5, obl: 8 },
   { codigo: 'LCO', banda: 'APOYO', nombre: 'Gestión Legal y de Compras', cargo: 'Chief Legal Officer', persona: 'Marcela Molina', aud: 1, ind: 3, leg: 9, obl: 7 },
-  { codigo: 'TEC', banda: 'APOYO', nombre: 'Gestión Tecnológica', cargo: null, persona: null, aud: 1, ind: 7, leg: 4, obl: 18,
-    nota: 'Sin dueño confirmado. Es el proceso con más obligaciones de todo el sistema —dieciocho— y el que soporta el SGSI entero, así que es el que menos conviene dejar sin cargo asignado.' },
+  { codigo: 'TEC', banda: 'APOYO', nombre: 'Gestión Tecnológica', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 7, leg: 4, obl: 18,
+    nota: 'El proceso con más obligaciones de todo el sistema —dieciocho— y el que soporta el SGSI entero. Con PRO y SAC, la Gerencia de Operaciones responde por tres de los nueve.' },
   { codigo: 'SIG', banda: 'APOYO', nombre: 'Sistema Integrado de Gestión', cargo: 'Líder del SIG', persona: 'Katherine Quiroga', aud: 0, ind: 5, leg: 2, obl: 12,
     nota: 'Sin auditoría en el programa. Auditarse a sí mismo exige separación de funciones: lo audita alguien de otro proceso.' },
   { codigo: 'FIN', banda: 'APOYO', nombre: 'Gestión Financiera', cargo: 'Líder Administrativo', persona: 'Albeiro Medina', aud: 1, ind: 4, leg: 6, obl: 5,
@@ -142,7 +142,7 @@ const PROCESOS = [
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { sel: 'SSC' };
+    this.state = { sel: 'TEC' };
   }
 
   renderVals() {

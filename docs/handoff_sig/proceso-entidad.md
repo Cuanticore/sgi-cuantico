@@ -9,7 +9,7 @@
 
 En el esquema solo existe `Area`. Pero todo el sistema de gestión se organiza por **proceso**: los dueños de tarea son por proceso, el programa de auditoría es por proceso, los indicadores son por proceso, y `RequisitoLegal.procesoEncargado` quedó como **`String`**, que es la única violación viva del invariante de origen tipado.
 
-Hoy «área» hace de dos cosas a la vez. El caso que lo zanja es real: **Yuliet Rojas está en el área Operaciones y lidera el proceso Tecnología y Soporte.** Con una sola entidad ese hecho no se puede escribir.
+Hoy «área» hace de dos cosas a la vez. El caso que lo zanja es real: **la Gerencia de Operaciones, en el área Operaciones, responde por tres procesos —Proyectos, Soporte y Servicio al Cliente, y Gestión Tecnológica—, dos misionales y uno de apoyo.** Con una sola entidad ese hecho no se puede escribir.
 
 ---
 
@@ -18,7 +18,7 @@ Hoy «área» hace de dos cosas a la vez. El caso que lo zanja es real: **Yuliet
 ```
 model Proceso {
   id       Int
-  codigo   String  @unique   // EST, COM, PRY, SSC, TAL, LCO, TEC, SIG, FIN
+  codigo   String  @unique   // EST, COM, PRO, SAC, TAL, LCO, TEC, SIG, FIN
   nombre   String
   tipo     enum { ESTRATEGICO, MISIONAL, APOYO }
   areaId   Int                // obligatorio: un proceso vive en un área
@@ -56,18 +56,20 @@ Tomados del **mapa de procesos de MAN-SIG-02**, que es la fuente. Confirmado el 
 | Código | Tipo | Proceso | Cargo responsable | Quien lo ocupa |
 |---|---|---|---|---|
 | `EST` | Estratégico | Gestión Estratégica | Gerencia General | Daniel Medina |
-| `COM` | Misional | Gestión Comercial | Gerencia Comercial | por confirmar |
-| `PRY` | Misional | Gestión de Proyectos | Gerencia de Operaciones | Yuliet Rojas |
-| `SSC` | Misional | Soporte y Servicio al Cliente | Gerencia de Operaciones | Yuliet Rojas |
+| `COM` | Misional | Gestión Comercial | Gerencia Comercial | Lina Medina |
+| `PRO` | Misional | Gestión de Proyectos | Gerencia de Operaciones | Yuliet Rojas |
+| `SAC` | Misional | Soporte y Servicio al Cliente | Gerencia de Operaciones | Yuliet Rojas |
 | `TAL` | Apoyo | Talento Humano | Líder Administrativo | Albeiro Medina |
 | `LCO` | Apoyo | Gestión Legal y de Compras | Chief Legal Officer | Marcela Molina |
-| `TEC` | Apoyo | Gestión Tecnológica | **por confirmar** | por confirmar |
+| `TEC` | Apoyo | Gestión Tecnológica | Gerencia de Operaciones | Yuliet Rojas |
 | `SIG` | Apoyo | Sistema Integrado de Gestión | Líder del SIG | Katherine Quiroga |
 | `FIN` | Apoyo | Gestión Financiera | Líder Administrativo | Albeiro Medina |
 
 ### 3.1 Dos correcciones a lo que yo tenía
 
-**Inventé un proceso que no existe.** Escribí «Tecnología y Soporte» como si fuera uno solo. En el mapa son **dos procesos distintos y de bandas distintas**: `SSC` Soporte y Servicio al Cliente es **misional**, y `TEC` Gestión Tecnológica es **de apoyo**. En la conversación diaria se mezclan; en el sistema de gestión no son lo mismo.
+Ambas son errores míos al escribir la pantalla y este documento; `configuracion-base-tareas.md` ya tenía los nueve bien separados desde el 31/08.
+
+**Inventé un proceso que no existe.** Escribí «Tecnología y Soporte» como si fuera uno solo. En el mapa son **dos procesos distintos y de bandas distintas**: `SAC` Soporte y Servicio al Cliente es **misional**, y `TEC` Gestión Tecnológica es **de apoyo**. En la conversación diaria se mezclan; en el sistema de gestión no son lo mismo.
 
 **Gestión de Proyectos no es de Laura Agudelo.** Es de la **Gerencia de Operaciones**, que ocupa Yuliet Rojas. Laura Agudelo figura en la relación de personal como Director de Consultoría.
 
@@ -75,8 +77,9 @@ Ese error de mi parte llegó a `configuracion-base-tareas.md`, que hay que corre
 
 ### 3.2 Lo que estos nueve confirman del modelo
 
-- **Un cargo, dos procesos.** Gerencia de Operaciones es dueña de `PRY` y `SSC`; Líder Administrativo de `TAL` y `FIN`. Con `Area` sola no se podía escribir.
-- **`TEC` es el proceso con más obligaciones de todo el sistema** —dieciocho— y el que soporta el SGSI entero. Es el que menos conviene dejar sin cargo asignado, y es justo el que está sin confirmar.
+- **Un cargo, varios procesos.** Gerencia de Operaciones es dueña de `PRO`, `SAC` y `TEC`; Líder Administrativo de `TAL` y `FIN`. Seis cargos para nueve procesos, y con `Area` sola no se podía escribir.
+- **Un cargo cruza las bandas.** Gerencia de Operaciones responde por dos procesos misionales y uno de apoyo. La banda es del proceso, no de quien lo lidera.
+- **`TEC` es el proceso con más obligaciones de todo el sistema** —dieciocho— y el que soporta el SGSI entero. Con `PRO` y `SAC`, la Gerencia de Operaciones concentra cerca de la mitad de la carga: conviene mirarlo antes de generar las primeras asignaciones, no después.
 - **`SIG` no tiene auditoría en el programa.** Auditarse a sí mismo exige separación de funciones: lo audita alguien de otro proceso.
 
 ---
@@ -92,15 +95,16 @@ Ese último conteo es el que importa: es lo que permite ver de un vistazo un pro
 ## 5. Riesgos de la migración
 
 1. **`RequisitoLegal.procesoEncargado` tiene texto libre existente.** Hay que mapearlo a los nueve códigos y decidir qué hacer con lo que no encaje. La matriz está vacía hoy, así que el riesgo es bajo — pero eso puede cambiar si se carga antes de migrar.
-2. **El programa de auditoría ya tiene filas por área.** Migrarlas exige decidir a qué proceso corresponde cada una. Con ocho de nueve procesos identificados y un mapeo casi uno a uno con las áreas, es mecánico salvo en los casos de Albeiro.
+2. **El programa de auditoría ya tiene filas por área.** Migrarlas exige decidir a qué proceso corresponde cada una. Es mecánico salvo donde un cargo responde por varios procesos: las filas de la Gerencia de Operaciones hay que repartirlas entre `PRO`, `SAC` y `TEC`, y las del Líder Administrativo entre `TAL` y `FIN`.
 3. **Nada de esto rompe lo construido si se hace en ese orden:** crear `Proceso`, poblarlo, agregar las llaves como opcionales, migrar, y solo entonces volverlas obligatorias.
 
 ---
 
 ## 6. Lo que queda por decidir
 
-1. **El cargo responsable de `TEC` Gestión Tecnológica.** Es el más urgente: dieciocho obligaciones y el soporte del SGSI entero cuelgan de un proceso sin dueño.
-2. **Si «Gerencia Comercial» y «Director de Ventas» son el mismo cargo.** El mapa dice lo primero, la relación de personal lo segundo.
-3. **El área de cada proceso.** El mapa da la banda y el cargo, no el área; hay que fijarla antes de migrar.
-4. **Si el área del proceso y el área del dueño pueden diferir.** El modelo dice que el proceso vive en un área; nada obliga a que quien ocupa el cargo pertenezca a esa misma. El caso de Yuliet Rojas —área Operaciones— sugiere que sí, y conviene dejarlo dicho para que nadie lo valide de más.
-5. **Corregir `configuracion-base-tareas.md`**, que arrastra mi error de asignar Proyectos a Laura Agudelo y de fundir Gestión Tecnológica con Soporte al Cliente.
+1. **Unificar el catálogo de cargos antes de migrar.** Con el dueño convertido en cargo, `CargoResponsable` pasa a ser una llave, y en las fuentes hay cargos escritos de varias formas: «Gerencia Comercial» / «Director de Ventas · National Sales Manager», y «Gerencia de Operaciones» / «Gerente de Operaciones · Chief Operating Officer» / «Operations & Services Manager». Cargados como cargos distintos, un proceso queda apuntando a un cargo que nadie ocupa.
+2. **El área de cada proceso.** El mapa da la banda y el cargo, no el área; hay que fijarla antes de migrar.
+3. **Si el área del proceso y el área del dueño pueden diferir.** El modelo dice que el proceso vive en un área; nada obliga a que quien ocupa el cargo pertenezca a esa misma. El caso de Yuliet Rojas —área Operaciones— sugiere que sí, y conviene dejarlo dicho para que nadie lo valide de más.
+4. **Revisar la concentración en Gerencia de Operaciones**, que responde por tres de los nueve procesos.
+
+> `configuracion-base-tareas.md` ya quedó corregido el 02/09/2026 con estos nueve, sus cargos y los códigos unificados.
