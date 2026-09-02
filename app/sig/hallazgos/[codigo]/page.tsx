@@ -6,6 +6,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { estadoCalculado, vencidoContra, exigeTabla } from '@/lib/sig/hallazgos';
+import { diasHasta } from '@/lib/sig/cierre';
 import FichaClient from './Ficha.client';
 
 export const dynamic = 'force-dynamic';
@@ -33,9 +34,18 @@ export default async function FichaHallazgoPage({
         },
       },
       verificaciones: { include: { verificadoPor: { select: { nombre: true } } } },
+      cerradoPor: { select: { nombre: true } },
     },
   });
   if (!h) notFound();
+
+  // Reclasificar exige responsable y fecha de compromiso, así que el censo tiene que
+  // llegar a la pantalla: sin la lista, el control del lienzo no se puede completar.
+  const personas = await prisma.persona.findMany({
+    where: { activa: true },
+    select: { id: true, nombre: true },
+    orderBy: { nombre: 'asc' },
+  });
 
   const hoy = new Date();
   const estado = estadoCalculado({
@@ -53,8 +63,14 @@ export default async function FichaHallazgoPage({
   const huboAccion = h.acciones.filter((a) => a.papel !== 'VERIFICACION').length > 0;
   const verificacionEficaz = h.verificaciones.some((v) => v.resultado === 'EFICAZ');
 
+  // «Vencido · N días» del lienzo. El número es lo que convierte el aviso en una
+  // prioridad: vencido por un día y vencido por cuarenta se leen igual sin él.
+  const diasVencido =
+    vencido && h.fechaCompromiso ? Math.abs(diasHasta(h.fechaCompromiso, hoy)) : null;
+
   return (
     <FichaClient
+      personas={personas}
       hallazgo={{
         id: h.id,
         codigo: h.codigo,
@@ -72,6 +88,9 @@ export default async function FichaHallazgoPage({
         hallazgoAnterior: h.hallazgoAnterior ?? null,
         estado,
         vencido,
+        diasVencido,
+        fechaCierre: h.fechaCierre?.toISOString().slice(0, 10) ?? null,
+        cerradoPor: h.cerradoPor?.nombre ?? null,
         exige,
         correccion: h.correccion
           ? { descripcion: h.correccion.descripcion, fecha: h.correccion.fecha.toISOString().slice(0, 10) }

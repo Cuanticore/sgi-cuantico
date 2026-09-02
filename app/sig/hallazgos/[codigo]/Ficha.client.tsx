@@ -15,6 +15,7 @@ import {
   verificarEficacia,
   cerrarHallazgo,
   anularHallazgo,
+  clasificarHallazgo,
 } from '@/app/sig/acciones/hallazgos';
 
 type Pestana = 'identificacion' | 'correccion' | 'causa' | 'acciones' | 'eficacia';
@@ -36,6 +37,10 @@ export interface HallazgoFicha {
   hallazgoAnterior: { codigo: string; tipo: string } | null;
   estado: string;
   vencido: boolean;
+  /// Días que lleva vencido. `null` si no está vencido o no hay fecha de compromiso.
+  diasVencido: number | null;
+  fechaCierre: string | null;
+  cerradoPor: string | null;
   exige: {
     correccion: string;
     causa: string;
@@ -58,10 +63,18 @@ export interface HallazgoFicha {
   verificacionEficaz: boolean;
 }
 
-export default function FichaClient({ hallazgo }: { hallazgo: HallazgoFicha }) {
+export default function FichaClient({
+  hallazgo,
+  personas,
+}: {
+  hallazgo: HallazgoFicha;
+  personas: { id: number; nombre: string }[];
+}) {
   const [pestana, setPestana] = useState<Pestana>('identificacion');
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reclasificando, setReclasificando] = useState<string | null>(null);
+  const [anulando, setAnulando] = useState(false);
 
   const marcas: Record<Pestana, string> = {
     identificacion: 'Obligatorio',
@@ -111,14 +124,63 @@ export default function FichaClient({ hallazgo }: { hallazgo: HallazgoFicha }) {
         </span>
         {hallazgo.vencido && (
           <span
-            className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
+            className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold uppercase"
             style={{ background: '#fdeeeb', color: '#a52016' }}
           >
-            Vencido
+            {hallazgo.diasVencido === null
+              ? 'Vencido'
+              : `Vencido · ${hallazgo.diasVencido} ${hallazgo.diasVencido === 1 ? 'día' : 'días'}`}
           </span>
         )}
-        <h1 className="ml-2 truncate text-16 font-semibold text-primary">{hallazgo.descripcion}</h1>
       </header>
+
+      <div className="mt-2 flex items-start gap-4">
+        <h1 className="max-w-[84ch] text-19 font-semibold leading-snug text-primary [text-wrap:pretty]">
+          {hallazgo.descripcion}
+        </h1>
+        <span className="ml-auto flex flex-none flex-col items-end gap-1.5">
+          <span className="etiqueta-campo">Reclasificar</span>
+          <span className="flex gap-1 rounded-campo border border-border-field bg-surface p-[3px]">
+            {(Object.keys(TIPO) as (keyof typeof TIPO)[]).map((t) => {
+              const activo = hallazgo.tipo === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setReclasificando(t)}
+                  aria-pressed={activo}
+                  disabled={hallazgo.estado === 'CERRADO' || hallazgo.estado === 'ANULADO'}
+                  className="rounded-[4px] px-2.5 py-1 text-11 disabled:opacity-40"
+                  style={{
+                    background: activo ? 'var(--hf-brand-100)' : 'transparent',
+                    color: activo ? 'var(--hf-brand-nav)' : 'var(--hf-text-muted)',
+                    fontWeight: activo ? 600 : 500,
+                  }}
+                >
+                  {TIPO[t].etiqueta}
+                </button>
+              );
+            })}
+          </span>
+        </span>
+      </div>
+
+      {reclasificando && (
+        <PanelReclasificar
+          hallazgo={hallazgo}
+          personas={personas}
+          tipoNuevo={reclasificando}
+          onCerrar={() => setReclasificando(null)}
+          setError={setError}
+        />
+      )}
+
+      {anulando && (
+        <PanelAnular
+          codigo={hallazgo.codigo}
+          onCerrar={() => setAnulando(false)}
+          setError={setError}
+        />
+      )}
 
       <nav className="mt-5 flex border-b border-border-default">
         {(['identificacion', 'correccion', 'causa', 'acciones', 'eficacia'] as const).map((p) => (
@@ -192,13 +254,7 @@ export default function FichaClient({ hallazgo }: { hallazgo: HallazgoFicha }) {
         </p>
         <div className="flex gap-2">
           <button
-            onClick={async () => {
-              const motivo = prompt('Motivo de la anulación (obligatorio)');
-              if (!motivo) return;
-              const r = await anularHallazgo(hallazgo.codigo, motivo);
-              if (r.ok) window.location.reload();
-              else setError(r.mensaje);
-            }}
+            onClick={() => setAnulando(true)}
             className="rounded-campo border px-4 py-2 text-12_5 font-medium"
             style={{ borderColor: 'var(--hf-danger-border)', color: 'var(--hf-danger-text)' }}
           >
@@ -244,6 +300,172 @@ const TIPO: Record<string, { etiqueta: string; estilo: { background: string; col
   OBSERVACION: { etiqueta: 'Observación', estilo: { background: '#faf1d3', color: '#6b5410' } },
   OPORTUNIDAD: { etiqueta: 'Oportunidad', estilo: { background: '#e8f4ef', color: '#0b5c44' } },
 };
+
+/// «Reclasificar» del lienzo. El lienzo dibuja sólo los botones de tipo, pero
+/// `clasificarHallazgo` exige responsable y fecha de compromiso: reclasificar de
+/// observación a NC mayor cambia qué pasos son obligatorios, y dejar eso sin dueño ni
+/// plazo es crear una obligación que nadie debe. Los campos vienen precargados con lo que
+/// el hallazgo ya tiene, así que en el caso normal es confirmar y listo.
+function PanelReclasificar({
+  hallazgo,
+  personas,
+  tipoNuevo,
+  onCerrar,
+  setError,
+}: {
+  hallazgo: HallazgoFicha;
+  personas: { id: number; nombre: string }[];
+  tipoNuevo: string;
+  onCerrar: () => void;
+  setError: (e: string) => void;
+}) {
+  const [responsableId, setResponsableId] = useState(hallazgo.responsable?.id.toString() ?? '');
+  const [fechaCompromiso, setFechaCompromiso] = useState(hallazgo.fechaCompromiso ?? '');
+  const [ocupado, setOcupado] = useState(false);
+
+  const mismoTipo = tipoNuevo === hallazgo.tipo;
+  const listo = responsableId !== '' && fechaCompromiso !== '';
+
+  async function aplicar() {
+    setOcupado(true);
+    setError('');
+    const r = await clasificarHallazgo(hallazgo.codigo, {
+      tipo: tipoNuevo as 'NC_MAYOR' | 'NC_MENOR' | 'OBSERVACION' | 'OPORTUNIDAD',
+      responsableId: Number(responsableId),
+      fechaCompromiso: new Date(`${fechaCompromiso}T00:00:00.000Z`),
+    });
+    setOcupado(false);
+    if (r.ok) {
+      window.location.reload();
+      return;
+    }
+    setError(r.mensaje);
+    onCerrar();
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 rounded-tarjeta border border-border-field bg-surface p-5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-14 font-bold text-primary">
+          {mismoTipo
+            ? `Clasificar como ${TIPO[tipoNuevo].etiqueta}`
+            : `Reclasificar de ${TIPO[hallazgo.tipo]?.etiqueta ?? hallazgo.tipo} a ${TIPO[tipoNuevo].etiqueta}`}
+        </h2>
+        <button onClick={onCerrar} className="text-12_5 text-muted">
+          Cancelar
+        </button>
+      </div>
+      <p className="max-w-[84ch] text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+        El tipo decide qué pasos exige el flujo: las pestañas que el tipo nuevo no exige se
+        atenúan, y las que sí exige quedan pendientes. El cambio queda en la bitácora con el
+        tipo anterior.
+      </p>
+      <div className="grid max-w-[620px] grid-cols-2 gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Responsable</span>
+          <select
+            value={responsableId}
+            onChange={(e) => setResponsableId(e.target.value)}
+            className="entrada-campo"
+          >
+            <option value="">Elegir persona…</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Fecha de compromiso</span>
+          <input
+            type="date"
+            value={fechaCompromiso}
+            onChange={(e) => setFechaCompromiso(e.target.value)}
+            className="entrada-campo font-mono"
+          />
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={aplicar}
+          disabled={!listo || ocupado}
+          className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white disabled:opacity-50"
+          style={{ background: 'var(--hf-brand-nav)' }}
+        >
+          {ocupado ? 'Aplicando…' : mismoTipo ? 'Clasificar' : 'Reclasificar'}
+        </button>
+        {!listo && (
+          <span className="text-11_5 text-muted">
+            Falta el responsable o la fecha: sin ellos el tipo nuevo no tendría dueño ni plazo.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/// Anular pedía el motivo con un `prompt()` del navegador. Un motivo obligatorio que se
+/// escribe en un cuadro del sistema operativo no se puede revisar antes de enviarlo, no se
+/// puede pegar cómodo y no dice qué se está anulando.
+function PanelAnular({
+  codigo,
+  onCerrar,
+  setError,
+}: {
+  codigo: string;
+  onCerrar: () => void;
+  setError: (e: string) => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-tarjeta border border-border-field bg-surface p-5">
+        <h2 className="text-15 font-bold text-primary">Anular {codigo}</h2>
+        <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+          Anular dice que el hallazgo no debió existir. No se borra: queda con su motivo en la
+          bitácora, y sigue contando en el histórico como hallazgo anulado.
+        </p>
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Motivo (obligatorio)</span>
+          <textarea
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            rows={3}
+            autoFocus
+            placeholder="Se registró dos veces el mismo hallazgo de la auditoría de agosto."
+            className="entrada-campo leading-relaxed"
+          />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button onClick={onCerrar} className="rounded-campo px-3 py-1.5 text-12 text-muted">
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              setOcupado(true);
+              const r = await anularHallazgo(codigo, motivo);
+              setOcupado(false);
+              if (r.ok) {
+                window.location.reload();
+                return;
+              }
+              setError(r.mensaje);
+              onCerrar();
+            }}
+            disabled={motivo.trim() === '' || ocupado}
+            className="rounded-campo px-3.5 py-1.5 text-12 font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--hf-danger-text)' }}
+          >
+            {ocupado ? 'Anulando…' : 'Anular'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Identificacion({ hallazgo }: { hallazgo: HallazgoFicha }) {
   return (
@@ -539,6 +761,13 @@ function Eficacia({
 
   return (
     <section className="flex max-w-[860px] flex-col gap-3">
+      <Regla etiqueta="Historial de verificaciones" />
+      {hallazgo.verificaciones.length === 0 && (
+        <p className="text-12 text-muted">
+          Todavía no se verificó la eficacia. Verificar es comprobar que la causa dejó de
+          producir el efecto, no que la acción se hizo.
+        </p>
+      )}
       {hallazgo.verificaciones.map((v, i) => (
         <div
           key={i}
@@ -590,7 +819,35 @@ function Eficacia({
       >
         Registrar verificación
       </button>
+
+      <div className="mt-3 flex flex-col gap-2.5">
+        <Regla etiqueta="Cierre" />
+        <div className="grid grid-cols-3 gap-3.5">
+          <Campo
+            etiqueta="Cierra"
+            valor={
+              hallazgo.cerradoPor ??
+              (hallazgo.verificacionEficaz
+                ? 'Listo para cerrar · alguien distinto del responsable'
+                : 'Pendiente · requiere verificación eficaz')
+            }
+            tenue={hallazgo.cerradoPor === null}
+          />
+          <Campo etiqueta="Fecha de cierre" valor={hallazgo.fechaCierre ?? '—'} tenue={hallazgo.fechaCierre === null} />
+          <Campo etiqueta="Regla" valor="Nadie cierra su propio hallazgo" />
+        </div>
+      </div>
     </section>
+  );
+}
+
+/// La regla del lienzo: rótulo, luego una línea que ocupa el resto del ancho.
+function Regla({ etiqueta }: { etiqueta: string }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="etiqueta-campo">{etiqueta}</span>
+      <span className="h-px flex-1" style={{ background: 'var(--hf-hairline-strong)' }} />
+    </span>
   );
 }
 
@@ -605,17 +862,29 @@ function Campo({
   etiqueta,
   valor,
   rojo,
+  /// Para un valor que todavía no existe: se lee como dato pendiente, no como dato.
+  tenue,
   ancho,
 }: {
   etiqueta: string;
   valor: string;
   rojo?: boolean;
+  tenue?: boolean;
   ancho?: string;
 }) {
   return (
     <div className={`flex flex-col gap-0.5 ${ancho ?? ''}`}>
       <span className="etiqueta-campo">{etiqueta}</span>
-      <span className="text-12_5 text-primary" style={rojo ? { color: 'var(--hf-danger-text)' } : undefined}>
+      <span
+        className="text-12_5 text-primary"
+        style={
+          rojo
+            ? { color: 'var(--hf-danger-text)' }
+            : tenue
+              ? { color: 'var(--hf-text-label)' }
+              : undefined
+        }
+      >
         {valor}
       </span>
     </div>
