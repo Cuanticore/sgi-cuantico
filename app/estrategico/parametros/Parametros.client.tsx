@@ -10,6 +10,13 @@
 import { useState } from 'react';
 import Restaurar from './Restaurar.client';
 import CongelarLineaBase from './CongelarLineaBase.client';
+import {
+  EficaciasEditables,
+  EscalaEditable,
+  Historial,
+  NivelesEditables,
+  type EntradaHistorial,
+} from './TablasEditables.client';
 
 type Pestana = 'probabilidad' | 'impactoRiesgo' | 'impactoOportunidad' | 'tipos' | 'eficacias' | 'niveles';
 
@@ -23,6 +30,7 @@ export default function ParametrosClient({
   niveles,
   lineaBase,
   registros,
+  historial,
 }: {
   probabilidad: { id: number; valor: number; etiqueta: string; descripcion: string | null; color: string }[];
   impactoRiesgo: { id: number; valor: number; etiqueta: string; pct: number | null; cop: number | null }[];
@@ -35,6 +43,8 @@ export default function ParametrosClient({
   lineaBase: string | null;
   /// Cuantos riesgos activos hay de verdad. 66 eran los del Excel de referencia.
   registros: number;
+  /// Cada cambio del metodo, desde la bitacora.
+  historial: EntradaHistorial[];
 }) {
   const [pestana, setPestana] = useState<Pestana>('probabilidad');
   const [aviso, setAviso] = useState<string | null>(null);
@@ -52,7 +62,7 @@ export default function ParametrosClient({
     <main className="flex-1 px-8 pt-7 pb-14">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
-          <h1 className="titulo-pagina">Parámetros del modelo</h1>
+          <h1 className="titulo-pagina">Parámetros del modelo estratégico</h1>
           <p className="text-12_5 text-muted">
             Cambiar una escala recalcula los {registros} registros al instante: guardan la referencia al nivel, no el número.
           </p>
@@ -89,27 +99,52 @@ export default function ParametrosClient({
 
       <div className="mt-5 max-w-[820px]">
         {pestana === 'probabilidad' && (
-          <Tabla
-            cabeceras={['Valor', 'Etiqueta', 'Descripción', 'Color']}
-            filas={probabilidad.map((p) => [String(p.valor), p.etiqueta, p.descripcion ?? '—', p.color])}
-          />
+          <>
+            <EscalaEditable
+              tabla="probabilidad"
+              iniciales={probabilidad.map((p) => ({ id: p.id, valor: p.valor, etiqueta: p.etiqueta }))}
+              columnaExtra={{
+                cabecera: 'Descripción',
+                valores: Object.fromEntries(probabilidad.map((p) => [p.id, p.descripcion ?? '—'])),
+              }}
+            />
+            <Historial entradas={historial} tabla="escala_probabilidad" />
+          </>
         )}
         {pestana === 'impactoRiesgo' && (
           <>
-            <Tabla
-              cabeceras={['Valor', 'Etiqueta', '% patrimonio', 'Referencia COP']}
-              filas={impactoRiesgo.map((i) => [String(i.valor), i.etiqueta, i.pct !== null ? `${i.pct} %` : '—', i.cop !== null ? `$${i.cop.toLocaleString('es-CO')}` : '—'])}
+            <EscalaEditable
+              tabla="impactoRiesgo"
+              iniciales={impactoRiesgo.map((i) => ({ id: i.id, valor: i.valor, etiqueta: i.etiqueta }))}
+              columnaExtra={{
+                cabecera: '% patrimonio · referencia',
+                valores: Object.fromEntries(
+                  impactoRiesgo.map((i) => [
+                    i.id,
+                    [
+                      i.pct !== null ? `${i.pct} %` : null,
+                      i.cop !== null ? `$${i.cop.toLocaleString('es-CO')}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '—',
+                  ]),
+                ),
+              }}
             />
-            <p className="mt-3 text-11_5 text-muted">
-              La referencia en COP es solo de referencia, no entra al cálculo.
+            <p className="mt-2 text-11_5 text-muted">
+              La referencia en COP es sólo de referencia: no entra al cálculo.
             </p>
+            <Historial entradas={historial} tabla="escala_impacto_riesgo" />
           </>
         )}
         {pestana === 'impactoOportunidad' && (
-          <Tabla
-            cabeceras={['Valor', 'Etiqueta']}
-            filas={impactoOportunidad.map((i) => [String(i.valor), i.etiqueta])}
-          />
+          <>
+            <EscalaEditable
+              tabla="impactoOportunidad"
+              iniciales={impactoOportunidad.map((i) => ({ id: i.id, valor: i.valor, etiqueta: i.etiqueta }))}
+            />
+            <Historial entradas={historial} tabla="escala_impacto_oportunidad" />
+          </>
         )}
         {pestana === 'tipos' && (
           <>
@@ -125,25 +160,34 @@ export default function ParametrosClient({
         )}
         {pestana === 'eficacias' && (
           <>
-            <Tabla
-              cabeceras={['Medición', 'Valor', 'Qué implica']}
-              filas={eficacias.map((e) => [e.nombre, `${e.valor * 100} %`, `Reduce el ${e.valor * 100} %`])}
+            <EficaciasEditables
+              iniciales={eficacias.map((e) => ({ id: e.id, nombre: e.nombre, valor: e.valor }))}
             />
-            <p className="mt-3 text-11_5 text-muted">
-              Cambiar Fuerte de 80 % a 90 % recalcula los {registros} al instante, sin tocar datos.
+            <p className="mt-2 text-11_5 text-muted">
+              Cambiar Fuerte de 80 % a 90 % recalcula los {registros} al instante, sin tocar
+              datos: los controles guardan la referencia a la medición, no el número.
             </p>
+            <Historial entradas={historial} tabla="eficacia_control" />
           </>
         )}
         {pestana === 'niveles' && (
           <>
-            <Tabla
-              cabeceras={['Rango', 'Etiqueta', 'Acción · riesgo', 'Acción · oportunidad', 'Color']}
-              filas={niveles.map((n) => [`${n.minimo}–${n.maximo}`, n.etiqueta, n.accionRiesgo, n.accionOportunidad, n.color])}
+            <NivelesEditables
+              iniciales={niveles.map((n) => ({
+                id: n.id,
+                minimo: n.minimo,
+                maximo: n.maximo,
+                etiqueta: n.etiqueta,
+                color: n.color,
+                accionRiesgo: n.accionRiesgo,
+                accionOportunidad: n.accionOportunidad,
+              }))}
             />
-            <p className="mt-3 text-11_5 text-muted">
-              El manual dice «Impactante» en la tabla de tratamiento; aquí se adoptó
-              «Inaceptable» (la tabla de valoración) — conviene corregir el manual.
+            <p className="mt-2 max-w-[92ch] text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              El manual dice «Impactante» en la tabla de tratamiento; acá se adoptó
+              «Inaceptable», la de valoración — conviene corregir el manual.
             </p>
+            <Historial entradas={historial} tabla="nivel_riesgo" />
           </>
         )}
 

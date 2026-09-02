@@ -19,6 +19,7 @@ export default async function ParametrosPage() {
     niveles,
     lineaBase,
     registros,
+    historial,
   ] = await Promise.all([
     prisma.escalaProbabilidad.findMany({ orderBy: { valor: 'asc' } }),
     prisma.escalaImpactoRiesgo.findMany({ orderBy: { valor: 'asc' } }),
@@ -31,6 +32,35 @@ export default async function ParametrosPage() {
     // El conteo real. La pantalla decía «los 66 registros» en dos lugares: 66 son los del
     // Excel de referencia, y afirmarlo con la base en otro número es contar de memoria.
     prisma.riesgoOrganizacional.count({ where: { activo: true } }),
+    // «Historial de esta tabla» del lienzo. Sale de la bitácora, que ya guarda cada cambio
+    // con su autor, su valor anterior y su motivo: no hace falta una tabla nueva, sólo
+    // leerla filtrada por las seis tablas del método.
+    prisma.bitacora.findMany({
+      where: {
+        tabla: {
+          in: [
+            'escala_probabilidad',
+            'escala_impacto_riesgo',
+            'escala_impacto_oportunidad',
+            'tipo_control_riesgo',
+            'eficacia_control',
+            'nivel_riesgo',
+            'factor_riesgo',
+          ],
+        },
+      },
+      orderBy: { ocurridoEn: 'desc' },
+      take: 120,
+      select: {
+        tabla: true,
+        campo: true,
+        valorAnterior: true,
+        valorNuevo: true,
+        motivo: true,
+        usuario: true,
+        ocurridoEn: true,
+      },
+    }),
   ]);
 
   return (
@@ -58,6 +88,15 @@ export default async function ParametrosPage() {
       }))}
       lineaBase={lineaBase?.nombre ?? null}
       registros={registros}
+      historial={historial.map((h) => ({
+        tabla: h.tabla,
+        campo: h.campo,
+        anterior: h.valorAnterior,
+        nuevo: h.valorNuevo,
+        motivo: h.motivo,
+        usuario: h.usuario,
+        fecha: h.ocurridoEn.toISOString().slice(0, 10),
+      }))}
     />
   );
 }
