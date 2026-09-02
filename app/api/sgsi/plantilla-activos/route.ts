@@ -24,7 +24,7 @@ export async function GET() {
   // process, custodian, owner and provider — and it is NOT under the /sgsi path, so the
   // layout's read gate never sees it. `403`, not `404`: the caller is authenticated and
   // hiding the route's existence from them buys nothing.
-  if (!puede(rolDesdeGrupos(session.user?.grupos), 'sgsi:ver')) {
+  if (!puede(rolDesdeGrupos(session.user?.grupos, session.user?.email), 'sgsi:ver')) {
     return new NextResponse(null, { status: 403 });
   }
 

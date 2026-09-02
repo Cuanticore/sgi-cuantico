@@ -19,19 +19,19 @@
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
-import { GRUPOS, puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { GRUPOS, puede, rolDesdeGrupos, type OrigenRol } from '@/lib/sgsi/permisos';
 import ShellSig from '@/app/components/sgsi/ShellSig';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SgsiLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  const rol = rolDesdeGrupos(session?.user?.grupos);
+  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
 
   if (!puede(rol, 'sgsi:ver')) {
     return (
       <ShellSig>
-        <SinAcceso porDefecto={rol.esPorDefecto} />
+        <SinAcceso origen={rol.origen} />
       </ShellSig>
     );
   }
@@ -42,7 +42,7 @@ export default async function SgsiLayout({ children }: { children: React.ReactNo
 /// Says WHICH group grants access, because "no tenés permiso" without that is a dead end
 /// that turns into a support ticket. It names the groups rather than telling the person to
 /// ask someone, and it does not reveal anything about the register itself.
-function SinAcceso({ porDefecto }: { porDefecto: boolean }) {
+function SinAcceso({ origen }: { origen: OrigenRol }) {
   return (
     <main className="px-8 pt-10 pb-14">
       <div
@@ -69,7 +69,7 @@ function SinAcceso({ porDefecto }: { porDefecto: boolean }) {
           se derivan de esa pertenencia: la aplicación no los concede por su cuenta. Mientras
           tanto seguís viendo tus propias tareas en Mi SIG.
         </p>
-        {porDefecto && (
+        {origen !== 'directorio' && (
           <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>
             Nota para quien administra: el token de esta sesión no trae el claim de grupos,
             así que el rol vino del respaldo configurado y no del Directorio. Configurá el

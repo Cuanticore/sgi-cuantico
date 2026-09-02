@@ -40,7 +40,7 @@ export default async function ShellSig({ children }: { children: React.ReactNode
         .catch(() => 0),
     ]);
 
-  const rol = rolDesdeGrupos(session?.user?.grupos);
+  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
   const usuario = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const cuenta = (session?.user?.email ?? 'usuario').split('@')[0];
 
@@ -65,17 +65,16 @@ export default async function ShellSig({ children }: { children: React.ReactNode
     // printing it beside their own name read as if the application were assigning it.
     rol: '',
     // What the session actually grants, said plainly, and WHERE the role came from. An
-    // auditor reads this line before anything else on the screen.
-    //
-    // `esPorDefecto` now means the SGI_ROL_DEV override supplied the groups instead of the
-    // token (lib/sgsi/permisos.ts). It never applies in production, and it must never look
-    // like a real membership here: someone reading a screenshot has to be able to tell
-    // that these permissions were impersonated for a test.
+    // auditor reads this line before anything else on the screen, so cada origen se nombra
+    // distinto: un permiso que no vino del Directorio y se lee igual que uno que sí, engaña
+    // a quien mira una captura.
     permisos: rol.grupos.length
       ? `${
-          rol.esPorDefecto
+          rol.origen === 'simulado'
             ? `ROL SIMULADO para pruebas · SGI_ROL_DEV=${rol.grupos.join(', ')} · NO viene del Directorio Activo`
-            : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
+            : rol.origen === 'lista-puente'
+              ? 'Acceso por la lista puente del código · el Directorio todavía no puede confirmar la pertenencia a Responsables SIG'
+              : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
         } · ${
           puede(rol, 'sgsi:escribir')
             ? 'lectura y escritura'

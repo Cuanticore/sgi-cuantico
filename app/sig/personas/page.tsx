@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PersonasPage() {
   const session = await getServerSession(authOptions);
-  const rol = rolDesdeGrupos(session?.user?.grupos);
+  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
   const administra = puede(rol, 'personas:administrar');
 
   const [personas, pendientes] = await Promise.all([

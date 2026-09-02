@@ -31,7 +31,7 @@ const NOMBRE_ORIGINAL = /^[^/\\]{1,180}$/;
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return new NextResponse('sin sesión', { status: 401 });
-  const rol = rolDesdeGrupos(session.user?.grupos);
+  const rol = rolDesdeGrupos(session.user?.grupos, session.user?.email);
   if (!puede(rol, 'evidencia:escribir')) return new NextResponse('sin permiso', { status: 403 });
 
   const autor = session.user?.email ?? 'desconocido';
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return new NextResponse('sin sesión', { status: 401 });
-  const rol = rolDesdeGrupos(session.user?.grupos);
+  const rol = rolDesdeGrupos(session.user?.grupos, session.user?.email);
   if (!puede(rol, 'sgsi:ver')) return new NextResponse('sin permiso', { status: 403 });
 
   const url = new URL(req.url);

@@ -21,7 +21,7 @@ const TODAS: Pestana[] = [
 
 export default async function EncabezadoSig() {
   const session = await getServerSession(authOptions);
-  const rol = rolDesdeGrupos(session?.user?.grupos);
+  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
 
   const usuario = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const cuenta = (session?.user?.email ?? 'usuario').split('@')[0];

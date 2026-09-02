@@ -40,7 +40,7 @@ export async function autorActual(): Promise<string> {
 
 export async function rolActual(): Promise<Rol> {
   const session = await getServerSession(authOptions);
-  return rolDesdeGrupos(session?.user?.grupos);
+  return rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
 }
 
 /// The author AND the permission, together: every mutation needs both, and asking for
@@ -50,7 +50,7 @@ export async function autorConPermiso(permiso: Permiso): Promise<string> {
   const autor = session?.user?.email ?? session?.user?.name;
   if (!autor) throw new SinSesionError();
 
-  const rol = rolDesdeGrupos(session?.user?.grupos);
+  const rol = rolDesdeGrupos(session?.user?.grupos, session?.user?.email);
   if (!puede(rol, permiso)) throw new SinPermisoError(permiso, rol);
 
   return autor;

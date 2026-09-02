@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return new NextResponse(null, { status: 401 });
 
-  if (!puede(rolDesdeGrupos(session.user?.grupos), 'sgsi:ver')) {
+  if (!puede(rolDesdeGrupos(session.user?.grupos, session.user?.email), 'sgsi:ver')) {
     return new NextResponse(null, { status: 403 });
   }
 

@@ -56,7 +56,7 @@ describe('Responsables SIG', () => {
     expect(rol.grupos).toEqual([GRUPOS.seguridad]);
     expect(puede(rol, 'sgsi:escribir')).toBe(true);
     expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
-    expect(rol.esPorDefecto).toBe(false);
+    expect(rol.origen).toBe('directorio');
   });
 
   // El caso que importa: con `groupMembershipClaims: SecurityGroup` el token trae object
@@ -197,7 +197,7 @@ describe('SGI_ROL_DEV', () => {
       expect(rol.grupos).toEqual([GRUPOS.seguridad]);
       expect(puede(rol, 'sgsi:escribir')).toBe(true);
       // Sin esta marca la pantalla no puede decir que el rol no vino del Directorio.
-      expect(rol.esPorDefecto).toBe(true);
+      expect(rol.origen).toBe('simulado');
     });
   });
 
@@ -227,7 +227,7 @@ describe('SGI_ROL_DEV', () => {
       const rol = rolDesdeGrupos(['Responsables SIG']);
       expect(rol.grupos).toEqual([GRUPOS.seguridad]);
       // Vino del token, no de la variable: la marca de simulado no se enciende.
-      expect(rol.esPorDefecto).toBe(false);
+      expect(rol.origen).toBe('directorio');
     });
   });
 
@@ -260,5 +260,61 @@ describe('SGI_ROL_DEV', () => {
         expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
       },
     );
+  });
+});
+// La lista puente existe porque el Directorio no puede confirmar la pertenencia: el claim
+// filtra por tipo de grupo y `memberOf` responde 403. Las pruebas que importan son las que
+// impiden que el puente se convierta en una puerta más ancha que el grupo que reemplaza.
+describe('lista puente', () => {
+  it('una cuenta de la lista recibe el acceso completo, marcado como puente', () => {
+    const rol = rolDesdeGrupos([], 'diego.munoz@cuantico.com');
+    expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+    expect(puede(rol, 'sgsi:escribir')).toBe(true);
+    // Sin la marca, la pantalla no puede decir que el permiso no vino del Directorio.
+    expect(rol.origen).toBe('lista-puente');
+  });
+
+  it('no distingue mayúsculas ni espacios: el UPN llega como llegue', () => {
+    for (const variante of ['  Diego.Munoz@Cuantico.com ', 'DIEGO.MUNOZ@CUANTICO.COM']) {
+      expect(rolDesdeGrupos([], variante).grupos).toEqual([GRUPOS.seguridad]);
+    }
+  });
+
+  it('una cuenta que NO está en la lista sigue siendo Colaborador', () => {
+    const rol = rolDesdeGrupos([], 'ajeno@cuantico.com');
+    expect(rol.grupos).toEqual([]);
+    expect(puede(rol, 'sgsi:ver')).toBe(false);
+  });
+
+  // El puente no debe volverse un comodín: nada de coincidir por dominio ni por prefijo.
+  it('no otorga por parecerse a una cuenta de la lista', () => {
+    for (const parecido of [
+      'diego.munoz@otra-empresa.com',
+      'diego.munoz',
+      'no.diego.munoz@cuantico.com',
+      '@cuantico.com',
+      '',
+    ]) {
+      expect(rolDesdeGrupos([], parecido).grupos).toEqual([]);
+    }
+  });
+
+  it('sin correo no aplica', () => {
+    expect(rolDesdeGrupos([], null).grupos).toEqual([]);
+    expect(rolDesdeGrupos([]).grupos).toEqual([]);
+  });
+
+  // El Directorio manda: cuando responde, su respuesta es la que vale y el puente no la toca.
+  it('el grupo real del token gana sobre la lista', () => {
+    const rol = rolDesdeGrupos(['Responsables SIG'], 'diego.munoz@cuantico.com');
+    expect(rol.origen).toBe('directorio');
+  });
+
+  it('estar en la lista no salva a quien el Directorio no reconoce en otro grupo', () => {
+    // Un grupo ajeno no es un grupo reconocido, así que el puente sí aplica: lo que no debe
+    // pasar es que la lista otorgue MÁS que el propio `Responsables SIG`.
+    const puente = rolDesdeGrupos(['Domain Users'], 'diego.munoz@cuantico.com');
+    const real = rolDesdeGrupos(['Responsables SIG']);
+    expect([...puente.permisos].sort()).toEqual([...real.permisos].sort());
   });
 });
