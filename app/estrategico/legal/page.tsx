@@ -35,6 +35,10 @@ export default async function LegalPage() {
       vigente: r.vigente,
       derogadoPor: r.normaQueDeroga,
       ultimoResultado: ultima?.resultado ?? null,
+      // La fecha REAL de la última evaluación. El cliente la calculaba a partir del
+      // consecutivo de la fila —`consecutivo * 7 % 28 + 1`—, así que la columna de
+      // revisión mostraba una cuenta atrás inventada sobre una fecha que nunca existió.
+      ultimaEvaluacion: ultima?.fecha.toISOString().slice(0, 10) ?? null,
       evaluaciones: r.evaluaciones.map((e) => ({
         fecha: e.fecha.toISOString().slice(0, 10),
         resultado: e.resultado,

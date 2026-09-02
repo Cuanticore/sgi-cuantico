@@ -4,7 +4,7 @@
 //
 // La grilla con el banner de la matriz vacía, filtros por sistema y revisión vencida,
 // el semáforo (fila rosada + fecha roja) y el panel del historial de evaluaciones con
-// el botón «NO_CUMPLE â†’ hallazgo» (D7) y «derogar» (D8).
+// el botón «NO_CUMPLE → hallazgo» (D7) y «derogar» (D8).
 
 import { useMemo, useState } from 'react';
 import NuevoRequisito from './NuevoRequisito.client';
@@ -23,6 +23,8 @@ export interface RequisitoFila {
   vigente: boolean;
   derogadoPor: string | null;
   ultimoResultado: string | null;
+  /// Fecha de la ultima evaluacion. Sin ella no hay desde cuando contar la periodicidad.
+  ultimaEvaluacion: string | null;
   evaluaciones: { fecha: string; resultado: string; evidencia: string | null; evaluadoPor: string }[];
 }
 
@@ -111,6 +113,7 @@ export default function LegalClient({
                 <th className="px-4 py-3 font-semibold">Sistema</th>
                 <th className="px-4 py-3 font-semibold">Responsable</th>
                 <th className="px-4 py-3 font-semibold">Revisión</th>
+                <th className="px-4 py-3 text-right font-semibold">Próxima</th>
                 <th className="px-4 py-3 font-semibold">Cumplimiento</th>
               </tr>
             </thead>
@@ -142,15 +145,37 @@ export default function LegalClient({
                         {r.sistemaGestion}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted">{r.responsable ?? 'â€”'}</td>
+                    <td className="px-4 py-3 text-muted">{r.responsable ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <span className="text-11_5 text-muted">{r.periodicidad}</span>
-                      <span
-                        className="ml-2 font-mono text-11 font-semibold"
-                        style={{ color: vencida ? 'var(--hf-danger-text)' : proxima ? '#8a4407' : undefined }}
-                      >
-                        {dias === null ? 'â€”' : vencida ? `${dias} d` : `en ${dias} d`}
+                      <span className="text-11_5 text-muted">
+                        {r.periodicidad.charAt(0) + r.periodicidad.slice(1).toLowerCase()}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {dias === null ? (
+                        <span
+                          className="font-mono text-11"
+                          title="Sin evaluación previa: no hay desde cuándo contar la periodicidad."
+                          style={{ color: 'var(--hf-text-label)' }}
+                        >
+                          sin revisar
+                        </span>
+                      ) : (
+                        <span
+                          className="font-mono text-11"
+                          title={`Próxima revisión: ${proximaRevision(r)}`}
+                          style={{
+                            color: vencida
+                              ? 'var(--hf-danger-text)'
+                              : proxima
+                                ? '#8a4407'
+                                : 'var(--hf-text-secondary-soft)',
+                            fontWeight: vencida || proxima ? 600 : 400,
+                          }}
+                        >
+                          {proximaRevision(r)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {r.ultimoResultado ? (
@@ -172,6 +197,13 @@ export default function LegalClient({
             </tbody>
           </table>
         </div>
+
+        <p className="mt-3 max-w-[104ch] text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+          Derogar una norma no la borra: queda{' '}
+          <code className="font-mono text-11">vigente = false</code> con su fecha y la norma
+          que la deroga, y las evaluaciones históricas se conservan. Un resultado «no cumple»
+          origina un hallazgo en Mejora con un clic.
+        </p>
       </div>
 
       {seleccion && (
@@ -184,7 +216,7 @@ export default function LegalClient({
           </div>
           {!seleccion.vigente && (
             <p className="rounded-campo px-3 py-2 text-11_5" style={{ background: '#f5f7f6', color: '#4a544f' }}>
-              Derogado por {seleccion.derogadoPor ?? 'â€”'}: vigente = false, las evaluaciones históricas se conservan.
+              Derogado por {seleccion.derogadoPor ?? '—'}: vigente = false, las evaluaciones históricas se conservan.
             </p>
           )}
           <div className="flex flex-col gap-1.5">
@@ -217,7 +249,7 @@ export default function LegalClient({
                 className="rounded-campo px-3 py-1.5 text-12 font-semibold"
                 style={{ background: '#fdeeeb', color: '#a52016' }}
               >
-                NO_CUMPLE â†’ originar hallazgo
+                NO_CUMPLE → originar hallazgo
               </button>
               <button
                 onClick={async () => {
@@ -240,14 +272,37 @@ export default function LegalClient({
   );
 }
 
-function diasParaRevision(r: RequisitoFila, hoy: Date): number | null {
-  const periodicidad: Record<string, number> = { ANUAL: 365, SEMESTRAL: 182, TRIMESTRAL: 91, MENSUAL: 30 };
-  const dias = periodicidad[r.periodicidad];
+const DIAS_DE_PERIODICIDAD: Record<string, number> = {
+  MENSUAL: 30,
+  TRIMESTRAL: 91,
+  SEMESTRAL: 182,
+  ANUAL: 365,
+  BIANUAL: 730,
+};
+
+/// La fecha de la próxima revisión: la última evaluación más su periodicidad.
+///
+/// Antes se calculaba así: `const numero = r.consecutivo * 7 % 28 + 1`. Es decir, la fecha
+/// de la última revisión se inventaba a partir del NÚMERO DE FILA, y la columna mostraba
+/// una cuenta atrás sobre una fecha que nunca existió. En una matriz de requisitos legales
+/// —donde el atraso de una revisión es el hallazgo— eso no es un detalle de presentación:
+/// es un dato falso con la misma cara que un dato.
+///
+/// `null` significa que no se puede saber, y la pantalla lo dice: sin evaluación previa no
+/// hay desde cuándo contar.
+function proximaRevision(r: RequisitoFila): string | null {
+  if (r.ultimaEvaluacion === null) return null;
+  const dias = DIAS_DE_PERIODICIDAD[r.periodicidad];
   if (!dias) return null;
-  const numero = r.consecutivo * 7 % 28 + 1;
-  const ultimaRevision = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), numero));
-  if (ultimaRevision > hoy) ultimaRevision.setUTCMonth(ultimaRevision.getUTCMonth() - 1);
-  const siguiente = new Date(ultimaRevision);
-  siguiente.setUTCDate(siguiente.getUTCDate() + dias);
-  return Math.round((siguiente.getTime() - hoy.getTime()) / 86400000);
+  const fecha = new Date(`${r.ultimaEvaluacion}T00:00:00.000Z`);
+  fecha.setUTCDate(fecha.getUTCDate() + dias);
+  return fecha.toISOString().slice(0, 10);
+}
+
+function diasParaRevision(r: RequisitoFila, hoy: Date): number | null {
+  const proxima = proximaRevision(r);
+  if (proxima === null) return null;
+  const MS_DIA = 86_400_000;
+  const alDia = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.round((alDia(new Date(`${proxima}T00:00:00.000Z`)) - alDia(hoy)) / MS_DIA);
 }
