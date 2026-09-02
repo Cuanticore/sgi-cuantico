@@ -47,6 +47,7 @@ export default async function ControlesPage({
     ]);
 
   const vista: ControlVista[] = controles.map((c) => ({
+    id: c.id,
     codigo: c.codigo,
     nombre: c.nombre,
     dominio: c.dominio.nombre,

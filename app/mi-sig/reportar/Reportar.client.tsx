@@ -38,15 +38,22 @@ const COMO: { valor: string; etiqueta: string; ayuda: string }[] = [
 export default function ReportarHallazgoClient({
   correo,
   areas,
+  origenInicial,
+  referenciaInicial,
 }: {
   correo: string;
   areas: { id: number; nombre: string }[];
+  /// Precargados cuando se llega desde la pantalla que originó el hallazgo.
+  origenInicial?: string | null;
+  referenciaInicial?: string | null;
 }) {
   const [quePaso, setQuePaso] = useState('');
   const [areaId, setAreaId] = useState('');
   const [cuando, setCuando] = useState(new Date().toISOString().slice(0, 10));
-  const [como, setComo] = useState('');
-  const [referencia, setReferencia] = useState('');
+  const [como, setComo] = useState(
+    COMO.some((c) => c.valor === origenInicial) ? (origenInicial as string) : '',
+  );
+  const [referencia, setReferencia] = useState(referenciaInicial ?? '');
   const [evidencia, setEvidencia] = useState('');
   const [yaHiciste, setYaHiciste] = useState('');
   const router = useRouter();

@@ -666,11 +666,24 @@ export default function PantallaControl({
               </section>
             </div>
 
-            {hallazgosAbiertos && hallazgosAbiertos.length > 0 && (
-              <section className="rounded-tarjeta border border-border-field bg-surface p-4">
+            {/* El bloque del lienzo Origen. Se dibuja SIEMPRE, también sin hallazgos:
+                estaba condicionado a que hubiera alguno, y por eso desde el control no
+                había forma de abrir el primero. «Nuevo» lleva al reporte con el origen y
+                la referencia ya puestos, que es lo que mantiene el vínculo tipado. */}
+            <section className="rounded-tarjeta border border-border-field bg-surface p-4">
+              <div className="flex items-center gap-2.5">
                 <h4 className="text-11_5 font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--hf-text-label)' }}>
-                  Hallazgos abiertos de este control
+                  Hallazgos abiertos que lo referencian
                 </h4>
+                <span className="h-px flex-1 bg-hairline" />
+                <a
+                  href={`/mi-sig/reportar?origen=SGSI&referencia=${control.id}`}
+                  className="flex-none rounded-campo border border-border-field px-2.5 py-1 text-10_5 font-medium text-secondary"
+                >
+                  Nuevo · módulo B
+                </a>
+              </div>
+              {hallazgosAbiertos.length > 0 ? (
                 <div className="mt-2 flex flex-col gap-1.5">
                   {hallazgosAbiertos.map((h) => (
                     <a
@@ -684,8 +697,18 @@ export default function PantallaControl({
                     </a>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                <p className="mt-2 text-11_5 text-muted">
+                  Ninguno abierto contra este control.
+                </p>
+              )}
+              <p className="mt-2.5 text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                Aparecen porque su <code className="font-mono">controlId</code> apunta a este
+                control, no porque alguien escribiera «{control.codigo}» en un campo de texto. Es lo
+                que evita que Mejora sea una isla: quien mira la madurez de un control ve, en
+                el mismo sitio, lo que está abierto contra él.
+              </p>
+            </section>
           </section>
         </div>
 

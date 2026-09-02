@@ -59,6 +59,9 @@ export interface ControlVista {
   soaAlcanceAdaptado: boolean;
   /// Hallazgos abiertos del módulo B originados en este control (B11).
   hallazgosAbiertos: { codigo: string; descripcion: string }[];
+  /// El id numérico del control. Es la referencia que guarda el hallazgo (`origenReferencia`),
+  /// así que sin él no se puede enlazar a «Nuevo» con el vínculo ya tipado.
+  id: number;
 }
 
 interface Props {

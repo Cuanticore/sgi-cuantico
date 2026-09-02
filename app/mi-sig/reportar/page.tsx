@@ -19,7 +19,15 @@ import ReportarHallazgoClient from './Reportar.client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ReportarHallazgoPage() {
+// Se puede llegar precargado desde la pantalla que originó el hallazgo: el control del
+// SGSI enlaza acá con `?origen=SGSI&referencia=<id del control>`, y así la referencia
+// queda tipada en vez de depender de que alguien escriba «A.5.31» en un campo de texto.
+export default async function ReportarHallazgoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ origen?: string; referencia?: string }>;
+}) {
+  const { origen, referencia } = await searchParams;
   const session = await getServerSession(authOptions);
   const areas = await prisma.area.findMany({
     where: { activa: true },
@@ -39,6 +47,8 @@ export default async function ReportarHallazgoPage() {
           decidir si es una no conformidad: de eso se encarga el líder del SIG.
         </p>
         <ReportarHallazgoClient
+          origenInicial={origen ?? null}
+          referenciaInicial={referencia ?? null}
           correo={correo}
           areas={areas.map((a) => ({ id: a.id, nombre: a.nombre }))}
         />
