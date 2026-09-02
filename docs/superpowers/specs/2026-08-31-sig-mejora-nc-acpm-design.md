@@ -107,7 +107,7 @@ Verificado contra el repositorio documental del SIG: existen los formatos `FOR-C
 
 ## 5. Pantallas
 
-El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI · Operación). Mejora entra como dos entradas más de la barra lateral de Operación: `HAL` y `MEJ`.
+El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI · Actividades). Mejora entra como dos entradas más de la barra lateral de Actividades: `HAL` y `MEJ`.
 
 | Pantalla | Contenido |
 |---|---|

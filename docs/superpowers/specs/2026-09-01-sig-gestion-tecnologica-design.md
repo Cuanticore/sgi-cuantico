@@ -162,7 +162,7 @@ Las etapas salen del ciclo de vida seguro que pide ISO/IEC 27001 en `A.8.25` a `
 
 ## 5. Pantallas
 
-Pestaña nueva en el header: **Tecnología**, junto a Mi SIG · Indicadores · Estratégico · SGSI · Operación.
+Pestaña nueva en el header: **Tecnología**, junto a Mi SIG · Indicadores · Estratégico · SGSI · Actividades.
 
 | Pantalla | Contenido |
 |---|---|

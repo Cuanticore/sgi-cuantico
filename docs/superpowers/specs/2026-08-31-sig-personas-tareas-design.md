@@ -4,7 +4,7 @@
 **Código:** REQ-SIG-02
 **Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** A — Personas e identidad + Motor de tareas del SIG
-**Superficies:** «Mi SIG» (bandeja personal) · «Operación» (control operacional, ISO 9001/27001 numeral 8)
+**Superficies:** «Mi SIG» (bandeja personal) · «Actividades» (control operacional, ISO 9001/27001 numeral 8)
 **Origen:** pedido del líder del SIG del 31/08/2026
 **Antecedentes:** `docs/handoff_v2/requisitos/REQ-SIG-01-requerimiento.txt` · `2026-08-24-sgsi-handoff-v2-design.md`
 **Estado:** **Implementado.** Planes A1 a A4 ejecutados
@@ -55,7 +55,7 @@ Verificado contra el repositorio documental del SIG: existe el formato `FOR-CAL-
 - **Programa de obligaciones**: qué contenido, a quién, cada cuánto y con qué plazo.
 - Generación automática de **asignaciones** y su ciclo de vida completo, vencimiento incluido.
 - **Registro de realizado** diferenciado por tipo, con anexos.
-- Pantalla **Mi SIG** y pantallas de **Operación**: obligaciones, calendario, tareas, contenidos y personas.
+- Pantalla **Mi SIG** y pantallas de **Actividades**: obligaciones, calendario, tareas, contenidos y personas.
 - Notificaciones por correo, bitácora e indicadores de cumplimiento.
 - Reasignación de pendientes cuando una persona se desvincula.
 
@@ -176,7 +176,9 @@ Inmutable una vez creado. Corregir es reabrir, y la reapertura conserva el regis
 
 ## 4. Pantallas
 
-El header de 58 px pasa de dos pestañas a cinco: **Mi SIG · Indicadores · Estratégico · SGSI · Operación** (`app/components/sgsi/EncabezadoSig.tsx`). «Estratégico» la aporta el módulo D. Un Colaborador solo ve la primera; las demás no se renderizan.
+El header de 58 px pasa de dos pestañas a cinco: **Mi SIG · Indicadores · Estratégico · SGSI · Actividades** (`app/components/sgsi/EncabezadoSig.tsx`). «Estratégico» la aporta el módulo D. Un Colaborador solo ve la primera; las demás no se renderizan.
+
+> **Nombre de la pestaña — cambio del 02/09/2026.** Lo que las versiones anteriores de esta spec llamaban «Operación» se llama **Actividades**. El motivo es que «operación» ya está tomada dos veces: es el numeral 8 de las normas y es el nombre del módulo del SGSI que agrupa eventos, verificaciones y solicitudes. Tres cosas distintas con el mismo nombre en la misma barra de navegación no se pueden distinguir al hablar. **El cambio es de nombre visible, no de vocabulario interno:** las claves de permiso siguen siendo `operacion:*` y las rutas siguen siendo `/sig/...`. Renombrar las claves obligaría a tocar todos los archivos de acciones sin ganar nada funcional, y el riesgo de dejar una clave a medio renombrar es un permiso que no concede nada.
 
 ### 4.1 Mi SIG (`/mi-sig`)
 
@@ -195,7 +197,7 @@ El cierre abre un panel lateral distinto según el tipo:
 
 Un botón exporta el **histórico personal**: todas mis asignaciones con sus registros, que es lo que a una persona le piden en una auditoría.
 
-### 4.2 Operación
+### 4.2 Actividades
 
 Barra lateral de cinco entradas, con el patrón colapsable existente (`OBL`, `CAL`, `TAR`, `CON`, `PER`).
 
@@ -236,7 +238,7 @@ Permisos nuevos: `misig:ver` (siempre sobre lo propio), `operacion:ver`, `operac
 
 > **Reconciliado el 01/09/2026.** La versión 1.0 de esta especificación definía **cuatro** roles. El sistema tiene **dos**. Lo que sigue es el modelo real; abajo está por qué cambió.
 
-| Rol · grupo de AD | Mi SIG | Operación | Personas | Cierre administrativo |
+| Rol · grupo de AD | Mi SIG | Actividades | Personas | Cierre administrativo |
 |---|---|---|---|---|
 | **Colaborador** — toda cuenta autenticada, sin pertenecer a ningún grupo | sus asignaciones | — | — | — |
 | **`Líderes SIG`** → `SIG-Seguridad` | las suyas | lectura y escritura total | administra y sincroniza | **sí**, con motivo |
@@ -310,7 +312,7 @@ Por SMTP, reusando `lib/sgsi/notificaciones.ts`. Sin SMTP configurado la funció
 - Cobertura de capacitación vigente: personas al día sobre personas alcanzadas.
 - Cierres administrativos, como contador separado.
 
-Alimentan la pantalla de Operación y la tarjeta del SIG en el tablero de Indicadores.
+Alimentan la pantalla de Actividades y la tarjeta del SIG en el tablero de Indicadores.
 
 ---
 

@@ -87,7 +87,7 @@ Las fortalezas y las oportunidades del informe no se capturan dos veces: se deri
 
 ## 4. Pantallas
 
-La barra lateral de Operación queda en nueve entradas y se agrupa con separadores, como la del SGSI ya hace con `CONFIGURACIÓN`:
+La barra lateral de Actividades queda en nueve entradas y se agrupa con separadores, como la del SGSI ya hace con `CONFIGURACIÓN`:
 
 > **TAREAS** OBL · CAL · TAR · CON — **MEJORA** HAL · MEJ — **AUDITORÍA** PRG · AUD — **CONFIGURACIÓN** PER · NRM
 

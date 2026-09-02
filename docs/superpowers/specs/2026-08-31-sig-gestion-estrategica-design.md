@@ -183,7 +183,7 @@ Para una oportunidad, la aritmética **reduce** probabilidad e impacto igual que
 
 ## 5. Pantallas
 
-El header pasa de cuatro a **cinco pestañas**: Mi SIG · Indicadores · Estratégico · SGSI · Operación. Meter tres matrices más en la barra lateral de Operación la dejaría en once entradas, y el público es otro: esto lo mira la alta dirección, no quien ejecuta tareas. Un Colaborador sigue viendo una sola pestaña.
+El header pasa de cuatro a **cinco pestañas**: Mi SIG · Indicadores · Estratégico · SGSI · Actividades. Meter tres matrices más en la barra lateral de Actividades la dejaría en once entradas, y el público es otro: esto lo mira la alta dirección, no quien ejecuta tareas. Un Colaborador sigue viendo una sola pestaña.
 
 | Pantalla | Contenido |
 |---|---|
