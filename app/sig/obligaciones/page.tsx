@@ -1,14 +1,27 @@
 // app/sig/obligaciones/page.tsx
 //
-// La lista maestra del numeral 8, tal como la dibuja el lienzo: chips por tipo,
-// buscador, y la tabla con el cumplimiento del último periodo como barra + %.
+// La lista maestra del numeral 8. La página lee y prepara; los chips por tipo, el buscador
+// y la tabla viven en `Obligaciones.client.tsx`, porque filtrar y buscar es estado del
+// cliente y no vale una ida al servidor por cada tecla.
 
 import { prisma } from '@/lib/db';
 import { cumplimientoDePeriodo } from '@/lib/sig/cumplimiento';
 import NuevaObligacion from './NuevaObligacion';
 import GenerarAsignaciones from './GenerarAsignaciones';
+import ObligacionesClient, { type ObligacionFila, type TipoObligacion } from './Obligaciones.client';
 
 export const dynamic = 'force-dynamic';
+
+/// Las etiquetas del lienzo. `UNICA` va con tilde: es una palabra, no una constante.
+const PERIODICIDAD: Record<string, string> = {
+  UNICA: 'Única',
+  DIARIA: 'Diaria',
+  SEMANAL: 'Semanal',
+  MENSUAL: 'Mensual',
+  TRIMESTRAL: 'Trimestral',
+  SEMESTRAL: 'Semestral',
+  ANUAL: 'Anual',
+};
 
 export default async function ObligacionesPage() {
   const filas = await prisma.obligacion.findMany({
@@ -27,12 +40,22 @@ export default async function ObligacionesPage() {
   // de la pantalla y el correo mensual nunca pueden contradecirse (nota del lienzo).
   const asignaciones = await prisma.asignacion.findMany({
     where: { estado: { in: ['PENDIENTE', 'REALIZADA'] } },
-    select: { id: true, obligacionId: true, estado: true, fechaLimite: true, fechaCierre: true, personaId: true, cerradaPor: true },
+    select: {
+      id: true,
+      obligacionId: true,
+      estado: true,
+      fechaLimite: true,
+      fechaCierre: true,
+      personaId: true,
+      cerradaPor: true,
+    },
   });
-  const porObligacion = new Map<
-    number,
-    { periodo: string; cumplimiento: ReturnType<typeof cumplimientoDePeriodo> }
-  >();
+  // ÚLTIMO periodo, no el histórico. `cumplimientoDePeriodo` calcula sobre la lista que
+  // recibe y no filtra nada, así que el recorte es responsabilidad de quien la llama. Acá
+  // se le pasaban TODAS las asignaciones de la obligación: una obligación mensual con un
+  // año de historia mostraba el promedio de doce meses bajo un rótulo que dice «último
+  // periodo», y es el número que un líder mira para decidir a quién le escribe este mes.
+  const porObligacion = new Map<number, number | null>();
   for (const obligacionId of [...new Set(asignaciones.map((a) => a.obligacionId).filter(Boolean))]) {
     const deLaObligacion = asignaciones.filter((a) => a.obligacionId === obligacionId);
     const ultimoPeriodo = deLaObligacion
@@ -40,108 +63,63 @@ export default async function ObligacionesPage() {
       .sort()
       .at(-1);
     if (!ultimoPeriodo) continue;
-    porObligacion.set(obligacionId as number, {
-      periodo: ultimoPeriodo,
-      cumplimiento: cumplimientoDePeriodo(deLaObligacion),
-    });
+    const delPeriodo = deLaObligacion.filter(
+      (a) => a.fechaLimite.toISOString().slice(0, 7) === ultimoPeriodo,
+    );
+    porObligacion.set(obligacionId as number, cumplimientoDePeriodo(delPeriodo).porciento);
   }
+
+  const datos: ObligacionFila[] = filas.map((o) => ({
+    id: o.id,
+    codigo: o.contenido.codigo,
+    titulo: o.contenido.titulo,
+    procedimientoOrigen: o.contenido.procedimientoOrigen ?? null,
+    tipo: o.contenido.tipo as TipoObligacion,
+    alcance: textoAlcance(
+      o.alcance,
+      o.alcancePersona?.nombre,
+      o.alcanceCargo?.nombre,
+      o.alcanceArea?.nombre,
+    ),
+    periodicidad: PERIODICIDAD[o.periodicidad] ?? o.periodicidad,
+    plazoDias: o.plazoDias,
+    seguimiento: o.responsableSeguimiento.nombre,
+    cumplimiento: porObligacion.get(o.id) ?? null,
+  }));
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="titulo-pagina">Obligaciones</h1>
-          <p className="text-12_5 text-muted">
-            La lista maestra del control operacional · {filas.length} obligaciones activas
+      <div className="flex items-start gap-5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="titulo-pagina">Obligaciones del SIG</h1>
+          <p className="max-w-[70ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
+            El registro del numeral 8. Cada obligación declara qué contenido, a quién alcanza,
+            cada cuánto y con qué plazo; de ahí salen las asignaciones que la gente ve en Mi SIG.
           </p>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="ml-auto flex flex-none items-start gap-2">
           <GenerarAsignaciones />
           <NuevaObligacion />
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-tarjeta border border-border-field bg-surface">
-        <table className="w-full text-left text-12_5">
-          <thead>
-            <tr className="text-11 uppercase tracking-[0.05em]" style={{ color: 'var(--hf-text-label)' }}>
-              <th className="px-4 py-3 font-semibold">Código</th>
-              <th className="px-4 py-3 font-semibold">Contenido</th>
-              <th className="px-4 py-3 font-semibold">Tipo</th>
-              <th className="px-4 py-3 font-semibold">Alcance</th>
-              <th className="px-4 py-3 font-semibold">Periodicidad</th>
-              <th className="px-4 py-3 font-semibold">Plazo</th>
-              <th className="px-4 py-3 font-semibold">Seguimiento</th>
-              <th className="px-4 py-3 text-right font-semibold">Último periodo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((o) => (
-              <tr key={o.id} className="border-t border-border-default">
-                <td className="px-4 py-3 font-mono text-11 text-muted">{o.contenido.codigo}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-primary">{o.contenido.titulo}</span>
-                    {o.contenido.procedimientoOrigen && (
-                      <span className="font-mono text-10_5 text-muted">{o.contenido.procedimientoOrigen}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 uppercase"
-                    style={{ background: 'var(--hf-brand-100)', color: 'var(--hf-brand-nav)' }}
-                  >
-                    {o.contenido.tipo}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted">
-                  {textoAlcance(o.alcance, o.alcancePersona?.nombre, o.alcanceCargo?.nombre, o.alcanceArea?.nombre)}
-                </td>
-                <td className="px-4 py-3 text-muted">{o.periodicidad.toLowerCase()}</td>
-                <td className="px-4 py-3 font-mono text-11 text-muted">{o.plazoDias} d</td>
-                <td className="px-4 py-3 text-muted">{o.responsableSeguimiento.nombre}</td>
-                <td className="px-4 py-3 text-right">
-                  {(() => {
-                    const dato = porObligacion.get(o.id);
-                    if (!dato || dato.cumplimiento.porciento === null) {
-                      return <span className="font-mono text-11 text-muted">—</span>;
-                    }
-                    const p = dato.cumplimiento.porciento;
-                    const color = p >= 90 ? '#0f7a5a' : p >= 70 ? '#8a4407' : '#a52016';
-                    return (
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="h-[5px] w-12 overflow-hidden rounded-full"
-                          style={{ background: 'var(--hf-hairline-strong)' }}
-                        >
-                          <span
-                            className="block h-full rounded-full"
-                            style={{ width: `${p}%`, background: color }}
-                          />
-                        </span>
-                        <span className="font-mono text-11 font-semibold" style={{ color }}>
-                          {p}%
-                        </span>
-                      </span>
-                    );
-                  })()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ObligacionesClient filas={datos} />
     </main>
   );
 }
 
+/// El prefijo NO es adorno: dice de qué dimensión es el alcance. Sin él, «Gestión
+/// Tecnológica» podría ser un área o el nombre de un cargo, y el lienzo lo escribe
+/// «Área · Gestión Tecnológica» justamente por eso.
 function textoAlcance(
   alcance: string,
   persona: string | undefined,
   cargo: string | undefined,
   area: string | undefined,
 ): string {
-  if (alcance === 'TODOS') return 'Toda la organización';
-  return persona ?? cargo ?? area ?? alcance;
+  if (alcance === 'TODOS') return 'Todas las personas';
+  if (persona) return `Persona · ${persona}`;
+  if (cargo) return `Cargo · ${cargo}`;
+  if (area) return `Área · ${area}`;
+  return alcance;
 }
