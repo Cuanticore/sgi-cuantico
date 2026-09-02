@@ -69,6 +69,30 @@ export default async function ObligacionesPage() {
     porObligacion.set(obligacionId as number, cumplimientoDePeriodo(delPeriodo).porciento);
   }
 
+  // Los catálogos del formulario. Antes pedía los ids a mano —«Persona (id)», «Área (id)»,
+  // «Id del contenido»—, así que había que abrir otra pantalla, buscar la clave primaria y
+  // transcribirla. Un dígito equivocado creaba la obligación sobre el contenido de otro sin
+  // que nada avisara, porque el id existía.
+  const [contenidos, personas, cargos, areas] = await Promise.all([
+    prisma.contenidoSig.findMany({
+      where: { activo: true },
+      orderBy: { codigo: 'asc' },
+      select: { id: true, codigo: true, titulo: true, tipo: true, procedimientoOrigen: true },
+    }),
+    prisma.persona.findMany({
+      where: { activa: true },
+      // El área y el cargo viajan porque la previsión resuelve el alcance con ellos.
+      select: { id: true, nombre: true, areaId: true, cargoId: true, activa: true },
+      orderBy: { nombre: 'asc' },
+    }),
+    prisma.cargoResponsable.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
+    prisma.area.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true },
+      orderBy: { orden: 'asc' },
+    }),
+  ]);
+
   const datos: ObligacionFila[] = filas.map((o) => ({
     id: o.id,
     codigo: o.contenido.codigo,
@@ -99,7 +123,20 @@ export default async function ObligacionesPage() {
         </div>
         <div className="ml-auto flex flex-none items-start gap-2">
           <GenerarAsignaciones />
-          <NuevaObligacion />
+          <NuevaObligacion
+            catalogos={{
+              contenidos,
+              personas: personas.map((x) => ({ id: x.id, nombre: x.nombre })),
+              cargos,
+              areas,
+              censo: personas.map((x) => ({
+                id: x.id,
+                activa: x.activa,
+                areaId: x.areaId,
+                cargoId: x.cargoId,
+              })),
+            }}
+          />
         </div>
       </div>
 
