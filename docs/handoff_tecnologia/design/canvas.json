@@ -5,7 +5,7 @@
     { "file": "Dependencias.dc.html", "x": 2880, "y": 0, "w": 1340, "h": 880, "title": "Dependencias entre activos", "is_interactive": true },
     { "file": "Impacto.dc.html", "x": 4320, "y": 0, "w": 1340, "h": 880, "title": "Impacto", "is_interactive": true },
 
-    { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Hoja de vida del producto", "is_interactive": true },
+    { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Producto y puertas de control", "is_interactive": true },
     { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos y flota", "is_interactive": true },
     { "file": "Inventario.dc.html", "x": 2600, "y": 1030, "w": 1340, "h": 880, "title": "Inventario agrupado por niveles", "is_interactive": true }
   ],
@@ -29,7 +29,7 @@
       "x": 0,
       "y": 1980,
       "w": 860,
-      "text": "Prueba estas tres\n\n· Hoja de vida: cambia de v3.2 a v3.0 y mira cómo el ciclo de vida se vacía. Cada versión repite las siete etapas — la pregunta del auditor es por la que está en producción hoy.\n\n· Equipos: parte de las personas del Directorio, no del inventario. Por eso puede decir quién no tiene equipo.\n\n· Inventario: cambia la agrupación entre los tres niveles."
+      "text": "Prueba estas tres\n\n· Producto: cambia entre los tres sistemas. SIS-004 tiene P4 no superada, así que P5 no puede avanzar — una puerta no superada bloquea la fase siguiente, y la única salida es una excepción aprobada como la EXC-2026-007 de SIS-001.\n\n· Equipos: parte de las personas del Directorio, no del inventario. Por eso puede decir quién no tiene equipo.\n\n· Inventario: cambia la agrupación entre los tres niveles.\n\nActualizado el 02/09/2026 por D14: la hoja de vida es del sistema, no del producto. Las siete etapas y las versiones que dibujaba antes esta pantalla las deduje de la norma sin saber que FOR-TEC-04 y PRO-TEC-04 ya definían ocho fases y seis puertas."
     }
   ],
   "launch": { "view": "canvas" }

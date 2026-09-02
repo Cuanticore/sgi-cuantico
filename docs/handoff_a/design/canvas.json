@@ -2,10 +2,10 @@
   "artboards": [
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Mi SIG", "is_interactive": true },
     { "file": "Sistema.dc.html", "x": 1540, "y": 0, "w": 1196, "h": 1040, "title": "Vocabulario del módulo" },
-    { "file": "Obligaciones.dc.html", "x": 0, "y": 1180, "w": 1440, "h": 900, "title": "Operación · Obligaciones", "is_interactive": true },
-    { "file": "Calendario.dc.html", "x": 1540, "y": 1180, "w": 1196, "h": 860, "title": "Operación · Calendario", "is_interactive": true },
-    { "file": "Tareas.dc.html", "x": 0, "y": 2280, "w": 1196, "h": 860, "title": "Operación · Tareas", "is_interactive": true },
-    { "file": "Contenidos.dc.html", "x": 1300, "y": 2280, "w": 1196, "h": 860, "title": "Operación · Contenidos", "is_interactive": true },
+    { "file": "Obligaciones.dc.html", "x": 0, "y": 1180, "w": 1440, "h": 900, "title": "Actividades · Obligaciones", "is_interactive": true },
+    { "file": "Calendario.dc.html", "x": 1540, "y": 1180, "w": 1196, "h": 860, "title": "Actividades · Calendario", "is_interactive": true },
+    { "file": "Tareas.dc.html", "x": 0, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Tareas", "is_interactive": true },
+    { "file": "Contenidos.dc.html", "x": 1300, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Contenidos", "is_interactive": true },
     { "file": "Personas.dc.html", "x": 2600, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Personas", "is_interactive": true }
   ],
   "annotations": [
@@ -14,7 +14,7 @@
       "x": 0,
       "y": -230,
       "w": 700,
-      "text": "Módulo A · Personas y tareas del SIG\nREQ-SIG-02 · docs/superpowers/specs/2026-08-31-sig-personas-tareas-design.md\n\nDos superficies sobre un mismo motor: Mi SIG es la bandeja personal, Operación es la vista del líder. Los controles funcionan: filtros, apertura del panel de cierre, respuestas de la lista de verificación, selección múltiple y día del calendario."
+      "text": "Módulo A · Personas y tareas del SIG\nREQ-SIG-02 · docs/superpowers/specs/2026-08-31-sig-personas-tareas-design.md\n\nDos superficies sobre un mismo motor: Mi SIG es la bandeja personal, Actividades es la vista del líder. Los controles funcionan: filtros, apertura del panel de cierre, respuestas de la lista de verificación, selección múltiple y día del calendario."
     },
     {
       "id": "sistema",
@@ -28,7 +28,7 @@
       "x": 0,
       "y": 1030,
       "w": 700,
-      "text": "Mi SIG no lleva barra lateral. Las pantallas de Operación sí: el artboard de Obligaciones muestra el shell completo, y los tres de abajo son solo el área de contenido, que monta dentro de ese mismo shell."
+      "text": "Mi SIG no lleva barra lateral. Las pantallas de Actividades sí: el artboard de Obligaciones muestra el shell completo, y los tres de abajo son solo el área de contenido, que monta dentro de ese mismo shell."
     },
     {
       "id": "areas",
