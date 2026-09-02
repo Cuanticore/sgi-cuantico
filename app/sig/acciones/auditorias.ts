@@ -175,6 +175,16 @@ export async function registrarActa(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:ejecutar');
+    exigirId(auditoriaId, 'la auditoría');
+    // Los asistentes son el contenido del acta, no un adorno: un acta de cierre sin
+    // asistentes no prueba que la reunión de cierre ocurrió, y es la que habilita a emitir
+    // el informe final.
+    if (datos.asistentes.trim() === '') {
+      return { ok: false, mensaje: 'El acta necesita los asistentes.' };
+    }
+    if (datos.contenido.trim() === '') {
+      return { ok: false, mensaje: 'El acta necesita su contenido.' };
+    }
     await prisma.$transaction(async (tx) => {
       const acta = await tx.actaAuditoria.upsert({
         where: { auditoriaId_tipo: { auditoriaId, tipo: datos.tipo } },

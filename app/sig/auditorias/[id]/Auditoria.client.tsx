@@ -8,10 +8,10 @@
 import { useState } from 'react';
 import {
   registrarNota,
-  registrarActa,
   guardarInforme,
   emitirInformeFinal,
 } from '@/app/sig/acciones/auditorias';
+import { NuevaActa, NuevaCelda } from './PiezasPlanYActas';
 
 type Pestana = 'plan' | 'ejecucion' | 'actas' | 'informe';
 
@@ -25,6 +25,9 @@ const TIPO_CHIP: Record<string, { fondo: string; texto: string }> = {
 
 export default function AuditoriaClient({
   auditoria,
+  requisitos,
+  procesos,
+  personas,
 }: {
   auditoria: {
     id: number;
@@ -43,6 +46,10 @@ export default function AuditoriaClient({
     actas: { tipo: string; fecha: string; asistentes: string; contenido: string }[];
     informes: { version: string; conclusiones: string; recomendaciones: string; emitido: boolean }[];
   };
+  /// Los numerales auditables de la norma: el universo contra el que se mide la cobertura.
+  requisitos: { id: number; numeral: string; titulo: string; norma: string }[];
+  procesos: string[];
+  personas: { id: number; nombre: string }[];
 }) {
   const [pestana, setPestana] = useState<Pestana>('plan');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | string>('todos');
@@ -53,6 +60,8 @@ export default function AuditoriaClient({
   const [recomendaciones, setRecomendaciones] = useState(auditoria.informes[0]?.recomendaciones ?? '');
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [agregandoCelda, setAgregandoCelda] = useState(false);
+  const [actaNueva, setActaNueva] = useState<'APERTURA' | 'CIERRE' | null>(null);
 
   const preliminar = auditoria.informes.some((i) => i.version === 'PRELIMINAR' && !i.emitido);
 
@@ -65,6 +74,18 @@ export default function AuditoriaClient({
 
   const proces = [...new Set(auditoria.celdas.map((c) => c.proceso))];
   const numerales = [...new Set(auditoria.celdas.map((c) => c.numeral))];
+
+  // La cobertura real: numerales auditables tocados sobre el total auditable de la norma.
+  // Antes el denominador era `numerales.length + 4` — un número inventado, y con el efecto
+  // absurdo de que agregar una celda BAJABA el porcentaje, porque el denominador crecía
+  // junto con el numerador.
+  const cubiertos = new Set(
+    requisitos.filter((r) => numerales.includes(r.numeral)).map((r) => r.numeral),
+  ).size;
+  const auditables = requisitos.length;
+  const cobertura = auditables === 0 ? null : Math.round((cubiertos / auditables) * 100);
+
+  const tieneCierre = auditoria.actas.some((x) => x.tipo === 'CIERRE');
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
@@ -170,9 +191,43 @@ export default function AuditoriaClient({
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-border-default px-3 py-2 text-11_5 text-muted">
-              Cobertura: {numerales.length} de {numerales.length + 4} numerales · las celdas «+» se agregaron durante la ejecución.
-            </p>
+            <div className="flex flex-wrap items-center gap-3 border-t border-border-default px-3 py-2.5">
+              <span className="text-11_5 text-muted [text-wrap:pretty]">
+                {cobertura === null ? (
+                  'No hay numerales auditables cargados: sin catálogo de norma no hay contra qué medir la cobertura.'
+                ) : (
+                  <>
+                    Cobertura: <strong className="font-semibold text-secondary-soft">{cubiertos} de {auditables}</strong>{' '}
+                    numerales auditables · {cobertura} %. Las celdas «+» se agregaron durante la
+                    ejecución (C4).
+                  </>
+                )}
+              </span>
+              {!auditoria.emitido && (
+                <button
+                  onClick={() => setAgregandoCelda(true)}
+                  className="ml-auto rounded-campo px-3 py-1.5 text-11_5 font-medium"
+                  style={{
+                    color: 'var(--hf-brand-nav)',
+                    border: '1px dashed var(--hf-brand-border)',
+                  }}
+                >
+                  + Agregar una celda al plan
+                </button>
+              )}
+            </div>
+
+            {agregandoCelda && (
+              <NuevaCelda
+                auditoriaId={auditoria.id}
+                requisitos={requisitos}
+                procesos={procesos.length > 0 ? procesos : proces}
+                personas={personas}
+                onCerrar={() => setAgregandoCelda(false)}
+                setMensaje={setMensaje}
+                setError={setError}
+              />
+            )}
           </div>
         )}
 
@@ -288,9 +343,54 @@ export default function AuditoriaClient({
                 <p className="mt-1 text-12_5 text-primary">{x.contenido}</p>
               </div>
             ))}
-            <p className="rounded-campo px-3 py-2 text-11_5" style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}>
-              No se emite el informe final sin acta de cierre. La validación va en el servidor (C6).
+            {auditoria.actas.length === 0 && (
+              <p className="text-12 text-muted">
+                Todavía no hay actas. La de apertura abre la auditoría con sus asistentes; la de
+                cierre es la que habilita a emitir el informe final.
+              </p>
+            )}
+
+            <p
+              className="rounded-campo px-3 py-2 text-11_5 [text-wrap:pretty]"
+              style={{
+                background: tieneCierre ? 'var(--hf-accent-100)' : 'var(--hf-warn-100)',
+                color: tieneCierre ? 'var(--hf-accent-700)' : 'var(--hf-warn-text)',
+              }}
+            >
+              {tieneCierre
+                ? 'El acta de cierre está registrada: el informe final se puede emitir.'
+                : 'No se emite el informe final sin acta de cierre. La validación va en el servidor (C6).'}
             </p>
+
+            {!auditoria.emitido && (
+              <div className="flex flex-wrap gap-2">
+                {(['APERTURA', 'CIERRE'] as const)
+                  .filter((t) => !auditoria.actas.some((x) => x.tipo === t))
+                  .map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setActaNueva(t)}
+                      className="rounded-campo px-3.5 py-2 text-12 font-medium"
+                      style={{
+                        color: 'var(--hf-brand-nav)',
+                        border: '1px dashed var(--hf-brand-border)',
+                      }}
+                    >
+                      + Registrar el acta de {t === 'APERTURA' ? 'apertura' : 'cierre'}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            {actaNueva && (
+              <NuevaActa
+                auditoriaId={auditoria.id}
+                tipo={actaNueva}
+                onCerrar={() => setActaNueva(null)}
+                setMensaje={setMensaje}
+                setError={setError}
+              />
+            )}
           </div>
         )}
 

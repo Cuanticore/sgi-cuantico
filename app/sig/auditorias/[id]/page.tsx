@@ -31,6 +31,23 @@ export default async function FichaAuditoriaPage({
   });
   if (!a) notFound();
 
+  // Los numerales AUDITABLES de la norma y las áreas: sin ellos la matriz del plan sólo
+  // puede mostrarse, no crecer. Y la cobertura se calculaba «numerales.length + 4» —un
+  // denominador inventado que hacía que el porcentaje bajara al agregar una celda.
+  const [requisitos, areas, personas] = await Promise.all([
+    prisma.requisitoNorma.findMany({
+      where: { auditable: true },
+      orderBy: [{ normaId: 'asc' }, { orden: 'asc' }],
+      select: { id: true, numeral: true, titulo: true, norma: { select: { codigo: true } } },
+    }),
+    prisma.area.findMany({ where: { activa: true }, select: { nombre: true }, orderBy: { orden: 'asc' } }),
+    prisma.persona.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    }),
+  ]);
+
   const notas = a.celdas.flatMap((c) =>
     c.notas.map((n) => ({
       id: n.id,
@@ -93,6 +110,14 @@ export default async function FichaAuditoriaPage({
           emitido: i.emitidoEn !== null,
         })),
       }}
+      requisitos={requisitos.map((r) => ({
+        id: r.id,
+        numeral: r.numeral,
+        titulo: r.titulo,
+        norma: r.norma.codigo,
+      }))}
+      procesos={areas.map((x) => x.nombre)}
+      personas={personas}
     />
   );
 }
