@@ -13,7 +13,17 @@ export interface NormaFila {
   id: number;
   codigo: string;
   nombre: string;
-  requisitos: { id: number; numeral: string; titulo: string; auditable: boolean; veces: number }[];
+  requisitos: {
+    id: number;
+    numeral: string;
+    titulo: string;
+    auditable: boolean;
+    veces: number;
+    /// Fecha de la ultima auditoria que toco este numeral. Calculada al leer.
+    ultimaVez: string | null;
+    /// Notas de este numeral que se promovieron a un hallazgo.
+    hallazgos: number;
+  }[];
 }
 
 export default function NormasClient({
@@ -69,6 +79,7 @@ export default function NormasClient({
               <th className="px-4 py-3 font-semibold">Título</th>
               <th className="px-4 py-3 font-semibold">Auditable</th>
               <th className="px-4 py-3 font-semibold">Veces auditado</th>
+              <th className="px-4 py-3 text-right font-semibold">Última vez</th>
               <th className="px-4 py-3 font-semibold">Hallazgos</th>
             </tr>
           </thead>
@@ -107,7 +118,36 @@ export default function NormasClient({
                     <span className="font-mono text-11 text-muted">{r.veces}</span>
                   </span>
                 </td>
-                <td className="px-4 py-3 font-mono text-11 text-muted">—</td>
+                <td className="px-4 py-3 text-right">
+                  {r.ultimaVez === null ? (
+                    <span
+                      className="font-mono text-11"
+                      title="Ninguna auditoría tocó este numeral todavía."
+                      style={{ color: 'var(--hf-text-label)' }}
+                    >
+                      nunca
+                    </span>
+                  ) : (
+                    <span className="font-mono text-11 text-secondary-soft">{r.ultimaVez}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {/* Antes era un «—» fijo: un encabezado que promete un dato y siempre
+                      muestra un guion. Ahora cuenta las notas de este numeral que se
+                      promovieron a un hallazgo. */}
+                  {r.hallazgos === 0 ? (
+                    <span className="font-mono text-11" style={{ color: 'var(--hf-text-label)' }}>
+                      0
+                    </span>
+                  ) : (
+                    <span
+                      className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
+                      style={{ background: '#fdeeeb', color: '#a52016' }}
+                    >
+                      {r.hallazgos}
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
