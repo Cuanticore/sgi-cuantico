@@ -13,6 +13,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 
 interface Props {
   usuario: string;
@@ -151,21 +153,101 @@ export default function HeaderCorporativo({ usuario, rol, cuenta, pestanas }: Pr
           </span>
         </span>
 
-        <span
-          className="flex flex-none items-center justify-center rounded-full font-bold text-white"
-          style={{
-            width: 30,
-            height: 30,
-            fontSize: 11,
-            background: 'rgba(255,255,255,0.16)',
-            border: '1px solid rgba(255,255,255,0.3)',
-          }}
-          title={usuario}
-        >
-          {iniciales(usuario)}
-        </span>
+        <MenuDeCuenta usuario={usuario} cuenta={cuenta} rol={rol} />
       </div>
     </header>
+  );
+}
+
+/// El avatar era un `span` sin nada detrás, y «Salir» vivía sólo en el pie de las barras
+/// laterales. Un Colaborador NO VE ninguna barra lateral —Mi SIG no tiene—, así que no
+/// tenía forma de cerrar sesión: quedaba dentro de la aplicación sin salida.
+///
+/// El menú va en la cabecera porque es lo único que ven todos los roles, y porque es donde
+/// cualquiera lo busca. Las barras laterales conservan su «Salir»: quien lo tenía a mano no
+/// lo pierde.
+function MenuDeCuenta({
+  usuario,
+  cuenta,
+  rol,
+}: {
+  usuario: string;
+  cuenta: string;
+  rol: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  // Escape cierra el menú. Un menú que sólo se cierra con el ratón deja al teclado
+  // atrapado, y este es el menú que contiene la única salida de la aplicación.
+  useEffect(() => {
+    if (!abierto) return;
+    const alTecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAbierto(false);
+    };
+    window.addEventListener('keydown', alTecla);
+    return () => window.removeEventListener('keydown', alTecla);
+  }, [abierto]);
+
+  return (
+    <div className="relative flex-none">
+      <button
+        onClick={() => setAbierto((a) => !a)}
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        aria-label={`Cuenta de ${usuario}`}
+        title={usuario}
+        className="flex items-center justify-center rounded-full font-bold text-white"
+        style={{
+          width: 30,
+          height: 30,
+          fontSize: 11,
+          background: abierto ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.16)',
+          border: '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        {iniciales(usuario)}
+      </button>
+
+      {abierto && (
+        <>
+          {/* Cierra al hacer clic afuera sin atrapar el teclado. */}
+          <button
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={() => setAbierto(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-50 mt-2 flex w-60 flex-col overflow-hidden rounded-tarjeta border border-border-field bg-surface shadow-lg"
+          >
+            <div className="flex flex-col gap-0.5 border-b border-hairline px-3.5 py-3">
+              <span className="text-12_5 font-semibold text-primary">{usuario}</span>
+              <span className="font-mono text-10 text-muted">{cuenta}</span>
+              {rol.trim() !== '' && (
+                <span className="text-11 text-muted">{rol}</span>
+              )}
+            </div>
+            <Link
+              href="/mi-sig"
+              role="menuitem"
+              onClick={() => setAbierto(false)}
+              className="px-3.5 py-2.5 text-left text-12_5 text-secondary hover:bg-subtle"
+            >
+              Mi SIG
+            </Link>
+            <button
+              role="menuitem"
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="border-t border-hairline px-3.5 py-2.5 text-left text-12_5 font-medium hover:bg-subtle"
+              style={{ color: 'var(--hf-danger-text)' }}
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
