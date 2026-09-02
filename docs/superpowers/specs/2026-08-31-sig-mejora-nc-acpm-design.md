@@ -2,10 +2,11 @@
 
 **Fecha:** 2026-08-31
 **Código:** REQ-SIG-03
-**Versión:** 1.0
+**Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** B — Mejora (ISO 9001 §10.2 · ISO/IEC 27001 §10)
 **Depende de:** módulo A (`2026-08-31-sig-personas-tareas-design.md`) — entidad `Persona` y motor de asignaciones
-**Estado:** Aprobado, sin implementar
+**Estado:** **Implementado.** Plan B ejecutado, 11 tareas
+**Reconciliación:** el modelo de roles cambió al construir. Ver §7.
 
 ---
 
@@ -138,14 +139,20 @@ El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI �
 
 ## 7. Roles y permisos
 
-Permisos nuevos: `mejora:reportar` (todos), `mejora:ver`, `mejora:escribir`, `mejora:cerrar`.
+Permisos nuevos: `mejora:reportar`, `mejora:ver`, `mejora:escribir`, `mejora:cerrar`.
+
+> **Reconciliado el 01/09/2026.** Los cuatro roles de la versión 1.0 son hoy **dos**: `SIG-Propietarios` y `SIG-Auditoría` se retiraron porque nunca existieron en el Directorio. La razón completa está en §6.0 de la especificación del módulo A.
 
 | Rol · grupo de AD | Qué hace |
 |---|---|
-| **Colaborador** | Reporta hallazgos y ejecuta las acciones que le asignen. Ve los que reportó y los que tiene a cargo. |
-| **SIG-Propietarios** | Analiza causa y responde por los hallazgos de su área; lectura del resto de su área. |
-| **Responsables SIG** | Clasifica, fija plazos, verifica eficacia, cierra y anula. |
-| **SIG-Auditoría** | Lectura total, bitácora incluida. No modifica nada. |
+| **Colaborador** | Reporta hallazgos y ejecuta las acciones que le asignen. |
+| **`Líderes SIG`** | Clasifica, fija plazos, registra causa raíz y acciones, verifica eficacia, cierra y anula. |
+
+### 7.1 Dos notas sobre cómo quedó el permiso de reportar
+
+**`reportarHallazgo` no exige permiso, exige sesión.** La acción usa `autorActual`, no `autorConPermiso` (`app/sig/acciones/hallazgos.ts:32`). Es lo correcto y cumple la regla B3 —cualquiera reporta—, pero conviene saber que la compuerta real es «estar autenticado», no el permiso.
+
+**`mejora:reportar` quedó como vocabulario sin uso.** Se declara en el tipo `Permiso`, se otorga **solo a Colaborador** —no a `Líderes SIG`— y no se comprueba en ninguna parte: su única aparición fuera de `permisos.ts` es una etiqueta en la pantalla de diagnóstico. Hoy no hace daño. Si mañana alguien lo usa como compuerta del formulario de reporte, **dejaría fuera al líder del SIG**, que es justo quien más hallazgos levanta. O se le agrega a `POR_GRUPO`, o se retira del tipo.
 
 ---
 
