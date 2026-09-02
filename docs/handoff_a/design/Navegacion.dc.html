@@ -68,9 +68,7 @@
               <span style="display: flex; align-items: center; gap: 9px; width: 100%">
                 <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{l.punto}}"></span>
                 <span style="flex: 1; min-width: 0; font-size: 12px; color: {{l.color}}">{{l.texto}}</span>
-                <sc-if value="{{l.esNuevo}}" hint-placeholder-val="{{ true }}">
-                  <span class="mono" style="flex: none; padding: 1px 5px; font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 3px; background: #e9f0fb; color: #12437f">nuevo</span>
-                </sc-if>
+                <span class="mono" style="flex: none; font-size: 8px; color: {{l.rutaColor}}">{{l.ruta}}</span>
               </span>
             </sc-if>
           </span>
@@ -98,10 +96,11 @@
       </div>
 
       <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
-        <span class="cab"><span>Las tres decisiones de esta estructura</span><span class="regla"></span></span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«SIG» reúne lo que antes eran dos pestañas.</strong> Separar el tablero del SGSI era una división que solo tenía sentido para quien construyó el sistema: quien lo usa entra a ver cómo va, y eso incluye los indicadores y el estado de la seguridad en el mismo sitio.</span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Registros vive bajo «Indicadores SGI», no como pestaña propia.</strong> Cada módulo muestra sus registros donde ocurren; el punto central que los cruza por numeral de la norma es una herramienta del líder, y va junto a lo que también se le enseña a un auditor.</span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar: procesos, cargos, parámetros y plazos se tocan una vez al trimestre, y ocupar una de siete posiciones con eso desplaza a algo que se usa a diario.</span>
+        <span class="cab"><span>Cómo leer esta pantalla</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Cada entrada de la barra lateral lleva su <strong style="font-weight: 600">ruta real</strong> si ya está construida, y dice «por construir» si no. El punto verde y el ámbar son lo mismo dicho en color; el texto manda.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«SIG» reúne lo que antes eran dos pestañas.</strong> Indicadores y Resumen SGSI ya existen; separarlos del resto era una división que solo tenía sentido para quien construyó el sistema. Quien lo usa entra a ver cómo va.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Estratégico está completa y Tecnología no existe.</strong> Recorre las seis pestañas y el contador de arriba te dice cuánto falta en cada una: es el mapa de trabajo del desarrollador, no solo un diagrama de navegación.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar: procesos, cargos, parámetros y plazos se tocan una vez al trimestre.</span>
       </div>
     </div>
   </div>
@@ -115,75 +114,98 @@ const ROL_ON = ROL_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; colo
 
 // La barra lateral acepta grupos (encabezado) e ítems. `nuevo` marca lo que
 // aportan REQ-SIG-06 a REQ-SIG-09.
+// `r` es la ruta que YA existe en app/. Sin `r`, la pantalla está por construir.
 const PESTANAS = [
   {
     id: 'misig', etiqueta: 'Mi SIG', roles: ['colab', 'proceso', 'sig'],
-    descripcion: 'La bandeja personal: lo que me toca hacer, con su plazo. Es la única pestaña que ve un colaborador, y la que usan las 38 personas. No lleva barra lateral en la aplicación: se muestra acá para completar el mapa.',
+    descripcion: 'La bandeja personal: lo que me toca hacer, con su plazo. Es la única pestaña que ve un colaborador, y la que usan las 38 personas.',
     lateral: [
-      { t: 'Pendientes' }, { t: 'Calendario' }, { t: 'Mi historial' },
-      { t: 'Mis actas firmadas', nuevo: true }, { t: 'Mi ficha', nuevo: true },
+      { t: 'Pendientes', r: '/mi-sig' },
+      { t: 'Mi historial', r: '/mi-sig/historial' },
+      { t: 'Diagnóstico', r: '/mi-sig/diagnostico' },
+      { t: 'Mis actas firmadas' },
+      { t: 'Mi ficha' },
     ],
   },
   {
     id: 'sig', etiqueta: 'SIG', roles: ['proceso', 'sig'],
-    descripcion: 'El sistema de gestión visto como un todo: cómo va, cómo está el SGSI, qué tenemos y qué lo amenaza, y qué está pasando ahora. Reúne en una sola pestaña lo que antes estaban separado en «Tablero» y «SGSI», que era una división que solo tenía sentido para quien construyó el sistema.',
+    descripcion: 'El sistema de gestión visto como un todo: cómo va, cómo está el SGSI, qué tenemos y qué lo amenaza, y qué está pasando ahora. Las dos primeras secciones ya existen; se reagrupan bajo una sola pestaña.',
     lateral: [
-      { g: 'Indicadores SGI' },
-      { t: 'Estado del sistema', nuevo: true }, { t: 'Indicadores por proceso' },
-      { t: 'Cumplimiento de tareas' }, { t: 'Registros', nuevo: true },
+      { g: 'Indicadores' },
+      { t: 'Indicadores', r: '/' },
+      { t: 'Estado del sistema' }, { t: 'Cumplimiento de tareas' }, { t: 'Registros' },
       { g: 'Resumen SGSI' },
-      { t: 'Declaración de aplicabilidad' }, { t: 'Controles' }, { t: 'Madurez y brechas' },
+      { t: 'Resumen', r: '/sgsi' },
+      { t: 'Controles', r: '/sgsi/controles' },
+      { t: 'Metodología', r: '/sgsi/metodologia' },
+      { t: 'Verificación', r: '/sgsi/verificacion' },
       { g: 'Activos y Riesgos' },
-      { t: 'Activos' }, { t: 'Riesgos' }, { t: 'Mapa de calor' },
+      { t: 'Inventario', r: '/sgsi/inventario' },
+      { t: 'Amenazas', r: '/sgsi/amenazas' },
+      { t: 'Matrices', r: '/sgsi/matrices' },
+      { t: 'Planes de tratamiento', r: '/sgsi/planes' },
       { g: 'Operación' },
-      { t: 'Eventos e incidentes', nuevo: true }, { t: 'Verificaciones', nuevo: true },
-      { t: 'Métricas', nuevo: true }, { t: 'Solicitudes', nuevo: true }, { t: 'Accesos y perfiles', nuevo: true },
+      { t: 'Eventos e incidentes' }, { t: 'Verificaciones programadas' },
+      { t: 'Métricas' }, { t: 'Solicitudes' }, { t: 'Accesos y perfiles' },
     ],
   },
   {
     id: 'actividades', etiqueta: 'Actividades', roles: ['proceso', 'sig'],
-    descripcion: 'El control operacional del numeral 8: lo que hay que hacer y quién lo hace. Aquí vive el motor de tareas y todo lo que se apoya en él. Se llamaba «Operación» hasta el 02/09/2026.',
+    descripcion: 'El control operacional del numeral 8: lo que hay que hacer y quién lo hace. Es la pestaña más construida del sistema: once de sus doce pantallas ya existen. Se llamaba «Operación» hasta el 02/09/2026.',
     lateral: [
       { g: 'Motor' },
-      { t: 'Obligaciones' }, { t: 'Calendario' }, { t: 'Tareas' }, { t: 'Contenidos' },
+      { t: 'Obligaciones', r: '/sig/obligaciones' },
+      { t: 'Calendario', r: '/sig/calendario' },
+      { t: 'Tareas', r: '/sig/tareas' },
+      { t: 'Contenidos', r: '/sig/contenidos' },
       { g: 'Mejora' },
-      { t: 'Hallazgos' }, { t: 'Acciones' },
-      { t: 'Tablero de mejora' },
+      { t: 'Hallazgos', r: '/sig/hallazgos' },
+      { t: 'Acciones', r: '/sig/mejora' },
       { g: 'Auditoría' },
-      { t: 'Programa anual' }, { t: 'Auditorías' }, { t: 'Tablero de auditoría' },
+      { t: 'Programa anual', r: '/sig/programa' },
+      { t: 'Auditorías', r: '/sig/auditorias' },
+      { t: 'Auditorías externas', r: '/sig/auditorias/externas' },
+      { t: 'Tablero de auditoría', r: '/sig/tablero-auditoria' },
+      { t: 'Normas y requisitos', r: '/sig/normas' },
     ],
   },
   {
     id: 'estrategico', etiqueta: 'Estratégico', roles: ['sig'],
-    descripcion: 'El contexto de la organización y lo que de él se deriva. Público distinto al resto: esto lo mira la alta dirección, no quien ejecuta tareas.',
+    descripcion: 'El contexto de la organización y lo que de él se deriva. Público distinto al resto: esto lo mira la alta dirección, no quien ejecuta tareas. Está completa: sus ocho pantallas existen.',
     lateral: [
-      { t: 'Partes interesadas' }, { t: 'Requisitos legales' },
-      { t: 'Riesgos y oportunidades' }, { t: 'DOFA' }, { t: 'PESTEL' },
+      { t: 'Mapa estratégico', r: '/estrategico/mapa' },
+      { t: 'Partes interesadas', r: '/estrategico/partes' },
+      { t: 'Requisitos legales', r: '/estrategico/legal' },
+      { t: 'Riesgos y oportunidades', r: '/estrategico/riesgos' },
+      { t: 'Materializaciones', r: '/estrategico/materializaciones' },
+      { t: 'DOFA', r: '/estrategico/dofa' },
+      { t: 'PESTEL', r: '/estrategico/pestel' },
+      { t: 'Parámetros del modelo', r: '/estrategico/parametros' },
     ],
   },
   {
     id: 'tecnologia', etiqueta: 'Tecnología', roles: ['proceso', 'sig'],
-    descripcion: 'La capa técnica del inventario: cómo se agrupan los activos, dónde corre cada cosa, de qué depende, y el ciclo de vida de desarrollo seguro de cada sistema.',
+    descripcion: 'La capa técnica del inventario y el ciclo de vida de desarrollo seguro. Es la pestaña que no existe todavía: ninguna de sus pantallas está construida.',
     lateral: [
       { g: 'Mapa' },
-      { t: 'Mapa tecnológico', nuevo: true }, { t: 'Niveles' }, { t: 'Dependencias', nuevo: true }, { t: 'Impacto', nuevo: true },
+      { t: 'Mapa tecnológico' }, { t: 'Niveles' }, { t: 'Dependencias' }, { t: 'Impacto' },
       { g: 'Ambientes y productos' },
-      { t: 'Ambientes' }, { t: 'Productos y sistemas', nuevo: true },
+      { t: 'Ambientes' }, { t: 'Productos y sistemas' },
       { g: 'Desarrollo seguro' },
-      { t: 'Sistemas' }, { t: 'Excepciones', nuevo: true }, { t: 'Verificación · 73 ítems', nuevo: true }, { t: 'Datos personales', nuevo: true },
+      { t: 'Sistemas' }, { t: 'Excepciones' }, { t: 'Verificación · 73 ítems' }, { t: 'Datos personales' },
       { g: 'Equipos' },
-      { t: 'Equipos de colaboradores', nuevo: true },
+      { t: 'Equipos de colaboradores' },
     ],
   },
   {
     id: 'personas', etiqueta: 'Personas', roles: ['sig'],
-    descripcion: 'Una sola tabla para nómina y contratistas, con los dos ciclos que la cruzan. Es donde el sistema documental del talento humano y el de seguridad se encuentran.',
+    descripcion: 'Una sola tabla para nómina y contratistas, con los dos ciclos que la cruzan. Hoy existe la configuración de personas; lo demás está por construir.',
     lateral: [
       { g: 'Directorio' },
-      { t: 'Colaboradores', nuevo: true }, { t: 'Fichas', nuevo: true },
+      { t: 'Personas', r: '/sig/personas' },
+      { t: 'Colaboradores' }, { t: 'Fichas' },
       { g: 'Ciclos' },
-      { t: 'Vinculación', nuevo: true }, { t: 'Desvinculación', nuevo: true },
-      { t: 'Actas de borrado seguro', nuevo: true },
+      { t: 'Vinculación' }, { t: 'Desvinculación' }, { t: 'Actas de borrado seguro' },
     ],
   },
 ];
@@ -232,15 +254,17 @@ class Component extends DCLogic {
 
       pestanaActiva: activa.etiqueta,
       descripcion: activa.descripcion,
-      conteoLateral: activa.lateral.filter((l) => l.t).length + ' pantallas',
+      conteoLateral: activa.lateral.filter((l) => l.t && l.r).length + ' de ' +
+        activa.lateral.filter((l) => l.t).length + ' construidas',
 
       lateral: activa.lateral.map((l) => ({
         esGrupo: Boolean(l.g),
         esItem: Boolean(l.t),
-        esNuevo: Boolean(l.nuevo),
         texto: l.g || l.t,
-        punto: l.nuevo ? '#12437f' : '#c3cac6',
-        color: l.nuevo ? '#12437f' : '#4a544f',
+        ruta: l.r || 'por construir',
+        rutaColor: l.r ? '#a3aca7' : '#8a4407',
+        punto: l.r ? '#0f7a5a' : '#f2b473',
+        color: l.r ? '#4a544f' : '#8a4407',
         estilo: l.g
           ? 'display: flex; padding: 0 8px;'
           : 'display: flex; align-items: center; padding: 8px 10px; border-radius: 6px; background: transparent;',

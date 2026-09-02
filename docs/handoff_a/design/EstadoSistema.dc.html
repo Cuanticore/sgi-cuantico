@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 20px; margin-bottom: 13px">
+    <div style="display: flex; flex-direction: column; gap: 5px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Estado del sistema</h1>
+      <span class="mono" style="font-size: 10.5px; color: #8a938e">Miércoles 2 de septiembre de 2026 · 15:40</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Simular</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{escenarios}}" as="e" hint-placeholder-count="2">
+          <button onClick="{{e.elegir}}" style="{{e.estilo}}">{{e.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <!-- Banda 1 · ¿el sistema está midiendo? -->
+  <div style="flex: none; display: flex; align-items: stretch; gap: 12px; padding: 14px 17px; margin-bottom: 12px; background: {{saludFondo}}; border: 1px solid {{saludBorde}}; border-radius: 11px">
+    <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; align-self: center; border-radius: 999px; background: {{saludColor}}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{saludIcono}}"></path></svg>
+    </span>
+    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; align-self: center">
+      <span style="font-size: 13.5px; font-weight: 600; color: {{saludColor}}">{{saludTitulo}}</span>
+      <span style="font-size: 11.5px; line-height: 1.5; color: {{saludColor}}">{{saludTexto}}</span>
+    </span>
+    <span style="flex: none; display: flex; gap: 8px">
+      <sc-for list="{{trabajos}}" as="t" hint-placeholder-count="3">
+        <span style="display: flex; flex-direction: column; gap: 4px; padding: 9px 12px; min-width: 132px; background: #ffffff; border: 1px solid {{t.borde}}; border-radius: 9px">
+          <span class="etq">{{t.nombre}}</span>
+          <span class="mono" style="font-size: 11px; font-weight: 600; color: {{t.color}}">{{t.estado}}</span>
+        </span>
+      </sc-for>
+    </span>
+  </div>
+
+  <!-- Banda 2 · los cuatro números -->
+  <div style="flex: none; display: flex; gap: 12px; margin-bottom: 12px">
+    <sc-for list="{{cifras}}" as="c" hint-placeholder-count="4">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; opacity: {{opacidad}}">
+        <span class="etq">{{c.etiqueta}}</span>
+        <span style="display: flex; align-items: baseline; gap: 8px">
+          <span class="mono" style="font-size: 26px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.valor}}</span>
+          <span class="mono" style="font-size: 10.5px; color: {{c.tendColor}}">{{c.tendencia}}</span>
+        </span>
+        <span style="font-size: 10.5px; line-height: 1.45; color: #8a938e">{{c.nota}}</span>
+      </span>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 13px">
+
+    <!-- Cumplimiento por proceso -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto; opacity: {{opacidad}}">
+      <span class="cab"><span>Cumplimiento por proceso</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">9 procesos</span></span>
+      <sc-for list="{{procesos}}" as="p" hint-placeholder-count="9">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span class="mono" style="flex: none; width: 30px; font-size: 9px; font-weight: 700; color: #12437f">{{p.codigo}}</span>
+          <span style="flex: none; width: 156px; font-size: 11px; color: #3a443f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.nombre}}</span>
+          <span style="flex: 1; min-width: 0; height: 8px; border-radius: 999px; background: #eceeed; overflow: hidden">
+            <span style="display: block; width: {{p.ancho}}; height: 100%; background: {{p.color}}"></span>
+          </span>
+          <span class="mono" style="flex: none; width: 34px; text-align: right; font-size: 10.5px; font-weight: 600; color: {{p.color}}">{{p.pct}}</span>
+          <span class="mono" style="flex: none; width: 52px; text-align: right; font-size: 9.5px; color: {{p.vencColor}}">{{p.vencidas}}</span>
+        </span>
+      </sc-for>
+      <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55; margin-top: 4px">El porcentaje es sobre asignaciones cerradas a tiempo en el periodo. La última columna son las vencidas que siguen abiertas: no desaparecen del conteo por estar vencidas, porque siguen siendo exigibles.</span>
+    </div>
+
+    <!-- Anomalías -->
+    <div style="flex: none; width: 424px; display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+      <span class="cab"><span>Lo que nadie está mirando</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: {{anomColor}}">{{anomTotal}}</span></span>
+      <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">Cruces entre módulos que no aparecen en ningún indicador porque no son de nadie. Cada uno se calcula solo.</span>
+      <sc-for list="{{anomalias}}" as="a" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 11px; padding: 10px 12px; background: {{a.fondo}}; border: 1px solid {{a.borde}}; border-radius: 8px">
+          <span class="mono" style="flex: none; width: 24px; font-size: 15px; font-weight: 600; color: {{a.color}}">{{a.n}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 11.5px; color: {{a.textoColor}}">{{a.texto}}</span>
+            <span class="mono" style="font-size: 8.5px; color: #a3aca7">{{a.donde}}</span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":900}}'>
+const SEG = 'padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const PROCESOS = [
+  { codigo: 'EST', nombre: 'Gestión Estratégica', pct: 92, venc: 1 },
+  { codigo: 'COM', nombre: 'Gestión Comercial', pct: 88, venc: 2 },
+  { codigo: 'PRO', nombre: 'Gestión de Proyectos', pct: 74, venc: 6 },
+  { codigo: 'SAC', nombre: 'Soporte y Servicio al Cliente', pct: 81, venc: 3 },
+  { codigo: 'TAL', nombre: 'Talento Humano', pct: 95, venc: 1 },
+  { codigo: 'LCO', nombre: 'Gestión Legal y de Compras', pct: 69, venc: 5 },
+  { codigo: 'TEC', nombre: 'Gestión Tecnológica', pct: 63, venc: 11 },
+  { codigo: 'SIG', nombre: 'Sistema Integrado de Gestión', pct: 90, venc: 2 },
+  { codigo: 'FIN', nombre: 'Gestión Financiera', pct: 86, venc: 2 },
+];
+
+// Las seis anomalías son cruces entre módulos: ninguna aparece en un indicador
+// porque ninguna es de un proceso en particular.
+const ANOMALIAS = [
+  { n: 3, texto: 'accesos vigentes sin solicitud que los respalde', donde: 'SIG · Accesos y perfiles' },
+  { n: 2, texto: 'colaboradores activos sin cuenta del Directorio', donde: 'Personas · Colaboradores' },
+  { n: 1, texto: 'excepción de seguridad vencida sin cerrarse', donde: 'Tecnología · Excepciones' },
+  { n: 2, texto: 'salidas sin acta de borrado seguro FOR-SIG-18', donde: 'Personas · Desvinculación' },
+  { n: 5, texto: 'activos sin propietario asignado', donde: 'SIG · Activos y Riesgos' },
+  { n: 1, texto: 'proveedor con activos a cargo y sin evaluación', donde: 'Estratégico · Partes interesadas' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // `midiendo` es el interruptor honesto: con el motor caído, los indicadores
+    // se atenúan porque no se puede confiar en ellos.
+    this.state = { midiendo: true };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const ok = s.midiendo;
+
+    const trabajos = [
+      { nombre: 'Generar asignaciones', ok: ok, bien: 'Hoy 05:00', mal: 'Hace 4 días' },
+      { nombre: 'Sincronizar directorio', ok: true, bien: 'Hoy 04:30', mal: '—' },
+      { nombre: 'Correo semanal', ok: ok, bien: 'Lunes 07:00', mal: 'No salió' },
+    ];
+
+    const pinta = (p) => (p >= 90 ? '#0f7a5a' : p >= 75 ? '#b8791a' : '#a52016');
+    const totalAnom = ANOMALIAS.reduce((a, x) => a + x.n, 0);
+
+    return {
+      escenarios: [
+        { id: true, etiqueta: 'El motor corrió' },
+        { id: false, etiqueta: 'El motor no corrió' },
+      ].map((e) => ({
+        etiqueta: e.etiqueta,
+        estilo: s.midiendo === e.id ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ midiendo: e.id }),
+      })),
+
+      saludColor: ok ? '#0b5c44' : '#a52016',
+      saludFondo: ok ? '#f7fbf9' : '#fffbfa',
+      saludBorde: ok ? '#c9e3d8' : '#f2cdc6',
+      saludIcono: ok ? 'M20 6L9 17l-5-5' : 'M12 3l9 16H3zM12 9v4M12 16v.5',
+      saludTitulo: ok ? 'El sistema está midiendo' : 'El sistema NO está midiendo',
+      saludTexto: ok
+        ? 'Los trabajos programados corrieron. Los indicadores de abajo son de fiar.'
+        : 'La generación de asignaciones lleva cuatro días sin correr. Los indicadores de abajo están atenuados a propósito: no son bajos porque la gente incumpla, son bajos porque los periodos no se abrieron. Esto va primero que cualquier porcentaje.',
+
+      trabajos: trabajos.map((t) => ({
+        nombre: t.nombre,
+        estado: t.ok ? t.bien : t.mal,
+        color: t.ok ? '#0b5c44' : '#a52016',
+        borde: t.ok ? '#c9e3d8' : '#f2cdc6',
+      })),
+
+      // Con el motor caído los indicadores no se ocultan: se atenúan y se dice por qué.
+      opacidad: ok ? '1' : '0.45',
+
+      cifras: [
+        { etiqueta: 'Cumplimiento del mes', valor: '82 %', color: '#b8791a', tendencia: '▲ 4', tendColor: '#0b5c44', nota: '246 de 300 asignaciones a tiempo' },
+        { etiqueta: 'Hallazgos abiertos', valor: '14', color: '#b8791a', tendencia: '▲ 3', tendColor: '#a52016', nota: '4 con plazo vencido' },
+        { etiqueta: 'Riesgos en zona alta', valor: '9', color: '#a52016', tendencia: '▼ 2', tendColor: '#0b5c44', nota: '2 sin tratamiento definido' },
+        { etiqueta: 'Programa de auditoría', valor: '8/9', color: '#0f7a5a', tendencia: '', tendColor: '#8a938e', nota: 'Falta el propio SIG, que audita otro proceso' },
+      ],
+
+      procesos: PROCESOS.map((p) => ({
+        codigo: p.codigo,
+        nombre: p.nombre,
+        pct: p.pct + ' %',
+        ancho: p.pct + '%',
+        color: pinta(p.pct),
+        vencidas: p.venc === 0 ? '—' : p.venc + ' venc.',
+        vencColor: p.venc > 4 ? '#a52016' : p.venc > 0 ? '#8a4407' : '#a3aca7',
+      })),
+
+      anomTotal: totalAnom + ' en total',
+      anomColor: totalAnom > 0 ? '#a52016' : '#0b5c44',
+      anomalias: ANOMALIAS.map((a) => ({
+        n: String(a.n),
+        texto: a.texto,
+        donde: a.donde,
+        color: '#a52016',
+        textoColor: '#3a443f',
+        fondo: '#fffbfa',
+        borde: '#f2cdc6',
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

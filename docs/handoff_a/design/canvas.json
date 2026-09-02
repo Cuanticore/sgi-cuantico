@@ -1,10 +1,14 @@
 {
   "artboards": [
     { "file": "Navegacion.dc.html", "x": -1440, "y": 0, "w": 1340, "h": 900, "title": "Navegación", "is_interactive": true },
+    { "file": "EstadoSistema.dc.html", "x": -1440, "y": 1030, "w": 1340, "h": 900, "title": "SIG · Estado del sistema", "is_interactive": true },
+
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Mi SIG", "is_interactive": true },
     { "file": "Sistema.dc.html", "x": 1540, "y": 0, "w": 1196, "h": 1040, "title": "Vocabulario del módulo" },
+
     { "file": "Obligaciones.dc.html", "x": 0, "y": 1180, "w": 1440, "h": 900, "title": "Actividades · Obligaciones", "is_interactive": true },
     { "file": "Calendario.dc.html", "x": 1540, "y": 1180, "w": 1196, "h": 860, "title": "Actividades · Calendario", "is_interactive": true },
+
     { "file": "Tareas.dc.html", "x": 0, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Tareas", "is_interactive": true },
     { "file": "Contenidos.dc.html", "x": 1300, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Contenidos", "is_interactive": true },
     { "file": "Personas.dc.html", "x": 2600, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Personas", "is_interactive": true },
@@ -14,9 +18,16 @@
     {
       "id": "nav",
       "x": -1440,
-      "y": -300,
+      "y": -320,
       "w": 900,
-      "text": "Navegación · agregada el 02/09/2026\n\nCon nueve módulos, el header ya no cabía. Seis pestañas y una barra lateral por pestaña.\n\nCambia el rol arriba a la derecha: un Colaborador ve UNA pestaña. Las demás no se renderizan en gris — no existen para él, porque una pestaña deshabilitada enseña que hay algo que no le dejan tocar.\n\nDos cosas que esta estructura resuelve: «SIG» reúne el tablero y el SGSI en una sola pestaña con cuatro secciones —Indicadores SGI, Resumen SGSI, Activos y Riesgos, Operación—, porque separarlos era una división que solo tenía sentido para quien construyó el sistema; y Configuración sale de las pestañas al engranaje, porque se toca una vez al trimestre."
+      "text": "Navegación · actualizada el 02/09/2026\n\nSeis pestañas y una barra lateral por pestaña: Mi SIG · SIG · Actividades · Estratégico · Tecnología · Personas.\n\nCambia el rol arriba a la derecha. Un Colaborador ve UNA pestaña; las demás no se renderizan en gris, porque una pestaña deshabilitada enseña que hay algo que no le dejan tocar.\n\nCada entrada lleva su RUTA REAL si ya está construida, y «por construir» si no. Recorre las seis y mira el contador: Estratégico está completa, Actividades casi, y Tecnología no existe todavía. Es el mapa de trabajo del desarrollador, no solo un diagrama de navegación."
+    },
+    {
+      "id": "estado",
+      "x": -1440,
+      "y": 1980,
+      "w": 900,
+      "text": "Estado del sistema · el puesto del líder del SIG\n\nPrueba el interruptor de arriba a la derecha.\n\nCon el motor caído los indicadores no se ocultan: se atenúan, y la banda de arriba dice por qué. Un 82 % de cumplimiento es mentira si los periodos no se abrieron, y esa distinción va primero que cualquier porcentaje.\n\nA la derecha, «lo que nadie está mirando»: seis cruces entre módulos que no aparecen en ningún indicador porque no son de ningún proceso. Accesos sin sustento, activos sin propietario, excepciones vencidas, salidas sin acta de borrado."
     },
     {
       "id": "brief",
@@ -41,10 +52,10 @@
     },
     {
       "id": "areas",
-      "x": 1540,
+      "x": 2600,
       "y": 2100,
-      "w": 640,
-      "text": "Datos de muestra tomados de los procedimientos reales del SIG: POL-SIG-02, PTR-TEC-01, PRO-TEC-01, PRO-FIN-03, PRO-LCO-02, FOR-CAL-09 y MAN-CAL-01.\n\n---\n\nProcesos · agregada el 02/09/2026 por D1 y D2\n\nEl caso que zanja la decisión está en la fila TEC: Yuliet Rojas está en el área Operaciones y lidera el proceso Tecnología y Soporte. Con una sola entidad ese hecho no se puede escribir.\n\nLas áreas que dicen «por confirmar» están así a propósito: no las relleno con un supuesto. Y falta el noveno proceso, que el programa de auditoría dice que existe."
+      "w": 900,
+      "text": "Datos de muestra tomados de los procedimientos reales del SIG: POL-SIG-02, PTR-TEC-01, PRO-TEC-01, PRO-FIN-03, PRO-LCO-02, FOR-CAL-09 y MAN-CAL-01.\n\nProcesos · corregida con el mapa de MAN-SIG-02.\n\nLos nueve en sus tres bandas. El dueño es un cargo, no una persona: el mapa nombra gerencias. Gerencia de Operaciones responde por tres —Proyectos, Soporte al Cliente y Gestión Tecnológica—, cruzando las bandas misional y de apoyo. Con una sola entidad Área ese hecho no se puede escribir."
     }
   ],
   "launch": { "view": "canvas" }
