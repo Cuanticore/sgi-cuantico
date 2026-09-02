@@ -129,7 +129,9 @@ Trece obligaciones están escritas como *«con la periodicidad definida por la o
 | Revisión de excepciones al filtrado web | POL-TEC-03 |
 | Revisión de informes de protección física de proveedores | POL-TEC-07 |
 
-Esto no es un problema de la aplicación: es un vacío del sistema documental. Una política que delega la periodicidad y luego nadie la define produce un control que en auditoría no tiene cómo demostrarse. **Decisión pendiente tuya, y es la que más tareas desbloquea: catorce.** Sugerencia por defecto: anual para las revisiones de gobierno y documentos, semestral para las de proveedores y accesos, trimestral para la verificación de línea base y software.
+Esto no es un problema de la aplicación: es un vacío del sistema documental. Una política que delega la periodicidad y luego nadie la define produce un control que en auditoría no tiene cómo demostrarse.
+
+> **Resuelto el 02/09/2026 (D7).** Se adoptó el default: anual para gobierno y documentos, semestral para proveedores y accesos, trimestral para línea base y software. Las catorce quedan cargables. **La brecha documental sigue abierta:** la periodicidad ahora vive en la aplicación y no en un documento aprobado, y hay que llevarla al comité.
 
 ### 3.3 Deberes por evento, no periódicos
 
@@ -139,8 +141,8 @@ No son tareas del motor de obligaciones, y conviene dejarlo dicho para que no se
 
 Ambas son del sistema documental, no de la aplicación, y hay que resolverlas antes de cargar:
 
-1. **Autoevaluación del puesto de trabajo remoto:** POL-TAL-01 la referencia como **FOR-SIG-13** y los documentos de continuidad como **FOR-SIG-16**. Son códigos distintos para el mismo formato.
-2. **Pruebas de restauración de respaldos:** un documento de continuidad las pide **trimestrales** y otro dice **al menos semestrales**. Cargar la más exigente y corregir el documento laxo, o unificarlos.
+1. **Autoevaluación del puesto de trabajo remoto:** POL-TAL-01 la referencia como **FOR-SIG-13** y los documentos de continuidad como **FOR-SIG-16**. Son códigos distintos para el mismo formato. → **Resuelto (D9): vale FOR-SIG-13**, y hay que corregir los documentos de continuidad.
+2. **Pruebas de restauración de respaldos:** un documento de continuidad las pide **trimestrales** y otro dice **al menos semestrales**. → **Resuelto (D8): se carga semestral.** Eso obliga a modificar el documento que pide trimestral *antes* de cargar la obligación; si no se modifica, quedan dos documentos propios en contradicción y el auditor la encuentra.
 
 ---
 
@@ -167,14 +169,20 @@ Alcance del cambio en código: `app/components/sgsi/EncabezadoSig.tsx` y los tí
 | E · Gestión tecnológica (REQ-SIG-06) | v1.0 | **No** |
 | Operación del SGSI (M3/M4/M6) | Solo diseño | **No** |
 
-Brechas abiertas, en orden de impacto:
+Brechas abiertas, en orden de impacto. Las decisiones del 02/09/2026 están en [decisiones-2026-09-02.md](decisiones-2026-09-02.md); acá queda lo que falta **construir**.
 
-1. **Alcance de obligación por activo, tipo y nivel** (§2.1) — bloquea 4 obligaciones de política y es el eje de la integración.
-2. **Periodicidades sin definir** (§3.2) — bloquea 14 obligaciones; decisión de negocio, no de desarrollo.
-3. **REQ-SIG-06 completo** (§2.6).
-4. **`Hallazgo.activoId`** (§2.2) y **origen tipado** que quedó como `origenReferencia String`.
-5. **`Anclaje` (R12)** — especificado en REQ-SIG-02, sin `ANCLADA`/`FLOTANTE` en el esquema.
-6. **Proceso vs. área** (§2.3) — decisión previa a seguir colgando entidades de `Area`.
-7. **`ParteInteresada.proveedorId`** (§2.4).
-8. **Permiso de auditor por asignación** — `PerfilAuditor.aprobadoEn` sí se exige; la habilitación por asignación no se construyó.
-9. Tres comentarios obsoletos en `lib/sgsi/permisos.ts` y uno en `app/sgsi/acciones/controles.ts:502` que describen un modelo de roles retirado.
+| # | Brecha | Decisión |
+|---|---|---|
+| 1 | Alcance de obligación por activo, tipo y nivel (§2.1) | **D3** — ampliar `AlcanceObligacion` |
+| 2 | REQ-SIG-06 completo (§2.6) | Sin construir |
+| 3 | Entidad `Proceso` y migración de auditorías, indicadores, requisitos legales y dueños de tarea (§2.3) | **D1, D2** |
+| 4 | Fusión de `Proveedor` y `ParteInteresada` (§2.4) | **D4** |
+| 5 | `Hallazgo.activoId` y origen tipado, hoy `origenReferencia String` (§2.2) | Pendiente |
+| 6 | `Anclaje` (R12) — especificado en REQ-SIG-02, sin `ANCLADA`/`FLOTANTE` en el esquema | Pendiente |
+| 7 | Versionado de `ContenidoSig` sin invalidar registros | **D6** |
+| 8 | `Evidencia` con dueño obligatorio | **D5** |
+| 9 | Spec de Operación del SGSI (M3/M4/M6) | **D13** — por escribir |
+| 10 | Permiso de auditor por asignación — `PerfilAuditor.aprobadoEn` sí se exige, la habilitación por asignación no se construyó | Pendiente |
+| 11 | Tres comentarios obsoletos en `lib/sgsi/permisos.ts` y uno en `app/sgsi/acciones/controles.ts:502` que describen un modelo de roles retirado | Limpieza |
+
+Las catorce periodicidades (§3.2) dejan de ser brecha de software con D7 y pasan a ser brecha documental: hay que llevarlas al comité.

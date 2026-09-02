@@ -215,8 +215,9 @@ Permisos nuevos: `tecnologia:ver`, `tecnologia:escribir`, `tecnologia:administra
 
 ---
 
-## 8. Lo que queda por decidir
+## 8. Decisiones cerradas el 02/09/2026
 
-1. **Los valores reales de nivel 1.** La hoja `Diseño` lista `CUANTICO`, `PRODUCTOS` y `PROYECTOS`, pero la matriz usa `EMPRESA`. Hay que fijar cuál es.
-2. **Qué hacer con los dos servicios `legacy / abandonado`** que encontró el levantamiento. No es una decisión de software: o se apagan o se documentan como activos vigentes.
-3. **Si el mapa tecnológico incluye los despliegues como hojas** o se detiene en el activo. Lo diseño incluyéndolos, porque es donde está la información que hoy no se ve.
+1. **Los valores de nivel 1 son `EMPRESA`, `PRODUCTOS` y `PROYECTOS`.** Se descarta `CUANTICO` de la hoja `Diseño`: el nivel 1 no separa razones sociales, separa naturalezas de activo. Lo que soporta a la organización entera va en `EMPRESA`; lo que pertenece a un producto o a un proyecto va en el suyo.
+2. **Los dos servicios `legacy / abandonado` se cargan sin abrir hallazgo.** Entran al inventario con su marca de anomalía y su nivel de confianza a la vista, y la decisión de apagarlos o documentarlos como vigentes queda en Tecnología. El inventario refleja lo que hay, no lo que debería haber.
+3. **El mapa tecnológico incluye los despliegues como hojas**, no se detiene en el activo. Es donde está la información que hoy no se ve, y el despliegue sigue sin ser un activo: es una hoja de presentación, no un nodo del inventario.
+4. **`Activo` sigue clasificado por `areaId` y no gana `procesoId`.** Se crea la entidad `Proceso`, pero solo migran a ella auditorías, indicadores, requisitos legales y dueños de tarea (ver `docs/handoff_sig/decisiones-2026-09-02.md`). Los 234 activos no se tocan. La columna `Proceso` de FOR-SIG-12 se conserva en la migración como dato heredado, sin volverse llave.
