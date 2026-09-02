@@ -133,6 +133,12 @@ Dos campos que no se pierden porque son la mitad del valor de la hoja:
 
 ### 3.5 Producto y su hoja de vida
 
+> **Provisional desde el 02/09/2026 — no construir sin leer antes [hoja-de-vida-for-tec-04.md](../../handoff_tecnologia/hoja-de-vida-for-tec-04.md).**
+>
+> El sistema documental ya tiene esta hoja de vida, y es mucho más precisa que lo que sigue: **FOR-TEC-04** con doce hojas, **PRO-TEC-04** con ocho fases F0–F7 y seis puertas de control que bloquean el avance, y **PTR-TEC-03** con setenta y tres ítems de verificación trazados al Anexo A. Las siete etapas que enumero abajo las deduje de la norma sin saber que el procedimiento ya existía.
+>
+> Lo que sigue se mantiene solo como referencia hasta que se decida si «producto» y «sistema de información» son el mismo objeto. Si lo son, esta sección se retira entera y su lugar lo toma una spec propia del ciclo de vida de desarrollo seguro.
+
 | Entidad | Contenido |
 |---|---|
 | **`Producto`** | `nivelId` (grado 1 clase PRODUCTO o PROYECTO), `nombre`, `descripcion`, `responsableId` → `Persona`, `clienteRef?`, `activo` |
