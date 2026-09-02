@@ -7,7 +7,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { autorActual, autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
+import { autorActual, autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
 import { codigoHallazgo } from '@/lib/sig/hallazgos';
 
@@ -32,6 +32,10 @@ export interface DatosReporte {
 export async function reportarHallazgo(datos: DatosReporte): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorActual();
+    exigirId(datos.areaId, 'el proceso o área');
+    if (!datos.descripcion.trim()) {
+      return { ok: false, mensaje: 'Describí qué encontraste: un hallazgo sin descripción no se puede clasificar.' };
+    }
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
@@ -80,6 +84,8 @@ export async function clasificarHallazgo(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('mejora:escribir');
+    exigirId(datos.responsableId, 'el responsable');
+    idOpcional(datos.hallazgoAnteriorId, 'el hallazgo anterior');
     const hallazgo = await prisma.hallazgo.findUnique({ where: { codigo } });
     if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
 
@@ -274,6 +280,7 @@ export async function agregarAccionHallazgo(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('mejora:escribir');
+    exigirId(datos.responsableId, 'el responsable');
     const hallazgo = await prisma.hallazgo.findUnique({ where: { codigo } });
     if (!hallazgo) return { ok: false, mensaje: 'El hallazgo no existe.' };
     if (!datos.titulo.trim()) return { ok: false, mensaje: 'La acción necesita un título.' };

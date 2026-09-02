@@ -19,6 +19,39 @@ export class SinSesionError extends Error {
   }
 }
 
+/// Un dato que llegó del formulario y no sirve para consultar la base.
+///
+/// Existe porque el tipo `number` de una firma solo vale en compilación. Los datos llegan
+/// de un `<select>`, y uno sin opciones —porque el catálogo está vacío— manda `undefined`.
+/// Ese `undefined` viajaba hasta Prisma, que responde «Argument `id` is missing» con el
+/// nombre del módulo empaquetado a cuestas: un error de base de datos crudo en pantalla, que
+/// no le dice a nadie que primero hay que cargar un catálogo.
+export class DatoInvalidoError extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = 'DatoInvalidoError';
+  }
+}
+
+/// Exige un identificador utilizable, o corta con un mensaje que la pantalla puede mostrar.
+///
+/// `queEs` se redacta como lo diría la persona —«el contenido», «la parte interesada»— no
+/// como se llama el campo: quien lee el mensaje no conoce el modelo de datos.
+export function exigirId(valor: unknown, queEs: string): number {
+  if (typeof valor !== 'number' || !Number.isInteger(valor) || valor <= 0) {
+    throw new DatoInvalidoError(`Falta ${queEs}, o el valor recibido no es válido.`);
+  }
+  return valor;
+}
+
+/// Igual, para los que de verdad son opcionales: `undefined` y `null` pasan, un valor
+/// presente pero inutilizable no. Sin esto, un `0` o un `NaN` del formulario entra a la base
+/// como si fuera una referencia legítima.
+export function idOpcional(valor: unknown, queEs: string): number | undefined {
+  if (valor === undefined || valor === null || valor === '') return undefined;
+  return exigirId(valor, queEs);
+}
+
 export class SinPermisoError extends Error {
   constructor(permiso: Permiso, rol: Rol) {
     super(
@@ -72,7 +105,13 @@ export async function ejecutar<T extends Resultado = Resultado>(
   try {
     return await operacion();
   } catch (error) {
-    if (error instanceof SinSesionError || error instanceof SinPermisoError) {
+    // Estos tres son respuestas, no fallas: la acción hizo su trabajo y dijo que no. No se
+    // registran como error para que el log siga sirviendo para encontrar lo que sí falló.
+    if (
+      error instanceof SinSesionError ||
+      error instanceof SinPermisoError ||
+      error instanceof DatoInvalidoError
+    ) {
       return { ok: false, mensaje: error.message } as T;
     }
     console.error('[sgsi] la acción falló', error);

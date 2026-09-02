@@ -26,7 +26,7 @@ import { revalidatePath } from 'next/cache';
 import type { EstadoAccion, TipoAccion, VerificacionEficacia } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
-import { autorConPermiso, ejecutar, type Resultado } from './sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
 /// on Controles can navigate to the action it found instead of creating a second one.
@@ -72,6 +72,10 @@ export async function guardarAccion(
 ): Promise<Resultado> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('sgsi:escribir');
+    idOpcional(datos.controlId, 'el control');
+    idOpcional(datos.responsableId, 'el responsable');
+    idOpcional(datos.apruebaId, 'quien aprueba');
+    idOpcional(datos.madurezAlcanzadaId, 'la madurez alcanzada');
 
     const accion = await prisma.accionPlan.findUnique({
       where: { codigo },

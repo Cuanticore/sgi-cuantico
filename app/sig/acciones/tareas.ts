@@ -11,7 +11,7 @@
 
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
-import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { planificarGeneracion } from '@/lib/sig/generacion';
 
 export interface ResultadoGeneracion extends Resultado {
@@ -417,6 +417,7 @@ export async function reasignarAsignacion(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('operacion:escribir');
+    exigirId(nuevaPersonaId, 'la persona a la que se reasigna');
     if (!motivo.trim()) return { ok: false, mensaje: 'La reasignación exige motivo.' };
 
     const asignacion = await prisma.asignacion.findUnique({ where: { id } });

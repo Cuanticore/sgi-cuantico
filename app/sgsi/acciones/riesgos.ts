@@ -20,7 +20,7 @@ import { prisma } from '@/lib/db';
 import { registrar, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import { clasificar, tratamientoSugerido } from '@/lib/sgsi/clasificar';
-import { autorConPermiso, ejecutar, type Resultado } from './sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// The three dimensions this deployment models. The declared deviation reassigns
 /// Autenticidad and Trazabilidad into Integridad, so D, I and C are the whole set — and
@@ -218,6 +218,7 @@ export async function excepcionFrecuencia(
 ): Promise<Resultado> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('riesgo:tratar');
+    exigirId(frecuenciaId, 'la frecuencia');
 
     const razon = normalizar(justificacion);
     if (razon === null) {
@@ -309,6 +310,7 @@ export async function excepcionDegradacion(
 ): Promise<Resultado> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('riesgo:tratar');
+    exigirId(degradacionId, 'la degradación');
 
     const razon = normalizar(justificacion);
     if (razon === null) {

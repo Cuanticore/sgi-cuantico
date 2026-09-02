@@ -8,7 +8,7 @@
 // sin acta de cierre; C8 la externa exige su informe adjunto. Todo con bitácora.
 
 import { prisma } from '@/lib/db';
-import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { registrar, registrarAlta } from '@/lib/sgsi/bitacora';
 import { codigoHallazgo } from '@/lib/sig/hallazgos';
 import { esIndependiente, promueveHallazgo } from '@/lib/sig/auditorias';
@@ -72,6 +72,7 @@ export async function crearAuditoria(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:administrar');
+    exigirId(datos.auditorLiderId, 'el auditor líder');
     const perfil = await prisma.perfilAuditor.findFirst({
       where: { personaId: datos.auditorLiderId, aprobadoEn: { not: null } },
     });
@@ -108,6 +109,9 @@ export async function agregarCeldaPlan(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:ejecutar');
+    exigirId(auditoriaId, 'la auditoría');
+    exigirId(datos.requisitoNormaId, 'el numeral de la norma');
+    exigirId(datos.auditorId, 'el auditor');
     const auditor = await prisma.persona.findUnique({
       where: { id: datos.auditorId },
       include: { cargo: true },
@@ -134,6 +138,7 @@ export async function registrarNota(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:ejecutar');
+    exigirId(celdaId, 'la celda del plan');
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
@@ -214,6 +219,7 @@ export async function guardarInforme(
 export async function emitirInformeFinal(auditoriaId: number): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:administrar');
+    exigirId(auditoriaId, 'la auditoría');
     const auditoria = await prisma.auditoria.findUnique({
       where: { id: auditoriaId },
       include: {
@@ -298,6 +304,7 @@ export async function registrarAuditoriaExterna(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('auditoria:administrar');
+    exigirId(datos.auditorLiderId, 'el auditor líder');
     if (!datos.entidadAuditora.trim() || !datos.alcance.trim()) {
       return {
         ok: false,

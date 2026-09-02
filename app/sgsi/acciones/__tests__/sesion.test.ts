@@ -28,6 +28,9 @@ import {
   rolActual,
   SinPermisoError,
   SinSesionError,
+  DatoInvalidoError,
+  exigirId,
+  idOpcional,
   type Resultado,
 } from '../sesion';
 
@@ -165,5 +168,64 @@ describe('ejecutar', () => {
   it('devuelve intacto el resultado de una operación que sí corre', async () => {
     const r = await ejecutar(async () => ({ ok: true, mensaje: 'listo', cambios: 3 }));
     expect(r).toEqual({ ok: true, mensaje: 'listo', cambios: 3 });
+  });
+});
+
+// La guarda que evita que un `undefined` de un formulario llegue a Prisma. El caso que
+// importa es el que DEJARÍA PASAR un valor inutilizable: el tipo `number` de la firma no
+// protege nada en tiempo de ejecución.
+describe('exigirId', () => {
+  it('acepta un entero positivo y lo devuelve', () => {
+    expect(exigirId(7, 'el contenido')).toBe(7);
+    expect(exigirId(1, 'el contenido')).toBe(1);
+  });
+
+  it('rechaza todo lo que Prisma no puede usar como identificador', () => {
+    for (const malo of [undefined, null, 0, -1, 1.5, NaN, Infinity, '3', '', {}, [], true]) {
+      expect(() => exigirId(malo, 'el contenido')).toThrow(DatoInvalidoError);
+    }
+  });
+
+  it('el mensaje nombra el dato como lo diría la persona, no el campo', () => {
+    expect(() => exigirId(undefined, 'la parte interesada')).toThrow(/la parte interesada/);
+  });
+});
+
+describe('idOpcional', () => {
+  it('deja pasar la ausencia', () => {
+    for (const vacio of [undefined, null, '']) {
+      expect(idOpcional(vacio, 'el responsable')).toBeUndefined();
+    }
+  });
+
+  // Un 0 o un NaN presentes no son «ausencia»: son un valor roto, y entrarían a la base
+  // como si fueran una referencia legítima.
+  it('un valor presente pero inutilizable NO pasa como ausencia', () => {
+    for (const malo of [0, -1, NaN, '4']) {
+      expect(() => idOpcional(malo, 'el responsable')).toThrow(DatoInvalidoError);
+    }
+  });
+
+  it('devuelve el número cuando está bien', () => {
+    expect(idOpcional(12, 'el responsable')).toBe(12);
+  });
+});
+
+describe('ejecutar con un dato inválido', () => {
+  it('lo convierte en mensaje y NO lo registra como falla del sistema', async () => {
+    const registro = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await ejecutar<Resultado>(async () => {
+        exigirId(undefined, 'el contenido');
+        return { ok: true, mensaje: 'guardado' };
+      });
+      expect(r.ok).toBe(false);
+      expect(r.mensaje).toContain('el contenido');
+      // La distinción importa: el log tiene que seguir sirviendo para encontrar lo que sí
+      // falló, no para acumular formularios incompletos.
+      expect(registro).not.toHaveBeenCalled();
+    } finally {
+      registro.mockRestore();
+    }
   });
 });

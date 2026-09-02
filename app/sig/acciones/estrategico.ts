@@ -7,7 +7,7 @@
 // bitácora en la misma transacción.
 
 import { prisma } from '@/lib/db';
-import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
 import { codigoHallazgo } from '@/lib/sig/hallazgos';
 
@@ -50,6 +50,7 @@ export async function agregarEntradaContexto(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(analisisId, 'el análisis de contexto');
     await prisma.$transaction(async (tx) => {
       const ultima = await tx.entradaContexto.findFirst({
         where: { analisisId },
@@ -100,6 +101,8 @@ export async function agregarNecesidad(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(parteId, 'la parte interesada');
+    idOpcional(datos.responsableId, 'el responsable');
     await prisma.$transaction(async (tx) => {
       const creada = await tx.necesidadExpectativa.create({ data: { parteId, ...datos } });
       await registrarAlta(tx, autor, 'necesidad_expectativa', String(creada.id));
@@ -181,6 +184,10 @@ export async function derogarRequisito(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(requisitoId, 'el requisito legal');
+    if (!normaQueDeroga.trim()) {
+      return { ok: false, mensaje: 'Indicá qué norma lo deroga: una derogación sin fuente no se puede auditar.' };
+    }
     await prisma.$transaction(async (tx) => {
       await tx.requisitoLegal.update({
         where: { id: requisitoId },
@@ -203,6 +210,7 @@ export interface DatosEvaluacion {
 export async function evaluarCumplimiento(datos: DatosEvaluacion): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(datos.requisitoId, 'el requisito legal');
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
@@ -302,6 +310,9 @@ export async function agregarControlRiesgo(
 ): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(riesgoId, 'el riesgo');
+    exigirId(datos.tipoId, 'el tipo de control');
+    exigirId(datos.eficaciaId, 'la eficacia del control');
     await prisma.$transaction(async (tx) => {
       const control = await tx.controlRiesgoOrg.create({ data: { riesgoId, ...datos } });
       await registrarAlta(tx, autor, 'control_riesgo_org', String(control.id));
@@ -323,6 +334,7 @@ export interface DatosMaterializacion {
 export async function materializarRiesgo(datos: DatosMaterializacion): Promise<Resultado> {
   return ejecutar<Resultado>(async () => {
     const autor = await autorConPermiso('estrategico:escribir');
+    exigirId(datos.riesgoId, 'el riesgo');
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },

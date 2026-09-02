@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
-import { autorConPermiso, ejecutar, type Resultado } from './sesion';
+import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 export interface CambioValoracion {
   codigoActivo: string;
@@ -124,6 +124,15 @@ export async function guardarDatosGenerales(
 ): Promise<Resultado> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('activo:valorar');
+    idOpcional(datos.areaId, 'el proceso o área');
+    idOpcional(datos.tipoId, 'el tipo');
+    idOpcional(datos.subtipoId, 'el subtipo');
+    idOpcional(datos.propietarioId, 'el propietario');
+    idOpcional(datos.custodioId, 'el custodio');
+    idOpcional(datos.ubicacionId, 'la ubicación');
+    idOpcional(datos.entornoId, 'el entorno');
+    idOpcional(datos.proveedorId, 'el proveedor');
+    idOpcional(datos.superiorId, 'el activo superior');
 
     const escritos = await prisma.$transaction(async (tx) => {
       const activo = await tx.activo.findFirst({ where: { codigo: codigoActivo } });
@@ -235,6 +244,18 @@ export async function crearActivo(
     if (!datos.nombre.trim()) {
       return { ok: false, mensaje: 'El activo necesita un nombre.' };
     }
+
+    // Antes de consultar: un identificador ausente hace lanzar al `findUnique` y las
+    // comprobaciones de existencia de más abajo no se alcanzan nunca.
+    exigirId(datos.areaId, 'el proceso o área');
+    exigirId(datos.tipoId, 'el tipo MAGERIT');
+    exigirId(datos.subtipoId, 'el subtipo');
+    idOpcional(datos.custodioId, 'el custodio');
+    idOpcional(datos.propietarioId, 'el propietario');
+    idOpcional(datos.ubicacionId, 'la ubicación');
+    idOpcional(datos.entornoId, 'el entorno');
+    idOpcional(datos.proveedorId, 'el proveedor');
+    idOpcional(datos.superiorId, 'el activo superior');
 
     const [area, tipo, subtipo] = await Promise.all([
       prisma.area.findUnique({ where: { id: datos.areaId } }),
