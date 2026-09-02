@@ -48,6 +48,7 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },
       { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
       { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
+      { etiqueta: 'Notificaciones', abreviatura: 'NOT', href: '/sig/notificaciones' },
     ],
   },
   {
@@ -62,8 +63,6 @@ const GRUPOS: Grupo[] = [
     titulo: 'Auditoría',
     tituloCorto: 'AUD',
     items: [
-      { etiqueta: 'Programa', abreviatura: 'PRG', href: '/sig/programa' },
-      { etiqueta: 'Notificaciones', abreviatura: 'NOT', href: '/sig/notificaciones' },
       { etiqueta: 'Programa de auditoría', abreviatura: 'PRG', href: '/sig/auditorias/programa' },
       { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sig/auditorias' },
       { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sig/auditorias/externas' },

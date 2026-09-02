@@ -1,52 +1,19 @@
 // app/sig/programa/page.tsx
 //
-// FOR-CAL-04: la grilla proceso × mes con el estado de cada casilla (ejecutada,
-// programada o vencida) calculado contra las fechas (C7).
+// Esta ruta quedó duplicada por mi culpa.
+//
+// Ya existía acá la grilla proceso × mes del FOR-CAL-04, de sólo lectura, y construí la
+// misma vista en `/sig/auditorias/programa` sin notarlo — con la cabecera editable, el
+// navegador de año, los perfiles de auditor y la exportación a Excel. Durante un rato hubo
+// dos entradas en la barra lateral, con la misma abreviatura, apuntando a la misma matriz.
+//
+// Se consolida en `/sig/auditorias/programa`: vive junto a la lista de auditorías y su
+// ficha, y el nombre dice de qué programa habla. Esta ruta queda como redirección
+// permanente en vez de borrarse, porque un enlace guardado o un marcador no tienen por qué
+// romperse por un reordenamiento nuestro.
 
-import { prisma } from '@/lib/db';
-import ProgramaClient from './Programa.client';
+import { permanentRedirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-export default async function ProgramaPage() {
-  const programas = await prisma.programaAuditoria.findMany({
-    orderBy: { anio: 'desc' },
-    include: {
-      programadas: {
-        include: {
-          responsable: { select: { nombre: true } },
-          auditorias: { select: { fechaInicio: true, emitidoEn: true, cerradaEn: true } },
-        },
-      },
-    },
-  });
-
-  const programa = programas[0] ?? null;
-  const filas = (programa?.programadas ?? []).map((p) => {
-    const auditorias = p.auditorias;
-    const ejecutadas = auditorias.filter((a) => a.cerradaEn || a.emitidoEn);
-    const meses = p.meses.split(',').map(Number);
-    return {
-      id: p.id,
-      proceso: p.procesoRef,
-      meses,
-      ejecutadas: ejecutadas.length,
-      total: auditorias.length,
-      tipo: p.tipo,
-      responsable: p.responsable.nombre,
-      plazo: p.plazoInformeDias,
-      vencida: auditorias.length === 0,
-    };
-  });
-
-  return (
-    <ProgramaClient
-      anio={programa?.anio ?? null}
-      alcance={programa?.alcance ?? null}
-      objetivo={programa?.objetivo ?? null}
-      criterios={programa?.criterios ?? null}
-      metodos={programa?.metodos ?? null}
-      filas={filas}
-    />
-  );
+export default function ProgramaPage() {
+  permanentRedirect('/sig/auditorias/programa');
 }
