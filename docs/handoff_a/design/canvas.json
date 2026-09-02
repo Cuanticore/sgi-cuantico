@@ -6,7 +6,8 @@
     { "file": "Calendario.dc.html", "x": 1540, "y": 1180, "w": 1196, "h": 860, "title": "Actividades · Calendario", "is_interactive": true },
     { "file": "Tareas.dc.html", "x": 0, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Tareas", "is_interactive": true },
     { "file": "Contenidos.dc.html", "x": 1300, "y": 2280, "w": 1196, "h": 860, "title": "Actividades · Contenidos", "is_interactive": true },
-    { "file": "Personas.dc.html", "x": 2600, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Personas", "is_interactive": true }
+    { "file": "Personas.dc.html", "x": 2600, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Personas", "is_interactive": true },
+    { "file": "Procesos.dc.html", "x": 3900, "y": 2280, "w": 1196, "h": 860, "title": "Configuración · Procesos", "is_interactive": true }
   ],
   "annotations": [
     {
@@ -35,7 +36,7 @@
       "x": 1540,
       "y": 2100,
       "w": 640,
-      "text": "Datos de muestra tomados de los procedimientos reales del SIG: POL-SIG-02, PTR-TEC-01, PRO-TEC-01, PRO-FIN-03, PRO-LCO-02, FOR-CAL-09 y MAN-CAL-01."
+      "text": "Datos de muestra tomados de los procedimientos reales del SIG: POL-SIG-02, PTR-TEC-01, PRO-TEC-01, PRO-FIN-03, PRO-LCO-02, FOR-CAL-09 y MAN-CAL-01.\n\n---\n\nProcesos · agregada el 02/09/2026 por D1 y D2\n\nEl caso que zanja la decisión está en la fila TEC: Yuliet Rojas está en el área Operaciones y lidera el proceso Tecnología y Soporte. Con una sola entidad ese hecho no se puede escribir.\n\nLas áreas que dicen «por confirmar» están así a propósito: no las relleno con un supuesto. Y falta el noveno proceso, que el programa de auditoría dice que existe."
     }
   ],
   "launch": { "view": "canvas" }

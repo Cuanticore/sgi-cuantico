@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .th { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Procesos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">Un proceso pertenece a un área, y su dueño <strong style="font-weight: 600; color: #4a544f">no tiene por qué estar en esa misma área</strong>. Es lo que con una sola entidad no se podía escribir.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nuevo proceso</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 11px 16px 10px; border-bottom: 1px solid #eceeed; background: #fbfcfb">
+        <span class="th" style="flex: none; width: 34px">Cód.</span>
+        <span class="th" style="flex: 1; min-width: 0">Proceso</span>
+        <span class="th" style="flex: none; width: 108px">Área</span>
+        <span class="th" style="flex: none; width: 118px">Dueño</span>
+        <span class="th" style="flex: none; width: 168px; text-align: center">Qué cuelga de él</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px">
+        <sc-for list="{{procesos}}" as="p" hint-placeholder-count="9">
+          <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+            <span class="mono" style="flex: none; width: 34px; font-size: 9.5px; font-weight: 600; color: #12437f; text-align: left">{{p.codigo}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 12px; text-align: left; color: {{p.nombreColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.nombre}}</span>
+            <span style="flex: none; width: 108px; font-size: 10.5px; text-align: left; color: {{p.areaColor}}">{{p.area}}</span>
+            <span style="flex: none; width: 118px; font-size: 10.5px; text-align: left; color: #4a544f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.dueno}}</span>
+            <span style="flex: none; width: 168px; display: flex; gap: 5px; justify-content: center">
+              <sc-for list="{{p.chips}}" as="c" hint-placeholder-count="4">
+                <span class="mono" style="padding: 2px 6px; font-size: 8.5px; font-weight: 600; border-radius: 4px; background: {{c.bg}}; color: {{c.fg}}">{{c.texto}}</span>
+              </sc-for>
+            </span>
+          </button>
+        </sc-for>
+
+        <div style="display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; margin: 6px 2px 2px; background: #fff3e6; border: 1px dashed #f2b473; border-radius: 9px">
+          <span class="mono" style="flex: none; width: 34px; font-size: 9.5px; font-weight: 600; color: #8a4407">?</span>
+          <span style="flex: 1; font-size: 11px; line-height: 1.55; color: #8a4407">Falta el noveno proceso. El programa de auditoría dice que en febrero se auditaron nueve y acá hay ocho. Hay que sacarlo de FOR-CAL-04 antes de cargar; no se inventa.</span>
+        </div>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 356px; display: flex; flex-direction: column; gap: 13px">
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+          <span style="flex: 1; font-size: 14px; font-weight: 600">{{sel.nombre}}</span>
+        </span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span class="etq">Área</span>
+            <span style="font-size: 12px; color: {{sel.areaColor}}">{{sel.area}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span class="etq">Dueño</span>
+            <span style="font-size: 12px">{{sel.dueno}}</span>
+          </span>
+        </div>
+        <sc-if value="{{sel.hayNota}}" hint-placeholder-val="{{ true }}">
+          <span style="display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: #eef2f8; border: 1px solid #d3dceb; border-radius: 8px">
+            <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+            <span style="font-size: 10.5px; line-height: 1.55; color: #12437f">{{sel.nota}}</span>
+          </span>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Qué cuelga de este proceso</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <sc-for list="{{sel.detalle}}" as="d" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 10px 12px; background: {{d.fondo}}; border: 1px solid {{d.borde}}; border-radius: 8px">
+            <span class="mono" style="flex: none; width: 26px; font-size: 14px; font-weight: 600; color: {{d.color}}">{{d.n}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: {{d.textoColor}}">{{d.etiqueta}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="etq" style="color: #12437f">Lo que esto arregla</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Un texto libre menos.</strong> «Proceso encargado» era un <span class="mono" style="font-size: 10.5px">String</span> en la matriz de requisitos legales: la última violación viva del invariante de origen tipado.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Un dueño con dos procesos.</strong> Albeiro Medina lidera Talento Humano y Financiero desde una sola área. Con <span class="mono" style="font-size: 10.5px">Area</span> sola, o se duplicaba la persona o se perdía uno.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Los activos no se tocan.</strong> Los 234 siguen clasificados por área. La columna «Proceso» de FOR-SIG-12 se conserva como dato heredado, sin volverse llave.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const FILA = 'display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 9px; margin-bottom: 3px; border-radius: 8px;';
+const FILA_OFF = FILA + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+// `area: null` = todavía sin confirmar. Se muestra, no se rellena con un supuesto.
+const PROCESOS = [
+  { codigo: 'EST', nombre: 'Estratégico', area: null, dueno: 'Daniel Medina', aud: 1, ind: 4, leg: 2, obl: 6 },
+  { codigo: 'COM', nombre: 'Comercial', area: null, dueno: 'Lina Medina', aud: 1, ind: 5, leg: 1, obl: 4 },
+  { codigo: 'PRY', nombre: 'Proyectos', area: null, dueno: 'Laura Agudelo', aud: 1, ind: 6, leg: 3, obl: 9 },
+  { codigo: 'TEC', nombre: 'Tecnología y Soporte', area: 'Operaciones', dueno: 'Yuliet Rojas', aud: 1, ind: 7, leg: 4, obl: 18,
+    nota: 'El área es Operaciones y el proceso es Tecnología y Soporte. Son distintos, y el modelo lo permite a propósito.' },
+  { codigo: 'TAL', nombre: 'Talento Humano', area: 'Finanzas', dueno: 'Albeiro Medina', aud: 1, ind: 3, leg: 5, obl: 8,
+    nota: 'Albeiro Medina lidera este proceso y el Financiero desde una sola área.' },
+  { codigo: 'FIN', nombre: 'Financiero', area: 'Finanzas', dueno: 'Albeiro Medina', aud: 1, ind: 4, leg: 6, obl: 5 },
+  { codigo: 'LCO', nombre: 'Legal y Compras', area: null, dueno: 'Marcela Molina', aud: 1, ind: 3, leg: 9, obl: 7 },
+  { codigo: 'SIG', nombre: 'Sistema Integrado de Gestión', area: null, dueno: 'Katherine Quiroga', aud: 0, ind: 5, leg: 2, obl: 12,
+    nota: 'Sin auditoría registrada en el programa. Auditarse a sí mismo exige separación de funciones: lo audita alguien de otro proceso.' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'TEC' };
+  }
+
+  chips(p) {
+    return [
+      { texto: p.aud + ' aud', ok: p.aud > 0 },
+      { texto: p.ind + ' ind', ok: p.ind > 0 },
+      { texto: p.leg + ' leg', ok: p.leg > 0 },
+      { texto: p.obl + ' obl', ok: p.obl > 0 },
+    ].map((c) => ({
+      texto: c.texto,
+      bg: c.ok ? '#f5f7f6' : '#fdeeeb',
+      fg: c.ok ? '#6b7570' : '#a52016',
+    }));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = PROCESOS.find((p) => p.codigo === s.sel) || PROCESOS[0];
+
+    return {
+      procesos: PROCESOS.map((p) => ({
+        codigo: p.codigo,
+        nombre: p.nombre,
+        area: p.area || 'por confirmar',
+        areaColor: p.area ? '#4a544f' : '#8a4407',
+        dueno: p.dueno,
+        nombreColor: '#1a211e',
+        chips: this.chips(p),
+        estilo: s.sel === p.codigo ? FILA_ON : FILA_OFF,
+        elegir: () => this.setState({ sel: p.codigo }),
+      })),
+      sel: {
+        codigo: f.codigo,
+        nombre: f.nombre,
+        area: f.area || 'por confirmar',
+        areaColor: f.area ? '#1a211e' : '#8a4407',
+        dueno: f.dueno,
+        hayNota: Boolean(f.nota),
+        nota: f.nota || '',
+        detalle: [
+          { n: f.aud, etiqueta: 'auditorías en el programa' },
+          { n: f.ind, etiqueta: 'indicadores' },
+          { n: f.leg, etiqueta: 'requisitos legales a cargo' },
+          { n: f.obl, etiqueta: 'obligaciones de tarea' },
+        ].map((d) => ({
+          n: String(d.n),
+          etiqueta: d.etiqueta,
+          color: d.n > 0 ? '#12437f' : '#a52016',
+          textoColor: d.n > 0 ? '#3a443f' : '#8a1f16',
+          fondo: d.n > 0 ? '#fbfcfb' : '#fffbfa',
+          borde: d.n > 0 ? '#e2e6e3' : '#f2cdc6',
+        })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
