@@ -136,3 +136,77 @@ export async function leerDirectorioCompleto(): Promise<PersonaDirectorioComplet
     return null;
   }
 }
+
+/// Los identificadores de los grupos a los que pertenece una persona, leídos del Directorio
+/// en vez de esperarlos en el token.
+///
+/// POR QUÉ EXISTE ESTO
+///
+/// El camino normal es el claim `groups` del token, y tiene un defecto que costó una tarde
+/// encontrar: `groupMembershipClaims` filtra POR TIPO DE GRUPO. Con el valor habitual,
+/// `SecurityGroup`, un grupo de Microsoft 365 no viaja — y `Responsables SIG` es de ese
+/// tipo. El tenant bien, la cuenta dentro del grupo, y la aplicación sin recibir nada.
+///
+/// Preguntándole a Graph el tipo deja de importar: `memberOf` devuelve la pertenencia real,
+/// sea el grupo de seguridad, de Microsoft 365 o una lista de distribución. Y de paso
+/// desaparece el límite de ~200 grupos que hace que Azure reemplace la lista por un puntero.
+///
+/// Devuelve `null` —no una lista vacía— cuando no se pudo preguntar. La diferencia importa:
+/// vacío significa «no pertenece a nada», y null significa «no sé», que es lo que el
+/// llamador necesita para no degradar a alguien por una falla de red.
+///
+/// Requiere el permiso de APLICACIÓN `GroupMember.Read.All` con consentimiento de
+/// administrador. Sin él Graph responde 403 y esto devuelve null, dejando el claim del
+/// token como única fuente.
+export async function gruposDePersona(oid: string): Promise<string[] | null> {
+  const tenant = process.env.SHAREPOINT_TENANT_ID;
+  const cliente = process.env.SHAREPOINT_CLIENT_ID;
+  const secreto = process.env.SHAREPOINT_CLIENT_SECRET;
+  if (!tenant || !cliente || !secreto || !oid) return null;
+
+  try {
+    const tokenRes = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: cliente,
+        client_secret: secreto,
+        scope: 'https://graph.microsoft.com/.default',
+      }),
+    });
+    if (!tokenRes.ok) return null;
+    const token = (await tokenRes.json()) as { access_token?: string };
+    if (!token.access_token) return null;
+
+    // `$select=id,displayName` porque el mapeo de la aplicación acepta las dos formas: un
+    // tenant que emite nombres y otro que emite object ids caen en la misma tabla.
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(oid)}` +
+        '/memberOf?$select=id,displayName&$top=999',
+      { headers: { Authorization: `Bearer ${token.access_token}` } },
+    );
+
+    if (!res.ok) {
+      // Se registra en vez de silenciarse: un 403 acá no es un fallo pasajero, es un
+      // permiso que falta, y sin el mensaje el síntoma vuelve a ser «no tengo acceso y no
+      // se sabe por qué» — que es exactamente de donde venimos.
+      const detalle = await res.text().catch(() => '');
+      console.error(
+        `[sgsi] no se pudo leer la pertenencia a grupos (HTTP ${res.status}). ` +
+          'Si es 403, falta conceder el permiso de aplicación GroupMember.Read.All ' +
+          `con consentimiento de administrador. ${detalle.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    const data = (await res.json()) as { value?: { id?: string; displayName?: string }[] };
+    const identificadores = (data.value ?? []).flatMap((g) =>
+      [g.id, g.displayName].filter((v): v is string => typeof v === 'string' && v !== ''),
+    );
+    return identificadores;
+  } catch (error) {
+    console.error('[sgsi] falló la consulta de grupos al Directorio', error);
+    return null;
+  }
+}

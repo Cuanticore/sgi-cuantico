@@ -2,6 +2,7 @@ import { AuthOptions } from 'next-auth';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import { prisma } from '@/lib/db';
 import { entradaDesdePerfil } from '@/lib/sig/personas';
+import { gruposDePersona } from '@/lib/sgsi/directorio';
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -50,13 +51,38 @@ export const authOptions: AuthOptions = {
       if (account?.access_token) {
         token.accessToken = account.access_token;
       }
-      // Directory group membership, from which every permission derives. The claim only
-      // arrives if the app registration is configured to emit it; when it is absent the
-      // role is Colaborador — see lib/sgsi/permisos.ts.
-      const grupos = (profile as { groups?: unknown } | undefined)?.groups;
-      if (Array.isArray(grupos)) {
-        token.grupos = grupos.filter((g): g is string => typeof g === 'string');
+
+      // La pertenencia a grupos, de donde sale todo permiso. Se resuelve UNA vez, al
+      // iniciar sesión: `profile` solo llega en ese momento y después el token se reutiliza.
+      //
+      // Dos fuentes, en este orden:
+      //
+      //   1. El claim `groups` del token. Es lo barato y no cuesta una llamada de red, pero
+      //      `groupMembershipClaims` lo filtra POR TIPO DE GRUPO: con el valor habitual
+      //      `SecurityGroup`, un grupo de Microsoft 365 no aparece nunca.
+      //   2. Graph, preguntando la pertenencia real. Ahí el tipo de grupo deja de importar.
+      //
+      // La segunda solo corre cuando la primera no trajo nada, así que un tenant que ya
+      // emite el claim no paga ninguna llamada extra.
+      if (profile) {
+        const claim = (profile as { groups?: unknown }).groups;
+        const delClaim = Array.isArray(claim)
+          ? claim.filter((g): g is string => typeof g === 'string')
+          : [];
+
+        if (delClaim.length > 0) {
+          token.grupos = delClaim;
+        } else {
+          const oid = (profile as { oid?: unknown }).oid;
+          const consultados =
+            typeof oid === 'string' && oid ? await gruposDePersona(oid) : null;
+          // `null` es «no se pudo preguntar», y ahí conviene dejar lo que ya hubiera antes
+          // que sobrescribirlo con vacío: degradar a Colaborador por una falla de red sería
+          // convertir un problema pasajero en una pérdida de acceso.
+          if (consultados) token.grupos = consultados;
+        }
       }
+
       return token;
     },
     async session({ session, token }) {
