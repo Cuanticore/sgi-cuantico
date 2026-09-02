@@ -17,6 +17,15 @@ export default async function TableroMejoraPage() {
   ]);
 
   const hoy = new Date();
+  const anio = hoy.getUTCFullYear();
+
+  // El lienzo rotula «del ano» y «cerrados del ano». La pantalla calculaba sobre TODO el
+  // historico bajo esos rotulos, asi que el titulo iba a decir el ano y las cifras no iban
+  // a ser del ano. El embudo por estado si es de todo lo abierto —un hallazgo de 2025 que
+  // sigue abierto pesa hoy— pero la composicion por tipo y los dias hasta el cierre son
+  // del ano, porque comparan contra el ano anterior.
+  const delAnio = hallazgos.filter((h) => h.fechaDeteccion.getUTCFullYear() === anio);
+
   const conEstado = hallazgos.map((h) => ({
     ...h,
     estado: estadoCalculado({
@@ -36,7 +45,7 @@ export default async function TableroMejoraPage() {
   }));
   const porTipo = ['NC_MAYOR', 'NC_MENOR', 'OBSERVACION', 'OPORTUNIDAD'].map((t) => ({
     tipo: t,
-    n: hallazgos.filter((h) => h.tipo === t).length,
+    n: delAnio.filter((h) => h.tipo === t).length,
   }));
   const porOrigen = Object.entries(
     hallazgos.reduce<Record<string, number>>((acc, h) => {
@@ -52,11 +61,31 @@ export default async function TableroMejoraPage() {
   const reincidentes = hallazgos.filter((h) => h.hallazgoAnteriorId !== null);
   const tasaReincidencia = hallazgos.length === 0 ? 0 : Math.round((reincidentes.length / hallazgos.length) * 100);
 
+  // Los días que de VERDAD se tardó en cerrar, por tipo.
+  //
+  // La tarjeta mostraba `{p.diasEjecucion} d / plazo {p.diasEjecucion}`: el plazo contra sí
+  // mismo. Los dos lados eran el mismo número, así que la comparación siempre parecía
+  // perfecta y no medía nada. Comparar el promedio real contra el plazo parametrizado es el
+  // punto entero de la tarjeta.
+  const MS_DIA = 86_400_000;
+  const alDia = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const cerradosDelAnio = delAnio.filter((h) => h.fechaCierre !== null);
+  const cierrePorTipo = new Map<string, number[]>();
+  for (const h of cerradosDelAnio) {
+    const dias = Math.round((alDia(h.fechaCierre!) - alDia(h.fechaDeteccion)) / MS_DIA);
+    cierrePorTipo.set(h.tipo, [...(cierrePorTipo.get(h.tipo) ?? []), dias]);
+  }
+
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
-      <h1 className="titulo-pagina">Tablero de mejora</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="titulo-pagina">Tablero de mejora</h1>
+        <p className="text-12_5 text-muted">
+          Año {anio} · {delAnio.length} hallazgo(s) registrado(s)
+        </p>
+      </div>
       <section className="mt-5 grid grid-cols-4 gap-4">
-        <Cifra cifra={abiertos.length} etiqueta={`de ${hallazgos.length} en el año`} color="#12437f" />
+        <Cifra cifra={abiertos.length} etiqueta={`abiertos · ${delAnio.length} registrados en ${anio}`} color="#12437f" />
         <Cifra cifra={vencidos.length} etiqueta="vencidos con su antigüedad" color="#a52016" />
         <Cifra cifra={tasaEficacia} etiqueta={`${eficaces.length} de ${verificadas.length} verificadas`} color="#0f7a5a" sufijo="%" />
         <Cifra cifra={tasaReincidencia} etiqueta={`${reincidentes.length} con antecesor`} color="#b8791a" sufijo="%" />
@@ -69,25 +98,53 @@ export default async function TableroMejoraPage() {
           ))}
           {abiertos.length === 0 && <p className="text-12 text-muted">Sin hallazgos abiertos.</p>}
         </Tarjeta>
-        <Tarjeta titulo="Por tipo">
+        <Tarjeta titulo="Por tipo" nota="del año">
           {porTipo.map((p) => (
-            <Barra key={p.tipo} etiqueta={p.tipo.replace('_', ' ').toLowerCase()} n={p.n} total={Math.max(hallazgos.length, 1)} />
+            <Barra key={p.tipo} etiqueta={p.tipo.replace('_', ' ').toLowerCase()} n={p.n} total={Math.max(delAnio.length, 1)} />
           ))}
         </Tarjeta>
-        <Tarjeta titulo="De dónde salieron">
+        <Tarjeta titulo="De dónde salieron" nota="histórico">
           {porOrigen.map((p) => (
             <Barra key={p.origen} etiqueta={p.origen.replaceAll('_', ' ').toLowerCase()} n={p.n} total={Math.max(hallazgos.length, 1)} />
           ))}
         </Tarjeta>
-        <Tarjeta titulo="Días hasta el cierre">
-          {plazos.map((p) => (
-            <div key={p.tipo} className="flex items-center justify-between text-12_5">
-              <span className="text-muted">{p.tipo.replace('_', ' ').toLowerCase()}</span>
-              <span className="font-mono text-12" style={{ color: p.diasEjecucion > 60 ? '#a52016' : '#0f7a5a' }}>
-                {p.diasEjecucion} d / plazo {p.diasEjecucion}
-              </span>
-            </div>
-          ))}
+        <Tarjeta titulo="Días hasta el cierre" nota="cerrados del año">
+          {plazos.map((p) => {
+            const dias = cierrePorTipo.get(p.tipo) ?? [];
+            const promedio =
+              dias.length === 0 ? null : Math.round(dias.reduce((s, d) => s + d, 0) / dias.length);
+            const excedido = promedio !== null && promedio > p.diasEjecucion;
+            return (
+              <div key={p.tipo} className="flex items-center justify-between gap-3 text-12_5">
+                <span className="min-w-0 flex-1 truncate text-muted">
+                  {p.tipo.replace('_', ' ').toLowerCase()}
+                </span>
+                {promedio === null ? (
+                  <span
+                    className="flex-none font-mono text-11"
+                    title={`Ninguno de este tipo se cerró en ${anio}: no hay días que promediar.`}
+                    style={{ color: 'var(--hf-text-label)' }}
+                  >
+                    sin cierres · plazo {p.diasEjecucion} d
+                  </span>
+                ) : (
+                  <span
+                    className="flex-none font-mono text-12"
+                    title={`${dias.length} cerrado(s) de este tipo en ${anio}`}
+                    style={{ color: excedido ? '#a52016' : '#0f7a5a' }}
+                  >
+                    {promedio} d / plazo {p.diasEjecucion} d
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {cerradosDelAnio.length === 0 && (
+            <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              Ningún hallazgo se cerró en {anio} todavía, así que no hay días que comparar
+              contra el plazo.
+            </p>
+          )}
         </Tarjeta>
       </section>
     </main>
@@ -119,10 +176,23 @@ function Cifra({
   );
 }
 
-function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Tarjeta({
+  titulo,
+  nota,
+  children,
+}: {
+  titulo: string;
+  /// El alcance de la cifra, como en el lienzo: «del ano», «cerrados del ano». Decirlo
+  /// junto al titulo es lo que evita leer una cifra del ano como si fuera del historico.
+  nota?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface p-5">
-      <h2 className="text-12_5 font-semibold text-primary">{titulo}</h2>
+      <h2 className="flex items-baseline gap-2 text-12_5 font-semibold text-primary">
+        {titulo}
+        {nota && <span className="font-mono text-9_5 font-normal text-label">{nota}</span>}
+      </h2>
       {children}
     </section>
   );
