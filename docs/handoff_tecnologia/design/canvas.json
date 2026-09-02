@@ -6,7 +6,7 @@
     { "file": "Impacto.dc.html", "x": 4320, "y": 0, "w": 1340, "h": 880, "title": "Impacto", "is_interactive": true },
 
     { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Producto y puertas de control", "is_interactive": true },
-    { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos y flota", "is_interactive": true },
+    { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos de colaboradores", "is_interactive": true },
     { "file": "Inventario.dc.html", "x": 2600, "y": 1030, "w": 1340, "h": 880, "title": "Inventario agrupado por niveles", "is_interactive": true }
   ],
   "annotations": [
