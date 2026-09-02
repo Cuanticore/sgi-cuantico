@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Competencia e independencia del auditor</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">ISO 9001 §9.2 pide auditores competentes y que <strong style="font-weight: 600; color: #4a544f">no auditen su propio trabajo</strong>. Con nueve procesos y seis líderes, la segunda condición es la difícil.</span>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: none; width: 300px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto">
+      <sc-for list="{{auditores}}" as="a" hint-placeholder-count="4">
+        <button onClick="{{a.elegir}}" style="{{a.estilo}}">
+          <span style="display: flex; align-items: center; gap: 9px; width: 100%">
+            <span class="mono" style="flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; font-size: 9px; font-weight: 700; background: {{a.avBg}}; color: {{a.avFg}}">{{a.iniciales}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 12px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.nombre}}</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 7px; width: 100%">
+            <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{a.color}}"></span>
+            <span class="mono" style="flex: 1; min-width: 0; font-size: 8.5px; text-align: left; color: {{a.color}}">{{a.estado}}</span>
+            <span class="mono" style="flex: none; font-size: 8.5px; color: #a3aca7">{{a.puede}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <div style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; background: #fffbfa; border: 1px solid #f2cdc6; border-radius: 9px">
+        <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #a52016"></span>
+        <span style="font-size: 10.5px; line-height: 1.55; color: #8a1f16">El código ya exige <span class="mono" style="font-size: 10px">aprobadoEn</span> distinto de nulo para ejecutar una auditoría. Lo que <strong style="font-weight: 600">no</strong> se construyó es el permiso por asignación: hoy cualquier auditor aprobado puede entrar a cualquier auditoría.</span>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid {{f.borde}}; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 600">{{f.nombre}}</span>
+          <span class="mono" style="margin-left: auto; padding: 3px 9px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{f.estadoBg}}; color: {{f.estadoFg}}">{{f.estado}}</span>
+        </span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px">
+          <sc-for list="{{f.datos}}" as="d" hint-placeholder-count="6">
+            <span style="display: flex; flex-direction: column; gap: 3px">
+              <span class="etq">{{d.etiqueta}}</span>
+              <span style="font-size: 11.5px; line-height: 1.4; color: {{d.color}}">{{d.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Independencia · qué procesos puede auditar</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: {{f.puedeColor}}">{{f.puedeTexto}}</span></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{f.procesos}}" as="p" hint-placeholder-count="9">
+            <span style="display: flex; flex-direction: column; gap: 3px; width: 148px; padding: 9px 11px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 8px">
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span class="mono" style="font-size: 9px; font-weight: 700; color: {{p.color}}">{{p.codigo}}</span>
+                <span class="mono" style="margin-left: auto; font-size: 8px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; color: {{p.color}}">{{p.marca}}</span>
+              </span>
+              <span style="font-size: 10.5px; line-height: 1.35; color: {{p.textoColor}}">{{p.nombre}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55; margin-top: 2px">La regla no es «no auditar el proceso propio»: es <strong style="font-weight: 600; color: #6b7570">no auditar el trabajo propio</strong>. Quien responde por dos procesos queda excluido de los dos, y si además diseñó un control de un tercero, también de ese.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; color: #8a4407">El problema aritmético de auditarse en casa</span>
+          <span style="height: 1px; flex: 1; background: #f2d9b8"></span>
+        </span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #8a4407">Seis líderes para nueve procesos, y la Gerencia de Operaciones responde por tres. Eso deja <strong style="font-weight: 600">a cada auditor interno con seis o siete procesos auditables</strong>, y al proceso del propio SIG sin nadie obvio que lo audite.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #8a4407">La pantalla no lo resuelve: lo hace visible antes de que el programa anual se apruebe, en vez de descubrirlo el día de la auditoría. Las salidas son formar auditores que no lideren procesos, o contratar la auditoría de los procesos sin cobertura.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const CARD = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 11px 12px; border-radius: 9px;';
+const CARD_OFF = CARD + ' background: #ffffff; border: 1px solid #e2e6e3;';
+const CARD_ON = CARD + ' background: #eef2f8; border: 1px solid #12437f;';
+
+const PROCESOS = [
+  ['EST', 'Gestión Estratégica'], ['COM', 'Gestión Comercial'], ['PRO', 'Gestión de Proyectos'],
+  ['SAC', 'Soporte y Servicio al Cliente'], ['TAL', 'Talento Humano'], ['LCO', 'Gestión Legal y de Compras'],
+  ['TEC', 'Gestión Tecnológica'], ['SIG', 'Sistema Integrado de Gestión'], ['FIN', 'Gestión Financiera'],
+];
+
+// `lidera`: procesos por los que responde, y por eso no puede auditar.
+const AUDITORES = [
+  {
+    nombre: 'Katherine Quiroga', iniciales: 'KQ', aprobado: true, lidera: ['SIG'],
+    formacion: 'Auditor interno ISO 9001:2015', horas: '40 horas', experiencia: '3 auditorías',
+    aprobadaPor: 'Daniel Medina', fecha: '15/01/2026', vence: '15/01/2028',
+  },
+  {
+    nombre: 'Yuliet Rojas', iniciales: 'YR', aprobado: true, lidera: ['PRO', 'SAC', 'TEC'],
+    formacion: 'Auditor interno ISO 9001 e ISO 27001', horas: '64 horas', experiencia: '5 auditorías',
+    aprobadaPor: 'Daniel Medina', fecha: '20/01/2026', vence: '20/01/2028',
+  },
+  {
+    nombre: 'Marcela Molina', iniciales: 'MM', aprobado: true, lidera: ['LCO'],
+    formacion: 'Auditor interno ISO 9001:2015', horas: '40 horas', experiencia: '2 auditorías',
+    aprobadaPor: 'Daniel Medina', fecha: '02/02/2026', vence: '02/02/2028',
+  },
+  {
+    nombre: 'Laura Agudelo', iniciales: 'LA', aprobado: false, lidera: [],
+    formacion: 'Formación en curso', horas: '16 de 40 horas', experiencia: 'Sin auditorías',
+    aprobadaPor: 'Sin aprobar', fecha: '—', vence: '—',
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 1 };
+  }
+
+  auditables(a) {
+    return PROCESOS.length - a.lidera.length;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = AUDITORES[s.sel] || AUDITORES[0];
+
+    return {
+      auditores: AUDITORES.map((a, i) => ({
+        nombre: a.nombre,
+        iniciales: a.iniciales,
+        estado: a.aprobado ? 'Aprobado' : 'Sin aprobar',
+        color: a.aprobado ? '#0b5c44' : '#a52016',
+        puede: a.aprobado ? this.auditables(a) + ' de 9' : '0 de 9',
+        avBg: a.aprobado ? '#e9f0fb' : '#fdeeeb',
+        avFg: a.aprobado ? '#12437f' : '#a52016',
+        estilo: s.sel === i ? CARD_ON : CARD_OFF,
+        elegir: () => this.setState({ sel: i }),
+      })),
+
+      f: {
+        nombre: f.nombre,
+        estado: f.aprobado ? 'Aprobado para auditar' : 'No puede ejecutar auditorías',
+        estadoBg: f.aprobado ? '#e6efe9' : '#fdeeeb',
+        estadoFg: f.aprobado ? '#0b5c44' : '#a52016',
+        borde: f.aprobado ? '#d3dceb' : '#f2cdc6',
+        datos: [
+          ['Formación', f.formacion, 1],
+          ['Horas acreditadas', f.horas, 1],
+          ['Experiencia', f.experiencia, f.aprobado ? 1 : 0],
+          ['Aprobado por', f.aprobadaPor, f.aprobado ? 1 : 0],
+          ['Fecha de aprobación', f.fecha, f.aprobado ? 1 : 0],
+          ['Vigencia hasta', f.vence, f.aprobado ? 1 : 0],
+        ].map(([etiqueta, valor, ok]) => ({ etiqueta, valor, color: ok ? '#1a211e' : '#a52016' })),
+
+        puedeTexto: f.aprobado ? this.auditables(f) + ' de 9 procesos' : 'ninguno · sin aprobación',
+        puedeColor: f.aprobado ? '#0b5c44' : '#a52016',
+
+        procesos: PROCESOS.map(([codigo, nombre]) => {
+          const propio = f.lidera.indexOf(codigo) !== -1;
+          const bloqueado = propio || !f.aprobado;
+          return {
+            codigo,
+            nombre,
+            marca: propio ? 'propio' : !f.aprobado ? '—' : 'puede',
+            color: bloqueado ? '#a52016' : '#0b5c44',
+            textoColor: bloqueado ? '#8a938e' : '#1a211e',
+            fondo: bloqueado ? '#fffbfa' : '#ffffff',
+            borde: bloqueado ? '#f2cdc6' : '#c9e3d8',
+          };
+        }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

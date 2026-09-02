@@ -1,13 +1,77 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1340, "h": 900, "title": "Mapa tecnológico", "is_interactive": true },
-    { "file": "Ambientes.dc.html", "x": 1440, "y": 0, "w": 1340, "h": 880, "title": "Ambientes y despliegues", "is_interactive": true },
-    { "file": "Dependencias.dc.html", "x": 2880, "y": 0, "w": 1340, "h": 880, "title": "Dependencias entre activos", "is_interactive": true },
-    { "file": "Impacto.dc.html", "x": 4320, "y": 0, "w": 1340, "h": 880, "title": "Impacto", "is_interactive": true },
-
-    { "file": "Producto.dc.html", "x": 0, "y": 1030, "w": 1196, "h": 900, "title": "Producto y puertas de control", "is_interactive": true },
-    { "file": "Equipos.dc.html", "x": 1300, "y": 1030, "w": 1196, "h": 880, "title": "Equipos de colaboradores", "is_interactive": true },
-    { "file": "Inventario.dc.html", "x": 2600, "y": 1030, "w": 1340, "h": 880, "title": "Inventario agrupado por niveles", "is_interactive": true }
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1340,
+      "h": 900,
+      "title": "Mapa tecnológico",
+      "is_interactive": true
+    },
+    {
+      "file": "Grafo.dc.html",
+      "x": 0,
+      "y": -1010,
+      "w": 1340,
+      "h": 880,
+      "title": "Mapa tecnológico · grafo",
+      "is_interactive": true
+    },
+    {
+      "file": "Ambientes.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 1340,
+      "h": 880,
+      "title": "Ambientes y despliegues",
+      "is_interactive": true
+    },
+    {
+      "file": "Dependencias.dc.html",
+      "x": 2880,
+      "y": 0,
+      "w": 1340,
+      "h": 880,
+      "title": "Dependencias entre activos",
+      "is_interactive": true
+    },
+    {
+      "file": "Impacto.dc.html",
+      "x": 4320,
+      "y": 0,
+      "w": 1340,
+      "h": 880,
+      "title": "Impacto",
+      "is_interactive": true
+    },
+    {
+      "file": "Producto.dc.html",
+      "x": 0,
+      "y": 1030,
+      "w": 1196,
+      "h": 900,
+      "title": "Producto y puertas de control",
+      "is_interactive": true
+    },
+    {
+      "file": "Equipos.dc.html",
+      "x": 1300,
+      "y": 1030,
+      "w": 1196,
+      "h": 880,
+      "title": "Equipos de colaboradores",
+      "is_interactive": true
+    },
+    {
+      "file": "Inventario.dc.html",
+      "x": 2600,
+      "y": 1030,
+      "w": 1340,
+      "h": 880,
+      "title": "Inventario agrupado por niveles",
+      "is_interactive": true
+    }
   ],
   "annotations": [
     {
@@ -30,7 +94,16 @@
       "y": 1980,
       "w": 860,
       "text": "Prueba estas tres\n\n· Producto: cambia entre los tres sistemas. SIS-004 tiene P4 no superada, así que P5 no puede avanzar — una puerta no superada bloquea la fase siguiente, y la única salida es una excepción aprobada como la EXC-2026-007 de SIS-001.\n\n· Equipos: parte de las personas del Directorio, no del inventario. Por eso puede decir quién no tiene equipo.\n\n· Inventario: cambia la agrupación entre los tres niveles.\n\nActualizado el 02/09/2026 por D14: la hoja de vida es del sistema, no del producto. Las siete etapas y las versiones que dibujaba antes esta pantalla las deduje de la norma sin saber que FOR-TEC-04 y PRO-TEC-04 ya definían ocho fases y seis puertas."
+    },
+    {
+      "id": "grafo",
+      "x": 1440,
+      "y": -1010,
+      "w": 860,
+      "text": "Mapa tecnológico · grafo · agregado el 02/09/2026\n\nEl mismo inventario del árbol, visto como lo que es. Las columnas NO son niveles: son la distancia a la dependencia más profunda, y por eso la flecha siempre va hacia la derecha.\n\nHaz clic en mintrace_postgres. Tres aplicaciones dependen de él a la vez, y eso en un árbol se dibujaría como tres nodos repetidos: «cuántos dependen de postgres» habría que contarlo a mano.\n\nLas dos vistas conviven porque muestran relaciones distintas del mismo inventario. El árbol responde «qué compone a MINTRACE»; el grafo responde «qué se cae si cae esto»."
     }
   ],
-  "launch": { "view": "canvas" }
+  "launch": {
+    "view": "canvas"
+  }
 }

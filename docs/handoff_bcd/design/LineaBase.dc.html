@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Línea base entre años</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 108ch; line-height: 1.55">El mismo numeral auditado en años distintos. <strong style="font-weight: 600; color: #4a544f">Comparable exige que el catálogo de numerales sea el mismo</strong>; cuando la norma cambia, la comparación se rompe y hay que decirlo.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Norma</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{normas}}" as="n" hint-placeholder-count="2">
+          <button onClick="{{n.elegir}}" style="{{n.estilo}}">{{n.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px; border-bottom: 1px solid #eceeed; background: #fbfcfb">
+        <span class="etq" style="flex: none; width: 52px">Numeral</span>
+        <span class="etq" style="flex: 1; min-width: 0">Requisito</span>
+        <sc-for list="{{anios}}" as="a" hint-placeholder-count="3">
+          <span class="etq" style="flex: none; width: 66px; text-align: center">{{a}}</span>
+        </sc-for>
+        <span class="etq" style="flex: none; width: 68px; text-align: right">Tendencia</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px">
+        <sc-for list="{{filas}}" as="f" hint-placeholder-count="11">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 9px 9px; margin-bottom: 3px; background: {{f.fondo}}; border: 1px solid {{f.borde}}; border-radius: 7px">
+            <span class="mono" style="flex: none; width: 52px; font-size: 9.5px; font-weight: 600; color: #12437f">{{f.numeral}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: {{f.textoColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.texto}}</span>
+            <sc-for list="{{f.celdas}}" as="c" hint-placeholder-count="3">
+              <span style="flex: none; width: 66px; display: flex; justify-content: center">
+                <span class="mono" style="width: 54px; text-align: center; padding: 3px 0; font-size: 8.5px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{c.bg}}; color: {{c.fg}}">{{c.t}}</span>
+              </span>
+            </sc-for>
+            <span class="mono" style="flex: none; width: 68px; text-align: right; font-size: 11px; font-weight: 600; color: {{f.tendColor}}">{{f.tendencia}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 384px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span class="etq" style="color: #12437f">Conformidad por año</span>
+        <div style="display: flex; align-items: flex-end; gap: 10px; height: 92px">
+          <sc-for list="{{resumen}}" as="r" hint-placeholder-count="3">
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px">
+              <span class="mono" style="font-size: 12px; font-weight: 600; color: {{r.color}}">{{r.pct}}</span>
+              <span style="width: 100%; height: {{r.alto}}; border-radius: 4px 4px 0 0; background: {{r.color}}"></span>
+              <span class="mono" style="font-size: 9px; color: #8a938e">{{r.anio}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">Solo cuenta los numerales presentes en los tres años. Los que aparecieron o desaparecieron no entran, porque incluirlos movería el porcentaje sin que nada hubiera mejorado.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 10px">
+        <span class="etq" style="color: #8a4407">Lo que rompe la comparación</span>
+        <sc-for list="{{rupturas}}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: #ffffff; border: 1px solid #f2d9b8; border-radius: 8px">
+            <span class="mono" style="flex: none; width: 48px; font-size: 9px; font-weight: 700; color: #8a4407">{{r.numeral}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 10.5px; line-height: 1.5; color: #8a4407">{{r.texto}}</span>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a4407; line-height: 1.55">Estos tres están fuera del cálculo y a la vista. Un tablero que los promediara en silencio mostraría una mejora que no ocurrió.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Para qué sirve de verdad</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">La pregunta que responde no es «cuánto cumplimos», que ya la contesta la auditoría del año. Es <strong style="font-weight: 600">«qué llevamos tres años sin arreglar»</strong>.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Un numeral no conforme dos años seguidos y con acción correctiva cerrada en medio significa que la acción no fue eficaz. Eso es un hallazgo del sistema de mejora, no de la auditoría.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const SEG = 'padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const RES = {
+  C:  { t: 'Conforme', bg: '#e6efe9', fg: '#0b5c44', v: 1 },
+  NCm:{ t: 'NC menor', bg: '#fff3e6', fg: '#8a4407', v: 0 },
+  NCM:{ t: 'NC mayor', bg: '#fdeeeb', fg: '#a52016', v: 0 },
+  OBS:{ t: 'Observ.', bg: '#eef2f8', fg: '#12437f', v: 1 },
+  NA: { t: '—', bg: '#f5f7f6', fg: '#c3cac6', v: null },
+};
+
+// `n` nulo en un año = el numeral no existía o no se auditó ese año.
+const NORMAS = {
+  '9001': {
+    etiqueta: 'ISO 9001:2015',
+    anios: ['2024', '2025', '2026'],
+    filas: [
+      ['4.1', 'Comprensión de la organización y su contexto', ['NCm', 'C', 'C']],
+      ['4.2', 'Necesidades y expectativas de las partes interesadas', ['NCm', 'NCm', 'C']],
+      ['6.1', 'Acciones para abordar riesgos y oportunidades', ['NCM', 'NCm', 'NCm']],
+      ['7.2', 'Competencia', ['C', 'C', 'C']],
+      ['7.5', 'Información documentada', ['NCm', 'C', 'C']],
+      ['8.1', 'Planificación y control operacional', ['NCm', 'NCm', 'NCm']],
+      ['8.4', 'Control de procesos, productos y servicios externos', ['C', 'NCm', 'C']],
+      ['9.1', 'Seguimiento, medición, análisis y evaluación', ['NCM', 'NCM', 'NCm']],
+      ['9.2', 'Auditoría interna', ['C', 'C', 'C']],
+      ['9.3', 'Revisión por la dirección', ['NCm', 'C', 'OBS']],
+      ['10.2', 'No conformidad y acción correctiva', ['NCm', 'C', 'C']],
+    ],
+    rupturas: [
+      ['6.1.4', 'Cambio climático: incorporado por la enmienda de 2024. No existía en la línea base.'],
+      ['8.5.3', 'No auditado en 2024 por decisión de alcance del programa de ese año.'],
+      ['8.5.5', 'No auditado en 2024 ni en 2025.'],
+    ],
+  },
+  '27001': {
+    etiqueta: 'ISO 27001:2022',
+    anios: ['2025', '2026'],
+    filas: [
+      ['5.2', 'Política de seguridad de la información', ['NCm', 'C']],
+      ['6.1.2', 'Apreciación de riesgos de seguridad', ['NCm', 'C']],
+      ['6.1.3', 'Tratamiento de riesgos y declaración de aplicabilidad', ['NCM', 'NCm']],
+      ['7.2', 'Competencia', ['NCm', 'C']],
+      ['8.1', 'Planificación y control operacional', ['NCM', 'NCm']],
+      ['8.2', 'Apreciación de riesgos de seguridad de la información', ['NCm', 'C']],
+      ['9.1', 'Seguimiento y medición', ['NCM', 'NCM']],
+      ['10.1', 'Mejora continua', ['NCm', 'C']],
+    ],
+    rupturas: [
+      ['A.5.7', 'Inteligencia de amenazas: control nuevo de la versión 2022, sin línea base previa.'],
+      ['A.8.10', 'Borrado de información: no auditado en 2025.'],
+      ['—', 'Solo hay dos años: la línea base del SGSI arranca en 2025 con la certificación.'],
+    ],
+  },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { norma: '9001' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const d = NORMAS[s.norma];
+    const n = d.anios.length;
+
+    // Solo los numerales presentes en TODOS los años entran al porcentaje.
+    const completas = d.filas.filter((f) => f[2].every((r) => RES[r].v !== null));
+
+    const resumen = d.anios.map((anio, i) => {
+      const conformes = completas.filter((f) => RES[f[2][i]].v === 1).length;
+      const pct = completas.length ? Math.round((conformes / completas.length) * 100) : 0;
+      return { anio, pct };
+    });
+    const tope = Math.max.apply(null, resumen.map((r) => r.pct)) || 100;
+
+    return {
+      normas: Object.keys(NORMAS).map((k) => ({
+        etiqueta: NORMAS[k].etiqueta,
+        estilo: s.norma === k ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ norma: k }),
+      })),
+
+      anios: d.anios,
+
+      filas: d.filas.map(([numeral, texto, res]) => {
+        const primero = RES[res[0]].v;
+        const ultimo = RES[res[n - 1]].v;
+        const estancado = res.every((r) => RES[r].v === 0);
+        const tend = estancado ? 'estancado' : ultimo > primero ? '▲ mejora' : ultimo < primero ? '▼ retroceso' : 'igual';
+        return {
+          numeral,
+          texto,
+          celdas: res.map((r) => ({ t: RES[r].t, bg: RES[r].bg, fg: RES[r].fg })),
+          tendencia: tend,
+          tendColor: estancado ? '#a52016' : tend === '▲ mejora' ? '#0b5c44' : tend === '▼ retroceso' ? '#a52016' : '#8a938e',
+          fondo: estancado ? '#fffbfa' : '#ffffff',
+          borde: estancado ? '#f2cdc6' : '#e2e6e3',
+          textoColor: '#1a211e',
+        };
+      }),
+
+      resumen: resumen.map((r) => ({
+        anio: r.anio,
+        pct: r.pct + ' %',
+        alto: Math.max(Math.round((r.pct / tope) * 74), 4) + 'px',
+        color: r.pct >= 90 ? '#0f7a5a' : r.pct >= 70 ? '#b8791a' : '#a52016',
+      })),
+
+      rupturas: d.rupturas.map(([numeral, texto]) => ({ numeral, texto })),
+    };
+  }
+}
+</script>
+</body>
+</html>

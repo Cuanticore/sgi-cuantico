@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Plazos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">Los días que tiene cada cosa para resolverse. <strong style="font-weight: 600; color: #4a544f">Ninguno está en el código</strong>: cambiar un plazo no debe requerir un despliegue.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; gap: 5px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+        <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+      <span class="cab"><span>{{titulo}}</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{fuente}}</span></span>
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 2px">
+        <span class="etq" style="flex: 1">{{colUno}}</span>
+        <span class="etq" style="flex: none; width: 96px; text-align: right">Plazo</span>
+        <span class="etq" style="flex: none; width: 120px; text-align: right">Desde</span>
+        <span class="etq" style="flex: none; width: 72px; text-align: right">Aviso</span>
+      </div>
+
+      <sc-for list="{{filas}}" as="f" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-left: 3px solid {{f.color}}; border-radius: 8px">
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+            <span style="font-size: 12.5px; font-weight: 500">{{f.nombre}}</span>
+            <span style="font-size: 10.5px; line-height: 1.45; color: #8a938e">{{f.detalle}}</span>
+          </span>
+          <span style="flex: none; width: 96px; display: flex; align-items: center; justify-content: flex-end; gap: 7px">
+            <span class="mono" style="padding: 5px 10px; font-size: 12px; font-weight: 600; color: {{f.color}}; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">{{f.plazo}}</span>
+          </span>
+          <span class="mono" style="flex: none; width: 120px; text-align: right; font-size: 9.5px; color: #6b7570">{{f.desde}}</span>
+          <span class="mono" style="flex: none; width: 72px; text-align: right; font-size: 9.5px; color: #6b7570">{{f.aviso}}</span>
+        </div>
+      </sc-for>
+
+      <span style="display: flex; align-items: flex-start; gap: 10px; margin-top: 4px; padding: 12px 14px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 9px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 10.5px; line-height: 1.6; color: #12437f">{{nota}}</span>
+      </span>
+    </div>
+
+    <aside style="flex: none; width: 358px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #f2b473; border-radius: 10px">
+        <span class="etq" style="color: #8a4407">Cambiar un plazo no es gratis</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Los plazos vigentes al momento de abrir un hallazgo <strong style="font-weight: 600">se congelan en él</strong>. Bajar el plazo de «Alta» de quince a diez días no vuelve vencidos de golpe a los que ya estaban abiertos.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Es el mismo principio que hace verificable un acuse de lectura: el registro conserva la regla con la que se cerró, no la que rige hoy.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="etq" style="color: #12437f">Dónde estaba antes</span>
+        <sc-for list="{{origenes}}" as="o" hint-placeholder-count="3">
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+            <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: {{o.color}}"></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11px; color: #3a443f">{{o.texto}}</span>
+              <span class="mono" style="font-size: 8.5px; color: #8a938e">{{o.fuente}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="etq" style="color: #12437f">Una diferencia que importa</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">El plazo de un hallazgo corre desde que <strong style="font-weight: 600">se clasifica</strong>, no desde que se detecta: hasta la clasificación el hallazgo no consume plazo, porque nadie sabe todavía qué es.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">El de una vulnerabilidad corre desde que <strong style="font-weight: 600">se notifica al proveedor</strong>, según FOR-LCO-05. No desde que la encontró el análisis.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Son dos relojes distintos y el sistema tiene que saber cuál usa cada cosa, o los conteos de vencimiento no cuadran con lo que dice el contrato.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const SEG = 'padding: 6px 13px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const HALLAZGOS = {
+  titulo: 'Por tipo de hallazgo',
+  fuente: 'PlazoPorTipoHallazgo · ya existe en el esquema',
+  colUno: 'Tipo de hallazgo',
+  nota: 'Estos cuatro ya están construidos: la tabla existe y el motor los usa. Lo que falta es la pantalla para cambiarlos sin tocar la base de datos.',
+  filas: [
+    ['No conformidad mayor', 'Falla del sistema de gestión o incumplimiento legal', '30 días', 'Clasificación', '7 días', '#a52016'],
+    ['No conformidad menor', 'Desviación puntual que no compromete el sistema', '60 días', 'Clasificación', '10 días', '#b8791a'],
+    ['Observación', 'Desviación potencial, sin incumplimiento actual', '90 días', 'Clasificación', '15 días', '#0f7a5a'],
+    ['Oportunidad de mejora', 'No hay incumplimiento; se propone una mejora', '120 días', 'Clasificación', '15 días', '#6b7570'],
+  ],
+};
+
+const VULNERABILIDADES = {
+  titulo: 'Por severidad de vulnerabilidad',
+  fuente: 'FOR-LCO-05 · exigible por contrato',
+  colUno: 'Severidad',
+  nota: 'Estos plazos son contractuales: FOR-LCO-05 los exige a todo tercero que desarrolle para CUANTICO, durante el contrato y durante la garantía. La vulnerabilidad que introdujo el contratista se remedia sin costo.',
+  filas: [
+    ['Crítica', 'Explotable de forma remota sin autenticación, o expone datos personales o credenciales', '72 horas', 'Notificación', '24 h', '#a52016'],
+    ['Alta', 'Explotable, compromete la confidencialidad o la integridad', '15 días', 'Notificación', '5 días', '#b8791a'],
+    ['Media', 'Impacto acotado o requiere condiciones específicas', '60 días', 'Notificación', '10 días', '#0f7a5a'],
+    ['Baja', 'Debilidad sin impacto directo demostrable', 'Sig. entrega', 'Notificación', '—', '#6b7570'],
+  ],
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'vuln' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const d = s.tab === 'hall' ? HALLAZGOS : VULNERABILIDADES;
+
+    return {
+      tabs: [
+        { id: 'hall', etiqueta: 'Hallazgos' },
+        { id: 'vuln', etiqueta: 'Vulnerabilidades' },
+      ].map((t) => ({ ...t, estilo: s.tab === t.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ tab: t.id }) })),
+
+      titulo: d.titulo,
+      fuente: d.fuente,
+      colUno: d.colUno,
+      nota: d.nota,
+      filas: d.filas.map(([nombre, detalle, plazo, desde, aviso, color]) => ({
+        nombre, detalle, plazo, desde, aviso, color,
+      })),
+
+      origenes: [
+        { texto: 'Los plazos por tipo de hallazgo ya están en el esquema y el motor los usa.', fuente: 'PlazoPorTipoHallazgo · construido', color: '#0f7a5a' },
+        { texto: 'Los de vulnerabilidad están escritos en un anexo contractual y en la cabeza de quien lo negoció.', fuente: 'FOR-LCO-05 · sin cargar', color: '#a52016' },
+        { texto: 'Los días de aviso hoy se fijan obligación por obligación, sin un valor por defecto.', fuente: 'Obligacion.diasAviso', color: '#b8791a' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,20 +1,116 @@
 {
   "pages": [
-    { "id": "page-1", "name": "Mejora · NC y ACPM" },
-    { "id": "page-2", "name": "Estratégico" },
-    { "id": "page-3", "name": "Auditorías internas" }
+    {
+      "id": "page-1",
+      "name": "Mejora · NC y ACPM"
+    },
+    {
+      "id": "page-2",
+      "name": "Estratégico"
+    },
+    {
+      "id": "page-3",
+      "name": "Auditorías internas"
+    }
   ],
   "artboards": [
-    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1196, "h": 900, "title": "Hallazgos", "is_interactive": true },
-    { "file": "Hallazgo.dc.html", "page": "page-1", "x": 1300, "y": 0, "w": 1196, "h": 900, "title": "Ficha del hallazgo", "is_interactive": true },
-
-    { "file": "Riesgos.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Riesgos y oportunidades", "is_interactive": true },
-    { "file": "MapaCalor.dc.html", "page": "page-2", "x": 1540, "y": 0, "w": 1196, "h": 860, "title": "Mapa de calor", "is_interactive": true },
-    { "file": "PartesInteresadas.dc.html", "page": "page-2", "x": 0, "y": 1020, "w": 1196, "h": 860, "title": "Partes interesadas", "is_interactive": true },
-    { "file": "Legal.dc.html", "page": "page-2", "x": 1300, "y": 1020, "w": 1196, "h": 860, "title": "Requisitos legales", "is_interactive": true },
-
-    { "file": "Programa.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1196, "h": 860, "title": "Programa de auditoría" },
-    { "file": "Auditoria.dc.html", "page": "page-3", "x": 1300, "y": 0, "w": 1300, "h": 900, "title": "Ficha de la auditoría", "is_interactive": true }
+    {
+      "file": "Main.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 0,
+      "w": 1196,
+      "h": 900,
+      "title": "Hallazgos",
+      "is_interactive": true
+    },
+    {
+      "file": "Hallazgo.dc.html",
+      "page": "page-1",
+      "x": 1300,
+      "y": 0,
+      "w": 1196,
+      "h": 900,
+      "title": "Ficha del hallazgo",
+      "is_interactive": true
+    },
+    {
+      "file": "Riesgos.dc.html",
+      "page": "page-2",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Riesgos y oportunidades",
+      "is_interactive": true
+    },
+    {
+      "file": "MapaCalor.dc.html",
+      "page": "page-2",
+      "x": 1540,
+      "y": 0,
+      "w": 1196,
+      "h": 860,
+      "title": "Mapa de calor",
+      "is_interactive": true
+    },
+    {
+      "file": "PartesInteresadas.dc.html",
+      "page": "page-2",
+      "x": 0,
+      "y": 1020,
+      "w": 1196,
+      "h": 860,
+      "title": "Partes interesadas",
+      "is_interactive": true
+    },
+    {
+      "file": "Legal.dc.html",
+      "page": "page-2",
+      "x": 1300,
+      "y": 1020,
+      "w": 1196,
+      "h": 860,
+      "title": "Requisitos legales",
+      "is_interactive": true
+    },
+    {
+      "file": "Programa.dc.html",
+      "page": "page-3",
+      "x": 0,
+      "y": 0,
+      "w": 1196,
+      "h": 860,
+      "title": "Programa de auditoría"
+    },
+    {
+      "file": "Auditoria.dc.html",
+      "page": "page-3",
+      "x": 1300,
+      "y": 0,
+      "w": 1300,
+      "h": 900,
+      "title": "Ficha de la auditoría",
+      "is_interactive": true
+    },
+    {
+      "file": "PerfilAuditor.dc.html",
+      "x": 0,
+      "y": 1020,
+      "w": 1196,
+      "h": 880,
+      "title": "Competencia del auditor",
+      "is_interactive": true
+    },
+    {
+      "file": "LineaBase.dc.html",
+      "x": 1300,
+      "y": 1020,
+      "w": 1340,
+      "h": 880,
+      "title": "Línea base entre años",
+      "is_interactive": true
+    }
   ],
   "annotations": [
     {
@@ -40,7 +136,17 @@
       "y": -240,
       "w": 720,
       "text": "Módulo C · Auditorías internas — REQ-SIG-05\n\nEn la pestaña Informe, cambia de Preliminar a Final: aparece la marca «Va a Mejora» sobre las notas NC y OM. Emitir el final es el acto que congela las notas y crea los hallazgos."
+    },
+    {
+      "id": "auditoria2",
+      "x": 0,
+      "y": 700,
+      "w": 1100,
+      "text": "Las dos que faltaban de auditorías · agregadas el 02/09/2026\n\nCompetencia: el código ya exige aprobadoEn para ejecutar una auditoría, pero NO se construyó el permiso por asignación —hoy cualquier auditor aprobado entra a cualquier auditoría—. Y hay un problema aritmético: seis líderes para nueve procesos, con Gerencia de Operaciones respondiendo por tres. Elige a Yuliet Rojas y mira cuántos procesos le quedan.\n\nLínea base: comparar entre años exige que el catálogo de numerales sea el mismo. Los que aparecieron o desaparecieron quedan FUERA del porcentaje y a la vista, porque promediarlos en silencio mostraría una mejora que no ocurrió. La pregunta que responde no es «cuánto cumplimos» sino «qué llevamos tres años sin arreglar»."
     }
   ],
-  "launch": { "view": "canvas", "page": "page-1" }
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
 }
