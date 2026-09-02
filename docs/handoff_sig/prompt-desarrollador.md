@@ -8,7 +8,6 @@ Vas a construir la ampliación del SIG de CUANTICO sobre el repositorio `sgi-cua
 
 ## 1. Antes de escribir nada
 
-**Rota el secreto de Azure AD.** Dos documentos del repositorio tenían el `AZURE_AD_CLIENT_SECRET` en texto plano. Se limpió el historial y nunca llegó al remoto, pero estuvo en disco sin cifrar. No empieces con un secreto vivo que ya circuló. Confirma que se rotó antes de seguir.
 
 Después lee, **en este orden**:
 

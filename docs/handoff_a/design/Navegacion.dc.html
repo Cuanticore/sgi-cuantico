@@ -100,7 +100,7 @@
         <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Cada entrada de la barra lateral lleva su <strong style="font-weight: 600">ruta real</strong> si ya está construida, y dice «por construir» si no. El punto verde y el ámbar son lo mismo dicho en color; el texto manda.</span>
         <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«SIG» reúne lo que antes eran dos pestañas.</strong> Indicadores y Resumen SGSI ya existen; separarlos del resto era una división que solo tenía sentido para quien construyó el sistema. Quien lo usa entra a ver cómo va.</span>
         <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Estratégico está completa y Tecnología no existe.</strong> Recorre las seis pestañas y el contador de arriba te dice cuánto falta en cada una: es el mapa de trabajo del desarrollador, no solo un diagrama de navegación.</span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar: procesos, cargos, parámetros y plazos se tocan una vez al trimestre.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar, y ahí caen los tres que el SGSI ya tiene bajo ese grupo —<span class="mono" style="font-size: 10.5px">Amenazas y tipos</span>, <span class="mono" style="font-size: 10.5px">Metodología</span> y <span class="mono" style="font-size: 10.5px">Parámetros</span>— más Personas, Procesos y Plazos. Se tocan una vez al trimestre.</span>
       </div>
     </div>
   </div>
@@ -129,20 +129,18 @@ const PESTANAS = [
   },
   {
     id: 'sig', etiqueta: 'SIG', roles: ['proceso', 'sig'],
-    descripcion: 'El sistema de gestión visto como un todo: cómo va, cómo está el SGSI, qué tenemos y qué lo amenaza, y qué está pasando ahora. Las dos primeras secciones ya existen; se reagrupan bajo una sola pestaña.',
+    descripcion: 'El sistema de gestión visto como un todo. Las etiquetas son las que ya usa SidebarSgsi.tsx: no se renombra nada de lo construido. Los dos primeros grupos y «Activos y Riesgos» ya existen; «Operación» es lo nuevo.',
     lateral: [
       { g: 'Indicadores' },
       { t: 'Indicadores', r: '/' },
       { t: 'Estado del sistema' }, { t: 'Cumplimiento de tareas' }, { t: 'Registros' },
       { g: 'Resumen SGSI' },
-      { t: 'Resumen', r: '/sgsi' },
-      { t: 'Controles', r: '/sgsi/controles' },
-      { t: 'Metodología', r: '/sgsi/metodologia' },
-      { t: 'Verificación', r: '/sgsi/verificacion' },
+      { t: 'Resumen SGSI', r: '/sgsi' },
+      { t: 'Verificación del motor', r: '/sgsi/verificacion' },
       { g: 'Activos y Riesgos' },
-      { t: 'Inventario', r: '/sgsi/inventario' },
-      { t: 'Amenazas', r: '/sgsi/amenazas' },
-      { t: 'Matrices', r: '/sgsi/matrices' },
+      { t: 'Inventario de activos', r: '/sgsi/inventario' },
+      { t: 'Matrices de riesgo', r: '/sgsi/matrices' },
+      { t: 'Madurez de los controles', r: '/sgsi/controles' },
       { t: 'Planes de tratamiento', r: '/sgsi/planes' },
       { g: 'Operación' },
       { t: 'Eventos e incidentes' }, { t: 'Verificaciones programadas' },
