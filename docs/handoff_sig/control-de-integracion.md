@@ -133,6 +133,18 @@ Esto no es un problema de la aplicación: es un vacío del sistema documental. U
 
 > **Resuelto el 02/09/2026 (D7).** Se adoptó el default: anual para gobierno y documentos, semestral para proveedores y accesos, trimestral para línea base y software. Las catorce quedan cargables. **La brecha documental sigue abierta:** la periodicidad ahora vive en la aplicación y no en un documento aprobado, y hay que llevarla al comité.
 
+### 3.2.1 Tres huecos en formación y autoevaluación
+
+Detectados el 02/09/2026 al revisar si Mi SIG cubre capacitación, evaluación de conocimientos y autoevaluación del puesto.
+
+**a) «Quien no la apruebe repetirá la formación» no está implementado.** POL-TAL-01 lo dice literalmente. Hoy `RegistroRealizado.aprobado` se guarda en `false` y **la asignación se cierra igual**: nada regenera la capacitación. Falta la regla —y la decisión de si el reintento es una asignación nueva del mismo periodo o una prórroga de la existente.
+
+**b) La aplicación registra la calificación, no la produce.** No hay banco de preguntas ni presentación del examen: alguien evalúa por fuera y digita la nota. Es defendible, pero hay que dejarlo dicho para que nadie espere otra cosa de la frase «evaluación de conocimientos».
+
+**c) La autoevaluación del puesto de trabajo remoto (FOR-SIG-13) no está cargada.** Encaja como contenido de tipo `VERIFICACION` con obligación anual a toda persona (D7), así que el motor sirve sin cambios. Faltan dos definiciones: si el registro de usuario, fecha y hora cuenta como la **firma** que la política exige, o hace falta una declaración explícita como la de la lectura; y el **disparador de vinculación**, porque la política la pide *al vincularse* además de periódicamente, y el motor genera por periodo.
+
+Lo que sí queda cubierto: los contenidos diferenciados por rol que pide la política —codificación segura para desarrollo, accesos privilegiados para quien administra plataformas— se resuelven con el alcance por cargo, que ya existe.
+
 ### 3.3 Deberes por evento, no periódicos
 
 No son tareas del motor de obligaciones, y conviene dejarlo dicho para que no se intenten modelar ahí: revocación de accesos el mismo día de la desvinculación; inducción de seguridad antes de otorgar accesos; notificación de incidentes del proveedor dentro de las 24 horas; actualización del inventario al crear, modificar, trasladar o dar de baja un activo; vencimiento a 90 días de una excepción de dispositivo. Los tres primeros son disparadores del módulo de personas; el cuarto es el inventario mismo; el quinto es un plazo, no una periodicidad.
