@@ -25,7 +25,7 @@
   <div style="flex: none; display: flex; align-items: flex-start; gap: 20px; padding: 22px 26px 14px">
     <div style="display: flex; flex-direction: column; gap: 6px">
       <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Navegación</h1>
-      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">Siete pestañas y una barra lateral por pestaña. <strong style="font-weight: 600; color: #4a544f">Lo que cada quien ve lo decide el rol</strong>, y las pestañas que no aplican no se renderizan: no se muestran deshabilitadas.</span>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">Seis pestañas y una barra lateral por pestaña. <strong style="font-weight: 600; color: #4a544f">Lo que cada quien ve lo decide el rol</strong>, y las pestañas que no aplican no se renderizan: no se muestran deshabilitadas.</span>
     </div>
     <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
       <span class="etq">Ver como</span>
@@ -99,8 +99,8 @@
 
       <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
         <span class="cab"><span>Las tres decisiones de esta estructura</span><span class="regla"></span></span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«Tablero» es el puesto del líder del SIG</strong>, y es lo que faltaba. Nueve módulos y ningún sitio que responda «¿cómo está el sistema hoy?». Reemplaza a la pestaña «Indicadores», que solo mostraba una parte.</span>
-        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Registros vive dentro de Tablero, no como pestaña propia.</strong> Cada módulo muestra sus registros donde ocurren; el punto central que los cruza por numeral de la norma es una herramienta del líder, no de todos.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«SIG» reúne lo que antes eran dos pestañas.</strong> Separar el tablero del SGSI era una división que solo tenía sentido para quien construyó el sistema: quien lo usa entra a ver cómo va, y eso incluye los indicadores y el estado de la seguridad en el mismo sitio.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Registros vive bajo «Indicadores SGI», no como pestaña propia.</strong> Cada módulo muestra sus registros donde ocurren; el punto central que los cruza por numeral de la norma es una herramienta del líder, y va junto a lo que también se le enseña a un auditor.</span>
         <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar: procesos, cargos, parámetros y plazos se tocan una vez al trimestre, y ocupar una de siete posiciones con eso desplaza a algo que se usa a diario.</span>
       </div>
     </div>
@@ -125,15 +125,19 @@ const PESTANAS = [
     ],
   },
   {
-    id: 'tablero', etiqueta: 'Tablero', roles: ['sig'],
-    descripcion: 'El puesto de mando del líder del SIG. Reúne lo que hoy está disperso —cumplimiento de tareas, mejora, auditoría— y suma lo que faltaba: el estado del sistema en una pantalla y el punto central de registros para responderle a un auditor.',
+    id: 'sig', etiqueta: 'SIG', roles: ['proceso', 'sig'],
+    descripcion: 'El sistema de gestión visto como un todo: cómo va, cómo está el SGSI, qué tenemos y qué lo amenaza, y qué está pasando ahora. Reúne en una sola pestaña lo que antes estaban separado en «Tablero» y «SGSI», que era una división que solo tenía sentido para quien construyó el sistema.',
     lateral: [
-      { g: 'Estado' },
-      { t: 'Estado del SIG', nuevo: true }, { t: 'Cumplimiento de tareas' }, { t: 'Indicadores por proceso' },
-      { g: 'Tableros' },
-      { t: 'Mejora' }, { t: 'Auditoría' }, { t: 'Riesgos · las dos metodologías', nuevo: true },
-      { g: 'Evidencia' },
-      { t: 'Registros', nuevo: true },
+      { g: 'Indicadores SGI' },
+      { t: 'Estado del sistema', nuevo: true }, { t: 'Indicadores por proceso' },
+      { t: 'Cumplimiento de tareas' }, { t: 'Registros', nuevo: true },
+      { g: 'Resumen SGSI' },
+      { t: 'Declaración de aplicabilidad' }, { t: 'Controles' }, { t: 'Madurez y brechas' },
+      { g: 'Activos y Riesgos' },
+      { t: 'Activos' }, { t: 'Riesgos' }, { t: 'Mapa de calor' },
+      { g: 'Operación' },
+      { t: 'Eventos e incidentes', nuevo: true }, { t: 'Verificaciones', nuevo: true },
+      { t: 'Métricas', nuevo: true }, { t: 'Solicitudes', nuevo: true }, { t: 'Accesos y perfiles', nuevo: true },
     ],
   },
   {
@@ -144,8 +148,9 @@ const PESTANAS = [
       { t: 'Obligaciones' }, { t: 'Calendario' }, { t: 'Tareas' }, { t: 'Contenidos' },
       { g: 'Mejora' },
       { t: 'Hallazgos' }, { t: 'Acciones' },
+      { t: 'Tablero de mejora' },
       { g: 'Auditoría' },
-      { t: 'Programa anual' }, { t: 'Auditorías' },
+      { t: 'Programa anual' }, { t: 'Auditorías' }, { t: 'Tablero de auditoría' },
     ],
   },
   {
@@ -154,17 +159,6 @@ const PESTANAS = [
     lateral: [
       { t: 'Partes interesadas' }, { t: 'Requisitos legales' },
       { t: 'Riesgos y oportunidades' }, { t: 'DOFA' }, { t: 'PESTEL' },
-    ],
-  },
-  {
-    id: 'sgsi', etiqueta: 'SGSI', roles: ['proceso', 'sig'],
-    descripcion: 'La seguridad de la información con su propia metodología: activos valorados por dimensiones, riesgos generados del activo por amenaza, controles y declaración de aplicabilidad. Y la operación: lo que pasa día a día.',
-    lateral: [
-      { g: 'Inventario y riesgo' },
-      { t: 'Activos' }, { t: 'Riesgos' }, { t: 'Controles' }, { t: 'Declaración de aplicabilidad' },
-      { g: 'Operación' },
-      { t: 'Eventos e incidentes', nuevo: true }, { t: 'Verificaciones', nuevo: true },
-      { t: 'Métricas', nuevo: true }, { t: 'Solicitudes', nuevo: true }, { t: 'Accesos y perfiles', nuevo: true },
     ],
   },
   {
@@ -203,7 +197,7 @@ const ROLES = {
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { rol: 'sig', pestana: 'tablero' };
+    this.state = { rol: 'sig', pestana: 'sig' };
   }
 
   visibles(rol) {
