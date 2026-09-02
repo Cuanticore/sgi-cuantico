@@ -4,13 +4,35 @@
 //
 // Tabla con selección múltiple; la banda azul aparece solo con selección (sc-if del
 // lienzo) y cada acción pide su motivo.
+//
+// El menú `⋯` de cada fila es lo que el lienzo dibuja al final de la fila y no tenía nada
+// detrás. Ahí viven las dos acciones que sólo aplican a UNA asignación y no a un lote:
+//
+//   · «No aplica» sale del alcance sin penalizar el cumplimiento. Anular y no-aplica se
+//     confunden fácil y no son lo mismo: NO_APLICA dice que la asignación nunca fue
+//     exigible —la persona cambió de cargo, el sistema se dio de baja—, y por eso queda
+//     fuera del denominador. Anular dice que se creó por error.
+//   · «Reabrir» deshace un cierre. No es masivo a propósito: reabrir un lote de cierres
+//     es la clase de operación que nadie quiere explicar después en una auditoría.
+//
+// Las dos estaban escritas en el servidor sin nadie que las llamara.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   anularAsignacion,
+  noAplicaAsignacion,
   prorrogarAsignacion,
+  reabrirAsignacion,
   reasignarAsignacion,
 } from '@/app/sig/acciones/tareas';
+
+/// Pliega caja y acentos para que buscar «munoz» encuentre «Muñoz».
+function plegar(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
 
 export interface FilaTarea {
   id: number;
@@ -45,6 +67,42 @@ export default function TareasClient({
   const [nuevaFechaLimite, setNuevaFechaLimite] = useState(fechaMas30());
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [estado, setEstado] = useState<string>('TODOS');
+  const [busqueda, setBusqueda] = useState('');
+  const [fila, setFila] = useState<{ id: number; accion: 'no-aplica' | 'reabrir' } | null>(null);
+
+  const porEstado = useMemo(() => conteos(filas), [filas]);
+
+  const visibles = useMemo(() => {
+    const aguja = plegar(busqueda.trim());
+    return filas.filter((f) => {
+      if (estado !== 'TODOS' && f.estado !== estado) return false;
+      if (aguja === '') return true;
+      return (
+        plegar(f.persona).includes(aguja) ||
+        plegar(f.titulo).includes(aguja) ||
+        plegar(f.codigo).includes(aguja)
+      );
+    });
+  }, [filas, estado, busqueda]);
+
+  /// «No aplica» y «Reabrir» son de UNA fila y exigen motivo igual que las masivas.
+  async function unaSola(motivoFila: string) {
+    if (!fila) return;
+    setError(null);
+    setMensaje(null);
+    const r =
+      fila.accion === 'no-aplica'
+        ? await noAplicaAsignacion(fila.id, motivoFila)
+        : await reabrirAsignacion(fila.id, motivoFila);
+    if (!r.ok) {
+      setError(r.mensaje);
+      return;
+    }
+    setFila(null);
+    setMensaje(r.mensaje);
+    setTimeout(() => window.location.reload(), 900);
+  }
 
   const alternar = (id: number) => {
     const s = new Set(seleccion);
@@ -78,20 +136,60 @@ export default function TareasClient({
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
-      <div className="flex flex-col gap-0.5">
-        <h1 className="titulo-pagina">Tareas</h1>
-        <p className="text-12_5 text-muted">{filas.length} asignaciones</p>
+      <div className="flex items-start gap-5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="titulo-pagina">Tareas</h1>
+          <p className="max-w-[76ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Quién debe qué y para cuándo. Reasignar, prorrogar y anular exigen motivo y quedan
+            en la bitácora.
+          </p>
+        </div>
+        <label className="ml-auto flex min-w-[248px] flex-none items-center gap-2 rounded-campo border border-border-field bg-surface px-3 py-1.5">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--hf-text-muted)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.5" y2="16.5" />
+          </svg>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por persona, contenido o código"
+            aria-label="Buscar por persona, contenido o código"
+            className="w-full bg-transparent text-12 outline-none"
+          />
+        </label>
       </div>
 
-      <nav className="mt-4 flex items-center gap-2">
-        {conteos(filas).map(([etiqueta, n]) => (
-          <span
-            key={etiqueta}
-            className="rounded-chip border border-border-field bg-surface px-3.5 py-1.5 text-12 text-muted"
-          >
-            {etiqueta} · {n}
-          </span>
-        ))}
+      <nav className="mt-4 flex flex-wrap items-center gap-1.5">
+        {([['TODOS', filas.length], ...porEstado] as [string, number][]).map(([etiqueta, n]) => {
+          const activo = estado === etiqueta;
+          return (
+            <button
+              key={etiqueta}
+              onClick={() => setEstado(etiqueta)}
+              aria-pressed={activo}
+              className="inline-flex items-center gap-1.5 rounded-chip px-3.5 py-1.5 text-12"
+              style={{
+                background: activo ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                color: activo ? 'var(--hf-brand-nav)' : 'var(--hf-text-secondary-soft)',
+                border: `1px solid ${activo ? 'var(--hf-brand-border)' : 'var(--hf-border-field)'}`,
+                fontWeight: activo ? 600 : 500,
+              }}
+            >
+              {etiqueta === 'TODOS' ? 'Todas' : etiqueta.replace('_', ' ').toLowerCase()}
+              <span className="font-mono text-10 opacity-75">{n}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {seleccion.size > 0 && (
@@ -203,10 +301,11 @@ export default function TareasClient({
               <th className="px-4 py-3 font-semibold">Periodo</th>
               <th className="px-4 py-3 font-semibold">Fecha límite</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
+              <th className="w-10 px-4 py-3" />
             </tr>
           </thead>
           <tbody>
-            {filas.map((f) => (
+            {visibles.map((f) => (
               <tr key={f.id} className="border-t border-border-default">
                 <td className="px-4 py-3">
                   <input
@@ -240,12 +339,179 @@ export default function TareasClient({
                     {f.estado}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <MenuFila
+                    estado={f.estado}
+                    onNoAplica={() => setFila({ id: f.id, accion: 'no-aplica' })}
+                    onReabrir={() => setFila({ id: f.id, accion: 'reabrir' })}
+                  />
+                </td>
               </tr>
             ))}
+            {visibles.length === 0 && (
+              <tr className="border-t border-border-default">
+                <td colSpan={8} className="px-4 py-8 text-center text-12 text-muted">
+                  {filas.length === 0
+                    ? 'Todavía no hay asignaciones. Se generan desde Obligaciones.'
+                    : 'Ninguna asignación coincide con el filtro.'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <span className="text-11_5 text-muted">
+          Se muestran {visibles.length} de {filas.length} asignaciones.
+        </span>
+        <span className="ml-auto flex items-center gap-2">
+          <span className="etiqueta-campo">Vencida se calcula</span>
+          <span className="text-11_5 text-secondary-soft">
+            pendiente y fecha límite anterior a hoy. No es una marca que alguien deba poner.
+          </span>
+        </span>
+      </div>
+
+      {fila && (
+        <MotivoDeUnaFila
+          accion={fila.accion}
+          error={error}
+          onCancelar={() => {
+            setFila(null);
+            setError(null);
+          }}
+          onAplicar={unaSola}
+        />
+      )}
     </main>
+  );
+}
+
+/// El `⋯` del lienzo. Sólo ofrece lo que el estado admite: no-aplica sobre una pendiente,
+/// reabrir sobre una realizada. Un menú que ofrece lo imposible obliga a probar para
+/// enterarse.
+function MenuFila({
+  estado,
+  onNoAplica,
+  onReabrir,
+}: {
+  estado: string;
+  onNoAplica: () => void;
+  onReabrir: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const puedeNoAplicar = estado === 'PENDIENTE';
+  const puedeReabrir = estado === 'REALIZADA';
+
+  if (!puedeNoAplicar && !puedeReabrir) {
+    return <span className="text-14 text-label">⋯</span>;
+  }
+
+  return (
+    <span className="relative inline-block">
+      <button
+        onClick={() => setAbierto(!abierto)}
+        aria-label="Más acciones"
+        aria-expanded={abierto}
+        className="px-1 text-14 text-muted"
+      >
+        ⋯
+      </button>
+      {abierto && (
+        <>
+          {/* Cierra al hacer clic afuera sin atrapar el teclado. */}
+          <button
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={() => setAbierto(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <span className="absolute right-0 z-40 mt-1 flex w-44 flex-col overflow-hidden rounded-campo border border-border-field bg-surface text-left shadow-lg">
+            {puedeNoAplicar && (
+              <button
+                onClick={() => {
+                  setAbierto(false);
+                  onNoAplica();
+                }}
+                className="px-3 py-2 text-left text-12 text-secondary hover:bg-subtle"
+              >
+                No aplica
+              </button>
+            )}
+            {puedeReabrir && (
+              <button
+                onClick={() => {
+                  setAbierto(false);
+                  onReabrir();
+                }}
+                className="px-3 py-2 text-left text-12 text-secondary hover:bg-subtle"
+              >
+                Reabrir
+              </button>
+            )}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function MotivoDeUnaFila({
+  accion,
+  error,
+  onCancelar,
+  onAplicar,
+}: {
+  accion: 'no-aplica' | 'reabrir';
+  error: string | null;
+  onCancelar: () => void;
+  onAplicar: (motivo: string) => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const esNoAplica = accion === 'no-aplica';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-tarjeta border border-border-field bg-surface p-5">
+        <h2 className="text-15 font-bold text-primary">
+          {esNoAplica ? 'Marcar como no aplica' : 'Reabrir la asignación'}
+        </h2>
+        <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+          {esNoAplica
+            ? 'Sale del alcance sin penalizar el cumplimiento: queda fuera del denominador porque nunca fue exigible. No es lo mismo que anular, que dice que se creó por error.'
+            : 'Deshace el cierre y la vuelve pendiente. El registro anterior no se borra: queda en la bitácora con su motivo.'}
+        </p>
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Motivo (obligatorio)</span>
+          <input
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            autoFocus
+            placeholder={esNoAplica ? 'Cambió de cargo en agosto' : 'Se cerró con la evidencia equivocada'}
+            className="entrada-campo"
+          />
+        </label>
+        {error && (
+          <p className="text-12" style={{ color: 'var(--hf-danger-text)' }}>
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button onClick={onCancelar} className="rounded-campo px-3 py-1.5 text-12 text-muted">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onAplicar(motivo)}
+            disabled={motivo.trim() === ''}
+            className="rounded-campo px-3.5 py-1.5 text-12 font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--hf-accent-500)' }}
+          >
+            {esNoAplica ? 'Marcar' : 'Reabrir'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
