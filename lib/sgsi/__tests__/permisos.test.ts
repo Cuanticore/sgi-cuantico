@@ -318,3 +318,36 @@ describe('lista puente', () => {
     expect([...puente.permisos].sort()).toEqual([...real.permisos].sort());
   });
 });
+
+// `Líderes SIG` es el grupo de seguridad que reemplaza al de Microsoft 365. Es el que el
+// token va a traer de verdad, así que es el que más importa que esté bien escrito.
+describe('Líderes SIG', () => {
+  const OBJECT_ID_LIDERES = '2e0f4290-e91c-4f45-a663-77ece2d2a50e';
+
+  it('otorga acceso completo por nombre y por object id', () => {
+    for (const identificador of [
+      'Líderes SIG',
+      OBJECT_ID_LIDERES,
+      OBJECT_ID_LIDERES.toUpperCase(),
+      '  líderes sig  ',
+    ]) {
+      const rol = rolDesdeGrupos([identificador]);
+      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
+      expect(rol.origen).toBe('directorio');
+      expect(puede(rol, 'sgsi:escribir')).toBe(true);
+      expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
+    }
+  });
+
+  // La comparación pliega mayúsculas pero NO pliega acentos: sin la tilde es otro nombre.
+  // Queda escrito porque es el error que costaría una tarde encontrar otra vez.
+  it('sin la tilde NO coincide, y eso es deliberado', () => {
+    expect(rolDesdeGrupos(['Lideres SIG']).grupos).toEqual([]);
+  });
+
+  it('el grupo del token gana sobre la lista puente', () => {
+    const rol = rolDesdeGrupos(['Líderes SIG'], 'ajeno@cuantico.com');
+    expect(rol.origen).toBe('directorio');
+    expect(puede(rol, 'sgsi:escribir')).toBe(true);
+  });
+});

@@ -73,7 +73,7 @@ export default async function ShellSig({ children }: { children: React.ReactNode
           rol.origen === 'simulado'
             ? `ROL SIMULADO para pruebas · SGI_ROL_DEV=${rol.grupos.join(', ')} · NO viene del Directorio Activo`
             : rol.origen === 'lista-puente'
-              ? 'Acceso por la lista puente del código · el Directorio todavía no puede confirmar la pertenencia a Responsables SIG'
+              ? 'Acceso por la lista puente del código · el Directorio todavía no puede confirmar la pertenencia a Líderes SIG'
               : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
         } · ${
           puede(rol, 'sgsi:escribir')

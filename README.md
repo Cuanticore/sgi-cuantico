@@ -41,7 +41,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 Toda cuenta autenticada del tenant entra como **Colaborador**: ve sus propias tareas en Mi
 SIG y nada del SGSI. El resto del sistema es de un unico grupo del Directorio —
-Responsables SIG.
+Lideres SIG (grupo de seguridad).
 
 La tabla persona es un espejo del Directorio: se crea la fila al iniciar sesión y el
 líder del SIG puede sincronizar el censo completo desde Microsoft Graph. Quien desaparece

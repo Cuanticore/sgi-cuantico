@@ -61,7 +61,7 @@ function SinAcceso({ origen }: { origen: OrigenRol }) {
           muestran sin él.
         </p>
         <p className="text-12" style={{ color: 'var(--hf-warn-text)' }}>
-          <span className="font-mono font-semibold">Responsables SIG</span> — acceso completo
+          <span className="font-mono font-semibold">Líderes SIG</span> — acceso completo
           al sistema
         </p>
         <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>

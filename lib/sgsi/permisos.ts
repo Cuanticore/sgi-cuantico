@@ -165,6 +165,19 @@ function estaEnLaListaPuente(correo: string | null | undefined): boolean {
 /// that way keeps working; both forms map to the same single role.
 const ALIAS: Readonly<Record<string, Grupo>> = {
   [GRUPOS.seguridad]: GRUPOS.seguridad,
+
+  // `Líderes SIG` es el grupo vigente: de SEGURIDAD, creado el 01/09/2026 para reemplazar
+  // al de Microsoft 365. Ese tipo es el que Azure emite en el token con la configuración
+  // habitual, así que con él la pertenencia llega sola y no hace falta preguntarle a Graph.
+  //
+  // El acento va en el nombre porque así se llama: la comparación pliega mayúsculas pero
+  // NO pliega acentos, y «Lideres SIG» no coincidiría.
+  'Líderes SIG': GRUPOS.seguridad,
+  '2e0f4290-e91c-4f45-a663-77ece2d2a50e': GRUPOS.seguridad,
+
+  // El grupo de Microsoft 365 al que reemplaza. Se conserva mientras se verifica que el
+  // nuevo funciona; una vez confirmado hay que retirarlo, porque un grupo de colaboración
+  // que además otorga el sistema entero es una segunda puerta que nadie recuerda cerrar.
   'Responsables SIG': GRUPOS.seguridad,
 
   // Los dos object ids del mismo grupo. Se conservan ambos porque no hay forma de

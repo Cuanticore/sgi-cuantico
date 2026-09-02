@@ -50,7 +50,7 @@ const ORDEN = Object.keys(QUE_ABRE) as Permiso[];
 export default async function DiagnosticoPage() {
   const session = await getServerSession(authOptions);
   const crudos = session?.user?.grupos;
-  const rol = rolDesdeGrupos(crudos);
+  const rol = rolDesdeGrupos(crudos, session?.user?.email);
   const reconocidos = new Set<string>(rol.grupos);
 
   const sinReclamo = crudos === undefined;
@@ -156,7 +156,7 @@ export default async function DiagnosticoPage() {
                     style={{ color: 'var(--hf-warn-text)' }}
                   >
                     Un identificador «ignorado» no otorga nada. Si alguno de ellos corresponde al
-                    grupo <strong>Responsables SIG</strong>, hay que registrarlo en la tabla de
+                    grupo <strong>Líderes SIG</strong>, hay que registrarlo en la tabla de
                     identificadores de la aplicación. Es el caso típico cuando el Directorio emite
                     identificadores de objeto en lugar de nombres: el tenant está bien, la cuenta
                     está bien, y aun así ninguna pantalla se abre. Copiá los valores de arriba y
@@ -198,7 +198,7 @@ export default async function DiagnosticoPage() {
         <p className="max-w-[74ch] text-11_5 text-muted [text-wrap:pretty]">
           El acceso tiene dos casos y nada más: <strong>Mi SIG</strong>, para toda cuenta de la
           organización, y <strong>el resto del sistema</strong>, para quien pertenece a{' '}
-          <strong>Responsables SIG</strong> (también reconocido por su nombre canónico{' '}
+          <strong>Líderes SIG</strong> (también reconocido por su nombre canónico{' '}
           <strong>{GRUPOS.seguridad}</strong>). La aplicación no concede permisos por su cuenta;
           los da el Directorio.
         </p>
