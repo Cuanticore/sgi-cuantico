@@ -7,6 +7,7 @@
 // de la cobertura y por eso exige motivo.
 
 import { useMemo, useState } from 'react';
+import CargarNorma from './CargarNorma.client';
 
 export interface NormaFila {
   id: number;
@@ -49,13 +50,7 @@ export default function NormasClient({
               </option>
             ))}
           </select>
-          <button
-            onClick={() => alert('Cargar norma: los numerales son un catálogo, no una constante del código.')}
-            className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white"
-            style={{ background: 'var(--hf-brand-nav)' }}
-          >
-            Cargar norma
-          </button>
+          <CargarNorma normaId={norma?.id ?? null} />
         </div>
       </div>
 
