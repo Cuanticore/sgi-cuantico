@@ -63,6 +63,7 @@ const GRUPOS: Grupo[] = [
     tituloCorto: 'AUD',
     items: [
       { etiqueta: 'Programa', abreviatura: 'PRG', href: '/sig/programa' },
+      { etiqueta: 'Notificaciones', abreviatura: 'NOT', href: '/sig/notificaciones' },
       { etiqueta: 'Programa de auditoría', abreviatura: 'PRG', href: '/sig/auditorias/programa' },
       { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sig/auditorias' },
       { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sig/auditorias/externas' },

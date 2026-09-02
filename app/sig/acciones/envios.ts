@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { planificarSemanales, planificarMensuales } from '@/lib/sig/resumen';
 import { enviarNotificacion, type EnvioProgramado } from '@/lib/sig/envios';
+import { diasHasta } from '@/lib/sig/cierre';
 
 export interface ResultadoEnvios extends Resultado {
   enviados: number;
@@ -56,7 +57,12 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
       if (!contenido) continue;
       const notificar = a.obligacion?.notificar ?? true;
       if (!notificar) continue;
-      const dias = diaDe(a.fechaLimite) - diaDe(hoy);
+      // `diasHasta` del dominio, NO la resta de `diaDe`. Ese devuelve un entero
+      // empaquetado YYYYMMDD, así que `diaDe(3-sep) - diaDe(27-ago)` daba 76 y no 7: el
+      // aviso de proximidad NUNCA salía cuando la ventana de siete días cruzaba un fin de
+      // mes. Son doce ventanas al año en las que nadie recibía el recordatorio y el
+      // sistema no dejaba rastro de la omisión, porque no había nada que registrar.
+      const dias = diasHasta(a.fechaLimite, hoy);
       const periodo = a.periodo;
       const correo = correoDe(a.personaId);
       if (!correo) continue;
@@ -131,7 +137,13 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
 
     // ── Mensual (día configurado, o el primer día hábil siguiente) ──
     if (diaDelMes(hoy) === diaMensual() || esPrimerHabil(hoy)) {
-      const mesCerrado = { anio: hoy.getUTCFullYear(), mes: hoy.getUTCMonth() - 1 };
+      // El mes que cerró. En enero eso es DICIEMBRE DEL AÑO ANTERIOR, y antes se calculaba
+      // `mes: hoy.getUTCMonth() - 1`, o sea −1 con el año sin cambiar. Ningún mes devuelve
+      // −1, así que el filtro no encontraba nada: el resumen del cierre de diciembre —el
+      // que cierra el año y el que más se mira— era justo el único que nunca salía. Y el
+      // periodo quedaba etiquetado «2026-00».
+      const previo = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - 1, 1));
+      const mesCerrado = { anio: previo.getUTCFullYear(), mes: previo.getUTCMonth() };
       const areaDe = new Map(personas.map((p) => [p.id, p.areaId]));
       const delMes = asignaciones.filter((a) => {
         const limite = a.fechaLimite;
@@ -169,7 +181,9 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
           periodo,
           personaId: persona.id,
           para: correo,
-          asunto: `${r.areaNombre} · cumplimiento de ${mesCerrado.anio}: ${r.cumplimiento.porciento ?? '—'} %`,
+          // El asunto nombra el MES que cerró, no el año. «Cumplimiento de 2026» en un
+          // correo mensual obliga a abrirlo para saber de qué mes habla.
+          asunto: `${r.areaNombre} · cumplimiento de ${nombreDelMes(mesCerrado)}: ${r.cumplimiento.porciento ?? '—'} %`,
           texto: armarMensual(r),
         });
       }
@@ -204,10 +218,6 @@ export async function leerItemsVerificacion(contenidoId: number) {
 }
 
 // ── Utilidades de fecha (America/Bogotá = UTC, sin DST) ──
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
-}
-
 function diaDeSemana(fecha: Date): number {
   return (fecha.getUTCDay() + 6) % 7; // 0 = lunes
 }
@@ -276,4 +286,22 @@ function armarMensual(r: { cumplimiento: { porciento: number | null }; deuda: { 
     `Deuda vencida: ${r.deuda.cantidad}`,
     `Ver el detalle en Operación: ${process.env.PUBLIC_URL ?? 'http://localhost:3004'}/sig/obligaciones`,
   ].join('\n');
+}
+/// «septiembre de 2026». Vive acá porque sólo lo usa el asunto del mensual.
+function nombreDelMes({ anio, mes }: { anio: number; mes: number }): string {
+  const nombres = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  return `${nombres[mes] ?? mes + 1} de ${anio}`;
 }

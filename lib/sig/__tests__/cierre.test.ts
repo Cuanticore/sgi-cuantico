@@ -164,3 +164,32 @@ describe('diasHasta', () => {
     ).toBe(-5);
   });
 });
+
+// El bug que se encontro en app/sig/acciones/envios.ts: el aviso de proximidad comparaba
+// `diaDe(limite) - diaDe(hoy) === 7`, con diaDe devolviendo el entero empaquetado
+// YYYYMMDD. Dentro de un mes funcionaba de casualidad; cruzando el fin de mes daba 76.
+// Doce ventanas al ano en las que nadie recibia el recordatorio.
+describe('diasHasta · la ventana de siete dias que cruza el fin de mes', () => {
+  const casos: [string, string, string][] = [
+    ['dentro del mismo mes', '2026-09-10', '2026-09-03'],
+    ['cruzando agosto a septiembre', '2026-09-03', '2026-08-27'],
+    ['cruzando febrero a marzo', '2026-03-03', '2026-02-24'],
+    ['cruzando diciembre a enero', '2027-01-04', '2026-12-28'],
+  ];
+
+  for (const [nombre, limite, hoy] of casos) {
+    it(`son 7 dias ${nombre}`, () => {
+      expect(diasHasta(new Date(`${limite}T00:00:00.000Z`), new Date(`${hoy}T12:00:00.000Z`))).toBe(7);
+    });
+  }
+
+  // La resta empaquetada daba 76 en el segundo caso: la prueba que fija el defecto.
+  it('la resta del entero empaquetado YYYYMMDD daria 76, no 7', () => {
+    const empaquetado = (f: Date) =>
+      f.getUTCFullYear() * 10000 + (f.getUTCMonth() + 1) * 100 + f.getUTCDate();
+    const limite = new Date('2026-09-03T00:00:00.000Z');
+    const hoy = new Date('2026-08-27T00:00:00.000Z');
+    expect(empaquetado(limite) - empaquetado(hoy)).toBe(76);
+    expect(diasHasta(limite, hoy)).toBe(7);
+  });
+});
