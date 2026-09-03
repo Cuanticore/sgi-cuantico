@@ -29,7 +29,7 @@ export default async function FichaEventoPage({
 }) {
   const { codigo } = await params;
 
-  const [evento, categorias, motivaciones, activos] = await Promise.all([
+  const [evento, categorias, motivaciones, activos, areas] = await Promise.all([
     prisma.eventoSeguridad.findUnique({
       where: { codigo: decodeURIComponent(codigo) },
       include: {
@@ -52,10 +52,22 @@ export default async function FichaEventoPage({
       orderBy: { codigo: 'asc' },
       take: 400,
     }),
+    prisma.area.findMany({ where: { activa: true }, select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
   ]);
   if (!evento) notFound();
 
   const impactos: Impacto[] = evento.impactos.map((i) => ({ dimension: i.dimension, nivel: i.nivel }));
+
+  // El hallazgo NO vive en el incidente: vive en Mejora, con su origen apuntando acá. Se
+  // lee por el origen tipado, no buscando el código dentro de un texto libre — que es
+  // justamente lo que el valor `INCIDENTE` del enum existe para evitar.
+  const hallazgos = await prisma.hallazgo.findMany({
+    // Los anulados quedan fuera: siguen existiendo (B9, baja lógica con motivo) pero
+    // decir que este incidente levantó un hallazgo que se anuló sería mentir.
+    where: { origen: 'INCIDENTE', origenReferencia: evento.codigo, anuladoEn: null },
+    select: { codigo: true, tipo: true, descripcion: true, fechaClasificacion: true },
+    orderBy: { codigo: 'asc' },
+  });
 
   return (
     <EventoClient
@@ -98,10 +110,18 @@ export default async function FichaEventoPage({
         texto: a.texto,
         autor: a.autor?.nombre ?? null,
       }))}
+      hallazgos={hallazgos.map((h) => ({
+        codigo: h.codigo,
+        // Sin fecha de clasificación el tipo de la columna no es una clasificación: es el
+        // valor más benigno que la tabla exige. Decirle «observación» sería inventar.
+        tipo: h.fechaClasificacion === null ? null : h.tipo,
+        descripcion: h.descripcion,
+      }))}
       catalogos={{
         categorias: categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
         motivaciones: motivaciones.map((m) => ({ id: m.id, nombre: m.nombre })),
         activos: activos.map((a) => ({ id: a.id, etiqueta: `${a.codigo ?? `#${a.id}`} · ${a.nombre}` })),
+        areas: areas.map((a) => ({ id: a.id, nombre: a.nombre })),
       }}
     />
   );

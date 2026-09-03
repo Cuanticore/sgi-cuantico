@@ -19,6 +19,7 @@ export interface DatosReporte {
     | 'INDICADOR'
     | 'REVISION_DIRECCION'
     | 'SGSI'
+    | 'INCIDENTE'
     | 'OTRO';
   origenReferencia: string;
   descripcion: string;
@@ -28,30 +29,42 @@ export interface DatosReporte {
   fechaDeteccion: Date;
 }
 
+/// El código queda a la vista para que quien reporta pueda adjuntar la evidencia al
+/// hallazgo recién creado: la evidencia se ata a un dueño y sin código no hay dueño.
+export interface ResultadoHallazgo extends Resultado {
+  codigo: string | null;
+}
+
 /// B3: cualquiera reporta. El hallazgo nace SIN clasificar y no consume plazos.
-export async function reportarHallazgo(datos: DatosReporte): Promise<Resultado> {
-  return ejecutar<Resultado>(async () => {
+export async function reportarHallazgo(datos: DatosReporte): Promise<ResultadoHallazgo> {
+  return ejecutar<ResultadoHallazgo>(async () => {
     const autor = await autorActual();
     exigirId(datos.areaId, 'el proceso o área');
     if (!datos.descripcion.trim()) {
-      return { ok: false, mensaje: 'Describí qué encontraste: un hallazgo sin descripción no se puede clasificar.' };
+      return {
+        ok: false,
+        mensaje: 'Describí qué encontraste: un hallazgo sin descripción no se puede clasificar.',
+        codigo: null,
+      };
     }
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
       select: { id: true },
     });
-    if (!persona) return { ok: false, mensaje: 'Tu cuenta no está registrada en el SIG.' };
+    if (!persona) return { ok: false, mensaje: 'Tu cuenta no está registrada en el SIG.', codigo: null };
 
     const anio = new Date().getUTCFullYear();
+    let codigo = '';
     await prisma.$transaction(async (tx) => {
       const contador = await tx.contadorHallazgo.upsert({
         where: { anio },
         update: { ultimoValor: { increment: 1 } },
         create: { anio, ultimoValor: 1 },
       });
+      codigo = codigoHallazgo(anio, contador.ultimoValor);
       const creado = await tx.hallazgo.create({
         data: {
-          codigo: codigoHallazgo(anio, contador.ultimoValor),
+          codigo,
           // El enum no tiene SIN_CLASIFICAR y agregarlo es una migración, así que la
           // columna guarda el valor MÁS BENIGNO y la verdad está en
           // `fechaClasificacion === null`: eso es lo que las pantallas leen para decir «sin
@@ -72,7 +85,7 @@ export async function reportarHallazgo(datos: DatosReporte): Promise<Resultado> 
       });
       await registrarAlta(tx, autor, 'hallazgo', String(creado.id));
     });
-    return { ok: true, mensaje: 'Hallazgo reportado. El líder del SIG lo clasifica.' };
+    return { ok: true, mensaje: `Hallazgo ${codigo} reportado. El líder del SIG lo clasifica.`, codigo };
   });
 }
 

@@ -55,6 +55,7 @@ export default function ReportarHallazgoClient({
   );
   const [referencia, setReferencia] = useState(referenciaInicial ?? '');
   const [evidencia, setEvidencia] = useState('');
+  const [archivos, setArchivos] = useState<File[]>([]);
   const [yaHiciste, setYaHiciste] = useState('');
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
@@ -80,9 +81,35 @@ export default function ReportarHallazgoClient({
       areaId: Number(areaId),
       fechaDeteccion: new Date(`${cuando}T00:00:00.000Z`),
     });
+    if (!r.ok || r.codigo === null) {
+      setEnviando(false);
+      setAviso({ ok: false, texto: r.mensaje });
+      return;
+    }
+    // Los adjuntos van DESPUÉS: la evidencia se ata a un dueño y sin código no hay dueño.
+    // Si alguno falla el hallazgo ya existe y así se dice — descartar el reporte entero
+    // porque una captura no subió es perder el reporte, que vale más que el adjunto.
+    const fallidos: string[] = [];
+    for (const f of archivos) {
+      const cuerpo = new FormData();
+      cuerpo.append('file', f);
+      cuerpo.append('codigoHallazgo', r.codigo);
+      try {
+        const respuesta = await fetch('/api/sgsi/anexo', { method: 'POST', body: cuerpo });
+        if (!respuesta.ok) fallidos.push(f.name);
+      } catch {
+        fallidos.push(f.name);
+      }
+    }
     setEnviando(false);
-    setAviso({ ok: r.ok, texto: r.mensaje });
-    if (r.ok) setTimeout(() => router.push('/mi-sig/historial'), 1600);
+    setAviso({
+      ok: true,
+      texto:
+        fallidos.length === 0
+          ? r.mensaje
+          : `${r.mensaje} No se pudo adjuntar: ${fallidos.join(', ')} — el hallazgo ya quedó reportado.`,
+    });
+    setTimeout(() => router.push('/mi-sig/historial'), fallidos.length === 0 ? 1600 : 4000);
   }
 
   return (
@@ -181,15 +208,31 @@ export default function ReportarHallazgoClient({
           placeholder="Dónde está lo que viste: un correo, un archivo, una pantalla, un número de caso."
           className="entrada-campo leading-relaxed"
         />
-        {/* El lienzo dibuja «Arrastra un archivo o busca en tu equipo». No se pone la zona
-            de arrastre: `Evidencia` se ata a un control o a un registro de realizado, no a
-            un hallazgo, así que el archivo no tendría dónde guardarse. Se dice en vez de
-            aceptar un archivo que se pierde al enviar. */}
-        <span className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
-          Todavía no se puede adjuntar el archivo acá —el modelo no tiene dónde guardarlo—,
-          así que por ahora describí dónde está. Una captura de pantalla suele bastar, y el
-          líder del SIG la pide si la necesita.
-        </span>
+        {/* El adjunto sí se puede desde que `Evidencia` admite un hallazgo como dueño y
+            el CHECK lo cuenta (migración D5). Sube por la misma ruta que los anexos de
+            control: una sola lista blanca, un solo antivirus, un solo límite. */}
+        <label className="flex cursor-pointer items-center gap-3 rounded-tarjeta border border-dashed border-border-field bg-subtle px-4 py-3">
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => setArchivos([...(e.target.files ?? [])])}
+          />
+          <span className="flex flex-1 flex-col gap-0.5">
+            <span className="text-12_5 text-secondary">Arrastrá un archivo o buscá en tu equipo</span>
+            <span className="text-10_5 text-faint">
+              Se conserva tal cual: es material de prueba
+            </span>
+          </span>
+          <span className="flex-none rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary">
+            Buscar
+          </span>
+        </label>
+        {archivos.length > 0 && (
+          <span className="font-mono text-10_5 text-muted">
+            {archivos.map((a) => a.name).join(' · ')}
+          </span>
+        )}
       </Campo>
 
       <Campo etiqueta="¿Ya hiciste algo al respecto? · opcional">

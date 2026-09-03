@@ -1439,6 +1439,13 @@ enum OrigenHallazgo {
   INDICADOR
   REVISION_DIRECCION
   SGSI
+  /// El hallazgo que sale del análisis de causa raíz de un incidente (REQ-SIG-07 §3.2).
+  /// `origenReferencia` guarda el código del evento.
+  ///
+  /// Es un valor propio y no `SGSI` con el código en el texto: el origen es tipado
+  /// justamente para que «cuántos hallazgos vienen de incidentes» sea una consulta y no
+  /// una búsqueda por subcadena.
+  INCIDENTE
   OTRO
 
   @@map("origen_hallazgo")

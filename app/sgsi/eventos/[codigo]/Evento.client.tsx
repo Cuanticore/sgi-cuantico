@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { cerrarEvento, evaluarEvento, registrarAccion } from '@/app/sig/acciones/eventos';
+import { reportarHallazgo } from '@/app/sig/acciones/hallazgos';
 import {
   ETIQUETA_DIMENSION,
   ETIQUETA_ESTADO_EVENTO,
@@ -66,12 +67,34 @@ export interface EventoFicha {
   correspondeHallazgo: boolean;
 }
 
+export interface Catalogos {
+  categorias: { id: number; nombre: string }[];
+  motivaciones: { id: number; nombre: string }[];
+  activos: { id: number; etiqueta: string }[];
+  areas: { id: number; nombre: string }[];
+}
+
+export interface HallazgoDelIncidente {
+  codigo: string;
+  /// `null` cuando nadie lo clasificó todavía. No es «observación».
+  tipo: 'NC_MAYOR' | 'NC_MENOR' | 'OBSERVACION' | 'OPORTUNIDAD' | null;
+  descripcion: string;
+}
+
+const ETIQUETA_TIPO_HALLAZGO: Record<NonNullable<HallazgoDelIncidente['tipo']>, string> = {
+  NC_MAYOR: 'NC mayor',
+  NC_MENOR: 'NC menor',
+  OBSERVACION: 'Observación',
+  OPORTUNIDAD: 'Oportunidad',
+};
+
 export default function EventoClient({
   evento,
   impactos,
   categoriasElegidas,
   activosAfectados,
   acciones,
+  hallazgos,
   catalogos,
 }: {
   evento: EventoFicha;
@@ -79,11 +102,8 @@ export default function EventoClient({
   categoriasElegidas: number[];
   activosAfectados: { id: number; etiqueta: string }[];
   acciones: { id: number; fase: string; momento: string; texto: string; autor: string | null }[];
-  catalogos: {
-    categorias: { id: number; nombre: string }[];
-    motivaciones: { id: number; nombre: string }[];
-    activos: { id: number; etiqueta: string }[];
-  };
+  hallazgos: HallazgoDelIncidente[];
+  catalogos: Catalogos;
 }) {
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const yaEvaluado = evento.veredicto !== null;
@@ -113,6 +133,9 @@ export default function EventoClient({
             {evento.reportadoPor} el {evento.creadoEn}
             {evento.horasHastaEvaluar !== null && ` · evaluado en ${evento.horasHastaEvaluar} h`}
           </p>
+          {/* Los dos controles del anexo A que recorre esta ficha: reportar y evaluar. Van
+              en el encabezado porque son la razón por la que la pantalla tiene etapas. */}
+          <span className="font-mono text-9_5 text-faint">A.5.25 → A.5.26</span>
         </div>
       </header>
 
@@ -132,10 +155,9 @@ export default function EventoClient({
       <section className="mt-4 rounded-tarjeta border border-border-field bg-subtle px-4 py-3">
         <span className="flex items-center gap-2.5">
           <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
-            Lo que reportó quien lo vio
+            Lo que reportó quien lo vio · no se edita
           </span>
           <span className="h-px flex-1 bg-hairline" />
-          <span className="font-mono text-9 text-muted">no se edita</span>
         </span>
         <p className="mt-1.5 text-12_5 leading-relaxed text-primary [text-wrap:pretty]">
           {evento.descripcion}
@@ -152,14 +174,23 @@ export default function EventoClient({
       <div className="mt-5 flex flex-col gap-4">
         <Etapa n={1} titulo="Evaluación" hecha={yaEvaluado}>
           {yaEvaluado ? (
-            <div className="flex flex-col gap-1">
-              <span className="text-12_5 text-primary">
-                {ETIQUETA_VEREDICTO[evento.veredicto as Veredicto]} · {evento.evaluadoPor ?? 'sin autor'} ·{' '}
-                {evento.fechaEvaluacion}
-              </span>
-              <span className="text-11_5 leading-relaxed text-secondary [text-wrap:pretty]">
-                {evento.justificacion}
-              </span>
+            <div className="flex flex-col gap-2">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Dato etiqueta="Veredicto de la evaluación" valor={ETIQUETA_VEREDICTO[evento.veredicto as Veredicto]} />
+                <Dato etiqueta="Evaluado por" valor={evento.evaluadoPor ?? 'sin autor'} />
+                {/* El tiempo hasta evaluar es el indicador de la 9.1: cuánto tarda la
+                    organización en mirar lo que alguien reportó. */}
+                <Dato
+                  etiqueta="Tiempo hasta evaluar"
+                  valor={evento.horasHastaEvaluar === null ? '—' : `${evento.horasHastaEvaluar} h`}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="etiqueta-campo">Justificación del veredicto · obligatoria</span>
+                <span className="text-11_5 leading-relaxed text-secondary [text-wrap:pretty]">
+                  {evento.justificacion}
+                </span>
+              </div>
             </div>
           ) : (
             <FormularioEvaluacion
@@ -232,10 +263,11 @@ export default function EventoClient({
           hecha={acciones.length > 0}
           atenuada={yaEvaluado && !esIncidente}
         >
+          <Rotulo texto="Línea de tiempo" />
           {acciones.length === 0 ? (
-            <p className="text-11_5 text-muted">Sin acciones registradas.</p>
+            <p className="mt-1.5 text-11_5 text-muted">Sin acciones registradas.</p>
           ) : (
-            <ol className="flex flex-col gap-1.5">
+            <ol className="mt-1.5 flex flex-col gap-1.5">
               {acciones.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-baseline gap-2 border-t border-hairline pt-1.5 first:border-t-0 first:pt-0">
                   <span className="font-mono text-9 font-semibold uppercase tracking-[0.06em] text-accent">
@@ -251,6 +283,62 @@ export default function EventoClient({
           {esIncidente && !cerrado && (
             <FormularioAccion codigo={evento.codigo} setAviso={setAviso} />
           )}
+
+          {/* O8 · el hallazgo no vive acá: vive en Mejora, con su origen apuntando a este
+              incidente. Es la misma tabla que usan auditoría, verificaciones y
+              proveedores, y por eso «cuántos hallazgos abiertos hay» tiene una sola
+              respuesta. */}
+          <div className="mt-4 border-t border-hairline pt-3">
+            <Rotulo texto="Hallazgos levantados" />
+            {hallazgos.length === 0 ? (
+              <p className="mt-1.5 text-11_5 text-muted">
+                Ninguno todavía.
+                {evento.correspondeHallazgo && ' Con impacto alto corresponde levantar uno.'}
+              </p>
+            ) : (
+              <ul className="mt-1.5 flex flex-col gap-1.5">
+                {hallazgos.map((h) => (
+                  <li
+                    key={h.codigo}
+                    className="flex items-start gap-3 rounded-tarjeta border px-3 py-2"
+                    style={{ borderColor: '#f2b473', background: 'var(--hf-bg-surface)' }}
+                  >
+                    <span
+                      className="mt-0.5 w-[86px] flex-none rounded-[4px] py-1 text-center font-mono text-9 font-semibold uppercase tracking-[0.06em]"
+                      style={
+                        h.tipo === null
+                          ? { background: 'var(--hf-bg-subtle)', color: 'var(--hf-text-muted)' }
+                          : { background: '#fff3e6', color: '#8a4407' }
+                      }
+                    >
+                      {h.tipo === null ? 'sin clasificar' : ETIQUETA_TIPO_HALLAZGO[h.tipo]}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-12 leading-snug text-primary [text-wrap:pretty]">
+                        {h.descripcion}
+                      </span>
+                      <a href={`/sig/hallazgos/${h.codigo}`} className="font-mono text-9_5 text-accent hover:underline">
+                        {h.codigo} · origen «incidente» · en Mejora
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {esIncidente && (
+              <FormularioHallazgo
+                codigo={evento.codigo}
+                areas={catalogos.areas}
+                causaRaiz={evento.causaRaiz}
+                setAviso={setAviso}
+              />
+            )}
+            <p className="mt-1.5 max-w-[92ch] text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+              El hallazgo no vive aquí: vive en Mejora, con su origen apuntando a este
+              incidente. Es la misma tabla que usan auditoría, verificaciones y proveedores —
+              por eso se puede responder cuántos hallazgos abiertos hay en total.
+            </p>
+          </div>
         </Etapa>
 
         <Etapa n={4} titulo="Cierre y lección" hecha={cerrado} atenuada={yaEvaluado && !esIncidente}>
@@ -312,6 +400,7 @@ function FormularioEvaluacion({
     DISPONIBILIDAD: 'NINGUNO',
   });
   const [activos, setActivos] = useState<number[]>([]);
+  const [motivacionId, setMotivacionId] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const esIncidente = veredicto === 'INCIDENTE';
@@ -352,7 +441,7 @@ function FormularioEvaluacion({
       {esIncidente && (
         <>
           <div className="flex flex-col gap-1">
-            <span className="etiqueta-campo">Categorías</span>
+            <span className="etiqueta-campo">Categoría · catálogo cerrado, multiselección</span>
             <div className="flex flex-wrap gap-1.5">
               {catalogos.categorias.map((c) => (
                 <button
@@ -372,7 +461,7 @@ function FormularioEvaluacion({
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="etiqueta-campo">Impacto en C · I · D</span>
+            <span className="etiqueta-campo">Impacto en las tres dimensiones</span>
             {DIMENSIONES.map((d) => (
               <div key={d} className="flex items-center gap-2">
                 <span className="w-[130px] flex-none text-11 text-muted">{ETIQUETA_DIMENSION[d]}</span>
@@ -415,6 +504,37 @@ function FormularioEvaluacion({
               ))}
             </select>
           </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="etiqueta-campo">Motivación probable · opcional</span>
+            {catalogos.motivaciones.length === 0 ? (
+              // El catálogo está declarado y vacío. Se dibuja igual, deshabilitado y
+              // diciendo por qué: un campo que desaparece parece un campo que no existe,
+              // y acá lo que falta es el dato del especificador, no el campo.
+              <>
+                <select disabled className="entrada-campo opacity-60">
+                  <option>Catálogo sin cargar</option>
+                </select>
+                <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                  La spec declara el catálogo y ninguna fuente dice cuáles son sus valores,
+                  así que quedó vacío en vez de inventado.
+                </span>
+              </>
+            ) : (
+              <select
+                value={motivacionId}
+                onChange={(e) => setMotivacionId(e.target.value)}
+                className="entrada-campo"
+              >
+                <option value="">Sin definir</option>
+                {catalogos.motivaciones.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
         </>
       )}
 
@@ -428,6 +548,7 @@ function FormularioEvaluacion({
             categorias: esIncidente ? cats : undefined,
             impactos: esIncidente ? impactos : undefined,
             activos: esIncidente ? activos : undefined,
+            motivacionId: esIncidente && motivacionId !== '' ? Number(motivacionId) : undefined,
           });
           setEnviando(false);
           setAviso({ ok: r.ok, texto: r.mensaje });
@@ -449,9 +570,22 @@ function FormularioAccion({
   codigo: string;
   setAviso: (a: { ok: boolean; texto: string }) => void;
 }) {
+  const [abierto, setAbierto] = useState(false);
   const [fase, setFase] = useState('CONTENCION');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="mt-2 rounded-campo border border-dashed px-3.5 py-2 text-12 font-medium text-accent"
+        style={{ borderColor: 'var(--hf-brand-200, #d3dceb)' }}
+      >
+        + Registrar una acción
+      </button>
+    );
+  }
 
   return (
     <div className="mt-2 flex flex-wrap items-end gap-2 border-t border-hairline pt-2.5">
@@ -482,6 +616,12 @@ function FormularioAccion({
       >
         Agregar
       </button>
+      <button
+        onClick={() => setAbierto(false)}
+        className="rounded-campo px-2 py-2 text-12 text-muted"
+      >
+        Cancelar
+      </button>
     </div>
   );
 }
@@ -506,7 +646,7 @@ function FormularioCierre({
   return (
     <div className="flex flex-col gap-2.5">
       <label className="flex flex-col gap-1">
-        <span className="etiqueta-campo">Lección aprendida · obligatoria (A.5.27)</span>
+        <span className="etiqueta-campo">Lección aprendida · obligatoria para cerrar · A.5.27</span>
         <textarea
           value={leccion}
           onChange={(e) => setLeccion(e.target.value)}
@@ -530,24 +670,28 @@ function FormularioCierre({
 
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
-          <span className="etiqueta-campo">Costo de recuperación · opcional</span>
+          <span className="etiqueta-campo">Costo de recuperación</span>
           <input
             type="number"
             value={recuperacion}
             onChange={(e) => setRecuperacion(e.target.value)}
             className="entrada-campo"
-            placeholder="cero también es un dato"
+            placeholder="sin calcular"
           />
+          <span className="text-10_5 text-muted">Horas de atención y herramientas usadas</span>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="etiqueta-campo">Costo del impacto · opcional</span>
+          <span className="etiqueta-campo">Costo del impacto</span>
           <input
             type="number"
             value={impacto}
             onChange={(e) => setImpacto(e.target.value)}
             className="entrada-campo"
-            placeholder="cero dice que se contuvo"
+            placeholder="sin calcular"
           />
+          <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Pérdida real. Cero también es un dato: dice que se contuvo
+          </span>
         </label>
       </div>
 
@@ -627,6 +771,119 @@ function Etapa({
       )}
       <div className="mt-2">{children}</div>
     </section>
+  );
+}
+
+/// Levanta el hallazgo en Mejora. **Pide el proceso o área y no lo adivina**: el evento
+/// no tiene área —lo reportó una persona, no un proceso— y elegir una por él pondría el
+/// hallazgo en el tablero de alguien que no lo tiene.
+function FormularioHallazgo({
+  codigo,
+  areas,
+  causaRaiz,
+  setAviso,
+}: {
+  codigo: string;
+  areas: { id: number; nombre: string }[];
+  causaRaiz: string | null;
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [areaId, setAreaId] = useState('');
+  const [descripcion, setDescripcion] = useState(causaRaiz ?? '');
+  const [enviando, setEnviando] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="mt-2 rounded-campo border border-dashed px-3.5 py-2 text-12 font-medium text-accent"
+        style={{ borderColor: 'var(--hf-brand-200, #d3dceb)' }}
+      >
+        + Levantar un hallazgo en Mejora
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-2 rounded-campo border border-border-field bg-subtle px-3 py-2.5">
+      <label className="flex flex-col gap-1">
+        <span className="etiqueta-campo">Proceso o área · obligatorio</span>
+        <select value={areaId} onChange={(e) => setAreaId(e.target.value)} className="entrada-campo">
+          <option value="">Elegí el proceso</option>
+          {areas.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nombre}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="etiqueta-campo">Qué se encontró</span>
+        <textarea
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          rows={2}
+          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5"
+          placeholder="Viene del análisis de causa raíz, no del relato del evento."
+        />
+      </label>
+      <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+        Nace sin clasificar y no consume plazos: el tipo lo pone el líder del SIG en Mejora.
+      </span>
+      <div className="flex gap-2">
+        <button
+          disabled={areaId === '' || descripcion.trim().length < 10 || enviando}
+          onClick={async () => {
+            setEnviando(true);
+            const r = await reportarHallazgo({
+              origen: 'INCIDENTE',
+              origenReferencia: codigo,
+              descripcion,
+              requisitoIncumplido: 'ISO/IEC 27001 A.5.27 · aprendizaje de los incidentes',
+              evidenciaObjetiva: `Análisis de causa raíz del incidente ${codigo}.`,
+              areaId: Number(areaId),
+              fechaDeteccion: new Date(),
+            });
+            setEnviando(false);
+            setAviso({ ok: r.ok, texto: r.mensaje });
+            if (r.ok) setTimeout(() => window.location.reload(), 1200);
+          }}
+          className="rounded-campo px-3.5 py-1.5 text-12 font-semibold text-white disabled:opacity-50"
+          style={{ background: 'var(--hf-brand-nav)' }}
+        >
+          {enviando ? 'Levantando…' : 'Levantar'}
+        </button>
+        <button
+          onClick={() => setAbierto(false)}
+          className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 text-muted"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="etiqueta-campo">{etiqueta}</span>
+      <span className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5 text-primary">
+        {valor}
+      </span>
+    </span>
+  );
+}
+
+function Rotulo({ texto }: { texto: string }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex-none font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+        {texto}
+      </span>
+      <span className="h-px flex-1 bg-hairline" />
+    </span>
   );
 }
 

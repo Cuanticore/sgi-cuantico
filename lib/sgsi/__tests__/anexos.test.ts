@@ -46,11 +46,18 @@ describe('la lista blanca no admite ejecutables ni macros', () => {
 
 describe('clavePara — el nombre original jamás es la ruta', () => {
   it('genera una clave server-side con UUID y sin el nombre del archivo', () => {
-    const a = clavePara(42, 'pdf');
-    const b = clavePara(42, 'pdf');
+    const a = clavePara('control', 42, 'pdf');
+    const b = clavePara('control', 42, 'pdf');
     expect(a).toMatch(/^sgsi\/control-42\/anexos\/[0-9a-f-]{36}\.pdf$/);
     expect(a).not.toContain('informe');
     expect(b).not.toBe(a);
+  });
+
+  it('separa el anexo de un evento del de un control con el mismo id', () => {
+    // Sin el prefijo del dueño, el anexo del evento 42 y el del control 42 caerían en la
+    // misma carpeta del almacén y un listado no podría decir de quién es cada objeto.
+    expect(clavePara('evento', 42, 'png')).toMatch(/^sgsi\/evento-42\/anexos\//);
+    expect(clavePara('control', 42, 'png')).toMatch(/^sgsi\/control-42\/anexos\//);
   });
 });
 

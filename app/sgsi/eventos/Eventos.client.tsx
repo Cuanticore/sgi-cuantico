@@ -226,6 +226,28 @@ export default function EventosClient({
   );
 }
 
+/// Sube los adjuntos al evento recién creado. Se hace DESPUÉS de crear el evento y no
+/// antes porque la evidencia se ata a un dueño: sin código no hay a quién atarla.
+///
+/// Si un archivo falla, el evento ya existe y así se dice. Un reporte que se descarta
+/// entero porque una captura no subió es un reporte perdido, y el reporte vale más que
+/// el adjunto.
+async function subirEvidencias(codigo: string, archivos: File[]): Promise<string[]> {
+  const fallidos: string[] = [];
+  for (const f of archivos) {
+    const cuerpo = new FormData();
+    cuerpo.append('file', f);
+    cuerpo.append('codigoEvento', codigo);
+    try {
+      const r = await fetch('/api/sgsi/anexo', { method: 'POST', body: cuerpo });
+      if (!r.ok) fallidos.push(f.name);
+    } catch {
+      fallidos.push(f.name);
+    }
+  }
+  return fallidos;
+}
+
 function FormularioReporte({
   lugares,
   onCerrar,
@@ -235,22 +257,44 @@ function FormularioReporte({
 }) {
   const [descripcion, setDescripcion] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
-  const [enCurso, setEnCurso] = useState(false);
-  const [dondeId, setDondeId] = useState('');
+  // Ternario a propósito: `null` es «todavía no contestó», y no es lo mismo que «ya
+  // terminó». Un checkbox habría contestado que no en silencio.
+  const [enCurso, setEnCurso] = useState<boolean | null>(null);
+  const [dondeId, setDondeId] = useState<number | null>(null);
   const [otros, setOtros] = useState('');
+  const [archivos, setArchivos] = useState<File[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-6">
-      <div className="flex max-h-full w-full max-w-[560px] flex-col gap-3 overflow-y-auto rounded-modal bg-surface p-6 shadow-xl">
-        <h2 className="text-15 font-semibold text-primary">Reportar un evento de seguridad</h2>
-        <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
-          Contá qué viste. Es lo único que se te pide.
-        </p>
+      <div className="flex max-h-full w-full max-w-[620px] flex-col gap-4 overflow-y-auto rounded-modal bg-surface p-6 shadow-xl">
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="flex items-center gap-2.5">
+              <h2 className="text-15 font-semibold text-primary">Reportar un evento de seguridad</h2>
+              <span className="flex-none rounded-[4px] bg-subtle px-2 py-0.5 font-mono text-9 font-medium uppercase tracking-[0.07em] text-muted">
+                A.5.25
+              </span>
+            </span>
+            <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              Algo te pareció raro y lo reportas.{' '}
+              <strong className="font-semibold text-secondary">No tienes que saber si es grave</strong>, ni
+              si es un incidente: eso lo evalúa el equipo de seguridad. Reportar de más no cuesta
+              nada; reportar de menos, sí.
+            </p>
+          </div>
+          <button
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="flex-none rounded-campo border border-border-field bg-surface px-2 py-1 text-12 text-muted"
+          >
+            ✕
+          </button>
+        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="etiqueta-campo">¿Qué pasó?</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">¿Qué pasó? · obligatorio</span>
           <textarea
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
@@ -258,55 +302,130 @@ function FormularioReporte({
             className="rounded-campo border border-border-field bg-surface px-3 py-2 text-13"
             placeholder="Con tus palabras. No se corrige después: es tu versión."
           />
-        </label>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="etiqueta-campo">¿Cuándo?</span>
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="entrada-campo" />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="etiqueta-campo">¿Dónde?</span>
-            <select value={dondeId} onChange={(e) => setDondeId(e.target.value)} className="entrada-campo">
-              <option value="">Sin especificar</option>
-              {lugares.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {/* Lo primero que hay que saber para contener. Va con su propio destaque porque
-            cambia la urgencia de todo lo demás. */}
-        <label
-          className="flex cursor-pointer items-start gap-2 rounded-campo px-3 py-2.5 text-12_5"
-          style={enCurso ? { background: '#fdeeeb', border: '1px solid #f2cdc6' } : { border: '1px solid var(--hf-border-field)' }}
-        >
-          <input type="checkbox" checked={enCurso} onChange={(e) => setEnCurso(e.target.checked)} className="mt-0.5" />
-          <span style={enCurso ? { color: '#a52016' } : undefined}>
-            <strong className="font-semibold">Sigue ocurriendo ahora.</strong> Marcalo si el
-            problema no ha parado: la contención va antes que cualquier otra cosa.
+          <span className="text-11 leading-relaxed text-faint [text-wrap:pretty]">
+            Cuenta lo que viste, con tus palabras. Si tienes el correo, adjúntalo sin reenviarlo
+            a nadie más.
           </span>
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="etiqueta-campo">¿Alguien más lo sabe? · opcional</span>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="etiqueta-campo">¿Cuándo ocurrió?</span>
+            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="entrada-campo" />
+          </label>
+          <div className="flex flex-col gap-1.5">
+            {/* Pregunta con dos respuestas, no una casilla: lo primero que hay que saber
+                para contener, y cambia la urgencia de todo lo demás. */}
+            <span className="etiqueta-campo">¿Sigue ocurriendo?</span>
+            <div className="flex gap-1.5">
+              {[
+                { v: true, etiqueta: 'Sí, ahora', fondo: '#fdeeeb', borde: '#a52016', texto: '#a52016' },
+                { v: false, etiqueta: 'Ya terminó', fondo: '#e6efe9', borde: '#0b5c44', texto: '#0b5c44' },
+              ].map((o) => {
+                const activo = enCurso === o.v;
+                return (
+                  <button
+                    key={o.etiqueta}
+                    onClick={() => setEnCurso(o.v)}
+                    aria-pressed={activo}
+                    className="flex-1 rounded-campo px-3 py-2 text-12_5"
+                    style={{
+                      background: activo ? o.fondo : 'var(--hf-bg-surface)',
+                      border: `1px solid ${activo ? o.borde : 'var(--hf-border-field)'}`,
+                      color: activo ? o.texto : 'var(--hf-text-secondary-soft)',
+                      fontWeight: activo ? 600 : 500,
+                    }}
+                  >
+                    {o.etiqueta}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {/* Los seis lugares a la vista, no dentro de un desplegable: la lista misma le
+              dice a quien reporta qué cuenta como «un evento de seguridad». */}
+          <span className="etiqueta-campo">¿Dónde lo viste? · ayuda a ubicarlo, no es obligatorio</span>
+          <div className="grid gap-1.5 sm:grid-cols-3">
+            {lugares.map((l) => {
+              const activo = dondeId === l.id;
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => setDondeId(activo ? null : l.id)}
+                  aria-pressed={activo}
+                  className="rounded-campo px-3 py-2 text-left text-12"
+                  style={{
+                    background: activo ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                    border: `1px solid ${activo ? 'var(--hf-brand-nav)' : 'var(--hf-border-field)'}`,
+                    color: activo ? 'var(--hf-brand-nav)' : 'var(--hf-text-secondary-soft)',
+                    fontWeight: activo ? 600 : 500,
+                  }}
+                >
+                  {l.nombre}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">¿Alguien más está enterado?</span>
           <input value={otros} onChange={(e) => setOtros(e.target.value)} className="entrada-campo" />
         </label>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="etiqueta-campo">Evidencia · muy recomendable</span>
+          <label className="flex cursor-pointer items-center gap-3 rounded-tarjeta border border-dashed border-border-field bg-subtle px-4 py-3.5">
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => setArchivos([...(e.target.files ?? [])])}
+            />
+            <span className="flex flex-1 flex-col gap-0.5">
+              <span className="text-12_5 text-secondary">Captura de pantalla o el correo guardado</span>
+              <span className="text-10_5 text-faint">
+                Se conserva tal cual: es material de prueba (A.5.28)
+              </span>
+            </span>
+            <span className="flex-none rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary">
+              Buscar en tu equipo
+            </span>
+          </label>
+          {archivos.length > 0 && (
+            <span className="font-mono text-10_5 text-muted">
+              {archivos.map((a) => a.name).join(' · ')}
+            </span>
+          )}
+        </div>
 
         {/* O2 · la lista explícita de lo que NO se pide. Está a la vista para quitarle a
             quien reporta el miedo a equivocarse clasificando — que es la razón más común
             por la que un evento no se reporta. */}
-        <div className="rounded-campo border border-border-field bg-subtle px-3 py-2.5">
-          <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
-            Lo que NO se te pide
+        <div className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+          <span className="flex items-center gap-2.5">
+            <span className="font-mono text-9 font-semibold uppercase tracking-[0.07em] text-accent">
+              Lo que este formulario no te pide
+            </span>
+            <span className="h-px flex-1 bg-hairline" />
           </span>
-          <p className="mt-1 text-11 leading-relaxed text-muted [text-wrap:pretty]">
-            {NO_SE_PIDE_AL_REPORTAR.join(', ')}. Todo eso lo decide quien evalúa. Si no estás
-            seguro de qué tan grave es, reportalo igual.
-          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {NO_SE_PIDE_AL_REPORTAR.map((n) => (
+              <span
+                key={n}
+                className="rounded-campo bg-subtle px-2.5 py-1 font-mono text-10 text-faint line-through"
+              >
+                {n}
+              </span>
+            ))}
+          </div>
+          <span className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Pedirle a quien reporta que clasifique la gravedad es la forma más eficaz de que no
+            reporte. Todo eso lo decide la evaluación, y para eso existe el paso siguiente.
+          </span>
         </div>
 
         {aviso && (
@@ -321,8 +440,15 @@ function FormularioReporte({
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onCerrar} className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 text-muted">
+        <div className="flex flex-wrap items-center gap-3 border-t border-hairline pt-3">
+          <span className="min-w-[240px] flex-1 text-11 leading-relaxed text-muted [text-wrap:pretty]">
+            Abierto a <strong className="font-semibold text-secondary">cualquier persona autenticada</strong>,
+            sin permisos previos. Recibirás aviso cuando el equipo lo evalúe.
+          </span>
+          <button
+            onClick={onCerrar}
+            className="flex-none rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 text-muted"
+          >
             Cancelar
           </button>
           <button
@@ -333,18 +459,30 @@ function FormularioReporte({
               const r = await reportarEvento({
                 descripcion,
                 fechaOcurrencia: new Date(`${fecha}T00:00:00.000Z`),
-                enCurso,
-                dondeId: dondeId === '' ? undefined : Number(dondeId),
+                enCurso: enCurso === true,
+                dondeId: dondeId ?? undefined,
                 otrosEnterados: otros || undefined,
               });
+              if (!r.ok || r.codigo === null) {
+                setEnviando(false);
+                setAviso({ ok: false, texto: r.mensaje });
+                return;
+              }
+              const fallidos = archivos.length > 0 ? await subirEvidencias(r.codigo, archivos) : [];
               setEnviando(false);
-              setAviso({ ok: r.ok, texto: r.mensaje });
-              if (r.ok) setTimeout(() => window.location.reload(), 1500);
+              setAviso({
+                ok: true,
+                texto:
+                  fallidos.length === 0
+                    ? r.mensaje
+                    : `${r.mensaje} No se pudo adjuntar: ${fallidos.join(', ')} — el evento ya quedó reportado; podés volver a adjuntar desde su ficha.`,
+              });
+              setTimeout(() => window.location.reload(), fallidos.length === 0 ? 1500 : 4000);
             }}
-            className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white disabled:opacity-50"
-            style={{ background: '#a52016' }}
+            className="flex-none rounded-campo px-5 py-2 text-12_5 font-semibold text-white disabled:opacity-50"
+            style={{ background: '#a52016', border: '1px solid #8a1f16' }}
           >
-            {enviando ? 'Reportando…' : 'Reportar'}
+            {enviando ? 'Reportando…' : 'Reportar ahora'}
           </button>
         </div>
       </div>

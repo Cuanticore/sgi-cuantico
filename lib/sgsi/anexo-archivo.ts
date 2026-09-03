@@ -45,11 +45,15 @@ export function sha256De(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+/// El dueño de un anexo. `Evidencia` admite cuatro; el prefijo los separa para que un
+/// listado del almacén siga diciendo de quién es cada objeto sin consultar la base.
+export type DuenoAnexo = 'control' | 'evento' | 'hallazgo';
+
 /// Clave generada por el servidor. El nombre original NUNCA es la ruta: es un dato
 /// (archivo_nombre) mientras la clave es una identidad sin colisión.
-export function clavePara(controlId: number, extension: string): string {
+export function clavePara(dueno: DuenoAnexo, duenoId: number, extension: string): string {
   const id = randomUUID();
-  return `sgsi/control-${controlId}/anexos/${id}.${extension}`;
+  return `sgsi/${dueno}-${duenoId}/anexos/${id}.${extension}`;
 }
 
 function secretoRutas(): string {
