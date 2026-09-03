@@ -1070,6 +1070,11 @@ model Persona {
 
   actasAceptacion ActaAceptacion[] @relation("ActaPersona")
 
+  accesos                AccesoPersona[] @relation("AccesoPersonaTitular")
+  solicitudesPedidas     Solicitud[]     @relation("SolicitudSolicitante")
+  solicitudesAutorizadas Solicitud[]     @relation("SolicitudAutoriza")
+  solicitudesEjecutadas  Solicitud[]     @relation("SolicitudEjecuta")
+
   @@map("persona")
 }
 
@@ -1228,6 +1233,12 @@ model Obligacion {
   diasAviso                Int               @map("dias_aviso")
   notificar                Boolean           @default(true)
   responsableSeguimientoId Int               @map("responsable_seguimiento_id")
+  /// El control del Anexo A que esta obligacion sostiene (A.5.22, A.5.18, A.5.34, A.5.30).
+  /// Es lo que permite filtrar los registros por requisito, que es como pregunta un auditor.
+  controlAnexoA            String?           @map("control_anexo_a")
+  /// Marca la reevaluacion anual de proveedores de POL-TEC-02. Conecta con la fusion de D4:
+  /// es lo que faltaba para poder cargar esa obligacion.
+  esProveedor              Boolean           @default(false) @map("es_proveedor")
   activa                   Boolean           @default(true)
   creadaEn                 DateTime          @default(now()) @map("creada_en")
 
@@ -2511,4 +2522,108 @@ model ContadorActa {
   ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_acta")
+}
+
+// ─── Operación del SGSI · accesos y solicitudes (REQ-SIG-07 · Fase 3) ──────────────────
+
+enum TipoSolicitud {
+  /// A.8.32
+  CAMBIO_TI
+  /// A.8.2
+  ACCESO
+  /// A.5.11
+  DEVOLUCION
+  /// A.8.18
+  UTILITARIO
+
+  @@map("tipo_solicitud")
+}
+
+/// Cuatro tipos, UN flujo: pide, autoriza, ejecuta. De las tres cosas queda fecha.
+///
+/// **El estado no se almacena.** «Por autorizar», «Autorizada», «Ejecutada» y «Rechazada»
+/// salen de qué marcas están puestas — ver `lib/sig/solicitudes.ts`.
+model Solicitud {
+  id                Int           @id @default(autoincrement())
+  /// `SOL-2026-0088`, inmutable.
+  codigo            String        @unique
+  tipo              TipoSolicitud
+  titulo            String
+  detalle           String
+  justificacion     String
+  solicitanteId     Int           @map("solicitante_id")
+  /// Sólo en permisos temporales. O14: se retira solo al vencer.
+  vigenciaDesde     DateTime?     @map("vigencia_desde") @db.Date
+  vigenciaHasta     DateTime?     @map("vigencia_hasta") @db.Date
+  /// O11 · la excepción a la separación de funciones. **Se registra, no se esconde**: es
+  /// visible en la ficha y contable en el tablero. Un cambio de emergencia se autoriza y
+  /// ejecuta de inmediato para contener un incidente, y se documenta después.
+  esEmergencia      Boolean       @default(false) @map("es_emergencia")
+  // ── Paso 2 · autoriza ──
+  autorizadoPorId   Int?          @map("autorizado_por_id")
+  fechaAutorizacion DateTime?     @map("fecha_autorizacion")
+  notaAutorizacion  String?       @map("nota_autorizacion")
+  rechazada         Boolean       @default(false)
+  // ── Paso 3 · ejecuta ──
+  ejecutadoPorId    Int?          @map("ejecutado_por_id")
+  fechaEjecucion    DateTime?     @map("fecha_ejecucion")
+  notaEjecucion     String?       @map("nota_ejecucion")
+  creadaEn          DateTime      @default(now()) @map("creada_en")
+
+  solicitante   Persona         @relation("SolicitudSolicitante", fields: [solicitanteId], references: [id])
+  autorizadoPor Persona?        @relation("SolicitudAutoriza", fields: [autorizadoPorId], references: [id])
+  ejecutadoPor  Persona?        @relation("SolicitudEjecuta", fields: [ejecutadoPorId], references: [id])
+  accesos       AccesoPersona[]
+
+  @@index([tipo, creadaEn])
+  @@map("solicitud")
+}
+
+/// Un perfil de acceso a un sistema. Es el QUÉ del acceso; `AccesoPersona` es el quién y
+/// hasta cuándo.
+model PerfilAcceso {
+  id          Int     @id @default(autoincrement())
+  nombre      String
+  sistema     String
+  descripcion String?
+  activo      Boolean @default(true)
+
+  accesos AccesoPersona[]
+
+  @@unique([sistema, nombre])
+  @@map("perfil_acceso")
+}
+
+/// O12 · **un acceso es una relación con vigencia, nunca una casilla que se sobrescribe.**
+///
+/// La matriz del consultor pone una COLUMNA POR EMPLEADO, así que cada ingreso altera la
+/// estructura de la tabla y el histórico se pierde al sobrescribir la celda. Acá es una
+/// fila por relación, con fecha de inicio y de fin: dar de alta es insertar, dar de baja es
+/// cerrar. La estructura nunca cambia y el pasado no se pierde.
+///
+/// Es la diferencia entre poder responder «quién tenía acceso al CRM el 31 de diciembre» y
+/// no poder — que es exactamente lo que un auditor pregunta.
+model AccesoPersona {
+  id           Int       @id @default(autoincrement())
+  personaId    Int       @map("persona_id")
+  perfilId     Int       @map("perfil_id")
+  desde        DateTime  @db.Date
+  /// Nulo significa VIGENTE. No hay columna «vigente»: se deriva de esta fecha y de hoy.
+  hasta        DateTime? @db.Date
+  /// O13 · **un acceso vigente sin solicitud que lo respalde es un hallazgo.** Nulo es
+  /// justamente el caso que la revisión trimestral tiene que explicar o retirar, así que se
+  /// permite: prohibirlo por esquema haría invisible el problema en vez de resolverlo.
+  solicitudId  Int?      @map("solicitud_id")
+  /// El motivo del retiro. O14: el retiro de un permiso temporal deja registro de lo que se
+  /// hizo mientras estuvo vigente.
+  motivoRetiro String?   @map("motivo_retiro")
+  creadoEn     DateTime  @default(now()) @map("creado_en")
+
+  persona   Persona      @relation("AccesoPersonaTitular", fields: [personaId], references: [id])
+  perfil    PerfilAcceso @relation(fields: [perfilId], references: [id])
+  solicitud Solicitud?   @relation(fields: [solicitudId], references: [id])
+
+  @@index([personaId, desde])
+  @@index([perfilId, desde])
+  @@map("acceso_persona")
 }

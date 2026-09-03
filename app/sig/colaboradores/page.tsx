@@ -6,10 +6,14 @@
 // no se almacena**: se calcula de la fecha de retiro, así que el tipo de contrato sobrevive
 // al retiro» (lienzo `handoff_colaboradores/design/Colaboradores.dc.html`).
 //
-// Dos de las cuatro anomalías de §5.1 NO se pueden calcular todavía: `AccesoPersona` es de
-// REQ-SIG-07 (fase 3) y `ActaAceptacion` de REQ-SIG-02, y ninguna existe. Se muestran
-// marcadas en vez de omitirse — un tablero que enseña dos de cuatro y no dice que faltan
-// dos asegura que el sistema está mejor de lo que se sabe.
+// **Las cuatro anomalías de §5.1 ya se calculan.** Dos salían marcadas como no calculables
+// porque `AccesoPersona` (REQ-SIG-07) y `ActaAceptacion` no existían; construidas las dos,
+// el panel dejó de mostrar guiones grises.
+//
+// La distinción que permitió encenderlas sin tocar el módulo puro: recibe `null` cuando el
+// dato NO SE PUEDE saber, y un conjunto —aunque esté vacío— cuando sí. Un vacío dice
+// «nadie», que es una respuesta; `null` dice «no se sabe», que no lo es. Cambiar `null` por
+// el conjunto real fue todo lo que hizo falta.
 
 import { prisma } from '@/lib/db';
 import {
@@ -18,12 +22,13 @@ import {
   estaActiva,
   type ColaboradorBase,
 } from '@/lib/sig/colaboradores';
+import { personasConAccesoVigente, type AccesoConVigencia } from '@/lib/sig/accesos';
 import ColaboradoresClient from './Colaboradores.client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ColaboradoresPage() {
-  const [personas, tipos] = await Promise.all([
+  const [personas, tipos, accesos, actas] = await Promise.all([
     prisma.persona.findMany({
       orderBy: { nombre: 'asc' },
       include: {
@@ -38,6 +43,16 @@ export default async function ColaboradoresPage() {
       select: { id: true, nombre: true },
       orderBy: { orden: 'asc' },
     }),
+    // REQ-SIG-07 ya existe: las dos anomalias que salian en gris ahora SI se calculan.
+    prisma.accesoPersona.findMany({
+      select: { id: true, personaId: true, perfilId: true, desde: true, hasta: true, solicitudId: true },
+    }),
+    // Los cuatro compromisos de C3 se identifican por el codigo del contenido que los
+    // declara: el titulo se puede reescribir y el codigo es la referencia con la que
+    // PRO-TAL-01 los nombra.
+    prisma.actaAceptacion.findMany({
+      select: { personaId: true, contenido: { select: { codigo: true } } },
+    }),
   ]);
 
   const base: (ColaboradorBase & { fechaIngreso: Date | null; tipoContrato: string | null })[] =
@@ -50,13 +65,33 @@ export default async function ColaboradoresPage() {
       tipoContrato: p.tipoContrato?.nombre ?? null,
     }));
 
+  // Los codigos que cuentan como compromiso salen de los contenidos marcados con su
+  // control del Anexo A. Mientras ninguno este marcado, el conjunto queda VACIO y no nulo:
+  // vacio dice «nadie firmo», que es cierto, y nulo diria «no se sabe», que ya no aplica.
+  const codigosCompromiso = await prisma.contenidoSig.findMany({
+    where: { exigeFirma: true, activo: true },
+    select: { codigo: true },
+  });
+  const exigidos = new Set(codigosCompromiso.map((c) => c.codigo));
+  const firmadoPor = new Map<number, Set<string>>();
+  for (const a of actas) {
+    const suyos = firmadoPor.get(a.personaId) ?? new Set<string>();
+    suyos.add(a.contenido.codigo);
+    firmadoPor.set(a.personaId, suyos);
+  }
+  const personasConLosCompromisos = new Set(
+    [...firmadoPor.entries()]
+      .filter(([, suyos]) => exigidos.size > 0 && [...exigidos].every((c) => suyos.has(c)))
+      .map(([id]) => id),
+  );
+
   const cuatro = anomalias({
     personas: base,
     conActaDeBorrado: new Set(personas.filter((p) => p.actasBorrado.length > 0).map((p) => p.id)),
-    // `null` y no un conjunto vacío: vacío afirmaría que nadie tiene accesos vigentes ni
-    // compromisos firmados, y eso es una respuesta, no la ausencia de una.
-    conAccesosVigentes: null,
-    conLosCuatroCompromisos: null,
+    // Las dos que salian en gris. Ya no son `null`: REQ-SIG-07 existe y `ActaAceptacion`
+    // tambien, asi que las cuatro anomalias se calculan.
+    conAccesosVigentes: personasConAccesoVigente(accesos as AccesoConVigencia[], new Date()),
+    conLosCuatroCompromisos: personasConLosCompromisos,
   });
 
   const conAnomalia = new Set(cuatro.flatMap((a) => a.personas));

@@ -250,11 +250,9 @@ export default function ColaboradoresClient({
               className="mt-1 rounded-campo px-2.5 py-2 text-10_5 leading-relaxed [text-wrap:pretty]"
               style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
             >
-              {sinCalcular.length} de {anomalias.length} no se pueden calcular todavía: dependen de{' '}
-              <code className="font-mono">AccesoPersona</code> (REQ-SIG-07) y{' '}
-              <code className="font-mono">ActaAceptacion</code> (REQ-SIG-02), que no existen. Se
-              muestran en cero gris y no en cero verde a propósito — un cero verde diría que
-              nadie tiene accesos sin sustento, y eso no se sabe.
+              {sinCalcular.length} de {anomalias.length} no se pueden calcular todavía. Se
+              muestran en gris y no en cero verde a propósito: un cero verde diría que no hay
+              nada que corregir, y eso no se sabe.
             </p>
           )}
         </section>
