@@ -14,6 +14,7 @@
 
 import { periodosHasta } from './periodos';
 import type { Periodicidad } from '@prisma/client';
+import type { Anclaje } from './generacion';
 
 export type AlcanceObligacion =
   | 'PERSONA'
@@ -49,6 +50,8 @@ export interface EntradaPrevision {
   periodicidad: Periodicidad;
   fechaInicio: Date;
   plazoDias: number;
+  /// R12. Ausente se lee como `ANCLADA`, igual que en la generación.
+  anclaje?: Anclaje;
 }
 
 export interface Prevision {
@@ -242,6 +245,16 @@ export function preverGeneracion(
     avisos.push(
       'una obligación diaria genera una asignación por persona por día: revisá que el ' +
         'contenido lo justifique',
+    );
+  }
+  // R12 · con anclaje flotante la cuenta anual es un TECHO, no una previsión: el
+  // siguiente ciclo nace al cerrar el previo, así que si nadie cierra no nace ninguno.
+  // Callarlo dejaría a la pantalla prometiendo un número que la generación no va a
+  // producir, que es peor que no prever nada.
+  if ((entrada.anclaje ?? 'ANCLADA') === 'FLOTANTE') {
+    avisos.push(
+      'con anclaje flotante esta cuenta es el máximo posible: cada ciclo nace al cerrarse ' +
+        'el anterior, así que una verificación que nadie cierre deja de generar',
     );
   }
   // El plazo más largo que el periodo deja dos asignaciones abiertas a la vez, para siempre.

@@ -1042,6 +1042,9 @@ model Persona {
   obligacionesAlcance      Obligacion[]                   @relation("ObligacionAlcancePersona")
   obligacionesSeguimiento  Obligacion[]                   @relation("ObligacionSeguimiento")
   asignaciones             Asignacion[]                   @relation("AsignacionPersona")
+  ejecucionesRegistradas   EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
+  metricasResponsable      Metrica[]                      @relation("MetricaResponsable")
+  medicionesRegistradas    MedicionMetrica[]              @relation("MedicionRegistradaPor")
   asignacionesCerradasPor  Asignacion[]                   @relation("AsignacionCerradaPor")
   enviosNotificacion       EnvioNotificacion[]
   hallazgosDetectados      Hallazgo[]                     @relation("HallazgoDetectadoPor")
@@ -1128,6 +1131,14 @@ enum AlcanceObligacion {
   NIVEL_ACTIVO
 
   @@map("alcance_obligacion")
+}
+
+/// R12. Ver el comentario de `Obligacion.anclaje`.
+enum Anclaje {
+  ANCLADA
+  FLOTANTE
+
+  @@map("anclaje")
 }
 
 enum Periodicidad {
@@ -1253,6 +1264,16 @@ model Obligacion {
   /// Marca la reevaluacion anual de proveedores de POL-TEC-02. Conecta con la fusion de D4:
   /// es lo que faltaba para poder cargar esa obligacion.
   esProveedor              Boolean           @default(false) @map("es_proveedor")
+  /// R12 · el anclaje de la periodicidad. `ANCLADA` genera contra el CALENDARIO: el
+  /// trimestre siguiente nace se haya cerrado el anterior o no, y una ejecucion vencida
+  /// nunca desplaza a la que viene. `FLOTANTE` genera la siguiente AL CERRARSE la previa.
+  ///
+  /// El valor por defecto es `ANCLADA` porque es lo que un auditor espera: el trimestre
+  /// existio aunque nadie lo mirara. `FLOTANTE` se reserva para lo que depende de un
+  /// INTERVALO —la evaluacion de un proveedor— y tiene un costo que la pantalla advierte:
+  /// una obligacion flotante que nadie cierra DEJA DE GENERAR, y su primera asignacion
+  /// vencida es el unico aviso que habra.
+  anclaje                  Anclaje           @default(ANCLADA)
   activa                   Boolean           @default(true)
   creadaEn                 DateTime          @default(now()) @map("creada_en")
 
@@ -1303,6 +1324,8 @@ model Asignacion {
   persona           Persona             @relation("AsignacionPersona", fields: [personaId], references: [id])
   cerradaPorPersona Persona?            @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
   registros         RegistroRealizado[]
+  ejecucion         EjecucionVerificacion?
+  medicionesAlerta  MedicionMetrica[]   @relation("MedicionAsignacion")
   activo            Activo?             @relation("AsignacionActivo", fields: [activoId], references: [id])
   hallazgos         HallazgoAccion[]
 
@@ -1446,6 +1469,9 @@ enum OrigenHallazgo {
   /// justamente para que «cuántos hallazgos vienen de incidentes» sea una consulta y no
   /// una búsqueda por subcadena.
   INCIDENTE
+  /// El hallazgo que sale de una ejecucion de verificacion programada.
+  /// `origenReferencia` guarda el codigo de la asignacion.
+  VERIFICACION
   OTRO
 
   @@map("origen_hallazgo")
@@ -1523,6 +1549,7 @@ model Hallazgo {
 
   @@index([areaId, fechaDeteccion])
   @@map("hallazgo")
+  ejecuciones EjecucionVerificacion[] @relation("HallazgoDeVerificacion")
 }
 
 /// La corrección inmediata: contiene el efecto, no cierra el hallazgo.
@@ -2916,4 +2943,106 @@ model ContadorEvento {
   ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_evento")
+}
+
+// ─── Verificaciones programadas y metricas (REQ-SIG-07 §3.3 y §3.4) ────────────────────
+
+enum ResultadoVerificacion {
+  CONFORME
+  HALLAZGO
+  NO_CONFORME
+
+  @@map("resultado_verificacion")
+}
+
+/// El resultado de UNA ejecucion de una verificacion programada.
+///
+/// Es lo UNICO nuevo de la seccion §3.3. Una verificacion programada ya es lo que el
+/// modulo A hace: un `ContenidoSig` con sus `ItemVerificacion` (los puntos), una
+/// `Obligacion` con periodicidad, responsable y anclaje, y una `Asignacion` por ciclo. El
+/// calendario, los vencimientos, los avisos y el cierre ya estan construidos y probados;
+/// construir un segundo planificador habria duplicado todo eso para agregar una columna.
+///
+/// Cuelga de la asignacion con `@unique`: una ejecucion por ciclo. El historico no se
+/// sobrescribe porque cada ciclo es una fila distinta — en el Excel del consultor los
+/// ciclos son tres bloques de columnas repetidos y el cuarto no cabe.
+model EjecucionVerificacion {
+  id              Int                   @id @default(autoincrement())
+  asignacionId    Int                   @unique @map("asignacion_id")
+  resultado       ResultadoVerificacion
+  nota            String?
+  /// El hallazgo que salio de esta ejecucion, si salio alguno. Vive en Mejora con
+  /// `origen = VERIFICACION`; aca solo se apunta.
+  hallazgoId      Int?                  @map("hallazgo_id")
+  registradoPorId Int?                  @map("registrado_por_id")
+  fecha           DateTime              @default(now())
+
+  asignacion    Asignacion @relation(fields: [asignacionId], references: [id])
+  hallazgo      Hallazgo?  @relation("HallazgoDeVerificacion", fields: [hallazgoId], references: [id])
+  registradoPor Persona?   @relation("EjecucionRegistradaPor", fields: [registradoPorId], references: [id])
+
+  @@map("ejecucion_verificacion")
+}
+
+/// O10 · **el umbral es un dato de la metrica, nunca un numero en el codigo.** Aca se ve
+/// por que: una metrica tiene umbral 80 (% de capacidad) y otra 15 (dias hasta parchar).
+enum SentidoMetrica {
+  /// Cruza el umbral cuando el valor lo SUPERA. Vulnerabilidades sin remediar, dias hasta
+  /// parchar, uso de la capacidad.
+  MENOR_ES_MEJOR
+  /// Cruza el umbral cuando el valor queda POR DEBAJO. Cobertura de capacitacion.
+  MAYOR_ES_MEJOR
+
+  @@map("sentido_metrica")
+}
+
+/// Una metrica del SGSI (clausula 9.1). Distinta de los indicadores del SGC, que siguen en
+/// su tablero: conviene que no se dupliquen.
+model Metrica {
+  id            Int            @id @default(autoincrement())
+  codigo        String         @unique
+  /// El control del Anexo A que la metrica mide (A.8.8, A.8.6, A.6.3).
+  controlAnexoA String         @map("control_anexo_a")
+  titulo        String
+  unidad        String
+  umbral        Decimal        @db.Decimal(12, 2)
+  sentido       SentidoMetrica
+  periodicidad  Periodicidad
+  responsableId Int            @map("responsable_id")
+  activa        Boolean        @default(true)
+  creadaEn      DateTime       @default(now()) @map("creada_en")
+
+  responsable Persona           @relation("MetricaResponsable", fields: [responsableId], references: [id])
+  mediciones  MedicionMetrica[]
+
+  @@map("metrica")
+}
+
+/// Una fila por periodo. **No existe tabla de alertas**: una medicion esta en alerta cuando
+/// cruza el umbral en el sentido malo, y eso se CALCULA al leer (invariante 1). Lo que si
+/// se persiste es la reaccion — la asignacion que se abrio.
+///
+/// La serie no tiene fin de año: no hay una hoja nueva cada enero. Una fila por periodo es
+/// lo que permite decir «tercer mes consecutivo por encima», que es la alerta de verdad; el
+/// dato suelto no lo es.
+model MedicionMetrica {
+  id              Int      @id @default(autoincrement())
+  metricaId       Int      @map("metrica_id")
+  /// La misma etiqueta legible del modulo A: `2026-T3`, `2026-09`.
+  periodo         String
+  valor           Decimal  @db.Decimal(12, 2)
+  registradoPorId Int?     @map("registrado_por_id")
+  fecha           DateTime @default(now())
+  /// La tarea que abrio la alerta de esta medicion, si se abrio. Es una `Asignacion` del
+  /// modulo A y no una entidad propia: la reaccion a una alerta es trabajo de alguien, y el
+  /// motor de tareas ya sabe repartir, avisar y cerrar trabajo.
+  asignacionId    Int?     @map("asignacion_id")
+
+  metrica       Metrica     @relation(fields: [metricaId], references: [id])
+  registradoPor Persona?    @relation("MedicionRegistradaPor", fields: [registradoPorId], references: [id])
+  asignacion    Asignacion? @relation("MedicionAsignacion", fields: [asignacionId], references: [id])
+
+  /// Un periodo no se puede registrar dos veces.
+  @@unique([metricaId, periodo])
+  @@map("medicion_metrica")
 }

@@ -59,13 +59,25 @@ export async function generarAsignacionesComo(
         fechaInicio: true,
         plazoDias: true,
         activa: true,
+        // R12 · sin esto toda obligacion se leeria como anclada y una flotante nunca
+        // generaria su segundo ciclo.
+        anclaje: true,
       },
     }),
     prisma.persona.findMany({
       select: { id: true, activa: true, areaId: true, cargoId: true },
     }),
     prisma.asignacion.findMany({
-      select: { obligacionId: true, personaId: true, periodo: true, activoId: true },
+      // `fechaApertura` y `fechaCierre` las usa SOLO el anclaje flotante, que necesita
+      // saber cual fue el ultimo ciclo y si se cerro. El anclado las ignora.
+      select: {
+        obligacionId: true,
+        personaId: true,
+        periodo: true,
+        activoId: true,
+        fechaApertura: true,
+        fechaCierre: true,
+      },
     }),
     // Los activos, para los alcances por activo y por tipo (D3). El propietario es un
     // CARGO, no una persona.

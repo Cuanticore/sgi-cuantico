@@ -19,7 +19,7 @@
 // entre el 248.
 
 import type { AlcanceObligacion, Periodicidad } from '@prisma/client';
-import { periodosHasta } from './periodos';
+import { periodosHasta, type PeriodoGenerable } from './periodos';
 
 export interface ObligacionGenerable {
   id: number;
@@ -40,7 +40,12 @@ export interface ObligacionGenerable {
   fechaInicio: Date;
   plazoDias: number;
   activa: boolean;
+  /// R12. Ausente se lee como `ANCLADA`, que es lo que el generador hacía antes de que la
+  /// regla existiera: agregar el campo no cambia la conducta de nada que ya estuviera.
+  anclaje?: Anclaje;
 }
+
+export type Anclaje = 'ANCLADA' | 'FLOTANTE';
 
 export interface PersonaGenerable {
   id: number;
@@ -66,6 +71,10 @@ export interface AsignacionExistente {
   personaId: number;
   periodo: string;
   activoId: number | null;
+  /// R12 · sólo lo mira el anclaje flotante, que necesita saber si el ciclo previo se
+  /// cerró y cuándo. El anclaje anclado no los usa: su calendario no depende de nadie.
+  fechaApertura?: Date;
+  fechaCierre?: Date | null;
 }
 
 export interface AsignacionACrear {
@@ -191,6 +200,61 @@ function resolverAlcance(
   }
 }
 
+/// R12 · el anclaje FLOTANTE. **El siguiente periodo nace al cerrarse el previo**, a
+/// `plazoDias` de esa fecha de cierre.
+///
+/// Devuelve como mucho UN periodo, y a menudo ninguno. Las tres situaciones:
+///
+/// - **Sin ciclo previo** → nace el primero, en `fechaInicio`. Es el arranque.
+/// - **El último ciclo está cerrado** → nace el siguiente, abriendo el día del cierre.
+/// - **El último ciclo sigue abierto** → **no nace nada.** Ésta es la consecuencia que la
+///   pantalla tiene que advertir al elegir el anclaje: una obligación flotante que nadie
+///   cierra DEJA DE GENERAR, y su primera asignación vencida es el único aviso que habrá.
+///   No es un defecto de esta función: es lo que «flotante» significa, y esconderlo
+///   generando igual convertiría el flotante en un anclado con otro nombre.
+///
+/// La etiqueta del periodo es la fecha ISO de apertura y no la del calendario —`2026-T3`—
+/// porque un ciclo flotante no cae en un trimestre: cae donde lo dejó el cierre anterior.
+/// Dos ciclos podrían caer en el mismo trimestre, y la etiqueta del calendario los
+/// colapsaría contra la unique de idempotencia.
+function periodoFlotante(
+  obligacion: ObligacionGenerable,
+  destino: Destinatario,
+  existentes: readonly AsignacionExistente[],
+): PeriodoGenerable[] {
+  const mias = existentes.filter(
+    (e) =>
+      e.obligacionId === obligacion.id &&
+      e.personaId === destino.personaId &&
+      (e.activoId ?? null) === destino.activoId,
+  );
+
+  if (mias.length === 0) {
+    const apertura = obligacion.fechaInicio;
+    return [{ etiqueta: iso(apertura), apertura, fechaLimite: sumarDias(apertura, obligacion.plazoDias) }];
+  }
+
+  // La última por apertura. Sin `fechaApertura` no se puede ordenar, y adivinar el orden
+  // sería peor que no generar: se prefiere no generar y que el vencimiento avise.
+  const ordenadas = [...mias].sort(
+    (a, b) => (a.fechaApertura?.getTime() ?? 0) - (b.fechaApertura?.getTime() ?? 0),
+  );
+  const ultima = ordenadas[ordenadas.length - 1];
+  const cierre = ultima.fechaCierre ?? null;
+  if (cierre === null) return [];
+
+  const apertura = cierre;
+  return [{ etiqueta: iso(apertura), apertura, fechaLimite: sumarDias(apertura, obligacion.plazoDias) }];
+}
+
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+function sumarDias(fecha: Date, dias: number): Date {
+  const r = new Date(fecha);
+  r.setUTCDate(r.getUTCDate() + dias);
+  return r;
+}
+
 export function planificarGeneracion(
   obligaciones: readonly ObligacionGenerable[],
   personas: readonly PersonaGenerable[],
@@ -217,8 +281,16 @@ export function planificarGeneracion(
     }
     if (destinatarios.length === 0) continue;
 
-    const periodos = periodosHasta(obligacion, hoy, horizonteDias);
+    // R12 · el anclaje decide de dónde salen los periodos. El flotante los calcula POR
+    // DESTINATARIO —cada uno lleva su propio ciclo— así que no se pueden calcular una vez
+    // afuera como los anclados.
+    const anclados = (obligacion.anclaje ?? 'ANCLADA') === 'ANCLADA';
+    const periodosAnclados = anclados ? periodosHasta(obligacion, hoy, horizonteDias) : [];
+
     for (const destino of destinatarios) {
+      const periodos = anclados
+        ? periodosAnclados
+        : periodoFlotante(obligacion, destino, existentes);
       for (const periodo of periodos) {
         const clave = `${obligacion.id}|${destino.personaId}|${periodo.etiqueta}|${destino.activoId ?? 'x'}`;
         if (yaExiste.has(clave)) continue;
