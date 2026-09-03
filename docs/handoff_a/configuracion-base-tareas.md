@@ -6,35 +6,49 @@
 
 ---
 
-## 1. Responsables por proceso · confirmación
+## 1. Responsables por proceso · confirmado el 02/09/2026
 
-Contrasté tu instrucción contra el programa de auditoría 2026. **Coincide en siete de los nueve procesos.** Los dos que no coinciden son cambios reales, no errores míos ni tuyos: hay que saber que se están cambiando.
+**Actualizado contra el mapa de procesos de MAN-SIG-02**, que es la fuente, y contra el programa de auditoría `FOR-CAL-04` 2026.
 
-| Proceso | Prefijo | Responsable · tu instrucción | `FOR-CAL-04` 2026 | Estado |
-|---|---|---|---|---|
-| Gestión Estratégica | `EST` | Daniel Medina | Daniel Medina | ✅ Coincide |
-| Gestión Comercial | `COM` | Lina Medina | Daniel Medina · Lina Medina | ⚠️ Se acota a Lina |
-| Gestión de Proyectos | `PRY` | Laura Agudelo | Laura Agudelo | ✅ Coincide |
-| Soporte y Servicio al Cliente | `SAC` | Yuliet Rojas | Yuliet Rojas | ✅ Coincide |
-| Talento Humano | `TAL` | **Albeiro Medina** | Lina Medina | 🔄 **Cambia de responsable** |
-| Gestión Legal y Compras | `LEG` | Marcela Molina | Marcela Molina | ✅ Coincide |
-| Gestión Tecnológica | `TEC` | Yuliet Rojas | Yuliet Rojas | ✅ Coincide |
-| Sistema Integrado de Gestión | `SIG` | Katherine Quiroga | Laura Agudelo · Katherine Quiroga | ⚠️ Se acota a Katherine · **ver §1.2** |
-| Gestión Financiera | `FIN` | **Albeiro Medina** | Lina Medina | 🔄 **Cambia de responsable** |
+**El dueño de un proceso es un cargo, no una persona** (ver [proceso-entidad.md](../handoff_sig/proceso-entidad.md)). La persona sale de quién ocupa el cargo hoy.
 
-### 1.1 Los dos cambios
+| Proceso | Código | Tipo | Cargo responsable | Quien lo ocupa | vs. `FOR-CAL-04` |
+|---|---|---|---|---|---|
+| Gestión Estratégica | `EST` | Estratégico | Gerencia General | Daniel Medina | ✅ Coincide |
+| Gestión Comercial | `COM` | Misional | Gerencia Comercial | Lina Medina | ⚠️ Se acota a Lina |
+| Gestión de Proyectos | `PRO` | Misional | Gerencia de Operaciones | Yuliet Rojas | 🔄 **Cambia** · estaba Laura Agudelo |
+| Soporte y Servicio al Cliente | `SAC` | Misional | Gerencia de Operaciones | Yuliet Rojas | ✅ Coincide |
+| Talento Humano | `TAL` | Apoyo | Líder Administrativo | Albeiro Medina | 🔄 **Cambia** · estaba Lina Medina |
+| Gestión Legal y de Compras | `LCO` | Apoyo | Chief Legal Officer | Marcela Molina | ✅ Coincide |
+| Gestión Tecnológica | `TEC` | Apoyo | Gerencia de Operaciones | Yuliet Rojas | ✅ Coincide |
+| Sistema Integrado de Gestión | `SIG` | Apoyo | Líder del SIG | Katherine Quiroga | ⚠️ Se acota a Katherine |
+| Gestión Financiera | `FIN` | Apoyo | Líder Administrativo | Albeiro Medina | 🔄 **Cambia** · estaba Lina Medina |
 
-**Talento Humano y Gestión Financiera pasan de Lina Medina a Albeiro Medina.** Es coherente con lo que muestra el repositorio: la aprobación del `PRG-TAL-01 Programa de Gestión del Riesgo Psicosocial`, del 10/08/2026, está firmada por Albeiro, y su inducción está registrada el 26/02/2026. Con este cambio Lina queda solo con Comercial, y Albeiro asume los dos procesos de apoyo.
+### 1.1 Los tres cambios frente al programa de auditoría
 
-**Consecuencia práctica:** `FOR-CAL-04` queda desactualizado en tres filas. Conviene corregirlo antes de la próxima auditoría, o el auditor encontrará que el programa nombra a una persona y el sistema a otra. Eso no lo arregla el software.
+**Talento Humano y Gestión Financiera pasan de Lina Medina a Albeiro Medina.** Coherente con el repositorio: la aprobación del `PRG-TAL-01 Programa de Gestión del Riesgo Psicosocial`, del 10/08/2026, está firmada por Albeiro.
 
-### 1.2 El único dato que necesito que confirmes
+**Gestión de Proyectos pasa de Laura Agudelo a la Gerencia de Operaciones.** El mapa asigna el proceso a la gerencia, no a la Dirección de Consultoría, que es el cargo de Laura.
 
-Escribiste **«Katherine: SIC»**. Lo estoy leyendo como **Sistema Integrado de Gestión (`SIG`)**, por descarte: es el único proceso que queda sin responsable, y `FOR-CAL-04` ya nombra a Katherine Quiroga en Gestión de Calidad. Pero «SIC» también podría leerse como Soporte y Servicio al Cliente, que en la codificación del SIG es `SAC` y que en tu instrucción ya quedó con Yuliet.
-
-**Si «SIC» era otra cosa, dilo antes de cargar.** Es un valor de configuración: corregirlo después implica reasignar las asignaciones ya generadas de ese proceso.
+**Consecuencia práctica:** `FOR-CAL-04` queda desactualizado en cuatro filas. Conviene corregirlo antes de la próxima auditoría, o el auditor encontrará que el programa nombra a una persona y el sistema a otra. Eso no lo arregla el software.
 
 Nota menor: en `FOR-CAL-04` el nombre está escrito «Katherine Quirogaa», con una `a` de más. En la carga va **Katherine Quiroga**.
+
+> **El mismo cargo escrito de varias formas es ahora un defecto que importa.** Antes el dueño era una persona y el nombre del cargo era descriptivo; con el dueño convertido en cargo, `CargoResponsable` es una llave. Y en las fuentes hay al menos tres casos de un cargo con dos o tres nombres: Lina Medina figura como **«Gerente Comercial»** en el mapa y como **«Director de Ventas · National Sales Manager»** en la relación de personal; Yuliet Rojas como **«Gerencia de Operaciones»**, **«Gerente de Operaciones · Chief Operating Officer»** y **«Operations & Services Manager»**.
+>
+> Si se cargan como cargos distintos, un proceso queda apuntando a un cargo que nadie ocupa. **Hay que unificar el catálogo de cargos antes de cargar los procesos**, y es el mismo problema que «Prestación de Servicios» escrito de tres formas en la relación de personal.
+
+### 1.2 Un cargo con tres procesos, y lo que eso concentra
+
+**Gerencia de Operaciones responde por `PRO`, `SAC` y `TEC`.** Sumando las obligaciones estimadas de los tres, es alrededor de **la mitad de la carga de todo el sistema** en un solo cargo, y `TEC` por sí solo es el proceso con más obligaciones porque soporta el SGSI entero.
+
+Eso no es un problema del software y el modelo lo soporta sin nada especial. Pero conviene que quede dicho antes de generar las primeras asignaciones: si esa concentración no es sostenible, el momento de repartirla es **antes** de la carga, no después.
+
+### 1.3 Los códigos de proceso reusan los prefijos que ya existen
+
+No se inventa una tercera convención. Los prefijos de tres letras ya están en uso en los códigos de documento y de activo del SIG: `MAT-EST-01`, `FOR-CAL-04`, `PRO-PRO-01`, `FOR-TEC-04`, `FOR-TAL-01`, `FOR-FIN-03`, `FOR-LCO-05`, `FOR-SIG-12`.
+
+De los nueve, **`COM` y `SAC` son los únicos que no pude verificar contra un código de documento real.** Si el SIG ya usa otros para esos dos, mandan los del SIG.
 
 ---
 
@@ -42,21 +56,24 @@ Nota menor: en `FOR-CAL-04` el nombre está escrito «Katherine Quirogaa», con 
 
 Estas siete personas son las que la configuración base necesita nombradas, porque responden por un proceso. El resto de la organización —unas 34 cuentas— entra sola por la sincronización con el Directorio.
 
-| Persona | Área | Rol en el SIG |
-|---|---|---|
-| Daniel Medina | Gestión Estratégica | Responsables SIG |
-| Laura Agudelo | Gestión de Proyectos | Responsables SIG |
-| Katherine Quiroga | Sistema Integrado de Gestión | Responsables SIG |
-| Lina Medina | Gestión Comercial | SIG-Propietarios |
-| Albeiro Medina | Talento Humano ⚠️ *(responde también por Gestión Financiera)* | SIG-Propietarios |
-| Marcela Molina | Gestión Legal y Compras | SIG-Propietarios |
-| Yuliet Rojas | Soporte y Servicio al Cliente ⚠️ *(responde también por Gestión Tecnológica)* | SIG-Propietarios |
+| Persona | Cargo | Área | Procesos que responde |
+|---|---|---|---|
+| Daniel Medina | Gerencia General | por confirmar | `EST` |
+| Lina Medina | Gerencia Comercial | por confirmar | `COM` |
+| Yuliet Rojas | Gerencia de Operaciones | **Operaciones** | `PRO` · `SAC` · `TEC` |
+| Albeiro Medina | Líder Administrativo | **Finanzas** | `TAL` · `FIN` |
+| Marcela Molina | Chief Legal Officer | por confirmar | `LCO` |
+| Katherine Quiroga | Líder del SIG | por confirmar | `SIG` |
+
+Seis personas para nueve procesos. **Laura Agudelo sale de esta tabla**: el mapa asigna Gestión de Proyectos a la Gerencia de Operaciones, no a la Dirección de Consultoría.
+
+Con el modelo de dos roles vigente desde el 01/09/2026, las seis van en **`SIG-Seguridad`** («Líderes SIG»); los grupos `Responsables SIG` y `SIG-Propietarios` que nombraba la versión anterior de esta tabla ya no existen.
 
 **No hay columna de correo en esta tabla, a propósito.** El correo lo pone el Directorio: es la decisión de §3.1 de la especificación —AD manda sobre nombre, correo y existencia; el SIG manda sobre área y cargo—. Inventar aquí un correo que después no coincida con el UPN real crearía personas duplicadas, que es justo lo que el `oid` de Azure existe para evitar.
 
-**Dos personas responden por dos procesos.** El modelo lo soporta sin nada especial: `Persona.areaId` es **una** área —la de pertenencia— mientras que responder por un proceso es ser `responsableSeguimiento` de las obligaciones de ese proceso, que es una relación distinta y admite varias.
+**Dos cargos responden por varios procesos**, y uno por tres. El modelo lo soporta sin nada especial: el área de pertenencia de la persona es **una**, mientras que responder por un proceso es la relación `Proceso.cargoId`, que es distinta y admite varias.
 
-Pero el área de pertenencia **no es decorativa**: es la que acota el resumen mensual y la que usa el filtro «mi área». Las dos marcadas con ⚠️ las elegí yo por descarte y **hay que confirmarlas**: si Albeiro pertenece a Gestión Financiera y no a Talento Humano, su resumen mensual cambia de contenido. Lo mismo con Yuliet entre Soporte y Tecnológica.
+El área de pertenencia **no es decorativa**: es la que acota el resumen mensual y la que usa el filtro «mi área». Dos están confirmadas por D11 —Yuliet en Operaciones, Albeiro en Finanzas— y **las otras cuatro faltan**. Nótese que el área de la persona no tiene por qué coincidir con el área del proceso que lidera: Yuliet está en Operaciones y responde por Gestión Tecnológica.
 
 ---
 
@@ -94,15 +111,18 @@ El orden importa: cada paso depende del anterior.
 - **Correos.** Los pone el Directorio (§2).
 - **Roles.** Los dan los grupos de AD; la aplicación no guarda roles propios.
 - **El inventario de obligaciones completo.** Este documento configura *quién responde*; *qué obligaciones existen* sale del levantamiento por procedimiento, que es trabajo del líder del SIG con cada líder de proceso. La aplicación no puede inventarlo.
-- **Personas sin cuenta en el tenant.** Contratistas y proveedores quedan fuera del alcance del módulo A.
+
+> **Corregido el 02/09/2026.** Este apartado decía que «contratistas y proveedores quedan fuera del alcance del módulo A». **Ya no es cierto y era el supuesto más equivocado de este documento:** de las 38 personas activas, **32 son contratistas**, y PRO-TAL-04 les exige capacitación. Todo colaborador activo tiene cuenta del Directorio y entra al motor de tareas. Ver [REQ-SIG-09](../superpowers/specs/2026-09-02-sig-gestion-colaboradores-design.md).
 
 ---
 
 ## 6. Pendiente antes de cargar
 
-1. **Confirmar «SIC»** (§1.2). Es el único valor que no pude resolver contra un documento.
-2. **Confirmar el área de pertenencia** de Albeiro Medina y de Yuliet Rojas (§2). Decide qué ven en el resumen mensual.
-3. **Corregir `FOR-CAL-04`** en las filas que quedan desactualizadas: Talento Humano, Gestión Financiera y —si se acotan— Gestión Comercial y Gestión de Calidad.
-4. Decidir si Laura Agudelo conserva corresponsabilidad sobre el Sistema Integrado de Gestión junto a Katherine, o si sale del todo. La tabla del §1 asume que sale.
+1. **Unificar el catálogo de cargos** antes de cargar los procesos (§1.1). Es lo que más riesgo tiene: con el dueño convertido en cargo, un cargo duplicado deja un proceso apuntando a alguien que no existe.
+2. **Confirmar el área de pertenencia** de Daniel Medina, Lina Medina, Marcela Molina y Katherine Quiroga (§2). Decide qué ven en el resumen mensual.
+3. **Confirmar los códigos `COM` y `SAC`** (§1.3), que son los dos que no pude verificar contra un código de documento real.
+4. **Corregir `FOR-CAL-04`** en las cuatro filas desactualizadas: Talento Humano, Gestión Financiera, Gestión de Proyectos y —si se acotan— Gestión Comercial y Gestión de Calidad.
+5. **Revisar la concentración en Gerencia de Operaciones** (§1.2), que responde por tres de los nueve procesos. Si hay que repartirla, el momento es antes de generar asignaciones.
+6. Decidir si Laura Agudelo conserva corresponsabilidad sobre el Sistema Integrado de Gestión junto a Katherine, o si sale del todo. La tabla del §1 asume que sale.
 
 Nada de esto bloquea el desarrollo: son valores de configuración, no de diseño. Pero conviene resolverlos **antes** de generar asignaciones, porque cambiar un responsable después obliga a reasignar lo ya generado.

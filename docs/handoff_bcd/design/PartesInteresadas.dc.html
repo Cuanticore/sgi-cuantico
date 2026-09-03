@@ -95,6 +95,29 @@
           <span class="campo">{{ficha.riesgo}}</span>
         </span>
 
+        <sc-if value="{{ficha.tieneOrganizaciones}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="display: flex; align-items: center; gap: 9px">
+              <span class="etq" style="color: #12437f">Organizaciones · las mismas del inventario de activos</span>
+              <span style="height: 1px; flex: 1; background: #eceeed"></span>
+              <span class="mono" style="font-size: 9px; color: #a3aca7">{{ficha.conteoOrganizaciones}}</span>
+            </span>
+            <sc-for list="{{ficha.organizaciones}}" as="o" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 13px; background: {{o.fondo}}; border: 1px solid {{o.borde}}; border-radius: 8px">
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                  <span style="font-size: 12px; font-weight: 500; color: #1a211e">{{o.nombre}}</span>
+                  <span class="mono" style="font-size: 9px; color: #8a938e">soporta {{o.activos}}</span>
+                </span>
+                <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+                  <span class="mono" style="font-size: 10px; font-weight: 600; color: {{o.color}}">{{o.evaluacion}}</span>
+                  <span class="mono" style="font-size: 9px; color: #a3aca7">{{o.proxima}}</span>
+                </span>
+              </div>
+            </sc-for>
+            <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Antes, el proveedor de nube existía dos veces sin relación: como <strong style="font-weight: 600; color: #6b7570">parte interesada</strong> acá y como <strong style="font-weight: 600; color: #6b7570">proveedor</strong> en el inventario. Ahora es una sola organización, y por eso la reevaluación anual que exige POL-TEC-02 puede colgarse de ella y saber a cuántos activos afecta.</span>
+          </div>
+        </sc-if>
+
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
           <sc-for list="{{ficha.flags}}" as="f" hint-placeholder-count="3">
             <span style="display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; background: {{f.bg}}; border: 1px solid {{f.borde}}; border-radius: 10px">
@@ -204,6 +227,15 @@ const PARTES = [
     necesidad: 'Reglas claras de contratación, evaluación y pago.',
     riesgo: 'Contratación de proveedores sin evaluación previa.',
     sgsi: true, clima: false, alcance: false,
+    // D4 del 02/09/2026: la parte interesada y el proveedor del inventario son la
+    // misma organización. `activos` sale del inventario; `evaluacion` de la
+    // reevaluación anual que exige POL-TEC-02.
+    organizaciones: [
+      { nombre: 'Proveedor de servicios en la nube', activos: '23 activos', evaluacion: '10/04/2026', proxima: 'próxima 10/04/2027', ok: true },
+      { nombre: 'Microsoft 365', activos: '12 activos', evaluacion: '22/02/2026', proxima: 'próxima 22/02/2027', ok: true },
+      { nombre: 'Coolify · orquestador', activos: '4 activos', evaluacion: 'Sin evaluación', proxima: 'nunca evaluado', ok: false },
+      { nombre: 'Proveedor contable', activos: 'ningún activo', evaluacion: '15/01/2026', proxima: 'próxima 15/01/2027', ok: true },
+    ],
     seg: {
       2025: { plan: 'Aplicar el procedimiento de selección al 100 % de las contrataciones.', seguimiento: 'Procedimiento aplicado parcialmente.', evidencia: 'FOR-LCO-02 diligenciados' },
       2026: { plan: 'Evaluación y reevaluación semestral de proveedores críticos.', seguimiento: 'Primer semestre ejecutado.', evidencia: 'FOR-LCO-04 · 1S 2026' },
@@ -234,7 +266,7 @@ const PARTES = [
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { filtro: 'todas', sel: 'reg', anio: 2026 };
+    this.state = { filtro: 'todas', sel: 'pro', anio: 2026 };
   }
 
   renderVals() {
@@ -293,6 +325,14 @@ class Component extends DCLogic {
         responsable: f.responsable,
         necesidad: f.necesidad,
         riesgo: f.riesgo,
+        tieneOrganizaciones: Boolean(f.organizaciones),
+        conteoOrganizaciones: (f.organizaciones || []).length + ' organizaciones',
+        organizaciones: (f.organizaciones || []).map((o) => ({
+          ...o,
+          color: o.ok ? '#0b5c44' : '#a52016',
+          fondo: o.ok ? '#ffffff' : '#fffbfa',
+          borde: o.ok ? '#e2e6e3' : '#f2cdc6',
+        })),
         flags: [
           { etiqueta: 'Requisitos al SGSI', valor: f.sgsi ? 'Sí' : 'No', bg: f.sgsi ? '#e9f0fb' : '#fbfcfb', borde: f.sgsi ? '#d3dceb' : '#e2e6e3', fg: f.sgsi ? '#12437f' : '#8a938e' },
           { etiqueta: 'Cambio climático', valor: f.clima ? 'Sí' : 'No', bg: f.clima ? '#e8f4ef' : '#fbfcfb', borde: f.clima ? '#c9e3d8' : '#e2e6e3', fg: f.clima ? '#0b5c44' : '#8a938e' },

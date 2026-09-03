@@ -2,12 +2,13 @@
 
 **Fecha:** 2026-08-31
 **Código:** REQ-SIG-02
-**Versión:** 1.0
+**Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** A — Personas e identidad + Motor de tareas del SIG
-**Superficies:** «Mi SIG» (bandeja personal) · «Operación» (control operacional, ISO 9001/27001 numeral 8)
+**Superficies:** «Mi SIG» (bandeja personal) · «Actividades» (control operacional, ISO 9001/27001 numeral 8)
 **Origen:** pedido del líder del SIG del 31/08/2026
 **Antecedentes:** `docs/handoff_v2/requisitos/REQ-SIG-01-requerimiento.txt` · `2026-08-24-sgsi-handoff-v2-design.md`
-**Estado:** Aprobado, sin implementar
+**Estado:** **Implementado.** Planes A1 a A4 ejecutados
+**Reconciliación:** el modelo de roles cambió al construir. Ver §6.
 
 ---
 
@@ -54,7 +55,7 @@ Verificado contra el repositorio documental del SIG: existe el formato `FOR-CAL-
 - **Programa de obligaciones**: qué contenido, a quién, cada cuánto y con qué plazo.
 - Generación automática de **asignaciones** y su ciclo de vida completo, vencimiento incluido.
 - **Registro de realizado** diferenciado por tipo, con anexos.
-- Pantalla **Mi SIG** y pantallas de **Operación**: obligaciones, calendario, tareas, contenidos y personas.
+- Pantalla **Mi SIG** y pantallas de **Actividades**: obligaciones, calendario, tareas, contenidos y personas.
 - Notificaciones por correo, bitácora e indicadores de cumplimiento.
 - Reasignación de pendientes cuando una persona se desvincula.
 
@@ -121,6 +122,7 @@ Bloques condicionales por tipo, siguiendo el precedente de `AccionPlan`:
 | `alcance` | `enum AlcanceObligacion` | `PERSONA` · `CARGO` · `AREA` · `TODOS` |
 | `alcancePersonaId` / `alcanceCargoId` / `alcanceAreaId` | `Int?` | Exactamente uno según el alcance; ninguno cuando es `TODOS`, que significa todas las personas activas. |
 | `periodicidad` | `enum Periodicidad` | `UNICA` · `DIARIA` · `SEMANAL` · `MENSUAL` · `TRIMESTRAL` · `SEMESTRAL` · `ANUAL` |
+| `anclaje` | `enum Anclaje @default(ANCLADA)` | `ANCLADA` · `FLOTANTE`. Ver la regla R12. |
 | `fechaInicio` | `Date` | Primer periodo. |
 | `plazoDias` | `Int` | Días desde la apertura del periodo hasta la fecha límite. |
 | `diasAviso` | `Int` | Anticipación del aviso por correo. |
@@ -174,7 +176,9 @@ Inmutable una vez creado. Corregir es reabrir, y la reapertura conserva el regis
 
 ## 4. Pantallas
 
-El header de 58 px pasa de dos pestañas a cinco: **Mi SIG · Indicadores · Estratégico · SGSI · Operación** (`app/components/sgsi/EncabezadoSig.tsx`). «Estratégico» la aporta el módulo D. Un Colaborador solo ve la primera; las demás no se renderizan.
+El header de 58 px pasa de dos pestañas a cinco: **Mi SIG · Indicadores · Estratégico · SGSI · Actividades** (`app/components/sgsi/EncabezadoSig.tsx`). «Estratégico» la aporta el módulo D. Un Colaborador solo ve la primera; las demás no se renderizan.
+
+> **Nombre de la pestaña — cambio del 02/09/2026.** Lo que las versiones anteriores de esta spec llamaban «Operación» se llama **Actividades**. El motivo es que «operación» ya está tomada dos veces: es el numeral 8 de las normas y es el nombre del módulo del SGSI que agrupa eventos, verificaciones y solicitudes. Tres cosas distintas con el mismo nombre en la misma barra de navegación no se pueden distinguir al hablar. **El cambio es de nombre visible, no de vocabulario interno:** las claves de permiso siguen siendo `operacion:*` y las rutas siguen siendo `/sig/...`. Renombrar las claves obligaría a tocar todos los archivos de acciones sin ganar nada funcional, y el riesgo de dejar una clave a medio renombrar es un permiso que no concede nada.
 
 ### 4.1 Mi SIG (`/mi-sig`)
 
@@ -193,7 +197,7 @@ El cierre abre un panel lateral distinto según el tipo:
 
 Un botón exporta el **histórico personal**: todas mis asignaciones con sus registros, que es lo que a una persona le piden en una auditoría.
 
-### 4.2 Operación
+### 4.2 Actividades
 
 Barra lateral de cinco entradas, con el patrón colapsable existente (`OBL`, `CAL`, `TAR`, `CON`, `PER`).
 
@@ -224,6 +228,7 @@ Se mantiene el cross-filtrado tipo Power BI del paso 39: toda tarjeta con dato n
 | **R9** | **Desvinculación no cierra nada.** Al inactivar a una persona, sus asignaciones abiertas van a un panel de reasignación. No se cierran solas ni se borran. |
 | **R10** | **Editar un contenido publicado sube su versión,** y los registros ya cerrados conservan la versión que se realizó. Sin esto, un acuse de lectura no es verificable. |
 | **R11** | **Desactivar una obligación** deja de generar periodos nuevos y no toca los ya generados. |
+| **R12** | **La obligación declara su anclaje.** `ANCLADA` —el valor por defecto— genera los periodos contra el calendario: el trimestre siguiente nace se haya cerrado el anterior o no, y una verificación vencida nunca desplaza a la que viene. `FLOTANTE` genera la siguiente **al cerrarse la previa**, a `plazoDias` de esa fecha. Una revisión trimestral de accesos es anclada, porque el trimestre existe aunque nadie mire; la verificación de un proveedor que se corrió tarde tiene sentido flotante, porque lo que importa es el intervalo entre revisiones. **Una obligación flotante que nadie cierra deja de generar**, y por eso su primera asignación vencida es el único aviso que habrá: la pantalla lo advierte al elegir el anclaje. |
 
 ---
 
@@ -231,20 +236,40 @@ Se mantiene el cross-filtrado tipo Power BI del paso 39: toda tarjeta con dato n
 
 Permisos nuevos: `misig:ver` (siempre sobre lo propio), `operacion:ver`, `operacion:escribir`, `operacion:administrar`.
 
-| Rol · grupo de AD | Mi SIG | Operación | Personas | Cierre administrativo |
+> **Reconciliado el 01/09/2026.** La versión 1.0 de esta especificación definía **cuatro** roles. El sistema tiene **dos**. Lo que sigue es el modelo real; abajo está por qué cambió.
+
+| Rol · grupo de AD | Mi SIG | Actividades | Personas | Cierre administrativo |
 |---|---|---|---|---|
-| **Colaborador** — toda cuenta autenticada del tenant | sus asignaciones | — | — | — |
-| **Responsables SIG** → SIG-Seguridad | las suyas | lectura y escritura total | administra y sincroniza | **sí**, con motivo |
-| **SIG-Propietarios** | las suyas | lectura acotada a su área | — | no |
-| **SIG-Auditoría** | las suyas | lectura total y bitácora | lectura | no |
+| **Colaborador** — toda cuenta autenticada, sin pertenecer a ningún grupo | sus asignaciones | — | — | — |
+| **`Líderes SIG`** → `SIG-Seguridad` | las suyas | lectura y escritura total | administra y sincroniza | **sí**, con motivo |
 
-### 6.1 Retiro de `SGI_ACCESO_SIN_GRUPO`
+### 6.0 Por qué de cuatro roles a dos
 
-El interruptor existía porque sin grupo reconocido no se entraba a ninguna parte. Con Colaborador como piso deja de tener razón de ser, y se retira junto con su alias `SGI_ROL_POR_DEFECTO`, actualizando `.env.example` y el comentario de cabecera de `lib/sgsi/permisos.ts`.
+`SIG-Propietarios` y `SIG-Auditoría` se retiraron el 01/09/2026, por decisión del líder del SIG, y el argumento del código es mejor que el de esta especificación: **nunca llegaron a existir en el Directorio**, y un permiso que nadie tiene no protege nada — solo reparte la regla en más lugares donde puede quedar mal escrita.
 
-### 6.2 Limitación que este módulo habilita cerrar
+Quedan dos casos de acceso y ninguno más: **Mi SIG para toda la organización, todo lo demás para `Líderes SIG`**.
 
-`lib/sgsi/permisos.ts:65-71` documenta que los permisos de propietario son de toda la organización porque no existe mapa entre una identidad de AD y un área. `Persona.areaId` es ese mapa. Acotar con él los permisos del SGSI queda habilitado y **fuera de esta especificación**.
+Tres cosas que conviene que consten, porque no son obvias:
+
+1. **El vocabulario de permisos se conservó entero.** Cada pantalla sigue pidiendo el permiso que le corresponde —`operacion:escribir`, `mejora:cerrar`, `auditoria:ejecutar`— en vez de preguntar por un grupo. Reabrir mañana el escalón de propietario es agregar una entrada en `POR_GRUPO`, no recorrer las pantallas otra vez. Es la razón por la que este cambio no fue caro.
+2. **Colaborador no es un grupo:** es lo que queda cuando no hay ninguno, y por eso `Rol.grupos` viene vacío. No hay que darlo de alta ni mantenerlo.
+3. **`Líderes SIG` es un grupo de seguridad**, creado el 01/09/2026 para reemplazar a uno de Microsoft 365 que también se retiró de la tabla de alias. La razón está bien puesta en el código: un grupo al que se agrega gente para un chat es un grupo que nadie revisa antes de entregar el inventario de activos.
+
+**Consecuencia para las otras tres especificaciones:** sus tablas de roles heredaban estos cuatro. B, D y C quedan reconciliadas en el mismo sentido.
+
+### 6.1 Retiro de `SGI_ACCESO_SIN_GRUPO` y llegada de `SGI_ROL_DEV`
+
+El interruptor existía porque sin grupo reconocido no se entraba a ninguna parte, y su efecto era darle a cualquiera que iniciara sesión el inventario de activos, el registro de riesgos, las banderas de la Ley 1581 y la parametrización del método. **Se retiró**, junto con su alias `SGI_ROL_POR_DEFECTO`. Si quedó puesto en un `.env` viejo, no hace nada.
+
+En su lugar apareció **`SGI_ROL_DEV`**, que esta especificación no había previsto y que resuelve el mismo problema real —recorrer los roles en local— con tres salvaguardas que la variable retirada no tenía:
+
+- **`NODE_ENV === 'production'` la ignora por completo.** Ponerla en el servidor de producción no hace nada: no se puede encender solo con configuración.
+- **Un grupo real del token siempre gana.** El override únicamente llena el hueco de una sesión sin grupo, así que nunca puede subir ni bajar un rol auténtico.
+- **El rol que produce queda marcado `origen: 'simulado'`**, y toda pantalla que muestre el rol dice que no vino del Directorio. Un rol falso que se ve real es exactamente cómo una herramienta de prueba deja de serlo.
+
+### 6.2 La limitación que ya no aplica
+
+La versión 1.0 anotaba que los permisos de propietario eran de toda la organización por no existir mapa entre una identidad de AD y un área, y que `Persona.areaId` lo habilitaría. **Con el rol de propietario retirado, la limitación desapareció con él.** El mapa existe y se usa —el resumen mensual se acota por área—, pero ya no hay un rol intermedio al que acotarle permisos.
 
 ---
 
@@ -287,7 +312,7 @@ Por SMTP, reusando `lib/sgsi/notificaciones.ts`. Sin SMTP configurado la funció
 - Cobertura de capacitación vigente: personas al día sobre personas alcanzadas.
 - Cierres administrativos, como contador separado.
 
-Alimentan la pantalla de Operación y la tarjeta del SIG en el tablero de Indicadores.
+Alimentan la pantalla de Actividades y la tarjeta del SIG en el tablero de Indicadores.
 
 ---
 

@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 13px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Verificación · 73 ítems</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 106ch; line-height: 1.55">La guía PTR-TEC-03 aplicada a un sistema. <strong style="font-weight: 600; color: #4a544f">No es un motor nuevo</strong>: es un contenido de tipo verificación del módulo A, y cada ejecución es una asignación.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Sistema</span>
+      <span style="display: flex; align-items: center; gap: 10px; padding: 8px 13px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 6px">
+        <span class="mono" style="font-size: 10.5px; font-weight: 600; color: #12437f">SIS-001</span>
+        <span style="font-size: 12.5px">Portal de trazabilidad</span>
+        <span style="color: #8a938e; font-size: 9px">▾</span>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: none; display: flex; gap: 6px; margin-bottom: 12px">
+    <sc-for list="{{puertas}}" as="p" hint-placeholder-count="9">
+      <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+        <span class="mono" style="font-size: 10px; font-weight: 700">{{p.codigo}}</span>
+        <span style="font-size: 10px">{{p.n}}</span>
+      </button>
+    </sc-for>
+    <span style="flex: 1"></span>
+    <span style="display: flex; align-items: center; gap: 9px; padding: 0 4px">
+      <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="4">
+        <span style="display: flex; align-items: center; gap: 5px">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: {{l.color}}"></span>
+          <span class="mono" style="font-size: 9px; color: #6b7570">{{l.etiqueta}} {{l.n}}</span>
+        </span>
+      </sc-for>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px">
+        <sc-for list="{{items}}" as="i" hint-placeholder-count="10">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 13px; margin-bottom: 4px; background: {{i.fondo}}; border: 1px solid {{i.borde}}; border-radius: 8px">
+            <span class="mono" style="flex: none; width: 22px; text-align: right; font-size: 9.5px; color: #a3aca7; padding-top: 2px">{{i.n}}</span>
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 999px; background: {{i.puntoBg}}">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{i.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 12px; line-height: 1.45; color: {{i.color}}">{{i.texto}}</span>
+              <span style="display: flex; align-items: center; gap: 7px">
+                <span class="mono" style="font-size: 8.5px; color: #8a938e">{{i.evidencia}}</span>
+              </span>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span class="mono" style="font-size: 9.5px; font-weight: 600; color: {{i.estadoColor}}">{{i.estado}}</span>
+              <span style="display: flex; gap: 5px">
+                <span class="mono" style="padding: 1px 5px; font-size: 7.5px; font-weight: 600; border-radius: 3px; background: #f5f7f6; color: #6b7570">{{i.control}}</span>
+                <sc-if value="{{i.esContratado}}" hint-placeholder-val="{{ true }}">
+                  <span class="mono" style="padding: 1px 5px; font-size: 7.5px; font-weight: 600; border-radius: 3px; background: #efeafb; color: #5b3fa0">contratado</span>
+                </sc-if>
+              </span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 372px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span class="etq" style="color: #12437f">Cumplimiento de la verificación</span>
+        <span style="display: flex; align-items: baseline; gap: 9px">
+          <span class="mono" style="font-size: 30px; font-weight: 600; line-height: 1; color: {{pctColor}}">{{pct}}</span>
+          <span style="font-size: 11.5px; color: #6b7570">{{pctNota}}</span>
+        </span>
+        <span style="height: 8px; border-radius: 999px; background: #eceeed; overflow: hidden; display: flex">
+          <sc-for list="{{barra}}" as="b" hint-placeholder-count="3">
+            <span style="display: block; width: {{b.ancho}}; height: 100%; background: {{b.color}}"></span>
+          </sc-for>
+        </span>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">El «no aplica» no cuenta como incumplimiento, pero exige justificación escrita: es la casilla que más se usa para esquivar un control.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span class="etq" style="color: #12437f">Por qué reusa el motor del módulo A</span>
+        <sc-for list="{{mapeo}}" as="m" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+            <span style="font-size: 11px; color: #3a443f">{{m.concepto}}</span>
+            <span class="mono" style="font-size: 9.5px; font-weight: 600; color: #12437f">{{m.entidad}}</span>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.6; margin-top: 2px">Construir un segundo motor de listas de verificación sería el error más caro del paquete: duplicaría el calendario, los vencimientos, los avisos y el cierre, que ya están construidos y probados.</span>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 8px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #b8791a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #8a4407">Lo único que hay que agregar a <span class="mono" style="font-size: 10px">ItemVerificacion</span>: puerta, control del Anexo A, evidencia esperada y a quién aplica.</span>
+        </span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const CHIP = 'display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 12px; border-radius: 7px;';
+const CHIP_OFF = CHIP + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const CHIP_ON = CHIP + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff; font-weight: 600;';
+
+// Muestra reales de PTR-TEC-03. `r`: cumple, no, na, pendiente.
+const ITEMS = [
+  [26, 'Construcción', 'Todo cambio de código fue revisado por una persona distinta de su autor antes de la fusión.', 'Historial de revisiones del repositorio.', 'A.8.28', 'cumple', false],
+  [27, 'Construcción', 'La rama principal está protegida y no admite escritura directa.', 'Configuración del repositorio.', 'A.8.4', 'cumple', false],
+  [28, 'Construcción', 'El análisis estático de código se ejecuta en cada integración.', 'Configuración e historial del pipeline.', 'A.8.29', 'cumple', false],
+  [29, 'Construcción', 'El análisis de composición de dependencias se ejecuta en cada integración.', 'Configuración e historial del pipeline.', 'A.5.21', 'cumple', false],
+  [30, 'Construcción', 'La detección de secretos está activa sobre el repositorio y su historial.', 'Configuración de la herramienta y última ejecución.', 'A.8.28', 'no', false],
+  [31, 'Construcción', 'No hay credenciales, tokens, llaves ni cadenas de conexión en el código ni en los archivos versionados.', 'Resultado de la detección de secretos, sin hallazgos abiertos.', 'A.8.28', 'no', false],
+  [32, 'Construcción', 'El acceso al repositorio está restringido al personal autorizado y es nominal.', 'Listado de accesos y su última revisión.', 'A.8.4', 'cumple', false],
+  [33, 'Construcción', 'El estándar de codificación segura está adoptado y es conocido por quienes desarrollan.', 'Constancia de divulgación y evidencia de formación.', 'A.8.28', 'pendiente', false],
+  [34, 'Construcción', 'La deuda de seguridad aceptada está registrada con plazo de tratamiento.', 'Registro en la hoja de vida del sistema.', 'A.8.29', 'cumple', false],
+  [67, 'Contratado', 'El contrato incorpora las obligaciones de seguridad, la propiedad intelectual del código y la gestión de vulnerabilidades tras la entrega.', 'Contrato o anexo FOR-LCO-05 suscrito.', 'A.8.30', 'na', true],
+  [68, 'Contratado', 'El proveedor aceptó formalmente los lineamientos de desarrollo seguro antes de iniciar.', 'Constancia de aceptación firmada.', 'A.8.30', 'na', true],
+  [69, 'Contratado', 'El contrato reconoce el derecho de CUANTICO a revisar el código y a ejecutar pruebas de seguridad.', 'Cláusula contractual.', 'A.8.30', 'na', true],
+];
+
+const PUERTAS = [
+  { codigo: 'Todas', n: 73 }, { codigo: 'P1', n: 7 }, { codigo: 'P2', n: 9 }, { codigo: 'P3', n: 9 },
+  { codigo: 'Constr.', n: 9 }, { codigo: 'P4', n: 10 }, { codigo: 'P5', n: 9 },
+  { codigo: 'Oper.', n: 7 }, { codigo: 'P6', n: 6 }, { codigo: 'Contrat.', n: 7 },
+];
+
+const RES = {
+  cumple:    { t: 'Cumple', color: '#0b5c44', punto: '#0f7a5a', fondo: '#ffffff', borde: '#e2e6e3', tilde: 1 },
+  no:        { t: 'No cumple', color: '#a52016', punto: '#a52016', fondo: '#fffbfa', borde: '#f2cdc6', tilde: 0 },
+  na:        { t: 'No aplica', color: '#6b7570', punto: '#c3cac6', fondo: '#fbfcfb', borde: '#eceeed', tilde: 0 },
+  pendiente: { t: 'Pendiente', color: '#8a4407', punto: '#f2b473', fondo: '#fffaf3', borde: '#f2b473', tilde: 0 },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { puerta: 'Constr.' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const mapa = { 'Constr.': 'Construcción', 'Contrat.': 'Contratado' };
+    const filtro = mapa[s.puerta] || s.puerta;
+    const vis = s.puerta === 'Todas' ? ITEMS : ITEMS.filter((i) => i[1] === filtro);
+
+    const cuenta = (r) => ITEMS.filter((i) => i[5] === r).length;
+    const cumple = cuenta('cumple'), no = cuenta('no'), na = cuenta('na'), pend = cuenta('pendiente');
+    const evaluables = cumple + no;
+    const pct = evaluables ? Math.round((cumple / evaluables) * 100) : 0;
+    const total = ITEMS.length;
+
+    return {
+      puertas: PUERTAS.map((p) => ({
+        codigo: p.codigo,
+        n: p.n,
+        estilo: s.puerta === p.codigo ? CHIP_ON : CHIP_OFF,
+        elegir: () => this.setState({ puerta: p.codigo }),
+      })),
+
+      leyenda: [
+        { etiqueta: 'Cumple', n: cumple, color: '#0f7a5a' },
+        { etiqueta: 'No cumple', n: no, color: '#a52016' },
+        { etiqueta: 'Pendiente', n: pend, color: '#f2b473' },
+        { etiqueta: 'No aplica', n: na, color: '#c3cac6' },
+      ],
+
+      items: vis.map(([n, puerta, texto, evidencia, control, r, contratado]) => {
+        const x = RES[r];
+        return {
+          n: String(n),
+          texto,
+          evidencia,
+          control,
+          esContratado: contratado,
+          estado: x.t,
+          estadoColor: x.color,
+          color: r === 'na' ? '#6b7570' : '#1a211e',
+          puntoBg: x.punto,
+          tilde: x.tilde,
+          fondo: x.fondo,
+          borde: x.borde,
+        };
+      }),
+
+      pct: pct + ' %',
+      pctColor: pct >= 90 ? '#0f7a5a' : pct >= 75 ? '#b8791a' : '#a52016',
+      pctNota: cumple + ' de ' + evaluables + ' ítems evaluables · ' + na + ' no aplican',
+      barra: [
+        { ancho: Math.round((cumple / total) * 100) + '%', color: '#0f7a5a' },
+        { ancho: Math.round((no / total) * 100) + '%', color: '#a52016' },
+        { ancho: Math.round((pend / total) * 100) + '%', color: '#f2b473' },
+      ],
+
+      mapeo: [
+        { concepto: 'El catálogo de 73 ítems', entidad: 'ContenidoSig · VERIFICACION' },
+        { concepto: 'Cada ítem de la guía', entidad: 'ItemVerificacion' },
+        { concepto: 'Verificar una puerta de un sistema', entidad: 'Asignacion' },
+        { concepto: 'El resultado por ítem', entidad: 'RespuestaItem' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

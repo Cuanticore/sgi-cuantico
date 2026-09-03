@@ -2,11 +2,12 @@
 
 **Fecha:** 2026-08-31
 **Código:** REQ-SIG-04
-**Versión:** 1.0
+**Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** D — Gestión estratégica (ISO 9001 §4.1, §4.2, §6.1 · ISO 31000:2018)
 **Depende de:** módulo A (`2026-08-31-sig-personas-tareas-design.md`) · módulo B (`2026-08-31-sig-mejora-nc-acpm-design.md`)
 **Fuentes documentales:** `MAN-CAL-01 Manual de Riesgos y Oportunidades v2.0` · `MAT-CAL-02 Matriz de Riesgos y Oportunidades v3.0` · `MAT-EST-02 Matriz de partes interesadas v2` · `MAT-EST-01 Matriz de Requisitos Legales v2` · `FOR-CAL-08 Reporte de Incidentes de Riesgo`
-**Estado:** Aprobado, sin implementar
+**Estado:** **Implementado.** Plan D ejecutado, 9 tareas
+**Reconciliación:** el modelo de roles cambió al construir. Ver §7.
 
 ---
 
@@ -182,7 +183,7 @@ Para una oportunidad, la aritmética **reduce** probabilidad e impacto igual que
 
 ## 5. Pantallas
 
-El header pasa de cuatro a **cinco pestañas**: Mi SIG · Indicadores · Estratégico · SGSI · Operación. Meter tres matrices más en la barra lateral de Operación la dejaría en once entradas, y el público es otro: esto lo mira la alta dirección, no quien ejecuta tareas. Un Colaborador sigue viendo una sola pestaña.
+El header pasa de cuatro a **cinco pestañas**: Mi SIG · Indicadores · Estratégico · SGSI · Actividades. Meter tres matrices más en la barra lateral de Actividades la dejaría en once entradas, y el público es otro: esto lo mira la alta dirección, no quien ejecuta tareas. Un Colaborador sigue viendo una sola pestaña.
 
 | Pantalla | Contenido |
 |---|---|
@@ -220,10 +221,12 @@ Permisos nuevos: `estrategico:ver`, `estrategico:escribir`, `estrategico:paramet
 
 | Rol · grupo de AD | Qué hace |
 |---|---|
+> **Reconciliado el 01/09/2026.** De cuatro roles a dos: `SIG-Propietarios` y `SIG-Auditoría` se retiraron porque nunca existieron en el Directorio. La razón completa está en §6.0 de la especificación del módulo A.
+
 | **Colaborador** | Sin acceso al módulo, salvo las tareas que le lleguen por el motor de A. |
-| **SIG-Propietarios** (líder de proceso) | Identifica y actualiza los riesgos de su proceso y propone controles. Lectura del resto. |
-| **Responsables SIG** | Todo, incluida la parametrización y el congelamiento de la línea base. |
-| **SIG-Auditoría** | Lectura total, bitácora incluida. |
+| **`Líderes SIG`** | Todo: identifica y valora riesgos, mantiene las tres matrices, parametriza el modelo y congela la línea base. |
+
+**Lo que se perdió al simplificar, y conviene tener presente.** La versión 1.0 daba al líder de proceso escritura sobre **los riesgos de su proceso** y lectura del resto. Hoy, o se está en `Líderes SIG` y se escribe todo, o no se entra. Para una organización de nueve procesos y una persona coordinando el SIG es una simplificación razonable; deja de serlo el día que los líderes de proceso mantengan sus propios riesgos, que es justo lo que pide el `MAN-CAL-01` cuando dice que el levantamiento lo hacen ellos con el líder del SGC. Reabrirlo es agregar una entrada en `POR_GRUPO`, no rehacer pantallas.
 
 ---
 

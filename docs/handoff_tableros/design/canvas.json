@@ -1,15 +1,73 @@
 {
   "pages": [
-    { "id": "page-1", "name": "Tableros" },
-    { "id": "page-2", "name": "Contexto estratégico" }
+    {
+      "id": "page-1",
+      "name": "Tableros"
+    },
+    {
+      "id": "page-2",
+      "name": "Contexto estratégico"
+    }
   ],
   "artboards": [
-    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1196, "h": 900, "title": "Cumplimiento de tareas", "is_interactive": true },
-    { "file": "TableroMejora.dc.html", "page": "page-1", "x": 1300, "y": 0, "w": 1196, "h": 900, "title": "Tablero de mejora", "is_interactive": true },
-    { "file": "TableroAuditoria.dc.html", "page": "page-1", "x": 2600, "y": 0, "w": 1196, "h": 900, "title": "Tablero de auditoría" },
-
-    { "file": "Dofa.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1196, "h": 880, "title": "DOFA", "is_interactive": true },
-    { "file": "Pestel.dc.html", "page": "page-2", "x": 1300, "y": 0, "w": 1196, "h": 880, "title": "PESTEL", "is_interactive": true }
+    {
+      "file": "Main.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 0,
+      "w": 1196,
+      "h": 900,
+      "title": "Cumplimiento de tareas",
+      "is_interactive": true
+    },
+    {
+      "file": "TableroMejora.dc.html",
+      "page": "page-1",
+      "x": 1300,
+      "y": 0,
+      "w": 1196,
+      "h": 900,
+      "title": "Tablero de mejora",
+      "is_interactive": true
+    },
+    {
+      "file": "TableroAuditoria.dc.html",
+      "page": "page-1",
+      "x": 2600,
+      "y": 0,
+      "w": 1196,
+      "h": 900,
+      "title": "Tablero de auditoría"
+    },
+    {
+      "file": "Dofa.dc.html",
+      "page": "page-2",
+      "x": 0,
+      "y": 0,
+      "w": 1196,
+      "h": 880,
+      "title": "DOFA",
+      "is_interactive": true
+    },
+    {
+      "file": "Pestel.dc.html",
+      "page": "page-2",
+      "x": 1300,
+      "y": 0,
+      "w": 1196,
+      "h": 880,
+      "title": "PESTEL",
+      "is_interactive": true
+    },
+    {
+      "file": "RiesgosComparado.dc.html",
+      "x": 2600,
+      "y": 1020,
+      "w": 1340,
+      "h": 880,
+      "title": "Riesgos · las dos metodologías",
+      "is_interactive": true
+    }
   ],
   "annotations": [
     {
@@ -27,7 +85,17 @@
       "y": -260,
       "w": 780,
       "text": "Contexto estratégico · DOFA y PESTEL\n\nEstaban fuera de alcance en REQ-SIG-04 §2.2 y entraron el 31/08/2026. Lo que existía era solo el acta que los aprueba, sin las matrices — la misma situación de la matriz legal.\n\nCada entrada muestra cuántos riesgos originó, y el riesgo guarda la referencia a la entrada, no el texto «DOFA». Una entrada sin riesgos queda señalada: suele significar que se escribió para llenar el cuadrante."
+    },
+    {
+      "id": "riesgos",
+      "x": 2600,
+      "y": 700,
+      "w": 900,
+      "text": "Riesgos · las dos metodologías · agregada el 02/09/2026\n\nLa costura número cinco de gestión estratégica, que era la única sin pantalla.\n\nLas dos columnas tienen su propia escala y NO comparten eje. Es deliberado: un riesgo MAGERIT de valor 4 y uno organizacional de valor 4 no son la misma cantidad de nada. Sumar 2.256 riesgos técnicos con 34 organizacionales daría un número grande y falso.\n\nAbajo a la izquierda, las cinco costuras donde sí se tocan. A la derecha, las tres únicas cifras que sí son la misma unidad en ambas: días, cuentas y personas."
     }
   ],
-  "launch": { "view": "canvas", "page": "page-1" }
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
 }

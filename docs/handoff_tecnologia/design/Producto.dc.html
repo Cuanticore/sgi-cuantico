@@ -1,0 +1,318 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 15px">
+    <div style="display: flex; flex-direction: column; gap: 7px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">MINTRACE</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #e9f0fb; color: #12437f">Producto</span>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">3 sistemas</span>
+      </span>
+      <span style="display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: #6b7570">
+        <span>Responsable Daniel Medina · Gestión Tecnológica</span>
+        <span style="color: #d7dcd9">·</span>
+        <a href="#" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: #12437f">
+          Ver los 14 activos en el mapa
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>
+        </a>
+      </span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Hoja de vida del sistema · FOR-TEC-04</span>
+      <button style="padding: 9px 15px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Abrir la hoja de vida completa →</button>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <!-- Puertas de control del sistema seleccionado -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 15px 18px 13px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span class="mono" style="font-size: 10.5px; font-weight: 600; color: #12437f">{{sisCodigo}}</span>
+          <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{sisNombre}}</span>
+          <span class="mono" style="flex: none; padding: 3px 9px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{sisFaseBg}}; color: {{sisFaseFg}}">{{sisFase}}</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span style="flex: none; width: 118px; height: 6px; border-radius: 999px; background: #eceeed; overflow: hidden">
+            <span style="display: block; width: {{avance}}; height: 100%; background: {{avanceColor}}"></span>
+          </span>
+          <span class="mono" style="font-size: 11px; font-weight: 600; color: {{avanceColor}}">{{avanceTexto}}</span>
+          <span style="margin-left: auto; font-size: 11px; color: #6b7570">Criticidad {{sisCriticidad}} · {{sisDatos}}</span>
+        </span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px">
+        <sc-for list="{{puertas}}" as="p" hint-placeholder-count="8">
+          <div style="display: flex; align-items: flex-start; gap: 13px; padding: 12px 15px; margin-bottom: 8px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 10px">
+            <span class="mono" style="flex: none; width: 34px; text-align: center; padding: 4px 0; font-size: 9.5px; font-weight: 700; border-radius: 5px; background: {{p.chipBg}}; color: {{p.chipFg}}">{{p.puerta}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span style="display: flex; align-items: center; gap: 9px">
+                <span style="font-size: 12.5px; font-weight: 600; color: {{p.tituloColor}}">{{p.titulo}}</span>
+                <span class="mono" style="font-size: 9px; color: #a3aca7">{{p.fase}}</span>
+              </span>
+              <span style="font-size: 11.5px; line-height: 1.5; color: #6b7570">{{p.evidencia}}</span>
+              <sc-if value="{{p.tieneExcepcion}}" hint-placeholder-val="{{ true }}">
+                <span style="display: flex; align-items: center; gap: 7px; margin-top: 2px">
+                  <span class="mono" style="padding: 2px 7px; font-size: 8.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407">{{p.excepcion}}</span>
+                  <span style="font-size: 10.5px; color: #8a4407">{{p.excepcionTexto}}</span>
+                </span>
+              </sc-if>
+            </span>
+            <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+              <span class="mono" style="font-size: 10px; font-weight: 600; color: {{p.resultadoColor}}">{{p.resultado}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #a3aca7">{{p.fecha}}</span>
+              <span style="font-size: 10px; color: #8a938e">{{p.verifica}}</span>
+            </span>
+          </div>
+        </sc-for>
+
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 4px; padding: 12px 15px; background: #fbfcfb; border: 1px dashed #d7dcd9; border-radius: 10px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 10.5px; line-height: 1.6; color: #6b7570">F3 Construcción y F6 Operación no tienen puerta: llevan controles continuos —revisión de código, análisis en cada integración, gestión de vulnerabilidades— que se verifican con los 73 ítems de PTR-TEC-03, no en un punto de corte.</span>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; padding: 12px 15px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="font-size: 10.5px; line-height: 1.6; color: #12437f"><strong style="font-weight: 600">La aplicación no bloquea el avance.</strong> Registra el resultado de cada puerta y señala lo que el procedimiento no permite, pero no impide guardar ni pasar de fase. Quien decide es PRO-TEC-04, no el software: una herramienta que bloquea sin conocer el contexto termina obligando a mentirle.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sistemas del producto y configuración mínima -->
+    <aside style="flex: none; width: 372px; display: flex; flex-direction: column; gap: 14px; min-height: 0">
+
+      <div style="flex: none; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Sistemas del producto</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{conteoSistemas}}</span></span>
+        <sc-for list="{{sistemas}}" as="s" hint-placeholder-count="3">
+          <button onClick="{{s.elegir}}" style="{{s.estilo}}">
+            <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+              <span class="mono" style="flex: none; font-size: 9.5px; font-weight: 600; color: #12437f">{{s.codigo}}</span>
+              <span class="mono" style="margin-left: auto; flex: none; font-size: 9px; font-weight: 600; color: {{s.color}}">{{s.puertas}}</span>
+            </span>
+            <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+              <span style="flex: 1; min-width: 0; font-size: 11.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.nombre}}</span>
+            </span>
+            <span style="display: flex; align-items: center; gap: 6px; width: 100%">
+              <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{s.color}}"></span>
+              <span class="mono" style="font-size: 8.5px; color: {{s.color}}">{{s.fase}}</span>
+            </span>
+          </button>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55; margin-top: 2px">La hoja de vida es del sistema, no del producto. El producto agrupa; las puertas, los requisitos y las pruebas pertenecen a cada sistema desplegable.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid {{plantillaBorde}}; border-radius: 10px; overflow-y: auto">
+        <span class="cab"><span style="color: {{plantillaColor}}">Configuración mínima del producto</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: {{plantillaColor}}">{{plantillaConteo}}</span></span>
+        <sc-for list="{{plantilla}}" as="p" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; background: {{p.bg}}; color: {{p.fg}}; font-size: 10px; font-weight: 700">{{p.marca}}</span>
+              <span style="flex: 1; font-size: 12.5px; font-weight: 500; color: #1a211e">{{p.nivel3}}</span>
+              <span class="mono" style="font-size: 9.5px; color: {{p.fg}}">{{p.conteo}}</span>
+            </span>
+            <sc-if value="{{p.tieneFaltantes}}" hint-placeholder-val="{{ true }}">
+              <span style="font-size: 10.5px; line-height: 1.5; color: #8a4407; padding-left: 26px">Falta: {{p.faltantes}}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55; margin-top: 2px">La plantilla no bloquea: señala. Un producto incompleto se puede guardar; lo que no se puede es que nadie lo sepa.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px 12px; border-radius: 8px;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid #e2e6e3;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+// Las seis puertas de PRO-TEC-04. F3 Construcción y F6 Operación no tienen puerta:
+// llevan controles continuos, por eso no aparecen acá.
+const PUERTAS = [
+  { puerta: 'P1', titulo: 'Clasificación del sistema', fase: 'F0 · Concepción' },
+  { puerta: 'P2', titulo: 'Requisitos de seguridad aprobados', fase: 'F1 · Requisitos' },
+  { puerta: 'P3', titulo: 'Arquitectura revisada', fase: 'F2 · Diseño y arquitectura' },
+  { puerta: 'P4', titulo: 'Criterios de aceptación superados', fase: 'F4 · Verificación' },
+  { puerta: 'P5', titulo: 'Autorización de paso a producción', fase: 'F5 · Despliegue' },
+  { puerta: 'P6', titulo: 'Retiro seguro', fase: 'F7 · Retiro' },
+];
+
+const RES = {
+  ok:        { t: 'Superada', color: '#0f7a5a', fondo: '#ffffff', borde: '#e2e6e3', chipBg: '#e6efe9', chipFg: '#0b5c44' },
+  excepcion: { t: 'Con excepción', color: '#b8791a', fondo: '#fffaf3', borde: '#f2b473', chipBg: '#fff3e6', chipFg: '#8a4407' },
+  no:        { t: 'No superada', color: '#a52016', fondo: '#fffbfa', borde: '#f2cdc6', chipBg: '#fdeeeb', chipFg: '#a52016' },
+  pendiente: { t: 'Pendiente', color: '#a3aca7', fondo: '#fbfcfb', borde: '#eceeed', chipBg: '#f5f7f6', chipFg: '#b6bdb9' },
+};
+
+const FASE_COLOR = {
+  'F6 · Operación': { bg: '#e6efe9', fg: '#0b5c44' },
+  'F4 · Verificación': { bg: '#fdeeeb', fg: '#a52016' },
+  'F2 · Diseño': { bg: '#e9f0fb', fg: '#12437f' },
+};
+
+const SISTEMAS = [
+  {
+    id: 'sis1', codigo: 'SIS-001', nombre: 'Portal de trazabilidad de registros',
+    fase: 'F6 · Operación', criticidad: 'crítica', datos: 'trata datos personales',
+    puertas: {
+      P1: ['ok', 'Clasificación confidencial aprobada por el propietario.', '12/05/2026', 'Daniel Medina', '', ''],
+      P2: ['ok', 'Especificación con los dieciséis requisitos de seguridad aprobados.', '20/05/2026', 'Daniel Medina', '', ''],
+      P3: ['ok', 'Arquitectura revisada en comité técnico, con análisis de componentes.', '02/06/2026', 'Daniel Medina', '', ''],
+      P4: ['excepcion', 'Informe de análisis estático y de composición, versión 1.4.0.', '18/05/2026', 'Yuliet Rojas', 'EXC-2026-007', 'Hallazgo alto en una biblioteca sin parche disponible; mitigado por configuración. Cierre comprometido al 30/09.'],
+      P5: ['ok', 'Solicitud SOL-2026-0085 autorizada, con plan de reversión probado.', '20/05/2026', 'Daniel Medina', '', ''],
+      P6: ['pendiente', 'El sistema está en operación. Esta puerta se verifica al retirarlo.', '—', '', '', ''],
+    },
+  },
+  {
+    id: 'sis2', codigo: 'SIS-004', nombre: 'API de integración con registros públicos',
+    fase: 'F4 · Verificación', criticidad: 'alta', datos: 'no trata datos personales',
+    puertas: {
+      P1: ['ok', 'Clasificación privada aprobada.', '03/07/2026', 'Daniel Medina', '', ''],
+      P2: ['ok', 'Requisitos de seguridad aprobados antes del kick off.', '11/07/2026', 'Daniel Medina', '', ''],
+      P3: ['ok', 'Arquitectura revisada. Ocho servicios externos evaluados.', '28/07/2026', 'Yuliet Rojas', '', ''],
+      P4: ['no', 'Dos hallazgos críticos abiertos en el análisis dinámico del 25/08.', '25/08/2026', 'Yuliet Rojas', '', ''],
+      P5: ['pendiente', 'El procedimiento pide P4 superada antes de esta. La aplicación no lo impide: lo señala.', '—', '', '', ''],
+      P6: ['pendiente', 'No aplica todavía.', '—', '', '', ''],
+    },
+  },
+  {
+    id: 'sis3', codigo: 'SIS-007', nombre: 'Panel de administración interno',
+    fase: 'F2 · Diseño', criticidad: 'media', datos: 'no trata datos personales',
+    puertas: {
+      P1: ['ok', 'Clasificación interna aprobada.', '19/08/2026', 'Daniel Medina', '', ''],
+      P2: ['ok', 'Requisitos de seguridad aprobados.', '26/08/2026', 'Daniel Medina', '', ''],
+      P3: ['pendiente', 'Revisión de arquitectura convocada para el 08/09.', '—', '', '', ''],
+      P4: ['pendiente', 'No aplica todavía.', '—', '', '', ''],
+      P5: ['pendiente', 'No aplica todavía.', '—', '', '', ''],
+      P6: ['pendiente', 'No aplica todavía.', '—', '', '', ''],
+    },
+  },
+];
+
+// La plantilla mínima es del producto: describe qué activos debe tener, no su ciclo.
+const PLANTILLA = [
+  ['Código Fuente', 1, 1, ''],
+  ['Ambientes', 2, 3, 'staging'],
+  ['Dependencias o Relacionados', 9, 1, ''],
+  ['Documentación', 1, 3, 'confidencial y pública'],
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'sis1' };
+  }
+
+  // Superadas cuenta las que pasaron, con o sin excepción: la excepción es una
+  // salida aprobada, no un incumplimiento oculto.
+  superadas(s) {
+    return PUERTAS.filter((p) => {
+      const r = s.puertas[p.puerta][0];
+      return r === 'ok' || r === 'excepcion';
+    }).length;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const f = SISTEMAS.find((x) => x.id === st.sel) || SISTEMAS[0];
+    const n = this.superadas(f);
+    const pct = Math.round((n / PUERTAS.length) * 100);
+    const color = n === PUERTAS.length ? '#0f7a5a' : n >= 4 ? '#b8791a' : '#a52016';
+    const fc = FASE_COLOR[f.fase] || { bg: '#f5f7f6', fg: '#6b7570' };
+    const faltan = PLANTILLA.filter((p) => p[1] < p[2]).length;
+
+    return {
+      sisCodigo: f.codigo,
+      sisNombre: f.nombre,
+      sisFase: f.fase,
+      sisFaseBg: fc.bg,
+      sisFaseFg: fc.fg,
+      sisCriticidad: f.criticidad,
+      sisDatos: f.datos,
+      avance: pct + '%',
+      avanceColor: color,
+      avanceTexto: n + ' de 6 puertas',
+
+      puertas: PUERTAS.map((p) => {
+        const [res, evidencia, fecha, verifica, exc, excTexto] = f.puertas[p.puerta];
+        const r = RES[res];
+        return {
+          puerta: p.puerta,
+          titulo: p.titulo,
+          fase: p.fase,
+          evidencia,
+          fecha,
+          verifica,
+          resultado: r.t,
+          resultadoColor: r.color,
+          fondo: r.fondo,
+          borde: r.borde,
+          chipBg: r.chipBg,
+          chipFg: r.chipFg,
+          tituloColor: res === 'pendiente' ? '#8a938e' : '#1a211e',
+          tieneExcepcion: exc !== '',
+          excepcion: exc,
+          excepcionTexto: excTexto,
+        };
+      }),
+
+      conteoSistemas: SISTEMAS.length + ' sistemas',
+      sistemas: SISTEMAS.map((s) => {
+        const k = this.superadas(s);
+        const c = FASE_COLOR[s.fase] || { fg: '#6b7570' };
+        return {
+          codigo: s.codigo,
+          nombre: s.nombre,
+          fase: s.fase,
+          puertas: k + '/6',
+          color: c.fg,
+          estilo: st.sel === s.id ? FILA_ON : FILA_OFF,
+          elegir: () => this.setState({ sel: s.id }),
+        };
+      }),
+
+      plantillaColor: faltan > 0 ? '#8a4407' : '#0b5c44',
+      plantillaBorde: faltan > 0 ? '#f2b473' : '#c9e3d8',
+      plantillaConteo: faltan === 0 ? 'completa' : faltan + ' incompletos',
+      plantilla: PLANTILLA.map(([nivel3, hay, esperado, faltantes]) => {
+        const ok = hay >= esperado;
+        return {
+          nivel3,
+          conteo: hay + ' de ' + esperado,
+          marca: ok ? '✓' : '!',
+          bg: ok ? '#e6efe9' : '#fff3e6',
+          fg: ok ? '#0b5c44' : '#8a4407',
+          tieneFaltantes: faltantes !== '',
+          faltantes,
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

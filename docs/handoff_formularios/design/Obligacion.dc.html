@@ -39,9 +39,9 @@
         <span class="etq">Contenido</span>
         <span class="campo sel">
           <span style="display: flex; align-items: center; gap: 9px">
-            <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">LEC-001</span>
-            <span>Política de Gobierno de Seguridad de la Información</span>
-            <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: #e9f0fb; color: #12437f">Lectura</span>
+            <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">VER-014</span>
+            <span>Revisión de derechos de acceso del activo</span>
+            <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; background: #e9f0fb; color: #12437f">Verificación</span>
           </span>
           <span style="color: #8a938e; font-size: 9px">▾</span>
         </span>
@@ -49,14 +49,21 @@
 
       <span style="display: flex; flex-direction: column; gap: 7px">
         <span class="etq">Procedimiento origen</span>
-        <span class="campo">POL-SIG-02 Política de Gobierno de Seguridad de la Información</span>
+        <span class="campo">POL-TEC-01 Política de Gestión de Identidades y Control de Acceso</span>
       </span>
 
       <!-- Alcance -->
       <div style="display: flex; flex-direction: column; gap: 9px">
         <span class="etq">¿A quién alcanza?</span>
+        <span class="etq" style="color: #12437f; margin-top: 2px">Por personas</span>
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px">
-          <sc-for list="{{alcances}}" as="a" hint-placeholder-count="4">
+          <sc-for list="{{alcancesPersona}}" as="a" hint-placeholder-count="4">
+            <button onClick="{{a.elegir}}" style="{{a.estilo}}">{{a.etiqueta}}</button>
+          </sc-for>
+        </div>
+        <span class="etq" style="color: #8a4407; margin-top: 4px">Por activos · nuevo</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px">
+          <sc-for list="{{alcancesActivo}}" as="a" hint-placeholder-count="3">
             <button onClick="{{a.elegir}}" style="{{a.estilo}}">{{a.etiqueta}}</button>
           </sc-for>
         </div>
@@ -133,7 +140,7 @@
 
         <div style="display: flex; gap: 10px">
           <span style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
-            <span class="etq">Personas</span>
+            <span class="etq">{{sujetoEtiqueta}}</span>
             <span class="mono" style="font-size: 22px; font-weight: 600; line-height: 1; color: #12437f">{{personas}}</span>
           </span>
           <span style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
@@ -165,6 +172,13 @@
           </sc-for>
         </div>
 
+        <sc-if value="{{haySinDueno}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><path d="M12 3l9 16H3z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="16" x2="12" y2="16"></line></svg>
+            <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">{{sinDuenoTexto}}</span>
+          </div>
+        </sc-if>
+
         <sc-if value="{{advertencia}}" hint-placeholder-val="{{ true }}">
           <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
@@ -172,7 +186,7 @@
           </div>
         </sc-if>
 
-        <span style="font-size: 11px; color: #a3aca7; line-height: 1.6">El alcance se resuelve <strong style="font-weight: 600; color: #8a938e">al generar cada periodo</strong>, no ahora: quien ingrese después recibirá los periodos siguientes, y quien salga dejará de recibirlos. Estas cifras son las de hoy.</span>
+        <span style="font-size: 11px; color: #a3aca7; line-height: 1.6">{{notaResolucion}}</span>
 
       </div>
 
@@ -194,11 +208,18 @@ const MINI_BASE = 'flex: 1; padding: 9px 0; font-size: 11.5px; font-weight: 500;
 const MINI_OFF = MINI_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
 const MINI_ON = MINI_BASE + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff; font-weight: 600;';
 
+// D3 del 02/09/2026: además de los cuatro alcances por persona, tres por activo.
+// En estos la asignación va al PROPIETARIO de cada activo vigente al abrir el
+// periodo, así que el sujeto que se cuenta es el activo, no la persona.
 const ALCANCES = {
-  TODOS: { etiqueta: 'Todas las personas', personas: 34, objetivo: null, nota: 'Alcanza a las 34 cuentas activas del Directorio. Es el alcance que más asignaciones produce: revisa la cifra de la derecha antes de guardar.' },
-  AREA: { etiqueta: 'Un área', personas: 4, objetivo: 'Talento Humano · 4 personas', nota: 'Se resuelve contra quienes pertenezcan al área en el momento de generar. Sobrevive a la rotación sin tocar la obligación.' },
-  CARGO: { etiqueta: 'Un cargo', personas: 9, objetivo: 'Líder de proceso · 9 personas', nota: 'El alcance preferido para lo recurrente: quien ocupe el cargo lo recibe, sin que nadie tenga que acordarse de actualizar la lista.' },
-  PERSONA: { etiqueta: 'Una persona', personas: 1, objetivo: 'Laura Agudelo', nota: 'Úsalo solo cuando de verdad sea de esa persona y de nadie más. Al desvincularse, la obligación queda huérfana y hay que reasignarla a mano.' },
+  TODOS: { base: 'persona', etiqueta: 'Todas las personas', personas: 34, objetivo: null, nota: 'Alcanza a las 34 cuentas activas del Directorio. Es el alcance que más asignaciones produce: revisa la cifra de la derecha antes de guardar.' },
+  AREA: { base: 'persona', etiqueta: 'Un área', personas: 4, objetivo: 'Talento Humano · 4 personas', nota: 'Se resuelve contra quienes pertenezcan al área en el momento de generar. Sobrevive a la rotación sin tocar la obligación.' },
+  CARGO: { base: 'persona', etiqueta: 'Un cargo', personas: 9, objetivo: 'Líder de proceso · 9 personas', nota: 'El alcance preferido para lo recurrente: quien ocupe el cargo lo recibe, sin que nadie tenga que acordarse de actualizar la lista.' },
+  PERSONA: { base: 'persona', etiqueta: 'Una persona', personas: 1, objetivo: 'Laura Agudelo', nota: 'Úsalo solo cuando de verdad sea de esa persona y de nadie más. Al desvincularse, la obligación queda huérfana y hay que reasignarla a mano.' },
+
+  TIPO_ACTIVO: { base: 'activo', etiqueta: 'Un tipo de activo', personas: 38, sinDueno: 5, objetivo: '[S] Servicios · 38 activos vigentes', nota: 'Una sola obligación cubre los 38 y sigue viva cuando entre el 39. Es la forma de escribir «los derechos de acceso serán revisados al menos una vez al año por el propietario de cada activo» sin mantener ninguna lista a mano.' },
+  NIVEL_ACTIVO: { base: 'activo', etiqueta: 'Un nivel', personas: 14, sinDueno: 2, objetivo: 'PRODUCTOS · MINTRACE · 14 activos', nota: 'Alcanza a todo lo que cuelgue del nodo, en cualquier grado. Útil para lo que se verifica por producto o por proyecto completo.' },
+  ACTIVO: { base: 'activo', etiqueta: 'Un activo', personas: 1, sinDueno: 0, objetivo: 'TEC-DAT-0051 · mintrace_postgres', nota: 'La obligación puntual sobre un activo concreto. Al darlo de baja, la obligación deja de generar periodos.' },
 };
 
 const PERIODICIDADES = {
@@ -224,7 +245,18 @@ const VENCIMIENTOS = {
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { alcance: 'TODOS', periodicidad: 'ANUAL', plazo: 30, notificar: true };
+    this.state = { alcance: 'TIPO_ACTIVO', periodicidad: 'ANUAL', plazo: 30, notificar: true };
+  }
+
+  botones(base) {
+    const s = this.state;
+    return Object.keys(ALCANCES)
+      .filter((k) => ALCANCES[k].base === base)
+      .map((k) => ({
+        etiqueta: ALCANCES[k].etiqueta,
+        estilo: s.alcance === k ? OPT_ON : OPT_OFF,
+        elegir: () => this.setState({ alcance: k }),
+      }));
   }
 
   renderVals() {
@@ -232,6 +264,8 @@ class Component extends DCLogic {
     const a = ALCANCES[s.alcance];
     const p = PERIODICIDADES[s.periodicidad];
     const total = a.personas * p.n;
+    const porActivo = a.base === 'activo';
+    const sujeto = porActivo ? 'activos' : 'personas';
 
     // Umbrales pensados para lo que una organización de 34 personas puede atender.
     const alto = total > 200;
@@ -252,13 +286,21 @@ class Component extends DCLogic {
       'Una obligación ' + p.etiqueta.toLowerCase() + ' para toda la organización produce ' + total +
       ' asignaciones al año. Antes de guardar, comprueba que de verdad todo el mundo deba hacerla con esa frecuencia: casi siempre lo que se busca es un alcance por cargo.';
 
+    // El volumen por activo se dispara más rápido: 234 activos × mensual son 2.808.
+    const advertenciaActivo = porActivo && p.n >= 12;
+
     return {
-      alcances: Object.keys(ALCANCES).map((k) => ({
-        etiqueta: ALCANCES[k].etiqueta,
-        estilo: s.alcance === k ? OPT_ON : OPT_OFF,
-        elegir: () => this.setState({ alcance: k }),
-      })),
-      necesitaObjetivo: a.objetivo !== null,
+      alcancesPersona: this.botones('persona'),
+      alcancesActivo: this.botones('activo'),
+      sujetoEtiqueta: porActivo ? 'Activos' : 'Personas',
+      haySinDueno: porActivo && a.sinDueno > 0,
+      sinDuenoTexto:
+        a.sinDueno + ' de los ' + a.personas + ' activos no tienen propietario asignado. Sus asignaciones no se crean en el vacío: se dirigen a ' +
+        'Katherine Quiroga, la responsable de seguimiento, y quedan marcadas. Un activo sin propietario es un hallazgo, no un error de generación.',
+      notaResolucion: porActivo
+        ? 'El alcance se resuelve al generar cada periodo, no ahora: la asignación va al propietario que el activo tenga ese día, y un activo dado de baja deja de generarla. Estas cifras son las de hoy.'
+        : 'El alcance se resuelve al generar cada periodo, no ahora: quien ingrese después recibirá los periodos siguientes, y quien salga dejará de recibirlos. Estas cifras son las de hoy.',
+      necesitaObjetivo: a.objetivo !== null && a.objetivo !== undefined,
       objetivoValor: a.objetivo || '',
       alcanceNota: a.nota,
       periodicidades: Object.keys(PERIODICIDADES).map((k) => ({
@@ -292,10 +334,13 @@ class Component extends DCLogic {
       proximos: (VENCIMIENTOS[s.periodicidad] || []).map(([fecha, periodo]) => ({
         fecha,
         periodo,
-        n: a.personas === 1 ? '1 persona' : a.personas + ' personas',
+        n: a.personas === 1 ? '1 ' + sujeto.slice(0, -1) : a.personas + ' ' + sujeto,
       })),
-      advertencia,
-      advertenciaTexto,
+      advertencia: advertencia || advertenciaActivo,
+      advertenciaTexto: advertenciaActivo
+        ? 'Una verificación ' + p.etiqueta.toLowerCase() + ' sobre ' + a.personas + ' activos produce ' + total +
+          ' asignaciones al año, repartidas entre sus propietarios. Con alcance por activo el volumen se dispara más rápido que por persona: comprueba que la periodicidad sea la que la política pide y no una más exigente.'
+        : advertenciaTexto,
     };
   }
 }

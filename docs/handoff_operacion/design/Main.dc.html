@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 11px 13px; font-size: 13px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .ph { color: #b6bdb9; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 780px; height: 940px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 14px; padding: 26px 30px 16px">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em">Reportar un evento de seguridad</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: #f5f7f6; color: #6b7570">A.5.25</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570; line-height: 1.55; max-width: 72ch">
+        Algo te pareció raro y lo reportas. <strong style="font-weight: 600; color: #4a544f">No tienes que saber si es grave</strong>,
+        ni si es un incidente: eso lo evalúa el equipo de seguridad. Reportar de más no cuesta nada; reportar de menos, sí.
+      </span>
+    </div>
+    <button style="flex: none; width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e6e3; background: #ffffff; color: #6b7570; font-size: 14px; line-height: 1">✕</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 30px 20px; display: flex; flex-direction: column; gap: 19px">
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">¿Qué pasó? · obligatorio</span>
+      <span class="campo" style="min-height: 96px">Recibí un correo del «área de sistemas» pidiendo que confirmara mi contraseña por un supuesto vencimiento. El remitente se parece al nuestro pero el dominio termina en <span class="mono" style="font-size: 12px">cuantico-soporte.com</span>. No hice clic, pero dos personas del equipo comercial me dijeron que les llegó el mismo.</span>
+      <span style="font-size: 11px; color: #8a938e; line-height: 1.5">Cuenta lo que viste, con tus palabras. Si tienes el correo, adjúntalo sin reenviarlo a nadie más.</span>
+    </span>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">¿Cuándo ocurrió?</span>
+        <span class="campo mono" style="font-size: 12.5px">31/08/2026 · 08:15</span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 7px">
+        <span class="etq">¿Sigue ocurriendo?</span>
+        <span style="display: flex; gap: 6px">
+          <sc-for list="{{enCurso}}" as="e" hint-placeholder-count="2">
+            <button onClick="{{e.elegir}}" style="{{e.estilo}}">{{e.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 9px">
+      <span class="etq">¿Dónde lo viste? · ayuda a ubicarlo, no es obligatorio</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px">
+        <sc-for list="{{donde}}" as="d" hint-placeholder-count="6">
+          <button onClick="{{d.elegir}}" style="{{d.estilo}}">{{d.etiqueta}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">¿Alguien más está enterado?</span>
+      <span class="campo">Dos personas de Gestión Comercial recibieron el mismo correo.</span>
+    </span>
+
+    <span style="display: flex; flex-direction: column; gap: 7px">
+      <span class="etq">Evidencia · muy recomendable</span>
+      <span style="display: flex; align-items: center; gap: 11px; padding: 14px 16px; border: 1px dashed #d7dcd9; border-radius: 10px; background: #fbfcfb">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 12.5px; color: #4a544f">Captura de pantalla o el correo guardado</span>
+          <span style="font-size: 10.5px; color: #a3aca7">Se conserva tal cual: es material de prueba (A.5.28)</span>
+        </span>
+      </span>
+    </span>
+
+    <!-- Lo que NO se le pide a quien reporta -->
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+      <span style="display: flex; align-items: center; gap: 9px">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; color: #12437f">Lo que este formulario no te pide</span>
+        <span style="height: 1px; flex: 1; background: #eceeed"></span>
+      </span>
+      <div style="display: flex; flex-wrap: wrap; gap: 7px">
+        <sc-for list="{{noPide}}" as="n" hint-placeholder-count="5">
+          <span class="mono" style="padding: 5px 10px; font-size: 10px; border-radius: 6px; background: #f5f7f6; color: #a3aca7; text-decoration: line-through">{{n}}</span>
+        </sc-for>
+      </div>
+      <span style="font-size: 11.5px; color: #6b7570; line-height: 1.6">
+        Pedirle a quien reporta que clasifique la gravedad es la forma más eficaz de que no reporte.
+        Todo eso lo decide la evaluación, y para eso existe el paso siguiente.
+      </span>
+    </div>
+
+  </div>
+
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 15px 30px; background: #ffffff; border-top: 1px solid #e2e6e3">
+    <span style="flex: 1; display: flex; align-items: flex-start; gap: 9px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+      <span style="font-size: 11px; line-height: 1.55; color: #6b7570">
+        Abierto a <strong style="font-weight: 600; color: #4a544f">cualquier persona autenticada</strong>, sin permisos previos.
+        Recibirás aviso cuando el equipo lo evalúe.
+      </span>
+    </span>
+    <button style="flex: none; padding: 10px 15px; font-size: 12.5px; font-weight: 500; color: #6b7570; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">Cancelar</button>
+    <button style="flex: none; padding: 10px 20px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #a52016; border: 1px solid #8a1f16; border-radius: 6px">Reportar ahora</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":780,"height":940}}'>
+const SEG_BASE = 'flex: 1; min-height: 40px; padding: 0 12px; font-size: 12.5px; font-weight: 500; border-radius: 6px;';
+const SEG_OFF = SEG_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const SEG_SI = SEG_BASE + ' background: #fdeeeb; border: 1px solid #a52016; color: #a52016; font-weight: 600;';
+const SEG_NO = SEG_BASE + ' background: #e6efe9; border: 1px solid #0b5c44; color: #0b5c44; font-weight: 600;';
+
+const OPT_BASE = 'padding: 10px 11px; font-size: 12px; font-weight: 500; border-radius: 6px; text-align: left;';
+const OPT_OFF = OPT_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const OPT_ON = OPT_BASE + ' background: #e9f0fb; border: 1px solid #12437f; color: #12437f; font-weight: 600;';
+
+const DONDE = ['Correo', 'Un equipo o portátil', 'Una aplicación', 'Documentos o archivos', 'Una llamada o mensaje', 'Otro sitio'];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { curso: 'no', donde: 'Correo' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    return {
+      enCurso: [
+        { id: 'si', etiqueta: 'Sí, ahora' },
+        { id: 'no', etiqueta: 'Ya terminó' },
+      ].map((e) => ({
+        ...e,
+        estilo: s.curso !== e.id ? SEG_OFF : e.id === 'si' ? SEG_SI : SEG_NO,
+        elegir: () => this.setState({ curso: e.id }),
+      })),
+      donde: DONDE.map((d) => ({
+        etiqueta: d,
+        estilo: s.donde === d ? OPT_ON : OPT_OFF,
+        elegir: () => this.setState({ donde: d }),
+      })),
+      noPide: ['Gravedad', 'Categoría', 'Activos afectados', 'Impacto en C·I·D', 'Causa raíz'],
+    };
+  }
+}
+</script>
+</body>
+</html>

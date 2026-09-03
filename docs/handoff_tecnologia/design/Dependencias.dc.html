@@ -1,0 +1,253 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Dependencias entre activos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">De muchos a muchos y dirigida. Es distinta de la jerarquía: <strong style="font-weight: 600; color: #4a544f">«está dentro de» no es «depende de»</strong>. Esta pantalla <strong style="font-weight: 600; color: #4a544f">declara</strong> la dependencia; para leerla en las dos direcciones y en cadena está «Impacto».</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Activo base</span>
+      <span style="display: flex; align-items: center; gap: 10px; padding: 8px 13px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 6px; min-width: 330px">
+        <span class="mono" style="font-size: 10.5px; font-weight: 600; color: #12437f">TEC-APP-0021</span>
+        <span style="flex: 1; font-size: 12.5px; font-weight: 500">Mintrace CRM</span>
+        <span style="color: #8a938e; font-size: 9px">▾</span>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; align-items: stretch; gap: 14px">
+
+    <!-- Lista izquierda: activos de información -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid #eceeed">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600">Activos de información</span>
+          <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">{{izqConteo}}</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 8px; padding: 7px 11px; background: #fbfcfb; border: 1px solid #d7dcd9; border-radius: 6px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a938e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+          <span style="font-size: 11.5px; color: #b6bdb9">Buscar por nombre, código o nivel 3</span>
+        </span>
+        <span style="display: flex; gap: 6px">
+          <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+            <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px">
+        <sc-for list="{{izquierda}}" as="a" hint-placeholder-count="12">
+          <button onClick="{{a.alternar}}" style="{{a.estilo}}">
+            <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid {{a.marco}}; background: {{a.casilla}}">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{a.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left">
+              <span style="font-size: 12px; color: #1a211e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.nombre}}</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <span class="mono" style="font-size: 9px; color: #8a938e">{{a.codigo}}</span>
+                <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{a.critColor}}"></span>
+                <span class="mono" style="font-size: 9px; color: {{a.critColor}}">{{a.crit}}</span>
+              </span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Controles del centro -->
+    <div style="flex: none; width: 148px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+      <span style="display: flex; flex-direction: column; gap: 6px; width: 100%">
+        <span class="etq" style="text-align: center">Tipo de relación</span>
+        <sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+          <button onClick="{{t.elegir}}" style="{{t.estilo}}">{{t.etiqueta}}</button>
+        </sc-for>
+      </span>
+      <button onClick="{{agregar}}" style="{{agregarEstilo}}">
+        Agregar →
+      </button>
+      <span class="mono" style="font-size: 9px; color: #a3aca7; text-align: center; line-height: 1.5">{{textoSeleccion}}</span>
+    </div>
+
+    <!-- Lista derecha: relacionados -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; align-items: center; gap: 9px; padding: 14px 16px 13px; border-bottom: 1px solid #eceeed">
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #0b5c44; font-weight: 600">Mintrace CRM depende de</span>
+        <span class="mono" style="margin-left: auto; font-size: 9.5px; color: #a3aca7">{{derConteo}}</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px">
+        <sc-for list="{{derecha}}" as="d" hint-placeholder-count="9">
+          <div style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; margin-bottom: 5px; background: #f7fbf9; border: 1px solid #c9e3d8; border-radius: 8px">
+            <span class="mono" style="flex: none; padding: 3px 8px; font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{d.tipoBg}}; color: {{d.tipoFg}}">{{d.tipo}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 12px; color: #1a211e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{d.nombre}}</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <span class="mono" style="font-size: 9px; color: #8a938e">{{d.codigo}}</span>
+                <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{d.critColor}}"></span>
+                <span class="mono" style="font-size: 9px; color: {{d.critColor}}">{{d.crit}}</span>
+              </span>
+            </span>
+            <button onClick="{{d.quitar}}" style="flex: none; width: 24px; height: 24px; border-radius: 5px; border: 1px solid #c9e3d8; background: #ffffff; color: #6b7570; font-size: 12px; line-height: 1">✕</button>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex: none; display: flex; align-items: flex-start; gap: 9px; padding: 12px 15px; border-top: 1px solid #eceeed; background: #fbfcfb">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 10.5px; line-height: 1.55; color: #12437f">No se admiten ciclos <strong style="font-weight: 600">de ninguna longitud</strong>: ni A→B→A, ni A→B→C→A. El servidor recorre la cadena completa antes de aceptar, no solo la reciprocidad directa. Un ciclo rompe el drill-down del mapa y el cálculo de impacto.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const CHIP_BASE = 'padding: 5px 10px; font-size: 11px; font-weight: 500; border-radius: 20px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const TIPO_BASE = 'width: 100%; padding: 7px 9px; font-size: 11px; font-weight: 500; border-radius: 6px;';
+const TIPO_OFF = TIPO_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+const TIPO_ON = TIPO_BASE + ' background: #12437f; border: 1px solid #0c2461; color: #ffffff; font-weight: 600;';
+
+const FILA_BASE = 'display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 11px; margin-bottom: 4px; border-radius: 8px;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+// El rojo está deliberadamente fuera de esta paleta: en el resto de la aplicación
+// significa «crítico», y acá solo significaría «autenticación». El par rojo/naranja
+// además no se distingue en chips adyacentes.
+const TIPO_COLOR = {
+  'usa': { bg: '#e9f0fb', fg: '#12437f' },
+  'se aloja en': { bg: '#fff3e6', fg: '#8a4407' },
+  'autentica con': { bg: '#efeafb', fg: '#5b3fa0' },
+  'almacena en': { bg: '#e8f4ef', fg: '#0b5c44' },
+};
+
+// `crit` es el valor derivado del activo (el mayor de sus dimensiones). Se muestra
+// porque la pregunta interesante de una dependencia es la asimetría: un activo
+// crítico que depende de uno sin valorar.
+const CANDIDATOS = [
+  { id: 'c1', codigo: 'TEC-SER-0031', nombre: 'Servicios de Información / Apollo', nivel3: 'Servicios de Información', crit: 'Medio' },
+  { id: 'c2', codigo: 'TEC-SER-0032', nombre: 'Servicios de Información / RNEC', nivel3: 'Servicios de Información', crit: 'Medio' },
+  { id: 'c3', codigo: 'TEC-SER-0033', nombre: 'Servicios de Información / ANI', nivel3: 'Servicios de Información', crit: 'Medio' },
+  { id: 'c4', codigo: 'TEC-SER-0034', nombre: 'Servicios de Información / RUES', nivel3: 'Servicios de Información', crit: 'Bajo' },
+  { id: 'c5', codigo: 'TEC-SER-0035', nombre: 'Servicios de Información / RUCOM', nivel3: 'Servicios de Información', crit: 'Bajo' },
+  { id: 'c6', codigo: 'TEC-SER-0036', nombre: 'Servicios de Información / TusDatos', nivel3: 'Servicios de Información', crit: 'Medio' },
+  { id: 'c7', codigo: 'TEC-SER-0037', nombre: 'Servicios de Información / TransUnion', nivel3: 'Servicios de Información', crit: 'Medio' },
+  { id: 'c8', codigo: 'TEC-SER-0038', nombre: 'Servicios de Información / ANM', nivel3: 'Servicios de Información', crit: 'Sin valorar' },
+  { id: 'c9', codigo: 'TEC-CLA-0007', nombre: 'Credencial / ILC Fabric', nivel3: 'Credenciales', crit: 'Alto' },
+  { id: 'c10', codigo: 'TEC-DAT-0051', nombre: 'mintrace_postgres', nivel3: 'Bases de datos', crit: 'Muy alto' },
+  { id: 'c11', codigo: 'TEC-SER-0014', nombre: 'Servicio de Directorio Activo', nivel3: 'Datacenter', crit: 'Muy alto' },
+  { id: 'c12', codigo: 'TEC-APP-0026', nombre: 'Coolify · orquestador', nivel3: 'Ambientes', crit: 'Alto' },
+];
+
+const CRIT_COLOR = {
+  'Muy alto': '#a52016',
+  'Alto': '#b8791a',
+  'Medio': '#0f7a5a',
+  'Bajo': '#6b7570',
+  'Sin valorar': '#b6bdb9',
+};
+
+const YA = [
+  { id: 'c1', tipo: 'usa' },
+  { id: 'c2', tipo: 'usa' },
+  { id: 'c3', tipo: 'usa' },
+  { id: 'c9', tipo: 'autentica con' },
+  { id: 'c10', tipo: 'almacena en' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todos', tipo: 'usa', marcados: [], relacionados: YA };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const yaIds = s.relacionados.map((r) => r.id);
+    const disponibles = CANDIDATOS.filter((c) => yaIds.indexOf(c.id) === -1);
+    const visibles =
+      s.filtro === 'todos' ? disponibles : disponibles.filter((c) => c.nivel3 === s.filtro);
+
+    const n = s.marcados.length;
+
+    return {
+      filtros: [
+        { id: 'todos', etiqueta: 'Todos' },
+        { id: 'Servicios de Información', etiqueta: 'Servicios' },
+        { id: 'Credenciales', etiqueta: 'Credenciales' },
+        { id: 'Bases de datos', etiqueta: 'Bases de datos' },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      izqConteo: visibles.length + ' disponibles',
+      derConteo: s.relacionados.length + ' relacionados',
+      izquierda: visibles.map((c) => {
+        const marcado = s.marcados.indexOf(c.id) !== -1;
+        return {
+          ...c,
+          critColor: CRIT_COLOR[c.crit],
+          estilo: marcado ? FILA_ON : FILA_OFF,
+          marco: marcado ? '#12437f' : '#d7dcd9',
+          casilla: marcado ? '#12437f' : '#ffffff',
+          tilde: marcado ? 1 : 0,
+          alternar: () =>
+            this.setState({
+              marcados: marcado ? s.marcados.filter((x) => x !== c.id) : s.marcados.concat([c.id]),
+            }),
+        };
+      }),
+      tipos: Object.keys(TIPO_COLOR).map((t) => ({
+        etiqueta: t,
+        estilo: s.tipo === t ? TIPO_ON : TIPO_OFF,
+        elegir: () => this.setState({ tipo: t }),
+      })),
+      agregar: () =>
+        this.setState({
+          relacionados: s.relacionados.concat(s.marcados.map((id) => ({ id, tipo: s.tipo }))),
+          marcados: [],
+        }),
+      agregarEstilo:
+        'width: 100%; padding: 11px 0; font-size: 12.5px; font-weight: 600; border-radius: 6px; ' +
+        (n > 0
+          ? 'background: #12437f; border: 1px solid #0c2461; color: #ffffff;'
+          : 'background: #f5f7f6; border: 1px solid #e2e6e3; color: #b6bdb9;'),
+      textoSeleccion: n === 0 ? 'Marca uno o varios' : n === 1 ? '1 seleccionado' : n + ' seleccionados',
+      derecha: s.relacionados.map((r) => {
+        const c = CANDIDATOS.find((x) => x.id === r.id);
+        const col = TIPO_COLOR[r.tipo];
+        return {
+          nombre: c.nombre,
+          codigo: c.codigo,
+          nivel3: c.nivel3,
+          crit: c.crit,
+          critColor: CRIT_COLOR[c.crit],
+          tipo: r.tipo,
+          tipoBg: col.bg,
+          tipoFg: col.fg,
+          quitar: () => this.setState({ relacionados: s.relacionados.filter((x) => x.id !== r.id) }),
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

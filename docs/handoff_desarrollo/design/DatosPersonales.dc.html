@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 13px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="display: flex; align-items: center; gap: 10px">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Datos personales</h1>
+        <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #efeafb; color: #5b3fa0">Ley 1581 de 2012</span>
+      </span>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 100ch; line-height: 1.55">Qué datos trata cada sistema, con qué finalidad y bajo qué base. <strong style="font-weight: 600; color: #4a544f">Es el bloque con más exposición legal del paquete</strong>, y hoy no existe en ninguna parte del sistema.</span>
+    </div>
+  </div>
+
+  <div style="flex: none; display: flex; gap: 11px; margin-bottom: 12px">
+    <sc-for list="{{cifras}}" as="c" hint-placeholder-count="4">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 13px 15px; background: {{c.fondo}}; border: 1px solid {{c.borde}}; border-radius: 10px">
+        <span class="mono" style="font-size: 22px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.valor}}</span>
+        <span style="font-size: 11px; line-height: 1.4; color: {{c.color}}">{{c.etiqueta}}</span>
+      </span>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: none; width: 330px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto">
+      <sc-for list="{{registros}}" as="r" hint-placeholder-count="4">
+        <button onClick="{{r.elegir}}" style="{{r.estilo}}">
+          <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <span class="mono" style="flex: none; font-size: 9px; font-weight: 600; color: #12437f">{{r.sistema}}</span>
+            <sc-if value="{{r.sensibles}}" hint-placeholder-val="{{ true }}">
+              <span class="mono" style="margin-left: auto; padding: 1px 6px; font-size: 7.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; border-radius: 3px; background: #fdeeeb; color: #a52016">sensibles</span>
+            </sc-if>
+          </span>
+          <span style="width: 100%; font-size: 12px; text-align: left; line-height: 1.35">{{r.categoria}}</span>
+          <span style="display: flex; align-items: center; gap: 7px; width: 100%">
+            <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{r.color}}"></span>
+            <span class="mono" style="font-size: 8.5px; color: {{r.color}}">{{r.marca}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span class="cab"><span>Tratamiento</span><span class="regla"></span></span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{f.campos}}" as="c" hint-placeholder-count="8">
+            <span style="display: flex; flex-direction: column; gap: 3px">
+              <span class="etq">{{c.etiqueta}}</span>
+              <span style="font-size: 12px; line-height: 1.45; color: {{c.color}}">{{c.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: {{f.transFondo}}; border: 1px solid {{f.transBorde}}; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; color: {{f.transColor}}">Transferencia internacional</span>
+          <span style="height: 1px; flex: 1; background: #eceeed"></span>
+          <span class="mono" style="font-size: 9.5px; font-weight: 600; color: {{f.transColor}}">{{f.transEstado}}</span>
+        </span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{f.transferencia}}" as="t" hint-placeholder-count="2">
+            <span style="display: flex; flex-direction: column; gap: 3px">
+              <span class="etq">{{t.etiqueta}}</span>
+              <span style="font-size: 12px; line-height: 1.45; color: {{t.color}}">{{t.valor}}</span>
+            </span>
+          </sc-for>
+        </div>
+        <span style="font-size: 10.5px; line-height: 1.6; color: {{f.transColor}}">{{f.transNota}}</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Por qué esto vive en la hoja de vida y no aparte</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">El activo del inventario ya tiene la bandera <span class="mono" style="font-size: 10.5px">datosPersonales</span>. Lo que no tiene es <strong style="font-weight: 600">la finalidad, la base de legitimación, el país de destino ni la retención</strong>, que es lo que un requerimiento de la Superintendencia pide.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Ponerlo en el sistema y no en el activo tiene una razón: <strong style="font-weight: 600">un mismo dato se trata distinto según qué sistema lo use.</strong> La cédula en el portal del cliente y la cédula en nómina tienen finalidad, base y retención diferentes.</span>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 9px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #b8791a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #8a4407">Un sistema marcado como que trata datos personales y sin registro de tratamiento aparece <strong style="font-weight: 600">incompleto</strong>, y esa es una condición de la puerta P1.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const CARD = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 12px 13px; border-radius: 9px;';
+const CARD_OFF = CARD + ' background: #ffffff; border: 1px solid #e2e6e3;';
+const CARD_ON = CARD + ' background: #eef2f8; border: 1px solid #12437f;';
+
+const REGISTROS = [
+  {
+    sistema: 'SIS-001', categoria: 'Identificación y datos de contacto', sensibles: false, completo: true,
+    campos: [
+      ['Finalidad', 'Certificar la trazabilidad de los registros de la entidad ante terceros.', 1],
+      ['Base de legitimación', 'Ejecución contractual', 1],
+      ['Titulares', 'Ciudadanos registrados por la entidad', 1],
+      ['Volumen aproximado', '120.000 titulares', 1],
+      ['Rol de CUANTICO', 'Encargado del tratamiento', 1],
+      ['Ubicación de almacenamiento', 'Nube · región Estados Unidos', 1],
+      ['Retención', '5 años desde la terminación del contrato', 1],
+      ['Responsable', 'Marcela Molina', 1],
+    ],
+    trans: true, pais: 'Estados Unidos', garantia: 'Cláusulas contractuales tipo en el contrato de encargo',
+  },
+  {
+    sistema: 'SIS-001', categoria: 'Documento de identidad', sensibles: false, completo: true,
+    campos: [
+      ['Finalidad', 'Identificar unívocamente al titular del registro consultado.', 1],
+      ['Base de legitimación', 'Ejecución contractual', 1],
+      ['Titulares', 'Ciudadanos registrados por la entidad', 1],
+      ['Volumen aproximado', '120.000 titulares', 1],
+      ['Rol de CUANTICO', 'Encargado del tratamiento', 1],
+      ['Ubicación de almacenamiento', 'Nube · región Estados Unidos', 1],
+      ['Retención', '5 años desde la terminación del contrato', 1],
+      ['Responsable', 'Marcela Molina', 1],
+    ],
+    trans: true, pais: 'Estados Unidos', garantia: 'Cláusulas contractuales tipo en el contrato de encargo',
+  },
+  {
+    sistema: 'SIS-009', categoria: 'Datos biométricos de verificación', sensibles: true, completo: false,
+    campos: [
+      ['Finalidad', 'Verificación de identidad en el proceso de registro.', 1],
+      ['Base de legitimación', 'Sin definir', 0],
+      ['Titulares', 'Ciudadanos que se registran', 1],
+      ['Volumen aproximado', 'Sin estimar', 0],
+      ['Rol de CUANTICO', 'Encargado del tratamiento', 1],
+      ['Ubicación de almacenamiento', 'Sin declarar', 0],
+      ['Retención', 'Sin definir', 0],
+      ['Responsable', 'Sin asignar', 0],
+    ],
+    trans: false, pais: '', garantia: '',
+  },
+  {
+    sistema: 'SIS-012', categoria: 'Datos laborales del personal', sensibles: false, completo: true,
+    campos: [
+      ['Finalidad', 'Gestión de la relación laboral y contractual.', 1],
+      ['Base de legitimación', 'Obligación legal y ejecución contractual', 1],
+      ['Titulares', 'Colaboradores de CUANTICO', 1],
+      ['Volumen aproximado', '56 titulares', 1],
+      ['Rol de CUANTICO', 'Responsable del tratamiento', 1],
+      ['Ubicación de almacenamiento', 'Nube · región Estados Unidos', 1],
+      ['Retención', 'Según MAT-SIG-04', 1],
+      ['Responsable', 'Albeiro Medina', 1],
+    ],
+    trans: true, pais: 'Estados Unidos', garantia: 'Cláusulas contractuales tipo con el proveedor de nube',
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 2 };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = REGISTROS[s.sel] || REGISTROS[0];
+
+    const incompletos = REGISTROS.filter((r) => !r.completo).length;
+    const sensibles = REGISTROS.filter((r) => r.sensibles).length;
+    const transfer = REGISTROS.filter((r) => r.trans).length;
+
+    return {
+      cifras: [
+        { valor: String(REGISTROS.length), etiqueta: 'tratamientos registrados', color: '#12437f', fondo: '#ffffff', borde: '#d3dceb' },
+        { valor: String(sensibles), etiqueta: 'con datos sensibles', color: sensibles ? '#a52016' : '#0b5c44', fondo: sensibles ? '#fffbfa' : '#f7fbf9', borde: sensibles ? '#f2cdc6' : '#c9e3d8' },
+        { valor: String(transfer), etiqueta: 'con transferencia internacional', color: '#8a4407', fondo: '#fffaf3', borde: '#f2b473' },
+        { valor: String(incompletos), etiqueta: incompletos === 1 ? 'incompleto · bloquea la puerta P1' : 'incompletos · bloquean la puerta P1', color: incompletos ? '#a52016' : '#0b5c44', fondo: incompletos ? '#fffbfa' : '#f7fbf9', borde: incompletos ? '#f2cdc6' : '#c9e3d8' },
+      ],
+
+      registros: REGISTROS.map((r, i) => ({
+        sistema: r.sistema,
+        categoria: r.categoria,
+        sensibles: r.sensibles,
+        marca: r.completo ? 'Completo' : 'Incompleto',
+        color: r.completo ? '#0b5c44' : '#a52016',
+        estilo: s.sel === i ? CARD_ON : CARD_OFF,
+        elegir: () => this.setState({ sel: i }),
+      })),
+
+      f: {
+        campos: f.campos.map(([etiqueta, valor, ok]) => ({
+          etiqueta, valor, color: ok ? '#1a211e' : '#a52016',
+        })),
+        transEstado: f.trans ? 'Sí' : 'No',
+        transColor: f.trans ? '#8a4407' : '#0b5c44',
+        transFondo: f.trans ? '#fffaf3' : '#f7fbf9',
+        transBorde: f.trans ? '#f2b473' : '#c9e3d8',
+        transferencia: f.trans
+          ? [
+              { etiqueta: 'País de destino', valor: f.pais, color: '#1a211e' },
+              { etiqueta: 'Garantía aplicada', valor: f.garantia, color: '#1a211e' },
+            ]
+          : [
+              { etiqueta: 'País de destino', valor: 'No aplica', color: '#6b7570' },
+              { etiqueta: 'Garantía aplicada', valor: 'No aplica', color: '#6b7570' },
+            ],
+        transNota: f.trans
+          ? 'Con transferencia internacional hay que poder mostrar el país y la garantía sin buscarlos en un contrato. Es lo primero que pregunta un requerimiento, y sin el registro la respuesta tarda días.'
+          : 'Sin transferencia internacional. Si el proveedor cambia de región, este registro deja de ser cierto: conviene revisarlo cuando cambie el servicio en la nube.',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -2,10 +2,11 @@
 
 **Fecha:** 2026-08-31
 **Código:** REQ-SIG-03
-**Versión:** 1.0
+**Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** B — Mejora (ISO 9001 §10.2 · ISO/IEC 27001 §10)
 **Depende de:** módulo A (`2026-08-31-sig-personas-tareas-design.md`) — entidad `Persona` y motor de asignaciones
-**Estado:** Aprobado, sin implementar
+**Estado:** **Implementado.** Plan B ejecutado, 11 tareas
+**Reconciliación:** el modelo de roles cambió al construir. Ver §7.
 
 ---
 
@@ -51,7 +52,12 @@ Consecuencia sobre A, ya incorporada a su especificación: `Asignacion.contenido
 | Indicador incumplido | Código del indicador y periodo, contra el tablero del SGC. |
 | Revisión por la dirección | Acta y fecha. |
 | SGSI | `riesgoId` o `controlId`, referencia real a la base. |
+| Verificación programada | `asignacionId` — la ejecución concreta que levantó el hallazgo. Ampliado el 31/08/2026 por `RF-HAL-14`. |
+| Incidente de seguridad | `incidenteId` — del módulo de Operación del SGSI. Ampliado el 31/08/2026. |
+| Proveedor | `proveedorId` + la verificación que lo detectó. Ampliado el 31/08/2026. |
 | Otro | Texto libre. |
+
+**Ampliación del 31/08/2026.** El análisis de los registros del SGSI (`RF-HAL-14` y `RF-HAL-15`) confirma que el hallazgo debe modelarse **una sola vez** para los seis mecanismos, y agrega tres orígenes: verificación, incidente y proveedor. No cambia nada del modelo —el origen ya era tipado por la regla B11—, solo crece el enum y sus referencias. La razón que da el documento es la correcta: si cada mecanismo define su propia tabla de hallazgos, nadie puede responder «cuántos hallazgos abiertos tengo», que es la primera pregunta de un auditor.
 
 Verificado contra el repositorio documental del SIG: existen los formatos `FOR-CAL-02 Formato de acciones correctivas y de mejora`, `FOR-CAL-03 Control de planes de acción`, `FOR-CAL-01 Identificación y control de salidas no conformes` y el procedimiento `PRO-CAL-03 Acciones correctivas y oportunidades de mejora`, que son la fuente funcional de este módulo. `FOR-CAL-08 Reporte de Incidentes de Riesgo` —núm. del riesgo, fecha, proceso, riesgo/oportunidad, descripción del evento, impacto generado, causa raíz y reportante— es la materialización que el módulo D convierte en hallazgo de este módulo.
 
@@ -101,7 +107,7 @@ Verificado contra el repositorio documental del SIG: existen los formatos `FOR-C
 
 ## 5. Pantallas
 
-El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI · Operación). Mejora entra como dos entradas más de la barra lateral de Operación: `HAL` y `MEJ`.
+El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI · Actividades). Mejora entra como dos entradas más de la barra lateral de Actividades: `HAL` y `MEJ`.
 
 | Pantalla | Contenido |
 |---|---|
@@ -133,14 +139,20 @@ El header tiene cinco pestañas (Mi SIG · Indicadores · Estratégico · SGSI �
 
 ## 7. Roles y permisos
 
-Permisos nuevos: `mejora:reportar` (todos), `mejora:ver`, `mejora:escribir`, `mejora:cerrar`.
+Permisos nuevos: `mejora:reportar`, `mejora:ver`, `mejora:escribir`, `mejora:cerrar`.
+
+> **Reconciliado el 01/09/2026.** Los cuatro roles de la versión 1.0 son hoy **dos**: `SIG-Propietarios` y `SIG-Auditoría` se retiraron porque nunca existieron en el Directorio. La razón completa está en §6.0 de la especificación del módulo A.
 
 | Rol · grupo de AD | Qué hace |
 |---|---|
-| **Colaborador** | Reporta hallazgos y ejecuta las acciones que le asignen. Ve los que reportó y los que tiene a cargo. |
-| **SIG-Propietarios** | Analiza causa y responde por los hallazgos de su área; lectura del resto de su área. |
-| **Responsables SIG** | Clasifica, fija plazos, verifica eficacia, cierra y anula. |
-| **SIG-Auditoría** | Lectura total, bitácora incluida. No modifica nada. |
+| **Colaborador** | Reporta hallazgos y ejecuta las acciones que le asignen. |
+| **`Líderes SIG`** | Clasifica, fija plazos, registra causa raíz y acciones, verifica eficacia, cierra y anula. |
+
+### 7.1 Dos notas sobre cómo quedó el permiso de reportar
+
+**`reportarHallazgo` no exige permiso, exige sesión.** La acción usa `autorActual`, no `autorConPermiso` (`app/sig/acciones/hallazgos.ts:32`). Es lo correcto y cumple la regla B3 —cualquiera reporta—, pero conviene saber que la compuerta real es «estar autenticado», no el permiso.
+
+**`mejora:reportar` quedó como vocabulario sin uso.** Se declara en el tipo `Permiso`, se otorga **solo a Colaborador** —no a `Líderes SIG`— y no se comprueba en ninguna parte: su única aparición fuera de `permisos.ts` es una etiqueta en la pantalla de diagnóstico. Hoy no hace daño. Si mañana alguien lo usa como compuerta del formulario de reporte, **dejaría fuera al líder del SIG**, que es justo quien más hallazgos levanta. O se le agrega a `POR_GRUPO`, o se retira del tipo.
 
 ---
 

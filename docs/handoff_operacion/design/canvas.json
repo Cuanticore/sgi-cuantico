@@ -1,0 +1,44 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Eventos e incidentes · M3" },
+    { "id": "page-2", "name": "Verificaciones y métricas · M2 y M4" },
+    { "id": "page-3", "name": "Solicitudes y accesos · M6" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 780, "h": 940, "title": "Reportar un evento", "is_interactive": true },
+    { "file": "Incidente.dc.html", "page": "page-1", "x": 880, "y": 0, "w": 1196, "h": 900, "title": "Ciclo de vida del incidente", "is_interactive": true },
+
+    { "file": "Verificaciones.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1196, "h": 880, "title": "Verificaciones programadas", "is_interactive": true },
+    { "file": "Metricas.dc.html", "page": "page-2", "x": 1300, "y": 0, "w": 1196, "h": 880, "title": "Métricas del SGSI", "is_interactive": true },
+
+    { "file": "Solicitudes.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1196, "h": 880, "title": "Solicitudes con aprobación", "is_interactive": true },
+    { "file": "Accesos.dc.html", "page": "page-3", "x": 1300, "y": 0, "w": 1196, "h": 880, "title": "Accesos y perfiles", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "m3",
+      "page": "page-1",
+      "x": 0,
+      "y": -270,
+      "w": 800,
+      "text": "M3 · Evento, incidente y aprendizaje\n\nEl único mecanismo que estaba fuera de alcance en REQ-SIG-01 §2.2 y que este análisis devuelve al sistema.\n\nEn la ficha del incidente, cambia el veredicto arriba a la derecha: con «observación» o «falso positivo» las tres pestañas siguientes se atenúan — solo un incidente abre el ciclo completo. Y en Clasificación, sube el impacto a Alto: el botón de cerrar se bloquea, porque sin causa raíz no se cierra."
+    },
+    {
+      "id": "m2m4",
+      "page": "page-2",
+      "x": 0,
+      "y": -270,
+      "w": 800,
+      "text": "M2 · Verificación programada y M4 · Medición\n\nM2 no es nuevo: es el motor de tareas del módulo A aplicado. Lo que sí es nuevo es el anclaje —anclada al calendario o flotante— que decidimos hoy, y que la spec del módulo A recoge como regla R12. Cámbialo en la ficha y lee la advertencia.\n\nEn el Excel del consultor los ciclos son tres bloques de columnas repetidos y el cuarto no cabe. Aquí las ejecuciones son filas sin límite."
+    },
+    {
+      "id": "m6",
+      "page": "page-3",
+      "x": 0,
+      "y": -270,
+      "w": 800,
+      "text": "M6 · Solicitud con aprobación\n\nCuatro tipos, un solo flujo: pide, autoriza, ejecuta, y de las tres cosas queda fecha.\n\nEn Accesos, mueve la fecha de consulta. Camilo Restrepo aparece en diciembre y desaparece después: persona y perfil son una relación con vigencia, no una casilla que se sobrescribe. Es la respuesta a la pregunta que hace un auditor y que una cuadrícula con una columna por empleado no puede dar."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

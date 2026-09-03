@@ -106,6 +106,7 @@ const TIPO_COLOR = {
   'Verificación': { bg: '#fff3e6', fg: '#8a4407' },
   'Capacitación': { bg: '#e8f4ef', fg: '#0b5c44' },
   'Tarea': { bg: '#f5f7f6', fg: '#4a544f' },
+  'Firma': { bg: '#efeafb', fg: '#5b3fa0' },
 };
 
 const EST = {
@@ -120,6 +121,8 @@ const MESES = [
     registros: [
       { tipo: 'Tarea', titulo: 'Conciliación bancaria de julio', registro: 'Se conciliaron los 14 movimientos del extracto contra el consolidado FOR-FIN-03. Dos partidas por identificar, reportadas al contador.', fecha: '04/08/2026', estado: 'tarde' },
       { tipo: 'Capacitación', titulo: 'Phishing e ingeniería social', registro: 'Asistió · calificación 95 · aprobado', fecha: '21/08/2026', estado: 'aTiempo' },
+      { tipo: 'Firma', titulo: 'Autoevaluación del puesto de trabajo remoto', registro: 'Acta ACT-2026-0041 · firmada el 20/08/2026 a las 11:07 · abrir el PDF', fecha: '20/08/2026', estado: 'aTiempo' },
+      { tipo: 'Firma', titulo: 'Acuerdo de confidencialidad', registro: 'Acta ACT-2026-0012 · firmada el 02/02/2026 a las 08:31 · abrir el PDF', fecha: '02/08/2026', estado: 'aTiempo' },
     ],
   },
   {
@@ -188,7 +191,7 @@ class Component extends DCLogic {
         estilo: s.anio === a ? CHIP_ON : CHIP_OFF,
         elegir: () => this.setState({ anio: a }),
       })),
-      tipos: ['todos', 'Lectura', 'Verificación', 'Capacitación', 'Tarea'].map((t) => ({
+      tipos: ['todos', 'Lectura', 'Verificación', 'Capacitación', 'Tarea', 'Firma'].map((t) => ({
         etiqueta: t === 'todos' ? 'Todos' : t,
         estilo: s.tipo === t ? MINI_ON : MINI_OFF,
         elegir: () => this.setState({ tipo: t }),

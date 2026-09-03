@@ -2,11 +2,12 @@
 
 **Fecha:** 2026-08-31
 **Código:** REQ-SIG-05
-**Versión:** 1.0
+**Versión:** 1.1 — reconciliada con el código el 01/09/2026
 **Módulo:** C — Auditorías internas (ISO 9001 §9.2 · ISO/IEC 27001 §9.2)
 **Depende de:** módulo A (`2026-08-31-sig-personas-tareas-design.md`) · módulo B (`2026-08-31-sig-mejora-nc-acpm-design.md`)
 **Fuentes documentales:** `PRO-CAL-04 Planificación y ejecución de auditorías v3.0` · `FOR-CAL-04 Programa de Auditoría v2` · `FOR-CAL-06 Plan de Auditoría` · `FOR-CAL-07 Informe de Auditoría v1` · cinco auditorías archivadas de 2025 y 2026
-**Estado:** Aprobado, sin implementar
+**Estado:** **Implementado.** Plan C ejecutado, 7 tareas
+**Reconciliación:** el rol de Auditor por asignación no se construyó. Ver §6.
 
 ---
 
@@ -86,7 +87,7 @@ Las fortalezas y las oportunidades del informe no se capturan dos veces: se deri
 
 ## 4. Pantallas
 
-La barra lateral de Operación queda en nueve entradas y se agrupa con separadores, como la del SGSI ya hace con `CONFIGURACIÓN`:
+La barra lateral de Actividades queda en nueve entradas y se agrupa con separadores, como la del SGSI ya hace con `CONFIGURACIÓN`:
 
 > **TAREAS** OBL · CAL · TAR · CON — **MEJORA** HAL · MEJ — **AUDITORÍA** PRG · AUD — **CONFIGURACIÓN** PER · NRM
 
@@ -123,10 +124,18 @@ Permisos nuevos: `auditoria:ver`, `auditoria:ejecutar`, `auditoria:administrar`.
 
 | Rol | Qué hace |
 |---|---|
+> **Reconciliado el 01/09/2026.** De cuatro roles a dos, y con una diferencia propia de este módulo: **el permiso por asignación no se construyó.**
+
 | **Colaborador (auditado)** | Ve las notas de su proceso **una vez emitido el informe**, y ejecuta las acciones que le lleguen por Mejora. |
-| **Auditor** | Escribe notas y arma el informe, solo en las auditorías donde está asignado. Es un permiso **por asignación**, no un grupo de AD: quien audita cambia en cada ciclo, y un grupo de Directorio no puede seguir ese ritmo. |
-| **Responsables SIG** | Programa, aprueba auditores, emite informes y registra las externas. |
-| **SIG-Auditoría** | Lectura total, incluidos los borradores y la bitácora. |
+| **`Líderes SIG`** | Programa, aprueba auditores, planifica, escribe notas, emite informes y registra las externas. |
+
+### 6.1 El auditor: lo que se especificó y lo que se construyó
+
+La versión 1.0 pedía que auditar fuera un **permiso por asignación** —«quien audita cambia en cada ciclo, y un grupo de Directorio no puede seguir ese ritmo»—. El código gatea `auditoria:ejecutar` contra el grupo, como todo lo demás (`app/sig/acciones/auditorias.ts:110`).
+
+**Lo que sí se construyó, y es la mitad que importaba:** solo una persona con **perfil de auditor aprobado** puede ser nombrada auditor líder — la acción lo verifica contra `PerfilAuditor` exigiendo `aprobadoEn` distinto de nulo (`auditorias.ts:76`). La regla C3 se cumple.
+
+**Lo que queda pendiente, y hay que decirlo:** con el modelo actual, un auditor externo contratado para un ciclo tendría que entrar a `Líderes SIG` para escribir sus notas, lo que le daría además el registro de riesgos completo y la parametrización del método. Mientras el auditor líder sea externo y trabaje fuera del sistema —como en 2026, donde el informe lo trajo ICONTEC— no aparece el problema. Aparece el día que un auditor de primera parte quiera registrar sus notas dentro.
 
 ---
 

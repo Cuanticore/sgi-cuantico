@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 24px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Equipos de colaboradores</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 96ch; line-height: 1.55">Las personas del Directorio cruzadas con lo que tienen a cargo. <strong style="font-weight: 600; color: #4a544f">Quien no tiene nada asignado también aparece</strong>: es el hueco que hace que un inventario de equipos no sirva.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Exportar equipos</button>
+  </div>
+
+  <div style="display: flex; gap: 12px; margin-bottom: 14px">
+    <sc-for list="{{cifras}}" as="c" hint-placeholder-count="4">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 12px 15px; background: #ffffff; border: 1px solid #e2e6e3; border-top: 2px solid {{c.color}}; border-radius: 10px">
+        <span class="etq">{{c.etiqueta}}</span>
+        <span style="display: flex; align-items: baseline; gap: 8px">
+          <span class="mono" style="font-size: 24px; font-weight: 600; line-height: 1; color: {{c.color}}">{{c.valor}}</span>
+          <span style="font-size: 11px; color: #6b7570; line-height: 1.4">{{c.nota}}</span>
+        </span>
+      </span>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px">
+    <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+      <button onClick="{{f.elegir}}" style="{{f.estilo}}">{{f.etiqueta}} <span class="mono" style="font-size: 10px; opacity: 0.75">{{f.conteo}}</span></button>
+    </sc-for>
+    <span style="margin-left: auto; font-size: 11.5px; color: #8a938e">El custodio persona se agregó al activo el 01/09/2026; el custodio cargo se conserva para la responsabilidad formal.</span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px">
+    <sc-for list="{{personas}}" as="p" hint-placeholder-count="9">
+      <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px 17px; background: {{p.fondo}}; border: 1px solid {{p.borde}}; border-radius: 10px">
+        <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; font-size: 12px; font-weight: 700; background: {{p.avatarBg}}; color: {{p.avatarFg}}">{{p.iniciales}}</span>
+
+        <span style="flex: none; width: 186px; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13.5px; font-weight: 500; color: #1a211e">{{p.nombre}}</span>
+          <span class="mono" style="font-size: 9.5px; color: #8a938e">{{p.area}}</span>
+        </span>
+
+        <span style="flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <sc-for list="{{p.activos}}" as="a" hint-placeholder-count="3">
+            <span style="display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+              <span style="display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: {{a.bg}}; color: {{a.fg}}; font-size: 10px">{{a.icono}}</span>
+              <span style="font-size: 11.5px; color: #1a211e">{{a.nombre}}</span>
+              <span class="mono" style="font-size: 9px; color: #a3aca7">{{a.codigo}}</span>
+            </span>
+          </sc-for>
+          <sc-if value="{{p.sinActivos}}" hint-placeholder-val="{{ true }}">
+            <span style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; background: #fdeeeb; border: 1px solid #f2cdc6; border-radius: 6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a52016" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+              <span style="font-size: 11.5px; font-weight: 500; color: #a52016">Sin ningún activo asignado</span>
+            </span>
+          </sc-if>
+          <button style="{{p.botonEstilo}}">+ Asignar activo</button>
+        </span>
+
+        <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; width: 96px">
+          <span class="mono" style="font-size: 16px; font-weight: 600; color: {{p.conteoColor}}">{{p.conteo}}</span>
+          <span class="etq">activos</span>
+        </span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; align-items: flex-start; gap: 11px; padding: 13px 16px; margin-top: 12px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+    <span style="flex: 1; font-size: 11.5px; line-height: 1.6; color: #12437f">
+      La lista sale de las <strong style="font-weight: 600">personas activas del Directorio</strong>, no del inventario. Por eso puede decir quién no tiene equipo: si partiera de los activos, esa persona sencillamente no aparecería. Al desvincular a alguien, sus activos quedan listados para reasignar, igual que sus tareas pendientes.
+    </span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const CHIP_BASE = 'padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;';
+const CHIP_OFF = CHIP_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CHIP_ON = CHIP_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const TIPO = {
+  portatil: { icono: '▭', bg: '#e9f0fb', fg: '#12437f' },
+  movil: { icono: '▯', bg: '#eef2f8', fg: '#12437f' },
+  token: { icono: '⚿', bg: '#fdeeeb', fg: '#a52016' },
+  monitor: { icono: '▤', bg: '#f5f7f6', fg: '#4a544f' },
+};
+
+const PERSONAS = [
+  { nombre: 'Daniel Medina', area: 'Gestión Estratégica', activos: [['portatil', 'MacBook Pro 16', 'TEC-EQU-0004'], ['token', 'Token de acceso', 'TEC-CLA-0011'], ['monitor', 'Monitor 27"', 'TEC-EQU-0019']] },
+  { nombre: 'Laura Agudelo', area: 'Gestión de Proyectos', activos: [['portatil', 'Dell Latitude', 'TEC-EQU-0007'], ['movil', 'iPhone corporativo', 'TEC-EQU-0022']] },
+  { nombre: 'Katherine Quiroga', area: 'Sistema Integrado de Gestión', activos: [['portatil', 'Dell Latitude', 'TEC-EQU-0009']] },
+  { nombre: 'Lina Medina', area: 'Gestión Comercial', activos: [['portatil', 'HP ProBook', 'TEC-EQU-0012'], ['monitor', 'Monitor 24"', 'TEC-EQU-0025']] },
+  { nombre: 'Albeiro Medina', area: 'Talento Humano', activos: [['portatil', 'HP ProBook', 'TEC-EQU-0014']] },
+  { nombre: 'Marcela Molina', area: 'Gestión Legal y Compras', activos: [] },
+  { nombre: 'Yuliet Rojas', area: 'Soporte y Servicio al Cliente', activos: [['portatil', 'Dell Latitude', 'TEC-EQU-0016'], ['token', 'Token de acceso', 'TEC-CLA-0013']] },
+  { nombre: 'Juan Felipe Ríos', area: 'Gestión de Proyectos', activos: [] },
+  { nombre: 'David Arango', area: 'Gestión Tecnológica', activos: [['portatil', 'ThinkPad X1', 'TEC-EQU-0018']] },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filtro: 'todas' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const sin = PERSONAS.filter((p) => p.activos.length === 0);
+    const visibles =
+      s.filtro === 'todas' ? PERSONAS
+        : s.filtro === 'sin' ? sin
+          : s.filtro === 'con' ? PERSONAS.filter((p) => p.activos.length > 0)
+            : PERSONAS.filter((p) => p.activos.some((a) => a[0] === 'token'));
+
+    const total = PERSONAS.reduce((n, p) => n + p.activos.length, 0);
+
+    return {
+      cifras: [
+        { etiqueta: 'Personas activas', valor: PERSONAS.length, nota: 'del Directorio', color: '#12437f' },
+        { etiqueta: 'Activos asignados', valor: total, nota: 'con custodio persona', color: '#0b5c44' },
+        { etiqueta: 'Sin ningún activo', valor: sin.length, nota: 'revisar con Talento Humano', color: '#a52016' },
+        { etiqueta: 'Promedio por persona', valor: (total / PERSONAS.length).toFixed(1), nota: 'equipos', color: '#12437f' },
+      ],
+      filtros: [
+        { id: 'todas', etiqueta: 'Todas', conteo: PERSONAS.length },
+        { id: 'sin', etiqueta: 'Sin activos', conteo: sin.length },
+        { id: 'con', etiqueta: 'Con activos', conteo: PERSONAS.length - sin.length },
+        { id: 'token', etiqueta: 'Con token', conteo: PERSONAS.filter((p) => p.activos.some((a) => a[0] === 'token')).length },
+      ].map((f) => ({ ...f, estilo: s.filtro === f.id ? CHIP_ON : CHIP_OFF, elegir: () => this.setState({ filtro: f.id }) })),
+      personas: visibles.map((p) => {
+        const vacio = p.activos.length === 0;
+        return {
+          nombre: p.nombre,
+          area: p.area,
+          iniciales: p.nombre.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase(),
+          activos: p.activos.map(([t, nombre, codigo]) => ({ nombre, codigo, icono: TIPO[t].icono, bg: TIPO[t].bg, fg: TIPO[t].fg })),
+          sinActivos: vacio,
+          conteo: p.activos.length,
+          conteoColor: vacio ? '#a52016' : '#12437f',
+          fondo: vacio ? '#fdeeeb' : '#ffffff',
+          borde: vacio ? '#f2cdc6' : '#e2e6e3',
+          avatarBg: vacio ? '#ffffff' : '#e9f0fb',
+          avatarFg: vacio ? '#a52016' : '#12437f',
+          botonEstilo:
+            'padding: 6px 11px; font-size: 11.5px; font-weight: 500; border-radius: 6px; border: 1px dashed ' +
+            (vacio ? '#f2cdc6' : '#d3dceb') + '; background: #ffffff; color: ' + (vacio ? '#a52016' : '#12437f') + ';',
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

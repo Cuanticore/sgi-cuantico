@@ -1,0 +1,287 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 20px; padding: 22px 26px 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Navegación</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 104ch; line-height: 1.55">Seis pestañas y una barra lateral por pestaña. <strong style="font-weight: 600; color: #4a544f">Lo que cada quien ve lo decide el rol</strong>, y las pestañas que no aplican no se renderizan: no se muestran deshabilitadas.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Ver como</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{roles}}" as="r" hint-placeholder-count="3">
+          <button onClick="{{r.elegir}}" style="{{r.estilo}}">{{r.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <!-- Header real, 58 px, gradiente 96° -->
+  <div style="flex: none; height: 58px; display: flex; align-items: center; gap: 22px; padding: 0 26px; background: linear-gradient(96deg, #0c2461 0%, #1b3a8a 46%, #2b52b8 100%); border-bottom: 1px solid #0a2350">
+    <span style="flex: none; font-size: 14.5px; font-weight: 700; color: #ffffff; letter-spacing: -0.01em">CUANTICO <span style="font-weight: 400; opacity: 0.72">SIG</span></span>
+    <span style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px">
+      <sc-for list="{{pestanas}}" as="p" hint-placeholder-count="7">
+        <button onClick="{{p.elegir}}" style="{{p.estilo}}">{{p.etiqueta}}</button>
+      </sc-for>
+    </span>
+    <span style="flex: none; display: flex; align-items: center; gap: 9px">
+      <span style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 999px; font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.18); color: #ffffff">{{iniciales}}</span>
+      <span style="font-size: 12px; color: #dce7fb">{{persona}}</span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex">
+
+    <!-- Barra lateral de la pestaña activa -->
+    <div style="flex: none; width: 244px; display: flex; flex-direction: column; background: #ffffff; border-right: 1px solid #e2e6e3; overflow-y: auto">
+      <div style="flex: none; padding: 14px 16px 10px">
+        <span class="etq" style="color: #12437f">{{pestanaActiva}}</span>
+      </div>
+      <div style="flex: 1; padding: 0 10px 14px; display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{lateral}}" as="l" hint-placeholder-count="8">
+          <span style="{{l.estilo}}">
+            <sc-if value="{{l.esGrupo}}" hint-placeholder-val="{{ true }}">
+              <span class="etq" style="padding-top: 10px">{{l.texto}}</span>
+            </sc-if>
+            <sc-if value="{{l.esItem}}" hint-placeholder-val="{{ true }}">
+              <span style="display: flex; align-items: center; gap: 9px; width: 100%">
+                <span style="flex: none; width: 5px; height: 5px; border-radius: 50%; background: {{l.punto}}"></span>
+                <span style="flex: 1; min-width: 0; font-size: 12px; color: {{l.color}}">{{l.texto}}</span>
+                <span class="mono" style="flex: none; font-size: 8px; color: {{l.rutaColor}}">{{l.ruta}}</span>
+              </span>
+            </sc-if>
+          </span>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Explicación -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; padding: 18px 24px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span class="cab"><span>{{pestanaActiva}}</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{conteoLateral}}</span></span>
+        <span style="font-size: 12px; line-height: 1.6; color: #3a443f">{{descripcion}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Quién ve qué</span><span class="regla"></span></span>
+        <sc-for list="{{visibilidad}}" as="v" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; background: {{v.fondo}}; border: 1px solid {{v.borde}}; border-radius: 8px">
+            <span class="mono" style="flex: none; width: 24px; font-size: 14px; font-weight: 600; color: {{v.color}}">{{v.n}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: #3a443f">{{v.texto}}</span>
+          </div>
+        </sc-for>
+        <span style="font-size: 10.5px; color: #8a938e; line-height: 1.55">Un Colaborador ve una sola pestaña. No ve las demás en gris: no existen para él, porque una pestaña deshabilitada enseña que hay algo que no le dejan tocar.</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Cómo leer esta pantalla</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">Cada entrada de la barra lateral lleva su <strong style="font-weight: 600">ruta real</strong> si ya está construida, y dice «por construir» si no. El punto verde y el ámbar son lo mismo dicho en color; el texto manda.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">«SIG» reúne lo que antes eran dos pestañas.</strong> Indicadores y Resumen SGSI ya existen; separarlos del resto era una división que solo tenía sentido para quien construyó el sistema. Quien lo usa entra a ver cómo va.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Estratégico está completa y Tecnología no existe.</strong> Recorre las seis pestañas y el contador de arriba te dice cuánto falta en cada una: es el mapa de trabajo del desarrollador, no solo un diagrama de navegación.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f"><strong style="font-weight: 600">Configuración no es pestaña.</strong> Va en el engranaje junto al avatar, y ahí caen los tres que el SGSI ya tiene bajo ese grupo —<span class="mono" style="font-size: 10.5px">Amenazas y tipos</span>, <span class="mono" style="font-size: 10.5px">Metodología</span> y <span class="mono" style="font-size: 10.5px">Parámetros</span>— más Personas, Procesos y Plazos. Se tocan una vez al trimestre.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":900}}'>
+const ROL_BASE = 'padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const ROL_OFF = ROL_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const ROL_ON = ROL_BASE + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+// La barra lateral acepta grupos (encabezado) e ítems. `nuevo` marca lo que
+// aportan REQ-SIG-06 a REQ-SIG-09.
+// `r` es la ruta que YA existe en app/. Sin `r`, la pantalla está por construir.
+const PESTANAS = [
+  {
+    id: 'misig', etiqueta: 'Mi SIG', roles: ['colab', 'proceso', 'sig'],
+    descripcion: 'La bandeja personal: lo que me toca hacer, con su plazo. Es la única pestaña que ve un colaborador, y la que usan las 38 personas.',
+    lateral: [
+      { t: 'Pendientes', r: '/mi-sig' },
+      { t: 'Mi historial', r: '/mi-sig/historial' },
+      { t: 'Diagnóstico', r: '/mi-sig/diagnostico' },
+      { t: 'Mis actas firmadas' },
+      { t: 'Mi ficha' },
+    ],
+  },
+  {
+    id: 'sig', etiqueta: 'SIG', roles: ['proceso', 'sig'],
+    descripcion: 'El sistema de gestión visto como un todo. Las etiquetas son las que ya usa SidebarSgsi.tsx: no se renombra nada de lo construido. Los dos primeros grupos y «Activos y Riesgos» ya existen; «Operación» es lo nuevo.',
+    lateral: [
+      { g: 'Indicadores' },
+      { t: 'Indicadores', r: '/' },
+      { t: 'Estado del sistema' }, { t: 'Cumplimiento de tareas' }, { t: 'Registros' },
+      { g: 'Resumen SGSI' },
+      { t: 'Resumen SGSI', r: '/sgsi' },
+      { t: 'Verificación del motor', r: '/sgsi/verificacion' },
+      { g: 'Activos y Riesgos' },
+      { t: 'Inventario de activos', r: '/sgsi/inventario' },
+      { t: 'Matrices de riesgo', r: '/sgsi/matrices' },
+      { t: 'Madurez de los controles', r: '/sgsi/controles' },
+      { t: 'Planes de tratamiento', r: '/sgsi/planes' },
+      { g: 'Operación' },
+      { t: 'Eventos e incidentes' }, { t: 'Verificaciones programadas' },
+      { t: 'Métricas' }, { t: 'Solicitudes' }, { t: 'Accesos y perfiles' },
+    ],
+  },
+  {
+    id: 'actividades', etiqueta: 'Actividades', roles: ['proceso', 'sig'],
+    descripcion: 'El control operacional del numeral 8: lo que hay que hacer y quién lo hace. Es la pestaña más construida del sistema: once de sus doce pantallas ya existen. Se llamaba «Operación» hasta el 02/09/2026.',
+    lateral: [
+      { g: 'Motor' },
+      { t: 'Obligaciones', r: '/sig/obligaciones' },
+      { t: 'Calendario', r: '/sig/calendario' },
+      { t: 'Tareas', r: '/sig/tareas' },
+      { t: 'Contenidos', r: '/sig/contenidos' },
+      { g: 'Mejora' },
+      { t: 'Hallazgos', r: '/sig/hallazgos' },
+      { t: 'Acciones', r: '/sig/mejora' },
+      { g: 'Auditoría' },
+      { t: 'Programa anual', r: '/sig/programa' },
+      { t: 'Auditorías', r: '/sig/auditorias' },
+      { t: 'Auditorías externas', r: '/sig/auditorias/externas' },
+      { t: 'Tablero de auditoría', r: '/sig/tablero-auditoria' },
+      { t: 'Normas y requisitos', r: '/sig/normas' },
+    ],
+  },
+  {
+    id: 'estrategico', etiqueta: 'Estratégico', roles: ['sig'],
+    descripcion: 'El contexto de la organización y lo que de él se deriva. Público distinto al resto: esto lo mira la alta dirección, no quien ejecuta tareas. Está completa: sus ocho pantallas existen.',
+    lateral: [
+      { t: 'Mapa estratégico', r: '/estrategico/mapa' },
+      { t: 'Partes interesadas', r: '/estrategico/partes' },
+      { t: 'Requisitos legales', r: '/estrategico/legal' },
+      { t: 'Riesgos y oportunidades', r: '/estrategico/riesgos' },
+      { t: 'Materializaciones', r: '/estrategico/materializaciones' },
+      { t: 'DOFA', r: '/estrategico/dofa' },
+      { t: 'PESTEL', r: '/estrategico/pestel' },
+      { t: 'Parámetros del modelo', r: '/estrategico/parametros' },
+    ],
+  },
+  {
+    id: 'tecnologia', etiqueta: 'Tecnología', roles: ['proceso', 'sig'],
+    descripcion: 'La capa técnica del inventario y el ciclo de vida de desarrollo seguro. Es la pestaña que no existe todavía: ninguna de sus pantallas está construida.',
+    lateral: [
+      { g: 'Mapa' },
+      { t: 'Mapa tecnológico' }, { t: 'Niveles' }, { t: 'Dependencias' }, { t: 'Impacto' },
+      { g: 'Ambientes y productos' },
+      { t: 'Ambientes' }, { t: 'Productos y sistemas' },
+      { g: 'Desarrollo seguro' },
+      { t: 'Sistemas' }, { t: 'Excepciones' }, { t: 'Verificación · 73 ítems' }, { t: 'Datos personales' },
+      { g: 'Equipos' },
+      { t: 'Equipos de colaboradores' },
+    ],
+  },
+  {
+    id: 'personas', etiqueta: 'Personas', roles: ['sig'],
+    descripcion: 'Una sola tabla para nómina y contratistas, con los dos ciclos que la cruzan. Hoy existe la configuración de personas; lo demás está por construir.',
+    lateral: [
+      { g: 'Directorio' },
+      { t: 'Personas', r: '/sig/personas' },
+      { t: 'Colaboradores' }, { t: 'Fichas' },
+      { g: 'Ciclos' },
+      { t: 'Vinculación' }, { t: 'Desvinculación' }, { t: 'Actas de borrado seguro' },
+    ],
+  },
+];
+
+const ROLES = {
+  colab: { etiqueta: 'Colaborador', persona: 'Brayan Ruz', iniciales: 'BR' },
+  proceso: { etiqueta: 'Líder de proceso', persona: 'Yuliet Rojas', iniciales: 'YR' },
+  sig: { etiqueta: 'Líder del SIG', persona: 'Katherine Quiroga', iniciales: 'KQ' },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { rol: 'sig', pestana: 'sig' };
+  }
+
+  visibles(rol) {
+    return PESTANAS.filter((p) => p.roles.indexOf(rol) !== -1);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const vis = this.visibles(s.rol);
+    // Si el rol no alcanza la pestaña abierta, cae a la primera que sí ve.
+    const activa = vis.find((p) => p.id === s.pestana) || vis[0];
+    const r = ROLES[s.rol];
+
+    return {
+      roles: Object.keys(ROLES).map((k) => ({
+        etiqueta: ROLES[k].etiqueta,
+        estilo: s.rol === k ? ROL_ON : ROL_OFF,
+        elegir: () => this.setState({ rol: k }),
+      })),
+      persona: r.persona,
+      iniciales: r.iniciales,
+
+      pestanas: vis.map((p) => ({
+        etiqueta: p.etiqueta,
+        estilo:
+          'padding: 7px 13px; font-size: 12.5px; border: 0; border-radius: 7px; white-space: nowrap; ' +
+          (p.id === activa.id
+            ? 'background: rgba(255,255,255,0.18); color: #ffffff; font-weight: 600;'
+            : 'background: transparent; color: #bcd4f5; font-weight: 500;'),
+        elegir: () => this.setState({ pestana: p.id }),
+      })),
+
+      pestanaActiva: activa.etiqueta,
+      descripcion: activa.descripcion,
+      conteoLateral: activa.lateral.filter((l) => l.t && l.r).length + ' de ' +
+        activa.lateral.filter((l) => l.t).length + ' construidas',
+
+      lateral: activa.lateral.map((l) => ({
+        esGrupo: Boolean(l.g),
+        esItem: Boolean(l.t),
+        texto: l.g || l.t,
+        ruta: l.r || 'por construir',
+        rutaColor: l.r ? '#a3aca7' : '#8a4407',
+        punto: l.r ? '#0f7a5a' : '#f2b473',
+        color: l.r ? '#4a544f' : '#8a4407',
+        estilo: l.g
+          ? 'display: flex; padding: 0 8px;'
+          : 'display: flex; align-items: center; padding: 8px 10px; border-radius: 6px; background: transparent;',
+      })),
+
+      visibilidad: [
+        { n: this.visibles('colab').length, texto: 'pestaña ve un Colaborador: Mi SIG, y nada más.' },
+        { n: this.visibles('proceso').length, texto: 've un líder de proceso, con su módulo filtrado a lo suyo.' },
+        { n: this.visibles('sig').length, texto: 've el líder del SIG. Es el único rol que las ve todas.' },
+      ].map((v, i) => ({
+        n: String(v.n),
+        texto: v.texto,
+        color: ['#6b7570', '#12437f', '#0b5c44'][i],
+        fondo: ['#fbfcfb', '#ffffff', '#f7fbf9'][i],
+        borde: ['#e2e6e3', '#d3dceb', '#c9e3d8'][i],
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

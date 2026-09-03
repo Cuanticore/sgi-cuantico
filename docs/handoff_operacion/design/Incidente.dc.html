@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .campo { padding: 10px 12px; font-size: 12.5px; line-height: 1.55; color: #1a211e; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 900px; display: flex; flex-direction: column; background: #f5f7f6; overflow: hidden">
+
+  <div style="flex: none; padding: 22px 28px 0">
+    <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px">
+      <div style="display: flex; flex-direction: column; gap: 7px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #12437f">EVT-2026-0031</span>
+          <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{veredictoBg}}; color: {{veredictoFg}}">{{veredicto}}</span>
+          <sc-if value="{{esIncidente}}" hint-placeholder-val="{{ true }}">
+            <span class="mono" style="padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; border-radius: 4px; background: {{sevBg}}; color: {{sevFg}}">Severidad {{severidad}}</span>
+          </sc-if>
+        </span>
+        <h1 style="margin: 0; font-size: 19px; font-weight: 600; line-height: 1.35; max-width: 88ch">Campaña de phishing dirigida suplantando al área de sistemas, con dominio parecido al corporativo</h1>
+        <span class="mono" style="font-size: 10.5px; color: #8a938e">Reportado por Lina Medina · 31/08/2026 08:15 · A.5.25 → A.5.26</span>
+      </div>
+      <span style="margin-left: auto; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+        <span class="etq">Veredicto de la evaluación</span>
+        <span style="display: flex; gap: 4px; padding: 3px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 6px">
+          <sc-for list="{{veredictos}}" as="v" hint-placeholder-count="3">
+            <button onClick="{{v.elegir}}" style="{{v.estilo}}">{{v.etiqueta}}</button>
+          </sc-for>
+        </span>
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #e2e6e3">
+      <sc-for list="{{pestanas}}" as="p" hint-placeholder-count="4">
+        <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+          <span>{{p.etiqueta}}</span>
+          <span class="mono" style="font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: {{p.marcaBg}}; color: {{p.marcaFg}}">{{p.marca}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px 24px">
+
+    <!-- EVALUACIÓN -->
+    <sc-if value="{{esEvaluacion}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; max-width: 960px">
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <span class="etq">Lo que reportó quien lo vio · no se edita</span>
+          <span class="campo" style="min-height: 82px; background: #fbfcfb; color: #3a443f">Recibí un correo del «área de sistemas» pidiendo que confirmara mi contraseña por un supuesto vencimiento. El remitente se parece al nuestro pero el dominio termina en cuantico-soporte.com. No hice clic, pero dos personas del equipo comercial me dijeron que les llegó el mismo.</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span class="cab"><span>Justificación del veredicto · obligatoria</span><span class="regla"></span></span>
+          <span class="campo" style="min-height: 68px">{{justificacion}}</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Evaluado por</span><span class="campo">Daniel Medina</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Fecha</span><span class="campo mono" style="font-size: 12px">31/08/2026 · 09:40</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span class="etq">Tiempo hasta evaluar</span><span class="campo mono" style="font-size: 12px; color: #0b5c44">1 h 25 min</span></span>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; background: {{avisoBg}}; border: 1px solid {{avisoBorde}}; border-radius: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{avisoFg}}" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+          <span style="flex: 1; font-size: 12px; line-height: 1.6; color: {{avisoFg}}">{{avisoTexto}}</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- CLASIFICACIÓN -->
+    <sc-if value="{{esClasificacion}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 1000px">
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="cab"><span>Categoría · catálogo cerrado, multiselección</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{conteoCategorias}}</span></span>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px">
+            <sc-for list="{{categorias}}" as="c" hint-placeholder-count="10">
+              <button onClick="{{c.elegir}}" style="{{c.estilo}}">
+                <span style="flex: none; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid {{c.marcoColor}}; background: {{c.fondoCasilla}}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{c.tilde}}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </span>
+                <span style="flex: 1; text-align: left">{{c.etiqueta}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Sin texto libre en los campos que se van a contar. Es lo que permite responder «cuántos incidentes de phishing hubo este año», que es el indicador de la cláusula 9.1.</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="cab"><span>Impacto en las tres dimensiones</span><span class="regla"></span></span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{cid}}" as="d" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 9px; padding: 13px 15px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">{{d.dimension}}</span>
+                <span style="display: flex; gap: 4px">
+                  <sc-for list="{{d.niveles}}" as="n" hint-placeholder-count="4">
+                    <button onClick="{{n.elegir}}" style="{{n.estilo}}">{{n.etiqueta}}</button>
+                  </sc-for>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 7px">
+            <span class="etq">Activos afectados</span>
+            <span class="campo" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 44px">
+              <span class="mono" style="padding: 3px 8px; font-size: 10px; border-radius: 4px; background: #e9f0fb; color: #12437f">TEC-SER-0003 · Correo</span>
+              <span class="mono" style="padding: 3px 8px; font-size: 10px; border-radius: 4px; background: #e9f0fb; color: #12437f">TRA-PER-0001 · Personal</span>
+            </span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 7px">
+            <span class="etq">Motivación probable</span>
+            <span class="campo" style="display: flex; align-items: center; justify-content: space-between">
+              <span>Fraude económico</span><span style="color: #8a938e; font-size: 9px">▾</span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- TRATAMIENTO -->
+    <sc-if value="{{esTratamiento}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 16px; max-width: 1000px">
+        <span class="cab"><span>Línea de tiempo</span><span class="regla"></span></span>
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <sc-for list="{{linea}}" as="l" hint-placeholder-count="5">
+            <div style="display: flex; align-items: flex-start; gap: 14px; padding: 13px 16px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 96px; font-size: 10.5px; color: #6b7570; padding-top: 2px">{{l.hora}}</span>
+              <span class="mono" style="flex: none; width: 86px; text-align: center; padding: 3px 0; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{l.bg}}; color: {{l.fg}}">{{l.fase}}</span>
+              <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.5">{{l.texto}}</span>
+              <span class="mono" style="flex: none; font-size: 10px; color: #8a938e">{{l.autor}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <button style="align-self: flex-start; padding: 8px 14px; font-size: 12px; font-weight: 500; color: #12437f; background: #ffffff; border: 1px dashed #d3dceb; border-radius: 6px">+ Registrar una acción</button>
+
+        <span class="cab" style="margin-top: 8px"><span>Hallazgos levantados</span><span class="regla"></span></span>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; background: #ffffff; border: 1px solid #f2b473; border-radius: 10px">
+          <span class="mono" style="flex: none; width: 88px; text-align: center; padding: 4px 0; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407">NC menor</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 12.5px; font-weight: 500; line-height: 1.45">El filtro de correo no bloquea dominios de aspecto similar al corporativo</span>
+            <span class="mono" style="font-size: 9.5px; color: #12437f">HAL-2026-0024 · origen «incidente» · en Mejora</span>
+          </span>
+        </div>
+        <span style="font-size: 11px; color: #8a938e; line-height: 1.55; max-width: 92ch">El hallazgo no vive aquí: vive en Mejora, con su origen apuntando a este incidente. Es la misma tabla que usan auditoría, verificaciones y proveedores — por eso se puede responder cuántos hallazgos abiertos hay en total.</span>
+      </div>
+    </sc-if>
+
+    <!-- CIERRE -->
+    <sc-if value="{{esCierre}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; max-width: 960px">
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <span class="cab"><span>Lección aprendida · obligatoria para cerrar</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">A.5.27</span></span>
+          <span class="campo" style="min-height: 78px">La suplantación no atacó un sistema: atacó la confianza en el remitente. El filtro por sí solo no basta mientras el dominio parecido no esté bloqueado, y la reacción rápida de quien reportó fue lo que evitó el daño. Conviene convertir este caso en el ejemplo de la capacitación de phishing.</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+          <span style="display: flex; flex-direction: column; gap: 7px">
+            <span class="etq">Costo de recuperación</span>
+            <span class="campo mono" style="font-size: 13px">$ 0</span>
+            <span style="font-size: 10.5px; color: #8a938e">Horas de atención y herramientas usadas</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 7px">
+            <span class="etq">Costo del impacto</span>
+            <span class="campo mono" style="font-size: 13px">$ 0</span>
+            <span style="font-size: 10.5px; color: #8a938e">Pérdida real. Cero también es un dato: dice que se contuvo</span>
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span class="cab"><span>Análisis de causa raíz</span><span class="regla"></span></span>
+          <div style="display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; background: {{causaBg}}; border: 1px solid {{causaBorde}}; border-radius: 10px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{causaFg}}" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+            <span style="flex: 1; font-size: 12px; line-height: 1.6; color: {{causaFg}}">{{causaTexto}}</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 13px 28px; background: #ffffff; border-top: 1px solid #e2e6e3">
+    <span class="mono" style="flex: 1; font-size: 9.5px; color: #a3aca7">{{pie}}</span>
+    <button style="padding: 8px 14px; font-size: 12.5px; font-weight: 500; color: #3a443f; background: #ffffff; border: 1px solid #d7dcd9; border-radius: 6px">Guardar</button>
+    <button style="{{cerrarEstilo}}">Cerrar el incidente</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":900}}'>
+const SEG_BASE = 'padding: 5px 11px; font-size: 11px; font-weight: 500; border-radius: 4px; border: 0;';
+const SEG_OFF = SEG_BASE + ' background: transparent; color: #6b7570;';
+const SEG_ON = SEG_BASE + ' background: #e9f0fb; color: #12437f; font-weight: 600;';
+
+const CAT_BASE = 'display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; font-size: 12px; border-radius: 8px;';
+const CAT_OFF = CAT_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const CAT_ON = CAT_BASE + ' background: #e9f0fb; border: 1px solid #12437f; color: #12437f; font-weight: 600;';
+
+const NIV_BASE = 'flex: 1; padding: 7px 0; font-size: 11px; font-weight: 600; border-radius: 4px;';
+const NIV_OFF = NIV_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570;';
+
+const CATEGORIAS = [
+  'Phishing e ingeniería social',
+  'Malware o ransomware',
+  'Acceso no autorizado',
+  'Fuga o pérdida de información',
+  'Denegación de servicio',
+  'Error humano',
+  'Falla técnica o indisponibilidad',
+  'Incumplimiento de política',
+  'Pérdida o robo de dispositivo',
+  'Vulneración de un proveedor',
+];
+
+const NIVELES_CID = [
+  { id: 'ninguno', etiqueta: 'Ninguno', bg: '#f5f7f6', bd: '#e2e6e3', fg: '#6b7570' },
+  { id: 'bajo', etiqueta: 'Bajo', bg: '#e6efe9', bd: '#c9e3d8', fg: '#0b5c44' },
+  { id: 'medio', etiqueta: 'Medio', bg: '#fff3e6', bd: '#f2b473', fg: '#8a4407' },
+  { id: 'alto', etiqueta: 'Alto', bg: '#fdeeeb', bd: '#f2cdc6', fg: '#a52016' },
+];
+
+const VEREDICTOS = {
+  incidente: { etiqueta: 'Incidente', bg: '#fdeeeb', fg: '#a52016' },
+  observacion: { etiqueta: 'Observación', bg: '#fff3e6', fg: '#8a4407' },
+  falso: { etiqueta: 'Falso positivo', bg: '#f5f7f6', fg: '#6b7570' },
+};
+
+const JUSTIFICACIONES = {
+  incidente: 'Tres personas recibieron el mismo correo en menos de una hora, el dominio está registrado para suplantar al nuestro y la petición era de credenciales. Hay intención y hay alcance: es un incidente, aunque nadie haya hecho clic.',
+  observacion: 'El correo llegó pero fue bloqueado por el filtro y ninguna persona lo vio en su bandeja. Queda como observación para reforzar la regla del filtro.',
+  falso: 'Verificado con el remitente: el correo era legítimo y venía del proveedor de soporte contratado en julio. El dominio distinto está en el contrato.',
+};
+
+const LINEA = [
+  { hora: '31/08 08:15', fase: 'Detección', texto: 'Lina Medina reporta el correo desde Mi SIG.', autor: 'lmedina', bg: '#eef2f8', fg: '#12437f' },
+  { hora: '31/08 09:40', fase: 'Evaluación', texto: 'Se confirma como incidente y se notifica al comité de seguridad.', autor: 'dmedina', bg: '#e9f0fb', fg: '#12437f' },
+  { hora: '31/08 10:05', fase: 'Contención', texto: 'Se bloquea el dominio cuantico-soporte.com en el filtro de correo y se purgan los mensajes de las bandejas.', autor: 'dmedina', bg: '#fff3e6', fg: '#8a4407' },
+  { hora: '31/08 11:20', fase: 'Comunicación', texto: 'Aviso a toda la organización por el canal interno, con la captura del correo.', autor: 'lagudelo', bg: '#fff3e6', fg: '#8a4407' },
+  { hora: '31/08 16:00', fase: 'Erradicación', texto: 'Se verifica que ninguna cuenta autenticó contra el dominio suplantado. Sin credenciales comprometidas.', autor: 'dmedina', bg: '#e6efe9', fg: '#0b5c44' },
+];
+
+const MARCA = {
+  obl: { t: 'Obligatorio', bg: '#e9f0fb', fg: '#12437f' },
+  no: { t: 'No aplica', bg: '#f5f7f6', fg: '#c3cac6' },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      veredicto: 'incidente',
+      pestana: 'clasificacion',
+      categorias: ['Phishing e ingeniería social'],
+      cid: { Confidencialidad: 'medio', Integridad: 'ninguno', Disponibilidad: 'ninguno' },
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const esInc = s.veredicto === 'incidente';
+    const v = VEREDICTOS[s.veredicto];
+
+    // La severidad sale del mayor impacto declarado en las tres dimensiones.
+    const orden = ['ninguno', 'bajo', 'medio', 'alto'];
+    const mayor = Object.keys(s.cid).reduce((a, k) => (orden.indexOf(s.cid[k]) > orden.indexOf(a) ? s.cid[k] : a), 'ninguno');
+    const sev = NIVELES_CID.find((n) => n.id === mayor);
+    const criticoOAlto = mayor === 'alto';
+
+    const pestanas = [
+      { id: 'evaluacion', etiqueta: 'Evaluación', req: 'obl' },
+      { id: 'clasificacion', etiqueta: 'Clasificación', req: esInc ? 'obl' : 'no' },
+      { id: 'tratamiento', etiqueta: 'Tratamiento', req: esInc ? 'obl' : 'no' },
+      { id: 'cierre', etiqueta: 'Cierre y lección', req: esInc ? 'obl' : 'no' },
+    ].map((p) => {
+      const activa = s.pestana === p.id;
+      const apagada = p.req === 'no';
+      const m = MARCA[p.req];
+      return {
+        etiqueta: p.etiqueta,
+        marca: m.t,
+        marcaBg: m.bg,
+        marcaFg: m.fg,
+        estilo:
+          'display: flex; align-items: center; gap: 8px; padding: 10px 15px 9px; font-size: 12.5px; border: 0; border-bottom: 2px solid ' +
+          (activa ? '#12437f' : 'transparent') +
+          '; background: ' + (activa ? '#ffffff' : 'transparent') +
+          '; color: ' + (activa ? '#12437f' : apagada ? '#c3cac6' : '#4a544f') +
+          '; font-weight: ' + (activa ? 600 : 500) + '; border-radius: 7px 7px 0 0;',
+        elegir: () => this.setState({ pestana: p.id }),
+      };
+    });
+
+    return {
+      veredicto: v.etiqueta,
+      veredictoBg: v.bg,
+      veredictoFg: v.fg,
+      esIncidente: esInc,
+      severidad: sev.etiqueta,
+      sevBg: sev.bg,
+      sevFg: sev.fg,
+      veredictos: Object.keys(VEREDICTOS).map((k) => ({
+        etiqueta: VEREDICTOS[k].etiqueta,
+        estilo: s.veredicto === k ? SEG_ON : SEG_OFF,
+        elegir: () => this.setState({ veredicto: k, pestana: k === 'incidente' ? s.pestana : 'evaluacion' }),
+      })),
+      pestanas,
+      esEvaluacion: s.pestana === 'evaluacion',
+      esClasificacion: s.pestana === 'clasificacion',
+      esTratamiento: s.pestana === 'tratamiento',
+      esCierre: s.pestana === 'cierre',
+      justificacion: JUSTIFICACIONES[s.veredicto],
+      avisoBg: esInc ? '#fdeeeb' : '#e9f0fb',
+      avisoBorde: esInc ? '#f2cdc6' : '#d3dceb',
+      avisoFg: esInc ? '#a52016' : '#12437f',
+      avisoTexto: esInc
+        ? 'Al declararlo incidente se abre el ciclo de vida completo: clasificación, tratamiento y cierre con lección aprendida. Un evento evaluado como observación o falso positivo se archiva aquí mismo, con su justificación, y no abre nada.'
+        : 'Como observación o falso positivo, el evento se cierra en esta misma pantalla. Las tres pestañas siguientes quedan atenuadas: el ciclo de vida completo solo lo abre un incidente.',
+      categorias: CATEGORIAS.map((c) => {
+        const marcada = s.categorias.indexOf(c) !== -1;
+        return {
+          etiqueta: c,
+          estilo: marcada ? CAT_ON : CAT_OFF,
+          marcoColor: marcada ? '#12437f' : '#d7dcd9',
+          fondoCasilla: marcada ? '#12437f' : '#ffffff',
+          tilde: marcada ? 1 : 0,
+          elegir: () =>
+            this.setState({
+              categorias: marcada ? s.categorias.filter((x) => x !== c) : s.categorias.concat([c]),
+            }),
+        };
+      }),
+      conteoCategorias: s.categorias.length === 1 ? '1 seleccionada' : s.categorias.length + ' seleccionadas',
+      cid: ['Confidencialidad', 'Integridad', 'Disponibilidad'].map((d) => ({
+        dimension: d,
+        niveles: NIVELES_CID.map((n) => ({
+          etiqueta: n.etiqueta,
+          estilo:
+            s.cid[d] === n.id
+              ? NIV_BASE + ' background: ' + n.bg + '; border: 1px solid ' + n.bd + '; color: ' + n.fg + ';'
+              : NIV_OFF,
+          elegir: () => this.setState({ cid: { ...s.cid, [d]: n.id } }),
+        })),
+      })),
+      linea: LINEA,
+      causaBg: criticoOAlto ? '#fdeeeb' : '#f7fbf9',
+      causaBorde: criticoOAlto ? '#f2cdc6' : '#c9e3d8',
+      causaFg: criticoOAlto ? '#a52016' : '#0b5c44',
+      causaTexto: criticoOAlto
+        ? 'Impacto alto declarado: este incidente NO se cierra sin análisis de causa raíz. Se levanta como hallazgo en Mejora, con método declarado, y el cierre queda bloqueado hasta que exista.'
+        : 'Con impacto medio o menor la causa raíz no es obligatoria. Aun así se levantó un hallazgo en Mejora por el filtro de correo, que sí la lleva.',
+      pie: esInc
+        ? 'No se cierra sin lección aprendida · con impacto alto tampoco sin causa raíz'
+        : 'Un evento no incidente se archiva con su justificación',
+      cerrarEstilo:
+        criticoOAlto
+          ? 'padding: 8px 16px; font-size: 12.5px; font-weight: 600; border-radius: 6px; background: #f5f7f6; border: 1px solid #e2e6e3; color: #b6bdb9;'
+          : 'padding: 8px 16px; font-size: 12.5px; font-weight: 600; border-radius: 6px; background: #12437f; border: 1px solid #0c2461; color: #ffffff;',
+    };
+  }
+}
+</script>
+</body>
+</html>

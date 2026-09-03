@@ -3,6 +3,7 @@
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 844, "title": "Mi SIG · móvil", "is_interactive": true },
     { "file": "HistoricoPersonal.dc.html", "x": 490, "y": 0, "w": 1000, "h": 900, "title": "Mi historial del SIG", "is_interactive": true },
     { "file": "Origen.dc.html", "x": 1590, "y": 0, "w": 900, "h": 900, "title": "Hallazgos en la pantalla de origen" },
+    { "file": "Registros.dc.html", "x": 2590, "y": 0, "w": 1340, "h": 880, "title": "Registros · evidencia para el auditor", "is_interactive": true },
 
     { "file": "AuditoriasExternas.dc.html", "x": 0, "y": 1020, "w": 1196, "h": 860, "title": "Auditorías externas", "is_interactive": true },
     { "file": "Normas.dc.html", "x": 1300, "y": 1020, "w": 1196, "h": 860, "title": "Normas y requisitos", "is_interactive": true },
@@ -21,7 +22,7 @@
       "x": 490,
       "y": -280,
       "w": 900,
-      "text": "Las cinco que faltaban de las specs\n\nHistorial personal exportable (A §4) · hallazgos en la pantalla de origen (B §5) · auditorías externas y catálogo de numerales (C §4) · listado de materializaciones (D §5).\n\nCon estas, las cuatro specs quedan con todas sus pantallas dibujadas. Siguen pendientes las dos que necesitan spec antes de diseño: línea base comparable entre años, y perfil de competencia del auditor."
+      "text": "Las cinco que faltaban de las specs\n\nHistorial personal exportable (A §4) · hallazgos en la pantalla de origen (B §5) · auditorías externas y catálogo de numerales (C §4) · listado de materializaciones (D §5).\n\nSiguen pendientes las dos que necesitan spec antes de diseño: línea base comparable entre años, y perfil de competencia del auditor.\n\n---\n\nRegistros · agregada el 02/09/2026\n\nEl punto central de evidencia. Filtra por numeral de la norma —ahí a la izquierda— y mira cómo cambia el contexto: la pregunta de un auditor nunca es «qué pasó en agosto», es «muéstreme la evidencia del 7.2».\n\nEl alcance lo decide el rol: un líder de proceso ve su módulo, el líder del SIG los ve todos. No es una tabla nueva: cada fila vive en su módulo y esto es una vista."
     }
   ],
   "launch": { "view": "canvas" }

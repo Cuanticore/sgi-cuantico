@@ -1,0 +1,259 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    a { color: #12437f; text-decoration: none; } a:hover { color: #0c2461; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 500; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 24px 28px 26px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em">Verificaciones programadas</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 88ch; line-height: 1.55">Puntos a verificar, periodicidad y responsable. Cada ciclo produce una <strong style="font-weight: 600; color: #4a544f">ejecución</strong> con su resultado — filas, no columnas repetidas.</span>
+    </div>
+    <button style="margin-left: auto; flex: none; padding: 9px 16px; font-size: 12.5px; font-weight: 600; color: #ffffff; background: #12437f; border: 1px solid #0c2461; border-radius: 6px">Nueva verificación</button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+    <div style="flex: none; width: 402px; display: flex; flex-direction: column; gap: 10px; min-height: 0">
+      <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; padding: 8px">
+        <sc-for list="{{lista}}" as="v" hint-placeholder-count="5">
+          <button onClick="{{v.elegir}}" style="{{v.estilo}}">
+            <span style="display: flex; align-items: center; gap: 7px; width: 100%">
+              <span class="mono" style="padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{v.anclajeBg}}; color: {{v.anclajeFg}}">{{v.anclaje}}</span>
+              <span class="mono" style="font-size: 9.5px; color: #8a938e">{{v.periodicidad}}</span>
+              <span class="mono" style="margin-left: auto; {{v.estadoEstilo}}">{{v.estado}}</span>
+            </span>
+            <span style="width: 100%; font-size: 13px; font-weight: 500; text-align: left; line-height: 1.35">{{v.titulo}}</span>
+            <span class="mono" style="width: 100%; font-size: 9.5px; color: #8a938e; text-align: left">{{v.control}} · {{v.responsable}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #e9f0fb; border: 1px solid #d3dceb; border-radius: 10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 11px; line-height: 1.55; color: #12437f">Estas verificaciones son <strong style="font-weight: 600">obligaciones del motor de tareas</strong>. Sus ejecuciones le llegan al responsable a Mi SIG junto con lo demás; aquí se administran, no se ejecutan.</span>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+      <div style="flex: none; display: flex; flex-direction: column; gap: 9px; padding: 17px 20px 15px; border-bottom: 1px solid #eceeed">
+        <span style="font-size: 16px; font-weight: 600; line-height: 1.35">{{ficha.titulo}}</span>
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span class="mono" style="font-size: 10.5px; color: #6b7570">{{ficha.control}}</span>
+          <span style="width: 1px; height: 12px; background: #eceeed"></span>
+          <span style="font-size: 11.5px; color: #6b7570">{{ficha.responsable}}</span>
+          <sc-if value="{{ficha.esProveedor}}" hint-placeholder-val="{{ true }}">
+            <span class="mono" style="margin-left: auto; padding: 3px 9px; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fdeeeb; color: #a52016">Proveedor crítico</span>
+          </sc-if>
+        </span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+
+        <!-- El anclaje, que es la decisión nueva -->
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="cab"><span>Anclaje de la periodicidad</span><span class="regla"></span></span>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px">
+            <sc-for list="{{anclajes}}" as="a" hint-placeholder-count="2">
+              <button onClick="{{a.elegir}}" style="{{a.estilo}}">
+                <span style="font-size: 12.5px; font-weight: 600">{{a.titulo}}</span>
+                <span style="font-size: 11px; line-height: 1.5; text-align: left; opacity: 0.85">{{a.texto}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: {{avisoBg}}; border: 1px solid {{avisoBorde}}; border-radius: 10px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{avisoFg}}" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+            <span style="font-size: 11.5px; line-height: 1.55; color: {{avisoFg}}">{{avisoTexto}}</span>
+          </div>
+        </div>
+
+        <!-- Puntos a verificar -->
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span class="cab"><span>Puntos a verificar</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">{{ficha.conteoPuntos}}</span></span>
+          <sc-for list="{{ficha.puntos}}" as="p" hint-placeholder-count="4">
+            <span style="display: flex; align-items: flex-start; gap: 11px; padding: 10px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 8px">
+              <span class="mono" style="flex: none; font-size: 10px; color: #a3aca7; padding-top: 2px">{{p.n}}</span>
+              <span style="flex: 1; font-size: 12px; line-height: 1.5">{{p.texto}}</span>
+            </span>
+          </sc-for>
+        </div>
+
+        <!-- Histórico de ejecuciones -->
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          <span class="cab"><span>Ejecuciones</span><span class="regla"></span><span class="mono" style="font-size: 9px; color: #a3aca7">el histórico no se sobrescribe</span></span>
+          <sc-for list="{{ficha.ejecuciones}}" as="e" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 12px 14px; background: {{e.fondo}}; border: 1px solid {{e.borde}}; border-radius: 10px">
+              <span class="mono" style="flex: none; width: 74px; font-size: 11px; color: #4a544f">{{e.fecha}}</span>
+              <span class="mono" style="flex: none; width: 88px; text-align: center; padding: 3px 0; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{e.badgeBg}}; color: {{e.badgeFg}}">{{e.resultado}}</span>
+              <span style="flex: 1; min-width: 0; font-size: 12px; color: #3a443f; line-height: 1.45">{{e.nota}}</span>
+              <span class="mono" style="flex: none; font-size: 10px; color: #8a938e">{{e.autor}}</span>
+              <sc-if value="{{e.conHallazgo}}" hint-placeholder-val="{{ true }}">
+                <a href="#" class="mono" style="flex: none; font-size: 9.5px; font-weight: 500">{{e.hallazgo}}</a>
+              </sc-if>
+            </div>
+          </sc-for>
+          <span style="font-size: 11px; color: #8a938e; line-height: 1.55">En el Excel del consultor los ciclos son tres bloques de columnas repetidos, y el cuarto no cabe. Aquí no hay límite, se puede filtrar por vencidas y se puede comparar un punto entre ciclos.</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":880}}'>
+const FILA_BASE = 'display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 11px 12px; border-radius: 8px; text-align: left;';
+const FILA_OFF = FILA_BASE + ' background: #ffffff; border: 1px solid transparent;';
+const FILA_ON = FILA_BASE + ' background: #eef2f8; border: 1px solid #d3dceb;';
+
+const ANC_BASE = 'display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 12px 14px; border-radius: 10px; text-align: left;';
+const ANC_OFF = ANC_BASE + ' background: #ffffff; border: 1px solid #e2e6e3; color: #4a544f;';
+const ANC_ON = ANC_BASE + ' background: #e9f0fb; border: 1px solid #12437f; color: #12437f;';
+
+const EST = {
+  vencida: { t: 'Vencida', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fdeeeb; color: #a52016;' },
+  proxima: { t: 'Próxima', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #fff3e6; color: #8a4407;' },
+  aldia: { t: 'Al día', e: 'padding: 2px 7px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: #e6efe9; color: #0b5c44;' },
+};
+
+const RES = {
+  conforme: { t: 'Conforme', bg: '#e6efe9', fg: '#0b5c44', fondo: '#ffffff', borde: '#e2e6e3' },
+  hallazgo: { t: 'Con hallazgo', bg: '#fff3e6', fg: '#8a4407', fondo: '#ffffff', borde: '#f2b473' },
+  noconforme: { t: 'No conforme', bg: '#fdeeeb', fg: '#a52016', fondo: '#fdeeeb', borde: '#f2cdc6' },
+};
+
+const VERIFICACIONES = [
+  {
+    id: 'prov', titulo: 'Evaluación anual del proveedor de infraestructura en la nube',
+    control: 'A.5.22', responsable: 'Daniel Medina', periodicidad: 'Anual', anclaje: 'FLOTANTE',
+    estado: 'proxima', esProveedor: true,
+    puntos: [
+      'El proveedor mantiene vigentes las certificaciones comprometidas en el acuerdo.',
+      'No hubo incidentes de seguridad reportados que afecten nuestros datos.',
+      'Los acuerdos de nivel de servicio se cumplieron en el periodo.',
+      'El país de tratamiento de los datos sigue siendo el declarado en el contrato.',
+    ],
+    ejecuciones: [
+      { fecha: '15/07/26', resultado: 'hallazgo', nota: 'Certificación vigente, pero el informe de disponibilidad no cubre el último trimestre.', autor: 'dmedina', hallazgo: 'HAL-2026-0017' },
+      { fecha: '20/06/25', resultado: 'conforme', nota: 'Los cuatro puntos verificados sin observaciones.', autor: 'dmedina', hallazgo: '' },
+      { fecha: '11/06/24', resultado: 'conforme', nota: 'Primera evaluación tras la contratación.', autor: 'dmedina', hallazgo: '' },
+    ],
+  },
+  {
+    id: 'accesos', titulo: 'Revisión trimestral de accesos y privilegios',
+    control: 'A.5.18', responsable: 'Daniel Medina', periodicidad: 'Trimestral', anclaje: 'ANCLADA',
+    estado: 'aldia', esProveedor: false,
+    puntos: [
+      'Cada cuenta activa corresponde a una persona vigente en el Directorio.',
+      'Los privilegios administrativos siguen justificados por el rol actual.',
+      'No hay cuentas compartidas entre dos o más personas.',
+      'Las bajas del trimestre tienen sus accesos retirados.',
+    ],
+    ejecuciones: [
+      { fecha: '30/06/26', resultado: 'conforme', nota: 'Cuatro puntos verificados. Dos accesos retirados durante la revisión.', autor: 'dmedina', hallazgo: '' },
+      { fecha: '31/03/26', resultado: 'hallazgo', nota: 'Una cuenta de una persona desvinculada en febrero seguía activa.', autor: 'dmedina', hallazgo: 'HAL-2026-0008' },
+      { fecha: '31/12/25', resultado: 'conforme', nota: 'Sin observaciones.', autor: 'dmedina', hallazgo: '' },
+    ],
+  },
+  {
+    id: 'pii', titulo: 'Verificación de privacidad y protección de datos personales',
+    control: 'A.5.34', responsable: 'Marcela Molina', periodicidad: 'Semestral', anclaje: 'ANCLADA',
+    estado: 'vencida', esProveedor: false,
+    puntos: [
+      'Las bases de datos personales están inventariadas y con finalidad declarada.',
+      'Existe autorización probable para cada tratamiento en curso.',
+      'Los encargados tienen cláusula de tratamiento en su contrato.',
+      'Se atendieron en plazo las consultas y reclamos del periodo.',
+    ],
+    ejecuciones: [
+      { fecha: '20/01/26', resultado: 'noconforme', nota: 'La política de tratamiento está desactualizada frente a la operación real.', autor: 'mmolina', hallazgo: 'HAL-2026-0003' },
+    ],
+  },
+  {
+    id: 'continuidad', titulo: 'Prueba de continuidad y recuperación',
+    control: 'A.5.30', responsable: 'Daniel Medina', periodicidad: 'Anual', anclaje: 'FLOTANTE',
+    estado: 'proxima', esProveedor: false,
+    puntos: [
+      'La restauración desde respaldo se completó dentro del tiempo objetivo.',
+      'El equipo sabe dónde está el procedimiento y lo siguió sin apoyo externo.',
+      'Los tiempos reales se compararon con los objetivos de la política.',
+    ],
+    ejecuciones: [
+      { fecha: '10/11/25', resultado: 'hallazgo', nota: 'Restauración exitosa en 4 h contra un objetivo de 2 h.', autor: 'dmedina', hallazgo: 'HAL-2025-0019' },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'prov', anclaje: null };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = VERIFICACIONES.find((v) => v.id === s.sel) || VERIFICACIONES[0];
+    const anclaje = s.anclaje || f.anclaje;
+    const flotante = anclaje === 'FLOTANTE';
+
+    return {
+      lista: VERIFICACIONES.map((v) => ({
+        ...v,
+        anclaje: v.anclaje === 'ANCLADA' ? 'Anclada' : 'Flotante',
+        anclajeBg: v.anclaje === 'ANCLADA' ? '#e9f0fb' : '#e8f4ef',
+        anclajeFg: v.anclaje === 'ANCLADA' ? '#12437f' : '#0b5c44',
+        estado: EST[v.estado].t,
+        estadoEstilo: EST[v.estado].e,
+        estilo: s.sel === v.id ? FILA_ON : FILA_OFF,
+        elegir: () => this.setState({ sel: v.id, anclaje: null }),
+      })),
+      ficha: {
+        titulo: f.titulo,
+        control: f.control,
+        responsable: f.responsable,
+        esProveedor: f.esProveedor,
+        conteoPuntos: f.puntos.length + ' puntos',
+        puntos: f.puntos.map((texto, n) => ({ n: String(n + 1).padStart(2, '0'), texto })),
+        ejecuciones: f.ejecuciones.map((e) => {
+          const r = RES[e.resultado];
+          return { ...e, resultado: r.t, badgeBg: r.bg, badgeFg: r.fg, fondo: r.fondo, borde: r.borde, conHallazgo: e.hallazgo !== '' };
+        }),
+      },
+      anclajes: [
+        { id: 'ANCLADA', titulo: 'Anclada al calendario', texto: 'El periodo siguiente nace se haya cerrado el anterior o no.' },
+        { id: 'FLOTANTE', titulo: 'Flotante', texto: 'El siguiente nace al cerrar el previo, a los días de plazo.' },
+      ].map((a) => ({
+        ...a,
+        estilo: anclaje === a.id ? ANC_ON : ANC_OFF,
+        elegir: () => this.setState({ anclaje: a.id }),
+      })),
+      avisoBg: flotante ? '#fff3e6' : '#f7fbf9',
+      avisoBorde: flotante ? '#f2b473' : '#c9e3d8',
+      avisoFg: flotante ? '#8a4407' : '#0b5c44',
+      avisoTexto: flotante
+        ? 'Con anclaje flotante, una verificación que nadie cierra deja de generar periodos. Su primera ejecución vencida es el único aviso que habrá, así que conviene reservarlo para lo que depende de un intervalo —una evaluación de proveedor— y no para lo que depende del calendario.'
+        : 'Con anclaje al calendario, una ejecución vencida no desplaza a la siguiente y la deuda se acumula a la vista. Es lo que un auditor espera de una revisión trimestral: el trimestre existió aunque nadie lo mirara.',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1196px; height: 860px; display: flex; flex-direction: column; background: #f5f7f6; padding: 22px 26px 22px; overflow: hidden">
+
+  <div style="display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Procesos</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 102ch; line-height: 1.55">Los nueve del mapa de MAN-SIG-02, en sus tres bandas. <strong style="font-weight: 600; color: #4a544f">El dueño es un cargo, no una persona</strong>: así el proceso sobrevive a la rotación sin que nadie tenga que reasignarlo.</span>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 15px">
+
+    <!-- Mapa por bandas -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; overflow-y: auto; padding-right: 3px">
+      <sc-for list="{{bandas}}" as="b" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 9px; padding: 14px 16px; background: #ffffff; border: 1px solid #e2e6e3; border-left: 3px solid {{b.color}}; border-radius: 10px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="mono" style="font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: {{b.color}}">{{b.titulo}}</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9px; color: #a3aca7">{{b.n}}</span>
+          </span>
+          <div style="display: flex; flex-wrap: wrap; gap: 7px">
+            <sc-for list="{{b.procesos}}" as="p" hint-placeholder-count="5">
+              <button onClick="{{p.elegir}}" style="{{p.estilo}}">
+                <span style="display: flex; align-items: center; gap: 7px; width: 100%">
+                  <span class="mono" style="flex: none; font-size: 9px; font-weight: 700; color: {{p.codColor}}">{{p.codigo}}</span>
+                  <span style="flex: 1; min-width: 0; font-size: 11.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.nombre}}</span>
+                </span>
+                <span class="mono" style="font-size: 8.5px; color: #8a938e; text-align: left; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.cargo}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 15px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12437f" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.5" x2="12" y2="16.5"></line></svg>
+        <span style="font-size: 10.5px; line-height: 1.6; color: #4a544f"><strong style="font-weight: 600">Gerencia de Operaciones responde por tres de los nueve procesos</strong> —Proyectos, Soporte y Servicio al Cliente, y Gestión Tecnológica—. Los tres son distintos: Soporte al Cliente es misional y Gestión Tecnológica es de apoyo, aunque en la conversación diaria se mezclen.</span>
+      </div>
+    </div>
+
+    <!-- Ficha -->
+    <aside style="flex: none; width: 372px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto">
+      <div style="display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 11px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+          <span class="mono" style="margin-left: auto; padding: 3px 9px; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{sel.bandaBg}}; color: {{sel.bandaFg}}">{{sel.banda}}</span>
+        </span>
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.35">{{sel.nombre}}</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span class="etq">Cargo responsable</span>
+            <span style="font-size: 11.5px; color: #1a211e">{{sel.cargo}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span class="etq">Quien lo ocupa hoy</span>
+            <span style="font-size: 11.5px; color: {{sel.personaColor}}">{{sel.persona}}</span>
+          </span>
+        </div>
+        <sc-if value="{{sel.hayNota}}" hint-placeholder-val="{{ true }}">
+          <span style="display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: #eef2f8; border: 1px solid #d3dceb; border-radius: 8px">
+            <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #12437f"></span>
+            <span style="font-size: 10.5px; line-height: 1.55; color: #12437f">{{sel.nota}}</span>
+          </span>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Qué cuelga de este proceso</span><span class="regla"></span></span>
+        <sc-for list="{{sel.detalle}}" as="d" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 10px 12px; background: {{d.fondo}}; border: 1px solid {{d.borde}}; border-radius: 8px">
+            <span class="mono" style="flex: none; width: 26px; font-size: 14px; font-weight: 600; color: {{d.color}}">{{d.n}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: {{d.textoColor}}">{{d.etiqueta}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 18px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span class="cab"><span>Por qué el dueño es un cargo</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">El mapa nombra <strong style="font-weight: 600">gerencias</strong>, no personas: «Gerencia de Operaciones», no «Yuliet Rojas». Modelarlo como cargo es más fiel y sobrevive a la rotación.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">La entidad <span class="mono" style="font-size: 10.5px">CargoResponsable</span> ya existe en el esquema, así que <span class="mono" style="font-size: 10.5px">Proceso.cargoId</span> no agrega tabla nueva.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">La persona sale de quién ocupa el cargo hoy. Cuando alguien cambia de puesto, las obligaciones del proceso lo siguen solas: nadie tiene que acordarse de reasignarlas.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1196,"height":860}}'>
+const CARD = 'display: flex; flex-direction: column; gap: 3px; width: 214px; padding: 10px 11px; border-radius: 8px;';
+const CARD_OFF = CARD + ' background: #fbfcfb; border: 1px solid #e2e6e3; color: #1a211e;';
+const CARD_ON = CARD + ' background: #eef2f8; border: 1px solid #12437f; color: #12437f; font-weight: 600;';
+
+const BANDAS = {
+  ESTRATEGICO: { titulo: 'Procesos estratégicos', color: '#12437f', bg: '#e9f0fb' },
+  MISIONAL: { titulo: 'Procesos misionales', color: '#0b5c44', bg: '#e6efe9' },
+  APOYO: { titulo: 'Procesos de apoyo', color: '#6b5410', bg: '#fdf3d9' },
+};
+
+// Los nueve del mapa de MAN-SIG-02. El dueño es un cargo; la persona sale de
+// quién lo ocupa hoy. `persona: null` = pendiente de confirmar, no se inventa.
+const PROCESOS = [
+  { codigo: 'EST', banda: 'ESTRATEGICO', nombre: 'Gestión Estratégica', cargo: 'Gerencia General', persona: 'Daniel Medina', aud: 1, ind: 4, leg: 2, obl: 6 },
+
+  { codigo: 'COM', banda: 'MISIONAL', nombre: 'Gestión Comercial', cargo: 'Gerencia Comercial', persona: 'Lina Medina', aud: 1, ind: 5, leg: 1, obl: 4,
+    nota: 'El mapa dice Gerencia Comercial; la relación de personal dice Director de Ventas. Es el mismo cargo con dos nombres, y hay que unificarlo antes de cargar: con el dueño convertido en cargo, un duplicado deja el proceso sin quien lo ocupe.' },
+  { codigo: 'PRO', banda: 'MISIONAL', nombre: 'Gestión de Proyectos', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 6, leg: 3, obl: 9 },
+  { codigo: 'SAC', banda: 'MISIONAL', nombre: 'Soporte y Servicio al Cliente', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 4, leg: 1, obl: 5,
+    nota: 'Es un proceso misional distinto de Gestión Tecnológica, que es de apoyo. Confundirlos fue el error de la primera versión de esta pantalla.' },
+
+  { codigo: 'TAL', banda: 'APOYO', nombre: 'Talento Humano', cargo: 'Líder Administrativo', persona: 'Albeiro Medina', aud: 1, ind: 3, leg: 5, obl: 8 },
+  { codigo: 'LCO', banda: 'APOYO', nombre: 'Gestión Legal y de Compras', cargo: 'Chief Legal Officer', persona: 'Marcela Molina', aud: 1, ind: 3, leg: 9, obl: 7 },
+  { codigo: 'TEC', banda: 'APOYO', nombre: 'Gestión Tecnológica', cargo: 'Gerencia de Operaciones', persona: 'Yuliet Rojas', aud: 1, ind: 7, leg: 4, obl: 18,
+    nota: 'El proceso con más obligaciones de todo el sistema —dieciocho— y el que soporta el SGSI entero. Con PRO y SAC, la Gerencia de Operaciones responde por tres de los nueve.' },
+  { codigo: 'SIG', banda: 'APOYO', nombre: 'Sistema Integrado de Gestión', cargo: 'Líder del SIG', persona: 'Katherine Quiroga', aud: 0, ind: 5, leg: 2, obl: 12,
+    nota: 'Sin auditoría en el programa. Auditarse a sí mismo exige separación de funciones: lo audita alguien de otro proceso.' },
+  { codigo: 'FIN', banda: 'APOYO', nombre: 'Gestión Financiera', cargo: 'Líder Administrativo', persona: 'Albeiro Medina', aud: 1, ind: 4, leg: 6, obl: 5,
+    nota: 'El mismo cargo es dueño de Talento Humano y de Gestión Financiera. Es lo que con una sola entidad Área no se podía escribir.' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'TEC' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = PROCESOS.find((p) => p.codigo === s.sel) || PROCESOS[0];
+    const b = BANDAS[f.banda];
+
+    return {
+      bandas: Object.keys(BANDAS).map((k) => {
+        const lista = PROCESOS.filter((p) => p.banda === k);
+        return {
+          titulo: BANDAS[k].titulo,
+          color: BANDAS[k].color,
+          n: lista.length === 1 ? '1 proceso' : lista.length + ' procesos',
+          procesos: lista.map((p) => ({
+            codigo: p.codigo,
+            nombre: p.nombre,
+            cargo: p.cargo || 'sin dueño asignado',
+            codColor: s.sel === p.codigo ? '#12437f' : BANDAS[k].color,
+            estilo: s.sel === p.codigo ? CARD_ON : CARD_OFF,
+            elegir: () => this.setState({ sel: p.codigo }),
+          })),
+        };
+      }),
+
+      sel: {
+        codigo: f.codigo,
+        nombre: f.nombre,
+        banda: b.titulo.replace('Procesos ', ''),
+        bandaBg: b.bg,
+        bandaFg: b.color,
+        cargo: f.cargo || 'sin asignar',
+        persona: f.persona || 'por confirmar',
+        personaColor: f.persona ? '#1a211e' : '#8a4407',
+        hayNota: Boolean(f.nota),
+        nota: f.nota || '',
+        detalle: [
+          { n: f.aud, etiqueta: 'auditorías en el programa' },
+          { n: f.ind, etiqueta: 'indicadores' },
+          { n: f.leg, etiqueta: 'requisitos legales a cargo' },
+          { n: f.obl, etiqueta: 'obligaciones de tarea' },
+        ].map((d) => ({
+          n: String(d.n),
+          etiqueta: d.etiqueta,
+          color: d.n > 0 ? '#12437f' : '#a52016',
+          textoColor: d.n > 0 ? '#3a443f' : '#8a1f16',
+          fondo: d.n > 0 ? '#fbfcfb' : '#fffbfa',
+          borde: d.n > 0 ? '#e2e6e3' : '#f2cdc6',
+        })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

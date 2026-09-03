@@ -1,0 +1,34 @@
+{
+  "artboards": [
+    { "file": "Colaboradores.dc.html", "x": 0, "y": 0, "w": 1340, "h": 880, "title": "Colaboradores", "is_interactive": true },
+    { "file": "Ficha.dc.html", "x": 1440, "y": 0, "w": 1196, "h": 900, "title": "Ficha del colaborador", "is_interactive": true },
+
+    { "file": "Vinculacion.dc.html", "x": 0, "y": 1040, "w": 1196, "h": 900, "title": "Vinculación", "is_interactive": true },
+    { "file": "Desvinculacion.dc.html", "x": 1300, "y": 1040, "w": 1196, "h": 900, "title": "Desvinculación", "is_interactive": true },
+    { "file": "Firma.dc.html", "x": 2600, "y": 1040, "w": 900, "h": 900, "title": "Leer, aceptar y firmar", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -300,
+      "w": 860,
+      "text": "Gestión de Colaboradores · REQ-SIG-09\n\nUna sola tabla para nómina y contratistas, sincronizada del Directorio Activo, con activos e inactivos juntos.\n\nEl argumento está en la pantalla de Vinculación: cambia el tipo arriba a la derecha y mira qué se mueve. Los siete pasos de seguridad de la información son idénticos —el mismo acuerdo de confidencialidad, la misma inducción, la misma verificación del equipo—. Solo cambian las afiliaciones y la liquidación.\n\nLa seguridad no distingue el tipo de contrato. Separarlos en dos listas duplicaría el proceso entero para ahorrarse cinco casillas, y dejaría fuera del control a 32 de las 38 personas activas."
+    },
+    {
+      "id": "datos",
+      "x": 1440,
+      "y": -300,
+      "w": 820,
+      "text": "Los datos salen del Excel maestro de Talento Humano, con sus defectos a la vista\n\n«Prestación de Servicios» está escrito ahí de tres formas distintas, una con error de digitación. Al pasar a inactivo, el estado se come la columna del tipo de contrato, así que se pierde qué contrato tenía la persona.\n\nEn la lista, prueba el filtro «Con anomalía»: dos activos sin cuenta del Directorio, un inactivo con accesos vigentes, dos que salieron sin acta de borrado."
+    },
+    {
+      "id": "abajo",
+      "x": 0,
+      "y": 1980,
+      "w": 900,
+      "text": "Prueba estas tres\n\n· Vinculación: la puerta de la derecha está cerrada hasta que los cuatro compromisos estén firmados. Es PRO-TAL-01 al pie de la letra: ningún acceso antes de suscribirlos. La cuenta del Directorio existe desde el principio, pero solo permite entrar a Mi SIG, que es donde se firma.\n\n· Desvinculación: mueve el día. Al día 0 los accesos siguen vigentes y la pantalla lo dice en rojo, porque el procedimiento exige revocarlos ese mismo día sin esperar al paz y salvo. Ningún paso depende de otro, a propósito.\n\n· Firma: abre el documento, marca la declaración y firma. Los tres candados están en ese orden y no se pueden saltar."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

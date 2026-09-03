@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Libre Franklin', system-ui, sans-serif; color: #1a211e; background: #f5f7f6; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .etq { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: #a3aca7; }
+    .cab { display: flex; align-items: center; gap: 9px; }
+    .cab > span:first-child { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #12437f; font-weight: 600; white-space: nowrap; }
+    .regla { height: 1px; flex: 1; background: #eceeed; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1340px; height: 880px; display: flex; flex-direction: column; background: #f5f7f6; padding: 20px 26px 20px; overflow: hidden">
+
+  <div style="flex: none; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 13px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Mapa tecnológico · grafo</h1>
+      <span style="font-size: 12.5px; color: #6b7570; max-width: 106ch; line-height: 1.55">El mismo inventario del árbol, visto como lo que es. <strong style="font-weight: 600; color: #4a544f">Las columnas no son niveles: son distancia a la dependencia más profunda</strong>, y por eso la flecha siempre va hacia la derecha.</span>
+    </div>
+    <span style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+      <span class="etq">Ver</span>
+      <span style="display: flex; gap: 5px">
+        <sc-for list="{{modos}}" as="m" hint-placeholder-count="3">
+          <button onClick="{{m.elegir}}" style="{{m.estilo}}">{{m.etiqueta}}</button>
+        </sc-for>
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow: hidden">
+
+      <div style="flex: none; display: flex; align-items: center; gap: 14px; padding: 11px 16px 9px; border-bottom: 1px solid #eceeed; background: #fbfcfb">
+        <sc-for list="{{columnas}}" as="c" hint-placeholder-count="6">
+          <span class="etq" style="flex: 1; text-align: center">{{c}}</span>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; position: relative">
+        <svg viewBox="0 0 960 470" style="width: 100%; height: 100%; display: block">
+          <defs>
+            <marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#b6bdb9"></path>
+            </marker>
+            <marker id="flAct" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#12437f"></path>
+            </marker>
+          </defs>
+
+          <sc-for list="{{aristas}}" as="e" hint-placeholder-count="15">
+            <path d="{{e.d}}" fill="none" stroke="{{e.color}}" stroke-width="{{e.grosor}}" stroke-dasharray="{{e.guion}}" marker-end="{{e.marcador}}" opacity="{{e.op}}"></path>
+          </sc-for>
+
+          <sc-for list="{{nodos}}" as="n" hint-placeholder-count="14">
+            <g onClick="{{n.elegir}}" opacity="{{n.op}}" style="cursor: pointer">
+              <rect x="{{n.x}}" y="{{n.y}}" width="124" height="40" rx="7" fill="{{n.fondo}}" stroke="{{n.borde}}" stroke-width="{{n.grosor}}"></rect>
+              <circle cx="{{n.cx}}" cy="{{n.cy}}" r="3.5" fill="{{n.critColor}}"></circle>
+              <text x="{{n.tx}}" y="{{n.ty1}}" font-family="JetBrains Mono, monospace" font-size="7.5" fill="#8a938e">{{n.codigo}}</text>
+              <text x="{{n.tx}}" y="{{n.ty2}}" font-family="Libre Franklin, sans-serif" font-size="10.5" font-weight="{{n.peso}}" fill="{{n.texto}}">{{n.nombre}}</text>
+            </g>
+          </sc-for>
+        </svg>
+      </div>
+
+      <div style="flex: none; display: flex; align-items: center; gap: 18px; padding: 10px 16px; border-top: 1px solid #eceeed; background: #fbfcfb">
+        <span style="display: flex; align-items: center; gap: 7px">
+          <svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#b6bdb9" stroke-width="1.6"></line></svg>
+          <span class="mono" style="font-size: 9px; color: #6b7570">depende de</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 7px">
+          <svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#c3cac6" stroke-width="1.6" stroke-dasharray="3 3"></line></svg>
+          <span class="mono" style="font-size: 9px; color: #6b7570">está dentro de</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 13px; margin-left: auto">
+          <sc-for list="{{leyenda}}" as="l" hint-placeholder-count="5">
+            <span style="display: flex; align-items: center; gap: 5px">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: {{l.color}}"></span>
+              <span class="mono" style="font-size: 9px; color: #6b7570">{{l.etiqueta}}</span>
+            </span>
+          </sc-for>
+        </span>
+      </div>
+    </div>
+
+    <aside style="flex: none; width: 358px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; background: #ffffff; border: 1px solid #d3dceb; border-radius: 10px">
+        <span style="display: flex; align-items: center; gap: 9px">
+          <span class="mono" style="font-size: 10px; font-weight: 600; color: #12437f">{{sel.codigo}}</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 5px">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: {{sel.critColor}}"></span>
+            <span class="mono" style="font-size: 9px; color: {{sel.critColor}}">{{sel.crit}}</span>
+          </span>
+        </span>
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3">{{sel.nombre}}</span>
+        <span style="height: 1px; background: #eceeed"></span>
+        <div style="display: flex; gap: 10px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 17px; font-weight: 600; color: #8a4407">{{sel.arriba}}</span>
+            <span class="etq" style="line-height: 1.4">Depende de</span>
+          </span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 17px; font-weight: 600; color: #12437f">{{sel.abajo}}</span>
+            <span class="etq" style="line-height: 1.4">Dependen de él</span>
+          </span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span class="mono" style="font-size: 17px; font-weight: 600; color: #6b7570">{{sel.profundidad}}</span>
+            <span class="etq" style="line-height: 1.4">Columna</span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px">
+        <span class="cab"><span>Vecinos directos</span><span class="regla"></span></span>
+        <sc-for list="{{sel.vecinos}}" as="v" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 11px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 7px">
+            <span class="mono" style="flex: none; width: 62px; font-size: 8.5px; font-weight: 600; color: {{v.color}}">{{v.sentido}}</span>
+            <span style="flex: 1; min-width: 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{v.nombre}}</span>
+            <span class="mono" style="flex: none; font-size: 8.5px; color: #8a938e">{{v.tipo}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 15px 17px; background: #ffffff; border: 1px solid #e2e6e3; border-radius: 10px; overflow-y: auto">
+        <span class="cab"><span>Por qué grafo y no árbol</span><span class="regla"></span></span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">El árbol dibuja bien la <strong style="font-weight: 600">contención</strong> —qué está dentro de qué— pero obliga a que cada cosa tenga un solo padre. La dependencia no es así: <span class="mono" style="font-size: 10.5px">mintrace_postgres</span> lo usan tres aplicaciones a la vez.</span>
+        <span style="font-size: 11.5px; line-height: 1.65; color: #4a544f">En el árbol, esas tres relaciones se dibujan como tres nodos repetidos, y entonces «cuántos dependen de postgres» hay que contarlo a mano. Acá se ve.</span>
+        <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fffaf3; border: 1px solid #f2b473; border-radius: 9px">
+          <span style="flex: none; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: #b8791a"></span>
+          <span style="font-size: 10.5px; line-height: 1.55; color: #8a4407">Las dos vistas conviven y muestran <strong style="font-weight: 600">relaciones distintas del mismo inventario</strong>. El árbol responde «qué compone a MINTRACE»; el grafo responde «qué se cae si cae esto».</span>
+        </span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1340,"height":880}}'>
+const SEG = 'padding: 6px 12px; font-size: 11.5px; border-radius: 20px;';
+const SEG_OFF = SEG + ' background: #ffffff; border: 1px solid #e2e6e3; color: #6b7570; font-weight: 500;';
+const SEG_ON = SEG + ' background: #e9f0fb; border: 1px solid #d3dceb; color: #12437f; font-weight: 600;';
+
+const W = 124, H = 40;
+
+const CRIT = {
+  'Muy alto': '#a52016', 'Alto': '#b8791a', 'Medio': '#0f7a5a',
+  'Bajo': '#6b7570', 'Sin valorar': '#b6bdb9',
+};
+
+// La columna es la distancia a la dependencia más profunda, no un nivel del
+// inventario: por eso la flecha siempre va hacia la derecha.
+const NODOS = {
+  a10: { codigo: 'TEC-APP-0009', nombre: 'Portal de clientes', crit: 'Alto', col: 0, x: 20, y: 210 },
+  a1:  { codigo: 'TEC-APP-0021', nombre: 'Mintrace CRM', crit: 'Alto', col: 1, x: 175, y: 210 },
+  a4:  { codigo: 'TEC-CLA-0007', nombre: 'Credencial ILC', crit: 'Alto', col: 2, x: 330, y: 100 },
+  a11: { codigo: 'TEC-APP-0015', nombre: 'Mi SIG', crit: 'Medio', col: 2, x: 330, y: 240 },
+  a12: { codigo: 'TEC-APP-0018', nombre: 'Tablero', crit: 'Bajo', col: 2, x: 330, y: 360 },
+  a3:  { codigo: 'TEC-SER-0014', nombre: 'Directorio Activo', crit: 'Muy alto', col: 3, x: 485, y: 100 },
+  a2:  { codigo: 'TEC-DAT-0051', nombre: 'mintrace_postgres', crit: 'Muy alto', col: 3, x: 485, y: 240 },
+  a7:  { codigo: 'TEC-APP-0026', nombre: 'Coolify', crit: 'Alto', col: 3, x: 485, y: 360 },
+  a8:  { codigo: 'TEC-INF-0003', nombre: 'Servidor producción', crit: 'Muy alto', col: 4, x: 640, y: 240 },
+  a9:  { codigo: 'TEC-SER-0040', nombre: 'Proveedor de nube', crit: 'Alto', col: 5, x: 800, y: 240 },
+  a5:  { codigo: 'TEC-SER-0031', nombre: 'Apollo', crit: 'Medio', col: 5, x: 800, y: 20 },
+  a6:  { codigo: 'TEC-SER-0032', nombre: 'RNEC', crit: 'Medio', col: 5, x: 800, y: 90 },
+  a13: { codigo: 'TEC-SER-0038', nombre: 'ANM', crit: 'Sin valorar', col: 5, x: 800, y: 160 },
+};
+
+// [origen, destino, tipo, jerarquia?]
+const ARISTAS = [
+  ['a10', 'a1', 'usa', false],
+  ['a10', 'a4', 'autentica con', false],
+  ['a1', 'a4', 'autentica con', false],
+  ['a1', 'a2', 'almacena en', false],
+  ['a1', 'a5', 'usa', false],
+  ['a1', 'a6', 'usa', false],
+  ['a1', 'a13', 'usa', false],
+  ['a11', 'a3', 'autentica con', false],
+  ['a11', 'a2', 'almacena en', false],
+  ['a12', 'a2', 'almacena en', false],
+  ['a4', 'a3', 'autentica con', false],
+  ['a2', 'a8', 'se aloja en', false],
+  ['a3', 'a8', 'se aloja en', false],
+  ['a7', 'a8', 'se aloja en', false],
+  ['a8', 'a9', 'se aloja en', false],
+  ['a1', 'a12', 'está dentro de', true],
+];
+
+function curva(a, b) {
+  const x1 = a.x + W, y1 = a.y + H / 2;
+  const x2 = b.x, y2 = b.y + H / 2;
+  const dx = Math.max((x2 - x1) * 0.5, 26);
+  return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { modo: 'dep', sel: 'a2' };
+  }
+
+  visibles(modo) {
+    if (modo === 'dep') return ARISTAS.filter((e) => !e[3]);
+    if (modo === 'jer') return ARISTAS.filter((e) => e[3]);
+    return ARISTAS;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const aristas = this.visibles(s.modo);
+
+    const conectado = {};
+    aristas.forEach(([o, d]) => {
+      if (o === s.sel || d === s.sel) { conectado[o] = 1; conectado[d] = 1; }
+    });
+    conectado[s.sel] = 1;
+
+    const arriba = aristas.filter(([o]) => o === s.sel);
+    const abajo = aristas.filter(([, d]) => d === s.sel);
+    const n = NODOS[s.sel];
+
+    return {
+      modos: [
+        { id: 'dep', etiqueta: 'Dependencias' },
+        { id: 'jer', etiqueta: 'Jerarquía' },
+        { id: 'todo', etiqueta: 'Ambas' },
+      ].map((m) => ({ ...m, estilo: s.modo === m.id ? SEG_ON : SEG_OFF, elegir: () => this.setState({ modo: m.id }) })),
+
+      columnas: ['Aplicación final', 'Producto', 'Servicios y datos', 'Plataforma', 'Infraestructura', 'Externos'],
+
+      aristas: aristas.map(([o, d, , jer]) => {
+        const activa = o === s.sel || d === s.sel;
+        return {
+          d: curva(NODOS[o], NODOS[d]),
+          color: activa ? '#12437f' : '#dbe0dd',
+          grosor: activa ? '1.9' : '1.2',
+          guion: jer ? '4 4' : '0',
+          marcador: activa ? 'url(#flAct)' : 'url(#fl)',
+          op: activa ? '1' : '0.55',
+        };
+      }),
+
+      nodos: Object.keys(NODOS).map((k) => {
+        const x = NODOS[k];
+        const sel = k === s.sel;
+        const cerca = conectado[k];
+        return {
+          x: String(x.x), y: String(x.y),
+          cx: String(x.x + 11), cy: String(x.y + 13),
+          tx: String(x.x + 20), ty1: String(x.y + 16), ty2: String(x.y + 30),
+          codigo: x.codigo,
+          nombre: x.nombre,
+          critColor: CRIT[x.crit],
+          fondo: sel ? '#eef2f8' : '#ffffff',
+          borde: sel ? '#12437f' : cerca ? '#d3dceb' : '#e2e6e3',
+          grosor: sel ? '2' : '1',
+          texto: cerca ? '#1a211e' : '#8a938e',
+          peso: sel ? '600' : '500',
+          op: cerca ? '1' : '0.5',
+          elegir: () => this.setState({ sel: k }),
+        };
+      }),
+
+      leyenda: ['Muy alto', 'Alto', 'Medio', 'Bajo', 'Sin valorar'].map((e) => ({ etiqueta: e, color: CRIT[e] })),
+
+      sel: {
+        codigo: n.codigo,
+        nombre: n.nombre,
+        crit: n.crit,
+        critColor: CRIT[n.crit],
+        arriba: String(arriba.length),
+        abajo: String(abajo.length),
+        profundidad: String(n.col),
+        vecinos: arriba.map(([, d, tipo]) => ({
+          sentido: 'depende de', nombre: NODOS[d].nombre, tipo, color: '#8a4407',
+        })).concat(abajo.map(([o, , tipo]) => ({
+          sentido: 'lo usa', nombre: NODOS[o].nombre, tipo, color: '#12437f',
+        }))),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

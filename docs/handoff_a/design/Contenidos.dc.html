@@ -77,6 +77,10 @@
           <span style="display: flex; flex-direction: column; gap: 6px">
             <span class="etq">Procedimiento origen</span>
             <span class="campo">{{ficha.origen}}</span>
+            <span style="display: flex; align-items: center; gap: 7px; padding-top: 2px">
+              <span class="etq">Proceso dueño</span>
+              <span class="mono" style="padding: 2px 8px; font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; border-radius: 4px; background: {{ficha.duenoBg}}; color: {{ficha.duenoFg}}">{{ficha.dueno}}</span>
+            </span>
           </span>
           <span style="display: flex; flex-direction: column; gap: 6px">
             <span class="etq">{{ficha.extraEtiqueta}}</span>
@@ -131,6 +135,52 @@
             </span>
           </div>
         </sc-if>
+
+        <sc-if value="{{ficha.esCapacitacion}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="display: flex; align-items: center; gap: 9px">
+              <span class="etq">Evaluación de conocimiento · PRO-TAL-04 numeral 5.3</span>
+              <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            </span>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+              <span style="display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">Criterio de aprobación</span>
+                <span class="mono" style="font-size: 15px; font-weight: 600; color: #0b5c44">≥ 80 %</span>
+              </span>
+              <span style="display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">Preguntas</span>
+                <span class="mono" style="font-size: 15px; font-weight: 600; color: #12437f">{{ficha.preguntas}}</span>
+              </span>
+              <span style="display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; background: #fbfcfb; border: 1px solid #e2e6e3; border-radius: 10px">
+                <span class="etq">Aplica a</span>
+                <span style="font-size: 12px; font-weight: 500; color: #1a211e">{{ficha.aplicaA}}</span>
+              </span>
+            </div>
+            <span style="display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: #fff3e6; border: 1px solid #f2b473; border-radius: 10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a4407" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><path d="M3 12a9 9 0 1 0 3-6.7"></path><polyline points="3 4 3 9 8 9"></polyline></svg>
+              <span style="font-size: 11.5px; line-height: 1.55; color: #8a4407">Quien no alcance el 80 % <strong style="font-weight: 600">no cierra la asignación</strong>: se refuerza la información y se repite la evaluación. El intento fallido queda registrado con su nota; no se borra ni se sobrescribe.</span>
+            </span>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; align-items: center; gap: 9px">
+            <span class="etq">Historial de versiones</span>
+            <span style="height: 1px; flex: 1; background: #eceeed"></span>
+            <span class="mono" style="font-size: 9px; color: #a3aca7">{{ficha.conteoVersiones}}</span>
+          </span>
+          <sc-for list="{{ficha.versiones}}" as="v" hint-placeholder-count="3">
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 13px; background: {{v.fondo}}; border: 1px solid {{v.borde}}; border-radius: 8px">
+              <span class="mono" style="flex: none; width: 26px; font-size: 11px; font-weight: 600; color: {{v.color}}">v{{v.n}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                <span style="font-size: 11.5px; line-height: 1.45; color: #3a443f">{{v.cambio}}</span>
+                <span class="mono" style="font-size: 9px; color: #8a938e">{{v.fecha}}</span>
+              </span>
+              <span class="mono" style="flex: none; font-size: 10px; color: {{v.color}}">{{v.registros}}</span>
+            </div>
+          </sc-for>
+          <span style="font-size: 11px; color: #8a938e; line-height: 1.55">Editar sube la versión y <strong style="font-weight: 600; color: #6b7570">no invalida nada</strong>: cada registro conserva la versión que su autor realizó, y por eso sigue siendo verificable. Volver a exigir la lectura es una acción aparte, que se decide al publicar.</span>
+        </div>
 
         <div style="display: flex; align-items: center; gap: 9px; padding-top: 4px">
           <span class="etq">Asignado por</span>
@@ -195,7 +245,24 @@ const CONTENIDOS = [
     enlace: 'https://cuantico.sharepoint.com/… /POL-SIG-02.pdf',
     usos: [{ codigo: 'LEC-001', alcance: 'Todas las personas', periodicidad: 'Anual' }],
   },
-  { id: 'cap-004', codigo: 'CAP-004', tipo: 'Capacitación', version: 1, titulo: 'Inducción y reinducción del SGC', origen: 'FOR-CAL-09', descripcion: 'Inducción anual con evaluación. Nota mínima 80.', extraEtiqueta: 'Nota mínima', extraValor: '80', usos: [{ codigo: 'CAP-004', alcance: 'Todas las personas', periodicidad: 'Anual' }] },
+  {
+    id: 'cap-004', codigo: 'CAP-004', tipo: 'Capacitación', version: 3,
+    titulo: 'Formación anual en seguridad de la información',
+    // El contenido, las preguntas y la evaluación son del proceso de Talento
+    // Humano: se planifican en FOR-TAL-01 y se rigen por PRO-TAL-04.
+    origen: 'PRO-TAL-04 · plan FOR-TAL-01',
+    dueno: 'Talento Humano',
+    descripcion: 'Jornada general de seguridad para todo el personal, con evaluación de conocimiento. Incluye los canales de reporte de eventos y la regla que los gobierna: se reporta aunque exista duda.',
+    extraEtiqueta: 'Criterio de aprobación', extraValor: '≥ 80 %',
+    preguntas: '18',
+    aplicaA: 'Nómina y contratistas',
+    versiones: [
+      { n: 3, fecha: '02/09/2026', cambio: 'Se agregan cuatro preguntas sobre suplantación de dominio, a partir del incidente EVT-2026-0031.', registros: '0 registros' },
+      { n: 2, fecha: '14/03/2026', cambio: 'Contenido diferenciado por rol: codificación segura para desarrollo, accesos privilegiados para quien administra plataformas.', registros: '26 registros' },
+      { n: 1, fecha: '20/01/2025', cambio: 'Primera versión bajo el SGSI.', registros: '31 registros' },
+    ],
+    usos: [{ codigo: 'CAP-004', alcance: 'Todas las personas', periodicidad: 'Anual' }],
+  },
   { id: 'tar-005', codigo: 'TAR-005', tipo: 'Tarea', version: 1, titulo: 'Conciliación bancaria del mes', origen: 'PRO-FIN-03 Gestión de tesorería', descripcion: 'Conciliación de los movimientos del extracto contra el consolidado de control financiero.', extraEtiqueta: 'Evidencia', extraValor: 'Nota y anexo opcional', usos: [{ codigo: 'TAR-005', alcance: 'Cargo · Analista financiera', periodicidad: 'Mensual' }] },
   { id: 'lec-008', codigo: 'LEC-008', tipo: 'Lectura', version: 1, titulo: 'Manual de Riesgos y Oportunidades v2.0', origen: 'MAN-CAL-01', descripcion: 'Lectura para líderes de proceso antes del comité anual de riesgos.', extraEtiqueta: 'Alcance de las asignaciones', extraValor: '9 personas', documento: 'MAN-CAL-01 Manual de Riesgos y Oportunidades', docVersion: 2, enlace: 'https://cuantico.sharepoint.com/… /MAN-CAL-01.pdf', usos: [{ codigo: 'LEC-008', alcance: 'Cargo · Líder de proceso', periodicidad: 'Anual' }] },
   { id: 'tar-006', codigo: 'TAR-006', tipo: 'Tarea', version: 2, titulo: 'Evaluación y reevaluación de proveedores', origen: 'PRO-LCO-02', descripcion: 'Aplicación del formato FOR-LCO-04 a los proveedores críticos del semestre.', extraEtiqueta: 'Evidencia', extraValor: 'Nota y anexo obligatorio', usos: [{ codigo: 'TAR-006', alcance: 'Área · Legal y Compras', periodicidad: 'Semestral' }] },
@@ -204,7 +271,7 @@ const CONTENIDOS = [
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { filtro: 'todos', elegido: 'lve-002' };
+    this.state = { filtro: 'todos', elegido: 'cap-004' };
   }
 
   renderVals() {
@@ -226,6 +293,15 @@ class Component extends DCLogic {
     }));
 
     const c = CONTENIDOS.find((x) => x.id === s.elegido) || CONTENIDOS[0];
+
+    // Un contenido sin historial declarado se muestra con su versión vigente sola.
+    const versiones = (c.versiones || [{ n: c.version, fecha: '—', cambio: 'Versión vigente.', registros: '' }])
+      .map((v) => ({
+        ...v,
+        fondo: v.n === c.version ? '#eef2f8' : '#fbfcfb',
+        borde: v.n === c.version ? '#d3dceb' : '#e2e6e3',
+        color: v.n === c.version ? '#12437f' : '#8a938e',
+      }));
     const items = (c.items || []).map((i, n) => ({
       numero: String(n + 1).padStart(2, '0'),
       texto: i.texto,
@@ -246,6 +322,14 @@ class Component extends DCLogic {
         tipoFg: TIPO_COLOR[c.tipo].fg,
         esVerificacion: c.tipo === 'Verificación',
         esLectura: c.tipo === 'Lectura',
+        esCapacitacion: c.tipo === 'Capacitación',
+        preguntas: c.preguntas || '—',
+        aplicaA: c.aplicaA || '—',
+        dueno: c.dueno || 'Sistema Integrado de Gestión',
+        duenoBg: c.dueno === 'Talento Humano' ? '#e8f4ef' : '#e9f0fb',
+        duenoFg: c.dueno === 'Talento Humano' ? '#0b5c44' : '#12437f',
+        versiones,
+        conteoVersiones: versiones.length === 1 ? '1 versión' : versiones.length + ' versiones',
         items,
         conteoItems: items.length + ' ítems',
         documento: c.documento || '',
