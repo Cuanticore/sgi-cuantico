@@ -12,6 +12,7 @@
 import { prisma } from '@/lib/db';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { planificarSemanales, planificarMensuales } from '@/lib/sig/resumen';
+import { correoMensualHtml, correoSemanalHtml } from '@/lib/sig/correos';
 import { enviarNotificacion, type EnvioProgramado } from '@/lib/sig/envios';
 import { diasHasta } from '@/lib/sig/cierre';
 
@@ -133,7 +134,26 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
           personaId: persona.id,
           para: correo,
           asunto: `Tienes ${s.vencidas.length + s.porVencer.length} tareas del SIG esta semana`,
-          texto: armarSemanal(correo, s),
+          texto: armarSemanal(persona.nombre, s),
+          // El lienzo del semanal es un correo HTML. Se enviaba en texto plano porque el
+          // campo `html` de `EnvioProgramado` existía y nadie lo asignaba nunca. El texto
+          // se queda como alternativa para el cliente que no muestra HTML.
+          html: correoSemanalHtml({
+            nombre: persona.nombre,
+            vencidas: s.vencidas,
+            porVencer: s.porVencer,
+            // La tercera cifra da la escala: dos vencidas sobre veinte pendientes no es lo
+            // mismo que dos sobre dos.
+            masAdelante: filas.filter(
+              (f) =>
+                f.correo === correo &&
+                f.estado === 'PENDIENTE' &&
+                f.fechaLimite > finDeSemana(hoy),
+            ).length,
+            desde: inicioDeSemana(hoy),
+            hasta: finDeSemana(hoy),
+            urlMiSig: `${baseUrl()}/mi-sig`,
+          }),
         });
       }
     }
@@ -188,6 +208,16 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
           // correo mensual obliga a abrirlo para saber de qué mes habla.
           asunto: `${r.areaNombre} · cumplimiento de ${nombreDelMes(mesCerrado)}: ${r.cumplimiento.porciento ?? '—'} %`,
           texto: armarMensual(r),
+          html: correoMensualHtml({
+            nombre: persona.nombre,
+            areaNombre: r.areaNombre,
+            mes: r.mes,
+            cumplimiento: r.cumplimiento,
+            deuda: r.deuda,
+            peorCumplimiento: r.peorCumplimiento,
+            cierresAdministrativos: r.cierresAdministrativos,
+            urlOperacion: `${baseUrl()}/sig/obligaciones`,
+          }),
         });
       }
     }
@@ -263,9 +293,30 @@ function liderDeArea(
   return personas.find((p) => p.cargoId === cargoId && p.activa);
 }
 
-function armarSemanal(correo: string, s: { vencidas: unknown[]; porVencer: unknown[] }): string {
+/// La URL pública. Es la que va en el único botón del correo, así que un valor equivocado
+/// convierte el correo en un aviso sin salida.
+function baseUrl(): string {
+  return (process.env.PUBLIC_URL ?? 'http://localhost:3004').replace(/\/+$/, '');
+}
+
+/// El lunes de la semana de `fecha`, en UTC. La semana del correo va de lunes a domingo,
+/// que es la que el lienzo rotula «Semana del 31 de agosto al 6 de septiembre».
+function inicioDeSemana(fecha: Date): Date {
+  const dia = (fecha.getUTCDay() + 6) % 7; // 0 = lunes
+  return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate() - dia));
+}
+
+function finDeSemana(fecha: Date): Date {
+  const inicio = inicioDeSemana(fecha);
+  return new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 6));
+}
+
+/// La alternativa en texto plano. Ahora saluda por el nombre: recibía el correo de la
+/// persona y escribía «Hola.» a secas.
+function armarSemanal(nombre: string, s: { vencidas: unknown[]; porVencer: unknown[] }): string {
+  const primero = nombre.trim().split(/\s+/)[0] ?? '';
   return [
-    `Hola. Esto es lo tuyo de esta semana.`,
+    primero === '' ? 'Esto es lo tuyo de esta semana.' : `Hola, ${primero}. Esto es lo tuyo de esta semana.`,
     '',
     `Vencidas · siguen exigibles: ${s.vencidas.length}`,
     `Vencen esta semana: ${s.porVencer.length}`,
