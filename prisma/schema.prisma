@@ -200,12 +200,12 @@ model Area {
   activa       Boolean @default(true)
   orden        Int
 
-  liderCargo CargoResponsable? @relation("AreaLider", fields: [liderCargoId], references: [id])
-  activos    Activo[]
-  contadores ContadorCodigo[]
-  personas   Persona[]
+  liderCargo          CargoResponsable? @relation("AreaLider", fields: [liderCargoId], references: [id])
+  activos             Activo[]
+  contadores          ContadorCodigo[]
+  personas            Persona[]
   obligacionesAlcance Obligacion[]
-  hallazgos  Hallazgo[] @relation("HallazgoArea")
+  hallazgos           Hallazgo[]        @relation("HallazgoArea")
 
   @@map("area")
 }
@@ -414,43 +414,43 @@ model CapacidadOperativa {
 /// a control is applicable when `soa != NO`, and NO/PARCIAL both carry a written
 /// justification an auditor will review.
 model Control {
-  id             Int        @id @default(autoincrement())
-  codigo         String     @unique // A.5.1 … A.8.34
-  nombre         String
-  dominioId      Int        @map("dominio_id")
-  capacidadId    Int        @map("capacidad_id")
-  soa            EstadoSoa  @default(SI)
+  id                 Int       @id @default(autoincrement())
+  codigo             String    @unique // A.5.1 … A.8.34
+  nombre             String
+  dominioId          Int       @map("dominio_id")
+  capacidadId        Int       @map("capacidad_id")
+  soa                EstadoSoa @default(SI)
   /// Written justification, mandatory when soa is PARCIAL (which part of the scope is
   /// covered and which is not) or NO (why the control is excluded).
-  justificacionSoa  String?  @map("justificacion_soa")
+  justificacionSoa   String?   @map("justificacion_soa")
   /// DEC-SIG-01 v2. The SoA document that this declaration belongs to, so every state
   /// answer reads against the version that sustains it (ISO 27001 6.1.3 d).
-  soaDescripcion String?  @map("soa_descripcion")
-  soaDocumento   String?  @map("soa_documento")
-  soaVersion     String?  @map("soa_version")
-  soaFecha       DateTime? @map("soa_fecha") @db.Date
-  soaAprobadoPor String?  @map("soa_aprobado_por")
+  soaDescripcion     String?   @map("soa_descripcion")
+  soaDocumento       String?   @map("soa_documento")
+  soaVersion         String?   @map("soa_version")
+  soaFecha           DateTime? @map("soa_fecha") @db.Date
+  soaAprobadoPor     String?   @map("soa_aprobado_por")
   /// True for the seven physical controls (A.7.1-4, A.7.6, A.7.11-12) declared applicable
   /// with the scope adapted to the remote operating model. It is what raises the
   /// DEC-SIG-01 §9 business alert: acquiring or renting own facilities forces an
   /// immediate review of domain A.7.
-  soaAlcanceAdaptado Boolean @default(false) @map("soa_alcance_adaptado")
+  soaAlcanceAdaptado Boolean   @default(false) @map("soa_alcance_adaptado")
   /// Audit trail of the last SOA change: who and when. The full history lives in the
   /// bitácora; these two columns are the current state an auditor asks for first.
-  soaActualizadoPor String?  @map("soa_actualizado_por")
-  soaActualizadoEn  DateTime? @map("soa_actualizado_en")
-  lineaBaseId    Int?      @map("linea_base_id")
-  actualId       Int?      @map("actual_id")
-  objetivoId     Int?      @map("objetivo_id")
+  soaActualizadoPor  String?   @map("soa_actualizado_por")
+  soaActualizadoEn   DateTime? @map("soa_actualizado_en")
+  lineaBaseId        Int?      @map("linea_base_id")
+  actualId           Int?      @map("actual_id")
+  objetivoId         Int?      @map("objetivo_id")
   /// Evidence of the rating. The written justification of a non-applicable control now
   /// lives in `justificacionSoa`; this column holds the evidence of the maturity level
   /// when the control applies.
-  evidencia      String
-  responsableId  Int?      @map("responsable_id")
-  fechaObjetivo  DateTime? @map("fecha_objetivo") @db.Date
+  evidencia          String
+  responsableId      Int?      @map("responsable_id")
+  fechaObjetivo      DateTime? @map("fecha_objetivo") @db.Date
   /// Present and unused for now: preventiva, disuasoria, deteccion, correctiva,
   /// recuperacion, concienciacion. Composition is not implemented.
-  funcionControl String?   @map("funcion_control")
+  funcionControl     String?   @map("funcion_control")
 
   dominio     DominioAnexoA      @relation(fields: [dominioId], references: [id])
   capacidad   CapacidadOperativa @relation(fields: [capacidadId], references: [id])
@@ -476,8 +476,8 @@ model Control {
 /// the plain mean the methodology condemns. The reasoning was right about the risk and wrong
 /// about the remedy — see the field's own comment below.
 model ControlAmenaza {
-  amenazaId Int @map("amenaza_id")
-  controlId Int @map("control_id")
+  amenazaId    Int  @map("amenaza_id")
+  controlId    Int  @map("control_id")
   /// NULLABLE, and that is the whole point.
   ///
   /// The PAIR is data the workbook already holds: the AX column of «Amenazas MAGERIT»
@@ -507,35 +507,35 @@ model ControlAmenaza {
 /// Per Control, never per risk. Without evidence the level does not hold up to an
 /// auditor (MET-SIG-01 section 8.4).
 model Evidencia {
-  id        Int           @id @default(autoincrement())
+  id               Int           @id @default(autoincrement())
   /// Exactamente uno de `controlId`, `registroId` o `hallazgoId` está presente — lo
   /// impone el CHECK en la migración. Tres consumidores, un solo manejo de archivos.
-  controlId  Int?  @map("control_id")
-  registroId Int?  @map("registro_id")
-  hallazgoId Int?  @map("hallazgo_id")
-  tipo      TipoEvidencia
-  texto     String
+  controlId        Int?          @map("control_id")
+  registroId       Int?          @map("registro_id")
+  hallazgoId       Int?          @map("hallazgo_id")
+  tipo             TipoEvidencia
+  texto            String
   /// The base evidence carried over from the control's own justification cannot be
   /// removed from the list.
-  esBase    Boolean       @default(false) @map("es_base")
-  orden     Int           @default(0)
-  creadaEn  DateTime      @default(now()) @map("creada_en")
-  creadaPor String?       @map("creada_por")
+  esBase           Boolean       @default(false) @map("es_base")
+  orden            Int           @default(0)
+  creadaEn         DateTime      @default(now()) @map("creada_en")
+  creadaPor        String?       @map("creada_por")
   /// Actual only for tipo ARCHIVO. Logical delete: the row survives with `activo=false`
   /// because the object belongs to the evidence of a certification audit, and a physical
   /// delete would be exactly the artifact the audit is supposed to find.
-  activo        Boolean  @default(true)
+  activo           Boolean       @default(true)
   /// Object key in the annex storage (server-generated, never the original name) or the
   /// local file path when the S3 provider is not configured yet.
-  archivoKey    String?  @map("archivo_key")
-  archivoNombre String?  @map("archivo_nombre")
-  archivoMime   String?  @map("archivo_mime")
-  archivoTamano Int?     @map("archivo_tamano")
-  archivoSha256 String?  @map("archivo_sha256")
+  archivoKey       String?       @map("archivo_key")
+  archivoNombre    String?       @map("archivo_nombre")
+  archivoMime      String?       @map("archivo_mime")
+  archivoTamano    Int?          @map("archivo_tamano")
+  archivoSha256    String?       @map("archivo_sha256")
   /// Re-uploading the same file name creates a new version and keeps the previous one;
   /// the history is consultable through the same list.
-  archivoVersion Int    @default(1) @map("archivo_version")
-  archivoVersionDe Int? @map("archivo_version_de")
+  archivoVersion   Int           @default(1) @map("archivo_version")
+  archivoVersionDe Int?          @map("archivo_version_de")
 
   archivo EvidenciaArchivo?
 
@@ -628,16 +628,16 @@ model Activo {
   bajaEn   DateTime? @map("baja_en")
   creadoEn DateTime  @default(now()) @map("creado_en")
 
-  area         Area             @relation(fields: [areaId], references: [id])
-  tipo         TipoMagerit      @relation(fields: [tipoId], references: [id])
-  subtipo      SubtipoMagerit   @relation(fields: [subtipoId], references: [id])
+  area         Area              @relation(fields: [areaId], references: [id])
+  tipo         TipoMagerit       @relation(fields: [tipoId], references: [id])
+  subtipo      SubtipoMagerit    @relation(fields: [subtipoId], references: [id])
   propietario  CargoResponsable? @relation("ActivoPropietario", fields: [propietarioId], references: [id])
   custodio     CargoResponsable? @relation("ActivoCustodio", fields: [custodioId], references: [id])
-  ubicacion    Ubicacion?       @relation(fields: [ubicacionId], references: [id])
-  entorno      Entorno?         @relation(fields: [entornoId], references: [id])
-  proveedor    Proveedor?       @relation(fields: [proveedorId], references: [id])
-  superior     Activo?          @relation("ActivoJerarquia", fields: [superiorId], references: [id])
-  dependientes Activo[]         @relation("ActivoJerarquia")
+  ubicacion    Ubicacion?        @relation(fields: [ubicacionId], references: [id])
+  entorno      Entorno?          @relation(fields: [entornoId], references: [id])
+  proveedor    Proveedor?        @relation(fields: [proveedorId], references: [id])
+  superior     Activo?           @relation("ActivoJerarquia", fields: [superiorId], references: [id])
+  dependientes Activo[]          @relation("ActivoJerarquia")
   valores      ActivoValor[]
   riesgos      Riesgo[]
 
@@ -720,13 +720,13 @@ model Riesgo {
   justificacion String?
 
   // Scope
-  obsoleto   Boolean   @default(false)
-  obsoletoEn DateTime? @map("obsoleto_en")
+  obsoleto       Boolean   @default(false)
+  obsoletoEn     DateTime? @map("obsoleto_en")
   /// Distinguishes "out of scope because the parameterisation no longer includes it"
   /// from "a person removed this threat from this asset, with a reason". Without the
   /// distinction the generator would resurrect every hand-made removal on its next run,
   /// because a pair the parameterisation still covers looks like one that came back.
-  excluidoManual Boolean @default(false) @map("excluido_manual")
+  excluidoManual Boolean   @default(false) @map("excluido_manual")
 
   // Derived — written only by the calculation service
   impacto            Decimal?  @db.Decimal(9, 4)
@@ -910,7 +910,7 @@ model Bitacora {
   /// Network origin of the operation, populated by the evidence annex flow (high, low
   /// and download of a file). Null for the rest: the application does not log an IP
   /// that it did not see.
-  ip String?
+  ip            String?
 
   @@index([tabla, registroId])
   @@index([ocurridoEn])
@@ -962,32 +962,32 @@ model Persona {
   area  Area?             @relation(fields: [areaId], references: [id])
   cargo CargoResponsable? @relation(fields: [cargoId], references: [id])
 
-  obligacionesAlcance      Obligacion[] @relation("ObligacionAlcancePersona")
-  obligacionesSeguimiento  Obligacion[] @relation("ObligacionSeguimiento")
-  asignaciones             Asignacion[] @relation("AsignacionPersona")
-  asignacionesCerradasPor  Asignacion[] @relation("AsignacionCerradaPor")
+  obligacionesAlcance      Obligacion[]                   @relation("ObligacionAlcancePersona")
+  obligacionesSeguimiento  Obligacion[]                   @relation("ObligacionSeguimiento")
+  asignaciones             Asignacion[]                   @relation("AsignacionPersona")
+  asignacionesCerradasPor  Asignacion[]                   @relation("AsignacionCerradaPor")
   enviosNotificacion       EnvioNotificacion[]
-  hallazgosDetectados      Hallazgo[] @relation("HallazgoDetectadoPor")
-  hallazgosClasificados    Hallazgo[] @relation("HallazgoClasificadoPor")
-  hallazgosResponsables    Hallazgo[] @relation("HallazgoResponsable")
-  hallazgosCerrados        Hallazgo[] @relation("HallazgoCerradoPor")
-  correccionesHallazgo     CorreccionHallazgo[] @relation("CorreccionResponsable")
+  hallazgosDetectados      Hallazgo[]                     @relation("HallazgoDetectadoPor")
+  hallazgosClasificados    Hallazgo[]                     @relation("HallazgoClasificadoPor")
+  hallazgosResponsables    Hallazgo[]                     @relation("HallazgoResponsable")
+  hallazgosCerrados        Hallazgo[]                     @relation("HallazgoCerradoPor")
+  correccionesHallazgo     CorreccionHallazgo[]           @relation("CorreccionResponsable")
   analisisCausa            AnalisisCausa[]
   verificacionesHallazgo   VerificacionEficaciaHallazgo[]
-  necesidadesResponsables NecesidadExpectativa[] @relation("NecesidadResponsable")
-  requisitosLegales       RequisitoLegal[] @relation("RequisitoResponsable")
-  evaluacionesCumplimiento EvaluacionCumplimiento[] @relation("EvaluacionEvaluadoPor")
-  riesgosOrganizacionales RiesgoOrganizacional[] @relation("RiesgoOrgResponsable")
-  materializaciones       MaterializacionRiesgo[] @relation("MaterializacionReportante")
-contextosAprobados      AnalisisContexto[] @relation("ContextoAprobadoPor")
-  programasAprobados      ProgramaAuditoria[] @relation("ProgramaAprobadoPor")
-  programadasResponsable  AuditoriaProgramada[] @relation("ProgramadaResponsable")
-  auditoriasLideradas     Auditoria[] @relation("AuditoriaLider")
-  equipoAuditorias        EquipoAuditor[] @relation("EquipoAuditorPersona")
-  notasAuditor            NotaAuditor[] @relation("NotaAuditorAutor")
-  informesEmitidos        InformeAuditoria[] @relation("InformeEmitidoPor")
-  perfilesAuditor         PerfilAuditor[] @relation("PerfilPersona")
-  perfilesAprobados       PerfilAuditor[] @relation("PerfilAprobadoPor")
+  necesidadesResponsables  NecesidadExpectativa[]         @relation("NecesidadResponsable")
+  requisitosLegales        RequisitoLegal[]               @relation("RequisitoResponsable")
+  evaluacionesCumplimiento EvaluacionCumplimiento[]       @relation("EvaluacionEvaluadoPor")
+  riesgosOrganizacionales  RiesgoOrganizacional[]         @relation("RiesgoOrgResponsable")
+  materializaciones        MaterializacionRiesgo[]        @relation("MaterializacionReportante")
+  contextosAprobados       AnalisisContexto[]             @relation("ContextoAprobadoPor")
+  programasAprobados       ProgramaAuditoria[]            @relation("ProgramaAprobadoPor")
+  programadasResponsable   AuditoriaProgramada[]          @relation("ProgramadaResponsable")
+  auditoriasLideradas      Auditoria[]                    @relation("AuditoriaLider")
+  equipoAuditorias         EquipoAuditor[]                @relation("EquipoAuditorPersona")
+  notasAuditor             NotaAuditor[]                  @relation("NotaAuditorAutor")
+  informesEmitidos         InformeAuditoria[]             @relation("InformeEmitidoPor")
+  perfilesAuditor          PerfilAuditor[]                @relation("PerfilPersona")
+  perfilesAprobados        PerfilAuditor[]                @relation("PerfilAprobadoPor")
 
   @@map("persona")
 }
@@ -1078,7 +1078,7 @@ model ContenidoSig {
   exigeEvaluacion Boolean  @default(false) @map("exige_evaluacion")
   notaMinima      Decimal? @map("nota_minima")
 
-  items       ItemVerificacion[]
+  items        ItemVerificacion[]
   obligaciones Obligacion[]
   asignaciones Asignacion[]
 
@@ -1087,14 +1087,14 @@ model ContenidoSig {
 
 /// Ítems de un contenido VERIFICACION. La primitiva que el módulo C reutilizará.
 model ItemVerificacion {
-  id              Int      @id @default(autoincrement())
-  contenidoId     Int      @map("contenido_id")
+  id              Int     @id @default(autoincrement())
+  contenidoId     Int     @map("contenido_id")
   orden           Int
   texto           String
-  obligatorio     Boolean  @default(true)
-  permiteNoAplica Boolean  @default(true) @map("permite_no_aplica")
+  obligatorio     Boolean @default(true)
+  permiteNoAplica Boolean @default(true) @map("permite_no_aplica")
 
-  contenido ContenidoSig @relation(fields: [contenidoId], references: [id])
+  contenido  ContenidoSig    @relation(fields: [contenidoId], references: [id])
   respuestas RespuestaItem[]
 
   @@unique([contenidoId, orden])
@@ -1119,11 +1119,11 @@ model Obligacion {
   activa                   Boolean           @default(true)
   creadaEn                 DateTime          @default(now()) @map("creada_en")
 
-  contenido              ContenidoSig        @relation(fields: [contenidoId], references: [id])
-  alcancePersona         Persona?            @relation("ObligacionAlcancePersona", fields: [alcancePersonaId], references: [id])
-  alcanceCargo           CargoResponsable?   @relation(fields: [alcanceCargoId], references: [id])
-  alcanceArea            Area?               @relation(fields: [alcanceAreaId], references: [id])
-  responsableSeguimiento Persona             @relation("ObligacionSeguimiento", fields: [responsableSeguimientoId], references: [id])
+  contenido              ContenidoSig      @relation(fields: [contenidoId], references: [id])
+  alcancePersona         Persona?          @relation("ObligacionAlcancePersona", fields: [alcancePersonaId], references: [id])
+  alcanceCargo           CargoResponsable? @relation(fields: [alcanceCargoId], references: [id])
+  alcanceArea            Area?             @relation(fields: [alcanceAreaId], references: [id])
+  responsableSeguimiento Persona           @relation("ObligacionSeguimiento", fields: [responsableSeguimientoId], references: [id])
   asignaciones           Asignacion[]
 
   @@map("obligacion")
@@ -1132,24 +1132,24 @@ model Obligacion {
 /// Una instancia concreta: obligación + persona + periodo. La unique tripla es lo que
 /// hace idempotente la generación: correrla dos veces no duplica nada.
 model Asignacion {
-  id            Int               @id @default(autoincrement())
-  obligacionId  Int?              @map("obligacion_id")
-  contenidoId   Int?              @map("contenido_id")
+  id            Int              @id @default(autoincrement())
+  obligacionId  Int?             @map("obligacion_id")
+  contenidoId   Int?             @map("contenido_id")
   /// Obligatorios cuando no hay contenido; ignorados cuando lo hay.
   titulo        String?
   descripcion   String?
-  personaId     Int               @map("persona_id")
+  personaId     Int              @map("persona_id")
   /// Etiqueta legible del periodo: `2026-T3`, `2026-09`, `2026-S36`, `2026`.
   periodo       String
-  fechaApertura DateTime          @map("fecha_apertura") @db.Date
-  fechaLimite   DateTime          @map("fecha_limite") @db.Date
-  estado        EstadoAsignacion  @default(PENDIENTE)
-  fechaCierre   DateTime?         @map("fecha_cierre")
+  fechaApertura DateTime         @map("fecha_apertura") @db.Date
+  fechaLimite   DateTime         @map("fecha_limite") @db.Date
+  estado        EstadoAsignacion @default(PENDIENTE)
+  fechaCierre   DateTime?        @map("fecha_cierre")
   /// Distinto de `personaId` solo en un cierre administrativo (R5).
-  cerradaPor    Int?              @map("cerrada_por")
+  cerradaPor    Int?             @map("cerrada_por")
   /// Obligatorio en prórroga, anulación, no aplica y cierre administrativo.
   motivo        String?
-  creadaEn      DateTime          @default(now()) @map("creada_en")
+  creadaEn      DateTime         @default(now()) @map("creada_en")
 
   obligacion        Obligacion?         @relation(fields: [obligacionId], references: [id])
   contenido         ContenidoSig?       @relation(fields: [contenidoId], references: [id])
@@ -1174,7 +1174,7 @@ model RegistroRealizado {
   nota         String?
 
   // LECTURA — la versión del documento en el momento del acuse (R10).
-  versionLeida String? @map("version_leida")
+  versionLeida String?  @map("version_leida")
   // CAPACITACION
   asistio      Boolean?
   calificacion Decimal?
@@ -1182,7 +1182,7 @@ model RegistroRealizado {
   /// cambia; el registro debe seguir siendo verificable (R10).
   aprobado     Boolean?
 
-  asignacion Asignacion       @relation(fields: [asignacionId], references: [id])
+  asignacion Asignacion      @relation(fields: [asignacionId], references: [id])
   respuestas RespuestaItem[]
 
   @@index([asignacionId])
@@ -1309,45 +1309,45 @@ enum ResultadoEficacia {
 /// El código NO lleva el tipo: reclasificar una observación reincidente a NC mayor no
 /// rompe la trazabilidad. Consecutivo anual con el patrón de ContadorCodigo (B1).
 model Hallazgo {
-  id               Int            @id @default(autoincrement())
-  codigo           String         @unique // HAL-2026-0001
-  tipo             TipoHallazgo
-  origen           OrigenHallazgo
+  id                  Int            @id @default(autoincrement())
+  codigo              String         @unique // HAL-2026-0001
+  tipo                TipoHallazgo
+  origen              OrigenHallazgo
   /// Referencia tipada: auditoriaId, riesgoId o controlId, codigoIndicador, o texto.
-  origenReferencia String         @map("origen_referencia")
-  descripcion      String
-  requisitoIncumplido String      @map("requisito_incumplido")
-  evidenciaObjetiva String       @map("evidencia_objetiva")
-  areaId           Int            @map("area_id")
-  detectadoPorId   Int            @map("detectado_por_id")
-  fechaDeteccion   DateTime       @map("fecha_deteccion") @db.Date
+  origenReferencia    String         @map("origen_referencia")
+  descripcion         String
+  requisitoIncumplido String         @map("requisito_incumplido")
+  evidenciaObjetiva   String         @map("evidencia_objetiva")
+  areaId              Int            @map("area_id")
+  detectadoPorId      Int            @map("detectado_por_id")
+  fechaDeteccion      DateTime       @map("fecha_deteccion") @db.Date
   /// B3: hasta la clasificación el hallazgo no consume plazos.
-  clasificadoPorId Int?           @map("clasificado_por_id")
-  fechaClasificacion DateTime?    @map("fecha_clasificacion") @db.Date
-  responsableId    Int?           @map("responsable_id")
-  fechaCompromiso  DateTime?      @map("fecha_compromiso") @db.Date
+  clasificadoPorId    Int?           @map("clasificado_por_id")
+  fechaClasificacion  DateTime?      @map("fecha_clasificacion") @db.Date
+  responsableId       Int?           @map("responsable_id")
+  fechaCompromiso     DateTime?      @map("fecha_compromiso") @db.Date
   /// B10: reincidencia.
-  hallazgoAnteriorId Int?         @map("hallazgo_anterior_id")
+  hallazgoAnteriorId  Int?           @map("hallazgo_anterior_id")
   /// Marcas almacenables; el resto del estado se calcula.
-  fechaCierre      DateTime?      @map("fecha_cierre")
-  cerradoPorId     Int?           @map("cerrado_por_id")
-  anuladoEn        DateTime?      @map("anulado_en")
-  motivoAnulacion  String?        @map("motivo_anulacion")
-  creadaEn         DateTime       @default(now()) @map("creada_en")
+  fechaCierre         DateTime?      @map("fecha_cierre")
+  cerradoPorId        Int?           @map("cerrado_por_id")
+  anuladoEn           DateTime?      @map("anulado_en")
+  motivoAnulacion     String?        @map("motivo_anulacion")
+  creadaEn            DateTime       @default(now()) @map("creada_en")
 
-  area             Area           @relation("HallazgoArea", fields: [areaId], references: [id])
-  detectadoPor     Persona        @relation("HallazgoDetectadoPor", fields: [detectadoPorId], references: [id])
-  clasificadoPor   Persona?       @relation("HallazgoClasificadoPor", fields: [clasificadoPorId], references: [id])
-  responsable      Persona?       @relation("HallazgoResponsable", fields: [responsableId], references: [id])
-  cerradoPor       Persona?       @relation("HallazgoCerradoPor", fields: [cerradoPorId], references: [id])
-  hallazgoAnterior Hallazgo?      @relation("HallazgoReincidencia", fields: [hallazgoAnteriorId], references: [id])
-  reincidentes     Hallazgo[]     @relation("HallazgoReincidencia")
+  area             Area       @relation("HallazgoArea", fields: [areaId], references: [id])
+  detectadoPor     Persona    @relation("HallazgoDetectadoPor", fields: [detectadoPorId], references: [id])
+  clasificadoPor   Persona?   @relation("HallazgoClasificadoPor", fields: [clasificadoPorId], references: [id])
+  responsable      Persona?   @relation("HallazgoResponsable", fields: [responsableId], references: [id])
+  cerradoPor       Persona?   @relation("HallazgoCerradoPor", fields: [cerradoPorId], references: [id])
+  hallazgoAnterior Hallazgo?  @relation("HallazgoReincidencia", fields: [hallazgoAnteriorId], references: [id])
+  reincidentes     Hallazgo[] @relation("HallazgoReincidencia")
 
-  correccion  CorreccionHallazgo?
-  analisis    AnalisisCausa?
-  extension   ExtensionProblema?
-  acciones    HallazgoAccion[]
-  verificaciones VerificacionEficaciaHallazgo[]
+  correccion        CorreccionHallazgo?
+  analisis          AnalisisCausa?
+  extension         ExtensionProblema?
+  acciones          HallazgoAccion[]
+  verificaciones    VerificacionEficaciaHallazgo[]
   materializaciones MaterializacionRiesgo[]
 
   @@index([areaId, fechaDeteccion])
@@ -1371,16 +1371,16 @@ model CorreccionHallazgo {
 /// El método se declara y se guarda desarrollado, no como un párrafo suelto: es lo que
 /// un auditor pide ver. Cinco porqués guarda los cinco pasos; Ishikawa, por categoría.
 model AnalisisCausa {
-  id            Int            @id @default(autoincrement())
-  hallazgoId    Int            @unique @map("hallazgo_id")
-  metodo        MetodoCausa
-  desarrollo    Json
-  causaRaiz     String         @map("causa_raiz")
-  realizadoPorId Int           @map("realizado_por_id")
-  fecha         DateTime       @default(now())
+  id             Int         @id @default(autoincrement())
+  hallazgoId     Int         @unique @map("hallazgo_id")
+  metodo         MetodoCausa
+  desarrollo     Json
+  causaRaiz      String      @map("causa_raiz")
+  realizadoPorId Int         @map("realizado_por_id")
+  fecha          DateTime    @default(now())
 
-  hallazgo      Hallazgo       @relation(fields: [hallazgoId], references: [id])
-  realizadoPor  Persona        @relation(fields: [realizadoPorId], references: [id])
+  hallazgo     Hallazgo @relation(fields: [hallazgoId], references: [id])
+  realizadoPor Persona  @relation(fields: [realizadoPorId], references: [id])
 
   @@map("analisis_causa")
 }
@@ -1388,13 +1388,13 @@ model AnalisisCausa {
 /// ISO 9001 §10.2.1 d: ¿el mismo problema existe en otra parte? Sin este registro la
 /// NC se cierra sin haber preguntado lo que la norma obliga a preguntar.
 model ExtensionProblema {
-  id              Int      @id @default(autoincrement())
-  hallazgoId      Int      @unique @map("hallazgo_id")
-  evaluada        Boolean  @default(true)
+  id                Int     @id @default(autoincrement())
+  hallazgoId        Int     @unique @map("hallazgo_id")
+  evaluada          Boolean @default(true)
   existeEnOtraParte Boolean @map("existe_en_otra_parte")
-  analisis        String
+  analisis          String
 
-  hallazgo        Hallazgo @relation(fields: [hallazgoId], references: [id])
+  hallazgo Hallazgo @relation(fields: [hallazgoId], references: [id])
 
   @@map("extension_problema")
 }
@@ -1402,13 +1402,13 @@ model ExtensionProblema {
 /// Puente hallazgo ↔ asignación del motor de A. La dependencia va en un solo sentido:
 /// el motor no sabe que existen los hallazgos (B12).
 model HallazgoAccion {
-  id           Int               @id @default(autoincrement())
-  hallazgoId   Int               @map("hallazgo_id")
-  asignacionId Int               @map("asignacion_id")
+  id           Int                 @id @default(autoincrement())
+  hallazgoId   Int                 @map("hallazgo_id")
+  asignacionId Int                 @map("asignacion_id")
   papel        PapelAccionHallazgo
 
-  hallazgo    Hallazgo          @relation(fields: [hallazgoId], references: [id])
-  asignacion  Asignacion        @relation(fields: [asignacionId], references: [id])
+  hallazgo   Hallazgo   @relation(fields: [hallazgoId], references: [id])
+  asignacion Asignacion @relation(fields: [asignacionId], references: [id])
 
   @@unique([hallazgoId, asignacionId])
   @@map("hallazgo_accion")
@@ -1417,15 +1417,15 @@ model HallazgoAccion {
 /// Son varias, no una: si la primera resulta no eficaz, la siguiente se agrega y el
 /// historial completo queda (B6).
 model VerificacionEficaciaHallazgo {
-  id            Int              @id @default(autoincrement())
-  hallazgoId    Int              @map("hallazgo_id")
-  fecha         DateTime         @default(now())
-  verificadoPorId Int            @map("verificado_por_id")
-  resultado     ResultadoEficacia
-  nota          String?
+  id              Int               @id @default(autoincrement())
+  hallazgoId      Int               @map("hallazgo_id")
+  fecha           DateTime          @default(now())
+  verificadoPorId Int               @map("verificado_por_id")
+  resultado       ResultadoEficacia
+  nota            String?
 
-  hallazgo      Hallazgo         @relation(fields: [hallazgoId], references: [id])
-  verificadoPor Persona          @relation(fields: [verificadoPorId], references: [id])
+  hallazgo      Hallazgo @relation(fields: [hallazgoId], references: [id])
+  verificadoPor Persona  @relation(fields: [verificadoPorId], references: [id])
 
   @@index([hallazgoId, fecha])
   @@map("verificacion_eficacia_hallazgo")
@@ -1434,20 +1434,20 @@ model VerificacionEficaciaHallazgo {
 /// Plazos por tipo parametrizables desde la interfaz (B7). Ningún plazo vive en el
 /// código: la metodología cambió una vez y volverá a cambiar.
 model PlazoPorTipoHallazgo {
-  id             Int          @id @default(autoincrement())
-  tipo           TipoHallazgo @unique
-  diasAnalisis   Int          @map("dias_analisis")
-  diasEjecucion  Int          @map("dias_ejecucion")
-  diasVerificacion Int        @map("dias_verificacion")
-  actualizadoEn  DateTime     @updatedAt @map("actualizado_en")
+  id               Int          @id @default(autoincrement())
+  tipo             TipoHallazgo @unique
+  diasAnalisis     Int          @map("dias_analisis")
+  diasEjecucion    Int          @map("dias_ejecucion")
+  diasVerificacion Int          @map("dias_verificacion")
+  actualizadoEn    DateTime     @updatedAt @map("actualizado_en")
 
   @@map("plazo_por_tipo_hallazgo")
 }
 
 /// Consecutivo anual de hallazgos (B1).
 model ContadorHallazgo {
-  anio        Int  @id
-  ultimoValor Int  @default(0) @map("ultimo_valor")
+  anio        Int @id
+  ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_hallazgo")
 }
@@ -1523,22 +1523,22 @@ model ParteInteresada {
 }
 
 model NecesidadExpectativa {
-  id                      Int            @id @default(autoincrement())
-  parteId                 Int            @map("parte_id")
-  texto                   String
-  clase                   ClaseNecesidad
-  riesgoOportunidadTexto  String?        @map("riesgo_oportunidad_texto")
-  esRiesgo                Boolean        @default(false) @map("es_riesgo")
-  esOportunidad           Boolean        @default(false) @map("es_oportunidad")
-  poder                   String
-  interes                 String
-  generaRequisitosSgsi    Boolean        @default(false) @map("genera_requisitos_sgsi")
-  requisitoCambioClimatico Boolean       @default(false) @map("requisito_cambio_climatico")
-  requiereCambioAlcanceSig Boolean       @default(false) @map("requiere_cambio_alcance_sig")
-  responsableId           Int?           @map("responsable_id")
+  id                       Int            @id @default(autoincrement())
+  parteId                  Int            @map("parte_id")
+  texto                    String
+  clase                    ClaseNecesidad
+  riesgoOportunidadTexto   String?        @map("riesgo_oportunidad_texto")
+  esRiesgo                 Boolean        @default(false) @map("es_riesgo")
+  esOportunidad            Boolean        @default(false) @map("es_oportunidad")
+  poder                    String
+  interes                  String
+  generaRequisitosSgsi     Boolean        @default(false) @map("genera_requisitos_sgsi")
+  requisitoCambioClimatico Boolean        @default(false) @map("requisito_cambio_climatico")
+  requiereCambioAlcanceSig Boolean        @default(false) @map("requiere_cambio_alcance_sig")
+  responsableId            Int?           @map("responsable_id")
 
-  parte       ParteInteresada        @relation(fields: [parteId], references: [id])
-  responsable Persona?               @relation("NecesidadResponsable", fields: [responsableId], references: [id])
+  parte       ParteInteresada         @relation(fields: [parteId], references: [id])
+  responsable Persona?                @relation("NecesidadResponsable", fields: [responsableId], references: [id])
   seguimiento SeguimientoParteAnual[]
 
   @@map("necesidad_expectativa")
@@ -1546,10 +1546,10 @@ model NecesidadExpectativa {
 
 /// El seguimiento anual son filas, no columnas: un registro por año.
 model SeguimientoParteAnual {
-  id          Int      @id @default(autoincrement())
-  necesidadId Int      @map("necesidad_id")
+  id          Int     @id @default(autoincrement())
+  necesidadId Int     @map("necesidad_id")
   anio        Int
-  planAccion  String?  @map("plan_accion")
+  planAccion  String? @map("plan_accion")
   seguimiento String?
   evidencia   String?
 
@@ -1562,25 +1562,25 @@ model SeguimientoParteAnual {
 /// MAT-EST-01. Se construye desde cero: la matriz real está vacía (brecha del
 /// sistema, no módulo sobre datos existentes).
 model RequisitoLegal {
-  id                Int      @id @default(autoincrement())
-  consecutivo       Int
-  normatividad      String
-  articulo          String?
-  expedidaPor       String
-  tipo              String
-  objeto            String
-  aplicacion        String
-  sistemaGestion    String   @map("sistema_gestion")
-  procesoEncargado  String?  @map("proceso_encargado")
-  responsableId     Int?     @map("responsable_id")
-  enlace            String?
-  periodicidadRevision String @map("periodicidad_revision")
-  vigente           Boolean  @default(true)
-  derogadoEn        DateTime? @map("derogado_en")
-  normaQueDeroga    String?  @map("norma_que_deroga")
+  id                   Int       @id @default(autoincrement())
+  consecutivo          Int
+  normatividad         String
+  articulo             String?
+  expedidaPor          String
+  tipo                 String
+  objeto               String
+  aplicacion           String
+  sistemaGestion       String    @map("sistema_gestion")
+  procesoEncargado     String?   @map("proceso_encargado")
+  responsableId        Int?      @map("responsable_id")
+  enlace               String?
+  periodicidadRevision String    @map("periodicidad_revision")
+  vigente              Boolean   @default(true)
+  derogadoEn           DateTime? @map("derogado_en")
+  normaQueDeroga       String?   @map("norma_que_deroga")
 
-  responsable   Persona?                  @relation("RequisitoResponsable", fields: [responsableId], references: [id])
-  evaluaciones  EvaluacionCumplimiento[]
+  responsable  Persona?                 @relation("RequisitoResponsable", fields: [responsableId], references: [id])
+  evaluaciones EvaluacionCumplimiento[]
 
   @@map("requisito_legal")
 }
@@ -1594,8 +1594,8 @@ model EvaluacionCumplimiento {
   evaluadoPorId Int                   @map("evaluado_por_id")
   hallazgoId    Int?                  @map("hallazgo_id")
 
-  requisito RequisitoLegal @relation(fields: [requisitoId], references: [id])
-  evaluadoPor Persona      @relation("EvaluacionEvaluadoPor", fields: [evaluadoPorId], references: [id])
+  requisito   RequisitoLegal @relation(fields: [requisitoId], references: [id])
+  evaluadoPor Persona        @relation("EvaluacionEvaluadoPor", fields: [evaluadoPorId], references: [id])
 
   @@index([requisitoId, fecha])
   @@map("evaluacion_cumplimiento")
@@ -1603,30 +1603,30 @@ model EvaluacionCumplimiento {
 
 /// MAT-CAL-02. El código es el del Excel, inmutable (D1). La fuente es tipada (D2).
 model RiesgoOrganizacional {
-  id            Int          @id @default(autoincrement())
-  codigo        String       @unique
-  clase         ClaseRiesgo
-  proceso       String
-  fuente        FuenteRiesgo
-  necesidadExpectativaId Int? @map("necesidad_expectativa_id")
-  entradaContextoId       Int? @map("entrada_contexto_id")
-  descripcion   String
-  causa         String
-  efecto        String
-  factorId      Int          @map("factor_id")
-  probabilidadId Int         @map("probabilidad_id")
-  impactoId     Int          @map("impacto_id")
-  responsableId Int?         @map("responsable_id")
-  activo        Boolean      @default(true)
-  nivelSugerido String?      @map("nivel_sugerido")
+  id                     Int          @id @default(autoincrement())
+  codigo                 String       @unique
+  clase                  ClaseRiesgo
+  proceso                String
+  fuente                 FuenteRiesgo
+  necesidadExpectativaId Int?         @map("necesidad_expectativa_id")
+  entradaContextoId      Int?         @map("entrada_contexto_id")
+  descripcion            String
+  causa                  String
+  efecto                 String
+  factorId               Int          @map("factor_id")
+  probabilidadId         Int          @map("probabilidad_id")
+  impactoId              Int          @map("impacto_id")
+  responsableId          Int?         @map("responsable_id")
+  activo                 Boolean      @default(true)
+  nivelSugerido          String?      @map("nivel_sugerido")
 
-  factor        FactorRiesgo          @relation(fields: [factorId], references: [id])
-  probabilidad  EscalaProbabilidad    @relation("RiesgoProbabilidad", fields: [probabilidadId], references: [id])
-  impacto       EscalaImpactoRiesgo   @relation(fields: [impactoId], references: [id])
-  responsable   Persona?              @relation("RiesgoOrgResponsable", fields: [responsableId], references: [id])
-  controles     ControlRiesgoOrg[]
+  factor            FactorRiesgo            @relation(fields: [factorId], references: [id])
+  probabilidad      EscalaProbabilidad      @relation("RiesgoProbabilidad", fields: [probabilidadId], references: [id])
+  impacto           EscalaImpactoRiesgo     @relation(fields: [impactoId], references: [id])
+  responsable       Persona?                @relation("RiesgoOrgResponsable", fields: [responsableId], references: [id])
+  controles         ControlRiesgoOrg[]
   materializaciones MaterializacionRiesgo[]
-  entradaContexto EntradaContexto?    @relation(fields: [entradaContextoId], references: [id])
+  entradaContexto   EntradaContexto?        @relation(fields: [entradaContextoId], references: [id])
 
   @@index([clase, activo])
   @@map("riesgo_organizacional")
@@ -1668,13 +1668,13 @@ model MaterializacionRiesgo {
 /// DOFA y PESTEL. Una sola pareja de tablas; el catálogo de casillas cambia, no la
 /// estructura. Se versiona por año y se aprueba (acta del auditor).
 model AnalisisContexto {
-  id              Int         @id @default(autoincrement())
+  id              Int          @id @default(autoincrement())
   tipo            TipoAnalisis
   anio            Int
-  aprobadoPorId   Int?        @map("aprobado_por_id")
-  fechaAprobacion DateTime?   @map("fecha_aprobacion")
-  actaReferencia  String?     @map("acta_referencia")
-  vigente         Boolean     @default(true)
+  aprobadoPorId   Int?         @map("aprobado_por_id")
+  fechaAprobacion DateTime?    @map("fecha_aprobacion")
+  actaReferencia  String?      @map("acta_referencia")
+  vigente         Boolean      @default(true)
 
   aprobadoPor Persona?          @relation("ContextoAprobadoPor", fields: [aprobadoPorId], references: [id])
   entradas    EntradaContexto[]
@@ -1684,14 +1684,14 @@ model AnalisisContexto {
 }
 
 model EntradaContexto {
-  id          Int      @id @default(autoincrement())
-  analisisId  Int      @map("analisis_id")
-  casilla     String
-  texto       String
-  efecto      EfectoEntrada
-  orden       Int
+  id         Int           @id @default(autoincrement())
+  analisisId Int           @map("analisis_id")
+  casilla    String
+  texto      String
+  efecto     EfectoEntrada
+  orden      Int
 
-  analisis AnalisisContexto     @relation(fields: [analisisId], references: [id])
+  analisis AnalisisContexto       @relation(fields: [analisisId], references: [id])
   riesgos  RiesgoOrganizacional[]
 
   @@unique([analisisId, orden])
@@ -1700,8 +1700,8 @@ model EntradaContexto {
 
 // ── Catálogos parametrizables (D4) ──
 model EscalaProbabilidad {
-  id          Int    @id @default(autoincrement())
-  valor       Int    @unique
+  id          Int     @id @default(autoincrement())
+  valor       Int     @unique
   etiqueta    String
   descripcion String?
   color       String
@@ -1712,11 +1712,11 @@ model EscalaProbabilidad {
 }
 
 model EscalaImpactoRiesgo {
-  id              Int    @id @default(autoincrement())
-  valor           Int    @unique
-  etiqueta        String
+  id                   Int      @id @default(autoincrement())
+  valor                Int      @unique
+  etiqueta             String
   porcentajePatrimonio Decimal? @map("porcentaje_patrimonio") @db.Decimal(5, 2)
-  referenciaCop   Decimal? @map("referencia_cop") @db.Decimal(18, 0)
+  referenciaCop        Decimal? @map("referencia_cop") @db.Decimal(18, 0)
 
   riesgos RiesgoOrganizacional[]
 
@@ -1743,8 +1743,8 @@ model FactorRiesgo {
 /// El tipo de control declara qué reduce (decisión 3.1 de la spec): PROBABILIDAD,
 /// IMPACTO o AMBOS. «Reactivo» es una fila, no un despliegue.
 model TipoControlRiesgo {
-  id          Int    @id @default(autoincrement())
-  nombre      String @unique
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique
   reduce      String
   descripcion String?
 
@@ -1754,9 +1754,9 @@ model TipoControlRiesgo {
 }
 
 model EficaciaControl {
-  id       Int    @id @default(autoincrement())
-  nombre   String @unique
-  valor    Decimal @db.Decimal(4, 3)
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique
+  valor       Decimal @db.Decimal(4, 3)
   descripcion String?
 
   controles ControlRiesgoOrg[]
@@ -1766,16 +1766,17 @@ model EficaciaControl {
 
 /// Rango parametrizable (0–4, 5–12, 13–25) con color y acción por clase.
 model NivelRiesgo {
-  id          Int    @id @default(autoincrement())
-  minimo      Int    @unique
-  maximo      Int
-  etiqueta    String
-  color       String
-  accionRiesgo String @map("accion_riesgo")
+  id                Int    @id @default(autoincrement())
+  minimo            Int    @unique
+  maximo            Int
+  etiqueta          String
+  color             String
+  accionRiesgo      String @map("accion_riesgo")
   accionOportunidad String @map("accion_oportunidad")
 
   @@map("nivel_riesgo")
 }
+
 // ============================================================================
 // SIG — Auditorías internas (ISO 9001 §9.2 · ISO/IEC 27001 §9.2). El estado se
 // calcula; lo único almacenado es `emitidoEn` y `cerradaEn`, actos de una persona.
@@ -1824,8 +1825,8 @@ enum PapelEquipo {
 
 /// El catálogo de numerales (decisión 3.1.1: catálogo, no constante).
 model NormaAuditable {
-  id      Int    @id @default(autoincrement())
-  codigo  String @unique
+  id      Int     @id @default(autoincrement())
+  codigo  String  @unique
   nombre  String
   version String
   activa  Boolean @default(true)
@@ -1836,14 +1837,14 @@ model NormaAuditable {
 }
 
 model RequisitoNorma {
-  id        Int    @id @default(autoincrement())
-  normaId   Int    @map("norma_id")
+  id        Int     @id @default(autoincrement())
+  normaId   Int     @map("norma_id")
   numeral   String
   titulo    String
   orden     Int
   auditable Boolean @default(true)
 
-norma NormaAuditable @relation(fields: [normaId], references: [id])
+  norma  NormaAuditable @relation(fields: [normaId], references: [id])
   celdas CeldaPlan[]
 
   @@unique([normaId, numeral])
@@ -1852,69 +1853,69 @@ norma NormaAuditable @relation(fields: [normaId], references: [id])
 
 /// FOR-CAL-04: el programa anual.
 model ProgramaAuditoria {
-  id               Int      @id @default(autoincrement())
-  anio             Int      @unique
-  alcance          String
-  objetivo         String
-  criterios        String
-  metodos          String
-  aprobadoPorId    Int?     @map("aprobado_por_id")
-  fechaAprobacion  DateTime? @map("fecha_aprobacion")
+  id              Int       @id @default(autoincrement())
+  anio            Int       @unique
+  alcance         String
+  objetivo        String
+  criterios       String
+  metodos         String
+  aprobadoPorId   Int?      @map("aprobado_por_id")
+  fechaAprobacion DateTime? @map("fecha_aprobacion")
 
-  aprobadoPor Persona?          @relation("ProgramaAprobadoPor", fields: [aprobadoPorId], references: [id])
+  aprobadoPor Persona?              @relation("ProgramaAprobadoPor", fields: [aprobadoPorId], references: [id])
   programadas AuditoriaProgramada[]
 
   @@map("programa_auditoria")
 }
 
 model AuditoriaProgramada {
-  id               Int       @id @default(autoincrement())
-  programaId       Int       @map("programa_id")
-  procesoRef       String    @map("proceso_ref")
+  id               Int           @id @default(autoincrement())
+  programaId       Int           @map("programa_id")
+  procesoRef       String        @map("proceso_ref")
   meses            String
   tipo             TipoAuditoria @default(INTERNA)
-  responsableId    Int       @map("responsable_id")
-  plazoInformeDias Int       @map("plazo_informe_dias")
+  responsableId    Int           @map("responsable_id")
+  plazoInformeDias Int           @map("plazo_informe_dias")
 
-  programa     ProgramaAuditoria @relation(fields: [programaId], references: [id])
-  responsable  Persona           @relation("ProgramadaResponsable", fields: [responsableId], references: [id])
-  auditorias   Auditoria[]
+  programa    ProgramaAuditoria @relation(fields: [programaId], references: [id])
+  responsable Persona           @relation("ProgramadaResponsable", fields: [responsableId], references: [id])
+  auditorias  Auditoria[]
 
   @@map("auditoria_programada")
 }
 
 /// La auditoría concreta. El estado se calcula (decisión 3.1.4).
 model Auditoria {
-  id            Int          @id @default(autoincrement())
-  programadaId  Int?         @map("programada_id")
-  tipo          TipoAuditoria
-  fechaInicio   DateTime     @map("fecha_inicio") @db.Date
-  fechaFin      DateTime?    @map("fecha_fin") @db.Date
-  sitio         String
-  objeto        String
-  alcance       String
-  criterios     String
-  auditorLiderId Int        @map("auditor_lider_id")
-  entidadAuditora String?    @map("entidad_auditora")
-  emitidoEn     DateTime?    @map("emitido_en")
-  cerradaEn     DateTime?    @map("cerrada_en")
+  id              Int           @id @default(autoincrement())
+  programadaId    Int?          @map("programada_id")
+  tipo            TipoAuditoria
+  fechaInicio     DateTime      @map("fecha_inicio") @db.Date
+  fechaFin        DateTime?     @map("fecha_fin") @db.Date
+  sitio           String
+  objeto          String
+  alcance         String
+  criterios       String
+  auditorLiderId  Int           @map("auditor_lider_id")
+  entidadAuditora String?       @map("entidad_auditora")
+  emitidoEn       DateTime?     @map("emitido_en")
+  cerradaEn       DateTime?     @map("cerrada_en")
 
-  programada  AuditoriaProgramada? @relation(fields: [programadaId], references: [id])
-  auditorLider Persona             @relation("AuditoriaLider", fields: [auditorLiderId], references: [id])
-  equipo      EquipoAuditor[]
-  celdas      CeldaPlan[]
-  actas       ActaAuditoria[]
-  informes    InformeAuditoria[]
+  programada   AuditoriaProgramada? @relation(fields: [programadaId], references: [id])
+  auditorLider Persona              @relation("AuditoriaLider", fields: [auditorLiderId], references: [id])
+  equipo       EquipoAuditor[]
+  celdas       CeldaPlan[]
+  actas        ActaAuditoria[]
+  informes     InformeAuditoria[]
 
   @@map("auditoria")
 }
 
 model EquipoAuditor {
-  id          Int           @id @default(autoincrement())
-  auditoriaId Int           @map("auditoria_id")
-  personaId   Int?          @map("persona_id")
+  id            Int         @id @default(autoincrement())
+  auditoriaId   Int         @map("auditoria_id")
+  personaId     Int?        @map("persona_id")
   nombreExterno String?     @map("nombre_externo")
-  papel       PapelEquipo
+  papel         PapelEquipo
 
   auditoria Auditoria @relation(fields: [auditoriaId], references: [id])
   persona   Persona?  @relation("EquipoAuditorPersona", fields: [personaId], references: [id])
@@ -1924,15 +1925,15 @@ model EquipoAuditor {
 
 /// Hoja PLAN de FOR-CAL-06: la matriz proceso × numeral.
 model CeldaPlan {
-  id              Int      @id @default(autoincrement())
-  auditoriaId     Int      @map("auditoria_id")
-  procesoRef      String   @map("proceso_ref")
+  id               Int     @id @default(autoincrement())
+  auditoriaId      Int     @map("auditoria_id")
+  procesoRef       String  @map("proceso_ref")
   requisitoNormaId Int     @map("requisito_norma_id")
-  hora            String?
-  auditorId       Int?     @map("auditor_id")
-  planificada     Boolean  @default(true)
+  hora             String?
+  auditorId        Int?    @map("auditor_id")
+  planificada      Boolean @default(true)
 
-  auditoria Auditoria     @relation(fields: [auditoriaId], references: [id])
+  auditoria Auditoria      @relation(fields: [auditoriaId], references: [id])
   requisito RequisitoNorma @relation(fields: [requisitoNormaId], references: [id])
   notas     NotaAuditor[]
 
@@ -1942,13 +1943,13 @@ model CeldaPlan {
 
 /// Una nota por celda: la cobertura es medible y no hay notas huérfanas (C4).
 model NotaAuditor {
-  id           Int      @id @default(autoincrement())
-  celdaId      Int      @map("celda_id")
+  id            Int      @id @default(autoincrement())
+  celdaId       Int      @map("celda_id")
   notaEvidencia String   @map("nota_evidencia")
-  tipo         TipoNota
-  fecha        DateTime @default(now())
-  auditorId    Int      @map("auditor_id")
-  hallazgoId   Int?     @map("hallazgo_id")
+  tipo          TipoNota
+  fecha         DateTime @default(now())
+  auditorId     Int      @map("auditor_id")
+  hallazgoId    Int?     @map("hallazgo_id")
 
   celda   CeldaPlan @relation(fields: [celdaId], references: [id])
   auditor Persona   @relation("NotaAuditorAutor", fields: [auditorId], references: [id])
@@ -1957,12 +1958,12 @@ model NotaAuditor {
 }
 
 model ActaAuditoria {
-  id         Int      @id @default(autoincrement())
-  auditoriaId Int     @map("auditoria_id")
-  tipo       TipoActa
-  fecha      DateTime @db.Date
-  asistentes String
-  contenido  String
+  id          Int      @id @default(autoincrement())
+  auditoriaId Int      @map("auditoria_id")
+  tipo        TipoActa
+  fecha       DateTime @db.Date
+  asistentes  String
+  contenido   String
 
   auditoria Auditoria @relation(fields: [auditoriaId], references: [id])
 
@@ -1971,14 +1972,14 @@ model ActaAuditoria {
 }
 
 model InformeAuditoria {
-  id           Int            @id @default(autoincrement())
-  auditoriaId  Int            @map("auditoria_id")
-  version      VersionInforme
-  fechaInforme DateTime       @map("fecha_informe") @db.Date
-  conclusiones String
+  id              Int            @id @default(autoincrement())
+  auditoriaId     Int            @map("auditoria_id")
+  version         VersionInforme
+  fechaInforme    DateTime       @map("fecha_informe") @db.Date
+  conclusiones    String
   recomendaciones String
-  emitidoPorId Int?           @map("emitido_por_id")
-  emitidoEn    DateTime?      @map("emitido_en")
+  emitidoPorId    Int?           @map("emitido_por_id")
+  emitidoEn       DateTime?      @map("emitido_en")
 
   auditoria  Auditoria @relation(fields: [auditoriaId], references: [id])
   emitidoPor Persona?  @relation("InformeEmitidoPor", fields: [emitidoPorId], references: [id])
@@ -1990,19 +1991,59 @@ model InformeAuditoria {
 /// C3: solo una persona con perfil aprobado por el Consulting Director puede ser
 /// auditor líder. Los datos que PRO-CAL-04 exige para habilitar.
 model PerfilAuditor {
-  id                  Int      @id @default(autoincrement())
-  personaId           Int?     @map("persona_id")
-  nombreExterno       String?  @map("nombre_externo")
-  formacion           String
-  certificacion       String
-  entidadCertificadora String  @map("entidad_certificadora")
-  vigencia            DateTime @db.Date
-  experienciaAnios    Int      @map("experiencia_anios")
-  aprobadoPorId       Int?     @map("aprobado_por_id")
-  aprobadoEn          DateTime? @map("aprobado_en")
+  id                   Int       @id @default(autoincrement())
+  personaId            Int?      @map("persona_id")
+  nombreExterno        String?   @map("nombre_externo")
+  formacion            String
+  certificacion        String
+  entidadCertificadora String    @map("entidad_certificadora")
+  vigencia             DateTime  @db.Date
+  experienciaAnios     Int       @map("experiencia_anios")
+  aprobadoPorId        Int?      @map("aprobado_por_id")
+  aprobadoEn           DateTime? @map("aprobado_en")
 
   persona     Persona? @relation("PerfilPersona", fields: [personaId], references: [id])
   aprobadoPor Persona? @relation("PerfilAprobadoPor", fields: [aprobadoPorId], references: [id])
 
   @@map("perfil_auditor")
+}
+
+// ─── Trabajos programados (docs/handoff_sig/trabajos-programados.md) ───────────────────
+
+enum ResultadoTrabajo {
+  EXITOSO
+  FALLIDO
+  /// Corrió, hizo parte y algo falló. No es éxito y no es falla: si se colapsara en
+  /// FALLIDO, un reintento repetiría lo que ya se hizo bien.
+  PARCIAL
+
+  @@map("resultado_trabajo")
+}
+
+/// T2: toda ejecución deja registro.
+///
+/// «Un cron que falla en silencio es peor que no tener cron: el sistema parece funcionar y
+/// las tareas simplemente dejan de aparecer.» De acá sale la regla que se sigue sola: si la
+/// generación no corrió ayer, el tablero lo dice — y es más importante que cualquier
+/// indicador de cumplimiento, porque sin ella todos los demás mienten a la baja.
+model EjecucionTrabajo {
+  id          Int               @id @default(autoincrement())
+  /// El nombre del trabajo, tal como llega en la ruta. String y no enum: un trabajo nuevo
+  /// no debería exigir una migración, y el registro histórico de uno retirado tiene que
+  /// seguir siendo legible.
+  trabajo     String
+  inicio      DateTime          @default(now())
+  fin         DateTime?
+  resultado   ResultadoTrabajo?
+  /// Cuántas cosas produjo: asignaciones abiertas, correos enviados, accesos cerrados.
+  creados     Int               @default(0)
+  /// El conteo por tipo, para leer la corrida sin abrir el log del servidor.
+  detalle     String?
+  error       String?
+  /// Quién la disparó: `cron` o el correo de quien apretó el botón. Un trabajo corrido a
+  /// mano y uno automático se ven distinto cuando algo salió mal.
+  invocadoPor String            @map("invocado_por")
+
+  @@index([trabajo, inicio])
+  @@map("ejecucion_trabajo")
 }

@@ -1,0 +1,48 @@
+# Trabajos programados del SIG — entradas de crontab
+#
+# Va en el crontab del servidor, junto a `respaldo-postgres.sh`, que es el camino que
+# este componente sigue a propósito: el servidor ya tiene cron y ya lo usamos.
+#
+# Antes de instalarlo:
+#
+#   1. Generar el secreto y ponerlo en el `.env` del servidor:
+#
+#        openssl rand -hex 32
+#        SIG_TRABAJOS_SECRET=<lo que salga>
+#
+#      Sin esa variable la ruta devuelve 503 y NO se abre. Es deliberado: un fallback
+#      permisivo dejaría el motor de tareas expuesto a quien adivine la URL.
+#
+#   2. Verificar el cableado sin disparar nada:
+#
+#        curl -s -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" \
+#          http://localhost:3004/api/sig/trabajos/x
+#
+#      El GET lista los trabajos, cuándo corren y cuáles están construidos.
+#
+# La zona es America/Bogota (UTC-5, sin horario de verano). La generación corre ANTES que
+# los avisos: un aviso sobre un periodo que todavía no se abrió no tiene nada que avisar.
+#
+# Cada corrida queda en `ejecucion_trabajo` con su resultado, lo que produjo y el error si
+# lo hubo. Un cron que falla en silencio es peor que no tener cron.
+
+SIG_URL=http://localhost:3004/api/sig/trabajos
+SIG_TRABAJOS_SECRET=
+
+# Abre los periodos que correspondan. Idempotente: reintentar no duplica.
+0 5 * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/generar-asignaciones >> /var/log/sig-trabajos.log 2>&1
+
+# Los cinco tipos de aviso y los dos resúmenes. UNA llamada diaria: el núcleo decide qué
+# toca hoy con sus propias compuertas de calendario, que son datos parametrizables y no
+# constantes del código. Por eso el semanal y el mensual NO tienen entrada aparte.
+0 6 * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/enviar-notificaciones >> /var/log/sig-trabajos.log 2>&1
+
+# Todavía sin construir — la ruta responde 501 con la razón, no 404. Se dejan comentadas
+# para que instalarlas sea descomentar, no volver a leer la documentación:
+#
+# 30 4 * * *  ...  $SIG_URL/sincronizar-directorio          (falta extraer el núcleo)
+# 20 5 * * *  ...  $SIG_URL/excepciones-vencidas            (REQ-SIG-08 sin construir)
+#  0 * * * *  ...  $SIG_URL/permisos-temporales-vencidos    (REQ-SIG-07 sin construir)
+#
+# `marcar-vencidas` NO va a existir: el vencimiento es derivado y se calcula al leer. No
+# hay columna que actualizar.

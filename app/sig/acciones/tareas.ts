@@ -9,77 +9,45 @@
 // generación a medias que no dejó rastro es exactamente el artefacto que una auditoría
 // busca.
 
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
-import { planificarGeneracion } from '@/lib/sig/generacion';
+import { correrTrabajo } from '@/lib/sig/trabajos';
 
 export interface ResultadoGeneracion extends Resultado {
   creadas: number;
 }
 
+/// El botón «Generar asignaciones» de la pantalla de obligaciones.
+///
+/// El cuerpo vive en `lib/sig/trabajos.ts`, que es el mismo núcleo que corre el cron: una
+/// segunda implementación de la generación es una que mañana abre periodos distintos según
+/// quién la haya disparado. Acá queda la compuerta de permiso, que es lo que esta capa
+/// aporta y lo que el cron no necesita porque ya se autenticó con su secreto.
+///
+/// Queda registrado como ejecución igual que la corrida automática, con `invocadoPor` en el
+/// correo de quien apretó: un trabajo corrido a mano y uno del cron se tienen que poder
+/// distinguir cuando algo salió mal.
 export async function generarAsignaciones(): Promise<ResultadoGeneracion> {
   return ejecutar<ResultadoGeneracion>(async () => {
     const autor = await autorConPermiso('operacion:escribir');
-
-    const [obligaciones, personas, existentes] = await Promise.all([
-      prisma.obligacion.findMany({
-        select: {
-          id: true,
-          contenidoId: true,
-          alcance: true,
-          alcancePersonaId: true,
-          alcanceCargoId: true,
-          alcanceAreaId: true,
-          periodicidad: true,
-          fechaInicio: true,
-          plazoDias: true,
-          activa: true,
-        },
-      }),
-      prisma.persona.findMany({
-        select: { id: true, activa: true, areaId: true, cargoId: true },
-      }),
-      prisma.asignacion.findMany({
-        select: { obligacionId: true, personaId: true, periodo: true },
-      }),
-    ]);
-
-    const plan = planificarGeneracion(obligaciones, personas, existentes, new Date());
-    if (plan.crear.length === 0) {
-      return { ok: true, mensaje: 'No hay asignaciones nuevas por generar.', creadas: 0 };
+    const corrida = await correrTrabajo('generar-asignaciones', autor, autor);
+    if (corrida.resultado !== 'EXITOSO') {
+      return {
+        ok: false,
+        mensaje: `La generación falló: ${corrida.error ?? 'sin detalle'}`,
+        creadas: 0,
+      };
     }
-
-    const ahora = new Date();
-    await prisma.$transaction(async (tx) => {
-      for (const a of plan.crear) {
-        const creada = await tx.asignacion.create({
-          data: {
-            obligacionId: a.obligacionId,
-            contenidoId: a.contenidoId,
-            personaId: a.personaId,
-            periodo: a.periodo,
-            fechaApertura: a.fechaApertura,
-            fechaLimite: a.fechaLimite,
-          },
-        });
-        await registrar(tx, autor, [
-          {
-            tabla: 'asignacion',
-            registroId: String(creada.id),
-            campo: 'alta',
-            anterior: null,
-            nuevo: `generada · ${a.periodo}`,
-            motivo: 'generación idempotente de asignaciones',
-          },
-        ]);
-      }
-    });
-
+    revalidatePath('/sig/obligaciones');
     return {
       ok: true,
-      mensaje: `Generación completada: ${plan.crear.length} asignación(es) nueva(s).`,
-      creadas: plan.crear.length,
+      mensaje:
+        corrida.creados === 0
+          ? 'No hay asignaciones nuevas por generar.'
+          : `Generación completada: ${corrida.creados} asignación(es) nueva(s).`,
+      creadas: corrida.creados,
     };
   });
 }
