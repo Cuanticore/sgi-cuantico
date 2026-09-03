@@ -148,3 +148,65 @@ export function planificarItems(
 export function versionTrasEditar(versionActual: number, tieneObligaciones: boolean): number {
   return tieneObligaciones ? versionActual + 1 : versionActual;
 }
+
+/// Los campos que pertenecen a una VERSIÓN, no al contenido.
+///
+/// Es lo que la persona leyó: el título, la descripción y la referencia al documento. El
+/// código, el tipo y la nota mínima son del contenido y no se congelan — cambiar el código
+/// de un contenido no crea una lectura distinta.
+export interface TextoVersionado {
+  titulo: string;
+  descripcion: string;
+  documentoCodigo: string | null;
+  documentoNombre: string | null;
+  documentoVersion: string | null;
+  documentoUrl: string | null;
+}
+
+/// Si publicar una versión nueva hace falta, y con qué texto.
+///
+/// D6 · el versionado **no invalida**. Este cálculo decide si nace una fila de versión, y
+/// nada más: no cierra registros, no reabre asignaciones y no toca lo generado. Los acuses
+/// previos siguen apuntando a su versión y siguen siendo válidos.
+///
+/// Que un cambio de FONDO deba obligar a leer de nuevo es la pregunta que el registro del
+/// 02/09/2026 deja abierta —la propuesta es que la reapertura sea una acción explícita del
+/// líder del SIG al publicar, no una consecuencia del guardado— así que acá no se decide.
+export function versionAPublicar(
+  actual: TextoVersionado & { version: number },
+  cambios: Partial<TextoVersionado>,
+  tieneObligaciones: boolean,
+): { version: number; publicar: boolean; texto: TextoVersionado } {
+  const texto: TextoVersionado = {
+    titulo: cambios.titulo ?? actual.titulo,
+    descripcion: cambios.descripcion ?? actual.descripcion,
+    documentoCodigo: cambios.documentoCodigo ?? actual.documentoCodigo,
+    documentoNombre: cambios.documentoNombre ?? actual.documentoNombre,
+    documentoVersion: cambios.documentoVersion ?? actual.documentoVersion,
+    documentoUrl: cambios.documentoUrl ?? actual.documentoUrl,
+  };
+
+  const version = versionTrasEditar(actual.version, tieneObligaciones);
+  // Sólo se publica cuando la versión SUBE. Editar un contenido sin obligaciones corrige la
+  // fila de la versión vigente en su lugar: publicar una v1 idéntica dos veces llenaría el
+  // historial de versiones que nadie leyó y que no se distinguen entre sí.
+  return { version, publicar: version > actual.version, texto };
+}
+
+/// Cambió algo que la persona LEE. Si sólo cambió la modalidad o la duración, el texto que
+/// se leyó es el mismo y subir la versión pediría un acuse nuevo sobre un documento
+/// idéntico.
+export function cambiaElTexto(
+  actual: TextoVersionado,
+  cambios: Partial<TextoVersionado>,
+): boolean {
+  const claves: (keyof TextoVersionado)[] = [
+    'titulo',
+    'descripcion',
+    'documentoCodigo',
+    'documentoNombre',
+    'documentoVersion',
+    'documentoUrl',
+  ];
+  return claves.some((k) => cambios[k] !== undefined && cambios[k] !== actual[k]);
+}

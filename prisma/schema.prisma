@@ -997,6 +997,8 @@ model Persona {
   perfilesAuditor          PerfilAuditor[]                @relation("PerfilPersona")
   perfilesAprobados        PerfilAuditor[]                @relation("PerfilAprobadoPor")
 
+  versionesPublicadas VersionContenido[] @relation("VersionPublicadaPor")
+
   @@map("persona")
 }
 
@@ -1103,6 +1105,8 @@ model ContenidoSig {
   items        ItemVerificacion[]
   obligaciones Obligacion[]
   asignaciones Asignacion[]
+
+  versiones VersionContenido[]
 
   @@map("contenido_sig")
 }
@@ -1221,16 +1225,22 @@ model RegistroRealizado {
   nota         String?
 
   // LECTURA — la versión del documento en el momento del acuse (R10).
-  versionLeida String?  @map("version_leida")
+  /// Texto libre heredado: guardaba «1» sin que existiera un lugar donde estuviera la
+  /// version 1. Se conserva mientras `versionContenidoId` se puebla, para poder verificar
+  /// que la migracion no perdio nada.
+  versionLeida       String?  @map("version_leida")
+  /// La version que la persona leyo, tipada. Nulo en los cierres que no son de lectura.
+  versionContenidoId Int?     @map("version_contenido_id")
   // CAPACITACION
-  asistio      Boolean?
-  calificacion Decimal?
+  asistio            Boolean?
+  calificacion       Decimal?
   /// Congelado al cerrar: derivable de `notaMinima`, pero esa vive en el contenido y
   /// cambia; el registro debe seguir siendo verificable (R10).
-  aprobado     Boolean?
+  aprobado           Boolean?
 
-  asignacion Asignacion      @relation(fields: [asignacionId], references: [id])
-  respuestas RespuestaItem[]
+  asignacion       Asignacion        @relation(fields: [asignacionId], references: [id])
+  respuestas       RespuestaItem[]
+  versionContenido VersionContenido? @relation(fields: [versionContenidoId], references: [id])
 
   @@index([asignacionId])
   @@map("registro_realizado")
@@ -2156,4 +2166,49 @@ model Proceso {
 
   @@index([tipo, activo])
   @@map("proceso")
+}
+
+// ─── Versionado de contenido (D6 · POL-SIG-02 sobre control de versiones) ──────────────
+
+/// El TEXTO de cada versión de un contenido, congelado.
+///
+/// `ContenidoSig.version` era sólo un contador, y `editarContenido` hacía `update` sobre
+/// `titulo`, `descripcion` y la referencia al documento: **el texto anterior se perdía**.
+/// Con eso, `RegistroRealizado.versionLeida = "1"` decía «leí la versión 1» y nadie podía
+/// producir la versión 1. El acuse de lectura era verificable sólo de nombre.
+///
+/// D6: «el registro de realizado apunta a LA VERSIÓN QUE LA PERSONA LEYÓ. Corregir el texto
+/// no invalida los veinte registros previos, y el auditor puede ver el texto exacto que leyó
+/// cada uno.» Para eso el texto tiene que existir, y por eso esta tabla.
+///
+/// **El versionado NO invalida.** Publicar una versión nueva no cierra ni reabre nada: los
+/// registros previos siguen apuntando a la suya y siguen siendo válidos. Que un cambio de
+/// fondo DEBA obligar a leer de nuevo es una decisión que el registro del 02/09/2026 deja
+/// abierta —la propuesta es que sea una acción explícita del líder del SIG al publicar, no
+/// una consecuencia del guardado— así que acá no se reabre nada.
+model VersionContenido {
+  id               Int      @id @default(autoincrement())
+  contenidoId      Int      @map("contenido_id")
+  version          Int
+  /// Lo que la persona leyó. Se copia al publicar y no se vuelve a tocar: una fila de
+  /// versión que se puede editar no congela nada.
+  titulo           String
+  descripcion      String
+  /// La referencia al documento tal como estaba. Un acuse contra «POL-SIG-02 v2» no dice
+  /// nada si mañana esa URL apunta a la v3.
+  documentoCodigo  String?  @map("documento_codigo")
+  documentoNombre  String?  @map("documento_nombre")
+  documentoVersion String?  @map("documento_version")
+  documentoUrl     String?  @map("documento_url")
+  publicadaEn      DateTime @default(now()) @map("publicada_en")
+  /// Quién la publicó. Nulo en las versiones creadas por la migración inicial, que no
+  /// tuvieron autor: inventar uno sería firmar un documento en nombre de otro.
+  publicadaPorId   Int?     @map("publicada_por_id")
+
+  contenido    ContenidoSig        @relation(fields: [contenidoId], references: [id])
+  publicadaPor Persona?            @relation("VersionPublicadaPor", fields: [publicadaPorId], references: [id])
+  registros    RegistroRealizado[]
+
+  @@unique([contenidoId, version])
+  @@map("version_contenido")
 }

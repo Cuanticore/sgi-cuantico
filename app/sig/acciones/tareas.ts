@@ -157,6 +157,21 @@ export async function cerrarAsignacion(
           asignacionId: asignacion.id,
           nota: datos.nota,
           versionLeida: contenido.tipo === 'LECTURA' ? datos.versionLeida : null,
+          // D6 · el acuse apunta a la FILA de la versión, no a su número. Con sólo el
+          // número, «leí la versión 1» era una afirmación que nadie podía verificar
+          // porque el texto de la 1 se había sobreescrito. Se resuelve contra la versión
+          // VIGENTE del contenido al cerrar, que es la que la persona tenía delante.
+          versionContenidoId:
+            contenido.tipo === 'LECTURA'
+              ? (
+                  await tx.versionContenido.findUnique({
+                    where: {
+                      contenidoId_version: { contenidoId: contenido.id, version: contenido.version },
+                    },
+                    select: { id: true },
+                  })
+                )?.id ?? null
+              : null,
           asistio: contenido.tipo === 'CAPACITACION' ? datos.asistio : null,
           calificacion: contenido.tipo === 'CAPACITACION' ? datos.calificacion : null,
           aprobado:
@@ -420,6 +435,7 @@ export async function reasignarAsignacion(
 
 import { registrarAlta } from '@/lib/sgsi/bitacora';
 import {
+  cambiaElTexto,
   planificarItems,
   versionTrasEditar,
   type ItemPropuesto,
@@ -470,6 +486,13 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
     const errores = validarDatosContenido(datos);
     if (errores.length > 0) return { ok: false, mensaje: errores.join('. ') };
 
+    // Quién publica la versión. `null` cuando la cuenta que edita no está en el censo: es
+    // un dato que falta, y poner a otro sería firmar el documento en su nombre.
+    const persona = await prisma.persona.findUnique({
+      where: { correo: autor },
+      select: { id: true },
+    });
+
     await prisma.$transaction(async (tx) => {
       const contador = await tx.contadorContenido.upsert({
         where: { tipo: datos.tipo },
@@ -506,6 +529,22 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
               : undefined,
         },
       });
+      // La v1 nace con el contenido, en la MISMA transacción. Un contenido sin fila de
+      // versión es uno cuyo primer acuse de lectura no tendría contra qué verificarse, y
+      // eso no se descubre hasta la auditoría.
+      await tx.versionContenido.create({
+        data: {
+          contenidoId: creado.id,
+          version: creado.version,
+          titulo: creado.titulo,
+          descripcion: creado.descripcion,
+          documentoCodigo: creado.documentoCodigo,
+          documentoNombre: creado.documentoNombre,
+          documentoVersion: creado.documentoVersion,
+          documentoUrl: creado.documentoUrl,
+          publicadaPorId: persona?.id ?? null,
+        },
+      });
       await registrarAlta(tx, autor, 'contenido_sig', String(creado.id));
     });
 
@@ -537,8 +576,17 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
     });
     if (!contenido) return { ok: false, mensaje: 'El contenido no existe.' };
 
+    // D6 · el versionado no invalida. La versión sube sólo si el contenido ya generó
+    // obligaciones (R10) Y si cambió algo que la persona LEE: si sólo cambió la modalidad o
+    // la duración, el texto leído es el mismo y pedir un acuse nuevo sobre un documento
+    // idéntico es ruido que entrena a la gente a firmar sin leer.
     const conAsignaciones = contenido._count.obligaciones > 0;
-    const version = versionTrasEditar(contenido.version, conAsignaciones);
+    const textoCambio = cambiaElTexto(contenido, datos);
+    const version = versionTrasEditar(contenido.version, conAsignaciones && textoCambio);
+    const persona = await prisma.persona.findUnique({
+      where: { correo: autor },
+      select: { id: true },
+    });
 
     // Los ítems los decide el módulo puro. La regla que protege es que un ítem ya
     // respondido no se borra: esa respuesta es la evidencia de que la verificación se
@@ -562,6 +610,37 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
     }
 
     await prisma.$transaction(async (tx) => {
+      const nuevoTexto = {
+        titulo: datos.titulo ?? contenido.titulo,
+        descripcion: datos.descripcion ?? contenido.descripcion,
+        documentoCodigo: datos.documentoCodigo ?? contenido.documentoCodigo,
+        documentoNombre: datos.documentoNombre ?? contenido.documentoNombre,
+        documentoVersion: datos.documentoVersion ?? contenido.documentoVersion,
+        documentoUrl: datos.documentoUrl ?? contenido.documentoUrl,
+      };
+
+      if (version > contenido.version) {
+        // Nace una fila NUEVA. Las anteriores no se tocan: es lo que hace que un acuse de
+        // hace seis meses siga siendo verificable contra el texto que esa persona leyó, y
+        // por eso el `update` de abajo ya no destruye nada.
+        await tx.versionContenido.create({
+          data: { contenidoId: id, version, ...nuevoTexto, publicadaPorId: persona?.id ?? null },
+        });
+      } else {
+        // Corrección de la versión vigente: un contenido sin obligaciones, o un cambio que
+        // no toca el texto. Publicar una v1 idéntica dos veces llenaría el historial de
+        // versiones que nadie leyó y que no se distinguen entre sí.
+        //
+        // `upsert` y no `update`: un contenido cargado antes de esta migración podría no
+        // tener su fila si la migración corrió a medias, y un fallo acá dejaría el
+        // contenido editado sin versión — el defecto que este cambio vino a cerrar.
+        await tx.versionContenido.upsert({
+          where: { contenidoId_version: { contenidoId: id, version } },
+          update: nuevoTexto,
+          create: { contenidoId: id, version, ...nuevoTexto, publicadaPorId: persona?.id ?? null },
+        });
+      }
+
       await tx.contenidoSig.update({
         where: { id },
         data: {
