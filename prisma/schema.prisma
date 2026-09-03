@@ -514,8 +514,18 @@ model ControlAmenaza {
 /// auditor (MET-SIG-01 section 8.4).
 model Evidencia {
   id               Int           @id @default(autoincrement())
-  /// Exactamente uno de `controlId`, `registroId` o `hallazgoId` está presente — lo
-  /// impone el CHECK en la migración. Tres consumidores, un solo manejo de archivos.
+  /// Exactamente uno de `controlId`, `registroId` o `hallazgoId` está presente — lo impone
+  /// el CHECK `evidencia_un_solo_origen`. Tres consumidores, un solo manejo de archivos.
+  ///
+  /// Este comentario decía lo mismo y el CHECK NO lo cumplía: contaba `control_id` y
+  /// `registro_id` y se olvidaba de `hallazgo_id`, así que una evidencia sólo de hallazgo
+  /// era rechazada —rompiendo `verificarEficacia` con adjunto— y una con control Y hallazgo
+  /// pasaba. Corregido en `20260903153000_evidencia_dueno_obligatorio` (D5), con los cuatro
+  /// casos verificados contra la base.
+  ///
+  /// La regla vive en la BASE y no en TypeScript a propósito: es la única capa por la que
+  /// pasan los tres consumidores, y una evidencia huérfana es un cajón de archivos sin
+  /// contexto que nadie puede volver a explicar.
   controlId        Int?          @map("control_id")
   registroId       Int?          @map("registro_id")
   hallazgoId       Int?          @map("hallazgo_id")
