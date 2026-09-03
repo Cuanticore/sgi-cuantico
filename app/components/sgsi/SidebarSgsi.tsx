@@ -82,6 +82,7 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Matrices de riesgo', abreviatura: 'MTZ', href: '/sgsi/matrices' },
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
+      { etiqueta: 'Eventos e incidentes', abreviatura: 'EVT', href: '/sgsi/eventos' },
     ],
   },
   {

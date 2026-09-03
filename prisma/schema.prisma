@@ -553,6 +553,9 @@ model Evidencia {
   controlId        Int?          @map("control_id")
   registroId       Int?          @map("registro_id")
   hallazgoId       Int?          @map("hallazgo_id")
+  /// Cuarto dueno posible (REQ-SIG-07 §3.2). La evidencia de un incidente es material de
+  /// prueba (A.5.28) y usa el mismo manejo de archivos que los otros tres.
+  eventoId         Int?          @map("evento_id")
   tipo             TipoEvidencia
   texto            String
   /// The base evidence carried over from the control's own justification cannot be
@@ -582,6 +585,8 @@ model Evidencia {
   control Control? @relation(fields: [controlId], references: [id])
 
   actaPdf ActaAceptacion[] @relation("ActaPdf")
+
+  evento EventoSeguridad? @relation("EvidenciaEvento", fields: [eventoId], references: [id])
 
   @@map("evidencia")
 }
@@ -685,6 +690,7 @@ model Activo {
   obligacionesAlcance Obligacion[]        @relation("ObligacionAlcanceActivo")
   asignaciones        Asignacion[]        @relation("AsignacionActivo")
   actasBorrado        ActaBorradoActivo[]
+  eventosAfectado     ActivoAfectado[]
 
   @@index([areaId])
   @@index([tipoId])
@@ -1077,6 +1083,11 @@ model Persona {
 
   pasosCompletados PasoDeColaborador[] @relation("PasoPersona")
   pasosQueCompleto PasoDeColaborador[] @relation("PasoCompletadoPor")
+
+  eventosReportados EventoSeguridad[] @relation("EventoReporta")
+  eventosEvaluados  EventoSeguridad[] @relation("EventoEvalua")
+  eventosCerrados   EventoSeguridad[] @relation("EventoCierra")
+  accionesIncidente AccionIncidente[] @relation("AccionIncidenteAutor")
 
   @@map("persona")
 }
@@ -2704,4 +2715,198 @@ model PasoDeColaborador {
 
   @@unique([personaId, pasoId])
   @@map("paso_de_colaborador")
+}
+
+// ─── Eventos e incidentes de seguridad (REQ-SIG-07 §3.1 y §3.2) ────────────────────────
+
+enum Veredicto {
+  INCIDENTE
+  OBSERVACION
+  FALSO_POSITIVO
+
+  @@map("veredicto")
+}
+
+enum DimensionCID {
+  CONFIDENCIALIDAD
+  INTEGRIDAD
+  DISPONIBILIDAD
+
+  @@map("dimension_cid")
+}
+
+enum NivelImpacto {
+  /// `NINGUNO` es un dato, no la ausencia de uno: dice que esa dimensión no se tocó.
+  NINGUNO
+  BAJO
+  MEDIO
+  ALTO
+
+  @@map("nivel_impacto")
+}
+
+enum FaseIncidente {
+  DETECCION
+  EVALUACION
+  CONTENCION
+  COMUNICACION
+  ERRADICACION
+  RECUPERACION
+
+  @@map("fase_incidente")
+}
+
+model LugarEvento {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  orden  Int     @default(0)
+  activo Boolean @default(true)
+
+  eventos EventoSeguridad[]
+
+  @@map("lugar_evento")
+}
+
+/// Catálogo CERRADO de diez valores, parametrizable. «Sin texto libre en lo que se va a
+/// contar»: es lo que permite responder «cuántos incidentes de phishing hubo este año», que
+/// es el indicador de la cláusula 9.1.
+model CategoriaIncidente {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  orden  Int     @default(0)
+  activo Boolean @default(true)
+
+  eventos EventoCategoria[]
+
+  @@map("categoria_incidente")
+}
+
+model MotivacionIncidente {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  orden  Int     @default(0)
+  activo Boolean @default(true)
+
+  eventos EventoSeguridad[]
+
+  @@map("motivacion_incidente")
+}
+
+/// Una entidad, el veredicto adentro. Mismo patrón que `Hallazgo`: un evento NO cambia de
+/// identidad al declararse incidente; gana un veredicto.
+///
+/// Es el único mecanismo del SGSI que había quedado sin construir —REQ-SIG-01 §2.2 lo dejó
+/// explícitamente fuera de alcance— y el que alimenta el origen `incidente` que Mejora ya
+/// acepta.
+///
+/// No hay columna de SEVERIDAD y no debe haberla (O5): es el mayor de los tres impactos. No
+/// hay columna de ESTADO: se calcula del veredicto y las marcas de cierre. No hay columna de
+/// TIEMPO HASTA EVALUAR: es `fechaEvaluacion − creadoEn`.
+model EventoSeguridad {
+  id                Int        @id @default(autoincrement())
+  codigo            String     @unique
+  /// O15 · la descripción original NO se edita nunca. Es la versión de quien lo vio, y su
+  /// valor está en no haber sido corregida por quien evalúa.
+  descripcion       String
+  fechaOcurrencia   DateTime
+  /// Lo primero que hay que saber para contener.
+  enCurso           Boolean    @default(false) @map("en_curso")
+  dondeId           Int?       @map("donde_id")
+  otrosEnterados    String?    @map("otros_enterados")
+  reportadoPorId    Int        @map("reportado_por_id")
+  creadoEn          DateTime   @default(now()) @map("creado_en")
+  veredicto         Veredicto?
+  /// O3 · obligatoria en los TRES veredictos. Archivar como falso positivo sin decir por
+  /// qué es peor que no evaluar.
+  justificacion     String?
+  evaluadoPorId     Int?       @map("evaluado_por_id")
+  fechaEvaluacion   DateTime?  @map("fecha_evaluacion")
+  motivacionId      Int?       @map("motivacion_id")
+  causaRaiz         String?    @map("causa_raiz")
+  /// Cero también es un dato: dice que se contuvo. Nulo es «no se calculó».
+  costoRecuperacion Decimal?   @map("costo_recuperacion") @db.Decimal(14, 2)
+  costoImpacto      Decimal?   @map("costo_impacto") @db.Decimal(14, 2)
+  /// O6 · sin lección aprendida no se cierra (A.5.27). Es la única forma de que el
+  /// mecanismo produzca aprendizaje en vez de archivo.
+  leccionAprendida  String?    @map("leccion_aprendida")
+  fechaCierre       DateTime?  @map("fecha_cierre")
+  cerradoPorId      Int?       @map("cerrado_por_id")
+
+  donde        LugarEvento?         @relation(fields: [dondeId], references: [id])
+  motivacion   MotivacionIncidente? @relation(fields: [motivacionId], references: [id])
+  reportadoPor Persona              @relation("EventoReporta", fields: [reportadoPorId], references: [id])
+  evaluadoPor  Persona?             @relation("EventoEvalua", fields: [evaluadoPorId], references: [id])
+  cerradoPor   Persona?             @relation("EventoCierra", fields: [cerradoPorId], references: [id])
+  categorias   EventoCategoria[]
+  impactos     ImpactoEvento[]
+  activos      ActivoAfectado[]
+  acciones     AccionIncidente[]
+  evidencias   Evidencia[]          @relation("EvidenciaEvento")
+
+  @@index([veredicto, creadoEn])
+  @@map("evento_seguridad")
+}
+
+model EventoCategoria {
+  eventoId    Int @map("evento_id")
+  categoriaId Int @map("categoria_id")
+
+  evento    EventoSeguridad    @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  categoria CategoriaIncidente @relation(fields: [categoriaId], references: [id])
+
+  @@id([eventoId, categoriaId])
+  @@map("evento_categoria")
+}
+
+/// Tres filas por evento, una por dimensión. De acá sale la severidad (O5), que no se
+/// guarda en ninguna parte.
+model ImpactoEvento {
+  eventoId  Int          @map("evento_id")
+  dimension DimensionCID
+  nivel     NivelImpacto
+
+  evento EventoSeguridad @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@id([eventoId, dimension])
+  @@map("impacto_evento")
+}
+
+/// **La costura que el control de integración pedía.** Es el primer punto del sistema en
+/// que un módulo distinto de Riesgo apunta al activo: «el activo no integra nada; sus
+/// únicas aristas salientes son hacia el riesgo y hacia sus propios catálogos».
+///
+/// Con ella, la pregunta «qué le ha pasado a este activo» tiene respuesta por primera vez.
+model ActivoAfectado {
+  eventoId Int @map("evento_id")
+  activoId Int @map("activo_id")
+
+  evento EventoSeguridad @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  activo Activo          @relation(fields: [activoId], references: [id])
+
+  @@id([eventoId, activoId])
+  @@map("activo_afectado")
+}
+
+/// La línea de tiempo. Una fila por acción, con su fase y su momento: es lo que permite
+/// reconstruir qué se hizo y cuándo, que es lo que se pide después de un incidente.
+model AccionIncidente {
+  id       Int           @id @default(autoincrement())
+  eventoId Int           @map("evento_id")
+  fase     FaseIncidente
+  momento  DateTime
+  texto    String
+  autorId  Int?          @map("autor_id")
+
+  evento EventoSeguridad @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  autor  Persona?        @relation("AccionIncidenteAutor", fields: [autorId], references: [id])
+
+  @@index([eventoId, momento])
+  @@map("accion_incidente")
+}
+
+model ContadorEvento {
+  anio        Int @id
+  ultimoValor Int @default(0) @map("ultimo_valor")
+
+  @@map("contador_evento")
 }
