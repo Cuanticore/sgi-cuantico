@@ -156,6 +156,10 @@ export interface DatosMensual {
   deuda: { cantidad: number; masAntiguaDias: number | null };
   peorCumplimiento: { codigo: string; titulo: string; porciento: number | null }[];
   cierresAdministrativos: number;
+  /// Lo que vence el mes SIGUIENTE. El lienzo lo pone al final a propósito: el resumen
+  /// mira hacia atrás, y esta lista es lo único accionable del correo — sin ella el líder
+  /// se enteraba del mes que viene cuando ya iba tarde.
+  proximoMes: { fecha: Date; titulo: string; personas: number }[];
   urlOperacion: string;
 }
 
@@ -229,6 +233,16 @@ export function correoMensualHtml(d: DatosMensual): string {
                Se cuentan aparte del cumplimiento, porque el auditor pregunta quién
                <em>hizo</em> la tarea, no quién la marcó.
              </div>`,
+          )
+        : ''
+    }
+
+    ${
+      d.proximoMes.length > 0
+        ? seccion(
+            `Vence en ${MESES[(d.mes.mes + 1) % 12]}`,
+            AZUL,
+            d.proximoMes.map((p) => filaProxima(p)).join(''),
           )
         : ''
     }
@@ -360,6 +374,18 @@ function filaObligacion(p: { codigo: string; titulo: string; porciento: number |
         </table>
       </td>
       <td width="42" align="right" valign="middle" style="font:600 12px/1.4 ${FUENTE};color:${AZUL}">${p.porciento === null ? '—' : `${p.porciento} %`}</td>
+    </tr>
+  </table>`;
+}
+
+function filaProxima(p: { fecha: Date; titulo: string; personas: number }): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:7px">
+    <tr>
+      <td width="86" valign="top" style="font:500 10.5px/1.5 ${FUENTE};color:${AZUL}">${fechaCorta(p.fecha)}</td>
+      <td valign="top" style="font:400 12px/1.45 ${FUENTE};color:#3a443f">${escapar(p.titulo)}</td>
+      <td width="76" align="right" valign="top" style="font:400 10.5px/1.5 ${FUENTE};color:#8a938e">${p.personas} ${
+        p.personas === 1 ? 'persona' : 'personas'
+      }</td>
     </tr>
   </table>`;
 }

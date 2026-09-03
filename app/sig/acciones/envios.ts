@@ -216,6 +216,10 @@ export async function enviarNotificacionesPendientes(): Promise<ResultadoEnvios>
             deuda: r.deuda,
             peorCumplimiento: r.peorCumplimiento,
             cierresAdministrativos: r.cierresAdministrativos,
+            // «Vence en <mes siguiente>»: lo único accionable del correo. Se agrupa por
+            // título porque una obligación con alcance TODOS produce una asignación por
+            // persona, y listarlas una por una daría treinta y cuatro líneas iguales.
+            proximoMes: proximasDelArea(asignaciones, personas, persona.areaId, mesCerrado),
             urlOperacion: `${baseUrl()}/sig/obligaciones`,
           }),
         });
@@ -349,4 +353,47 @@ function nombreDelMes({ anio, mes }: { anio: number; mes: number }): string {
     'diciembre',
   ];
   return `${nombres[mes] ?? mes + 1} de ${anio}`;
+}
+
+/// Lo que vence el mes SIGUIENTE al que cerró, en el área del destinatario.
+///
+/// Agrupado por título: una obligación con alcance TODOS produce una asignación por
+/// persona, y listarlas sueltas daría treinta y cuatro líneas idénticas donde el lienzo
+/// pone una con «34 personas». La fecha que se muestra es la más temprana del grupo —es la
+/// que manda para llegar a tiempo.
+function proximasDelArea(
+  asignaciones: readonly {
+    fechaLimite: Date;
+    estado: string;
+    personaId: number;
+    titulo: string | null;
+    contenido: { titulo: string } | null;
+    obligacion: { contenido: { titulo: string } } | null;
+  }[],
+  personas: readonly { id: number; areaId: number | null }[],
+  areaId: number | null,
+  mesCerrado: { anio: number; mes: number },
+): { fecha: Date; titulo: string; personas: number }[] {
+  const desde = new Date(Date.UTC(mesCerrado.anio, mesCerrado.mes + 1, 1));
+  const hasta = new Date(Date.UTC(mesCerrado.anio, mesCerrado.mes + 2, 1));
+  const areaDe = new Map(personas.map((p) => [p.id, p.areaId]));
+
+  const grupos = new Map<string, { fecha: Date; personas: Set<number> }>();
+  for (const a of asignaciones) {
+    if (a.estado !== 'PENDIENTE') continue;
+    if (a.fechaLimite < desde || a.fechaLimite >= hasta) continue;
+    // `areaId` nulo es el líder del SIG: ve todas las áreas, no ninguna.
+    if (areaId !== null && areaDe.get(a.personaId) !== areaId) continue;
+    const titulo = (a.contenido ?? a.obligacion?.contenido)?.titulo ?? a.titulo ?? 'Puntual';
+    const g = grupos.get(titulo) ?? { fecha: a.fechaLimite, personas: new Set<number>() };
+    if (a.fechaLimite < g.fecha) g.fecha = a.fechaLimite;
+    g.personas.add(a.personaId);
+    grupos.set(titulo, g);
+  }
+
+  return [...grupos.entries()]
+    .map(([titulo, g]) => ({ titulo, fecha: g.fecha, personas: g.personas.size }))
+    .sort((x, y) => x.fecha.getTime() - y.fecha.getTime())
+    // Cinco es lo que cabe sin empujar el botón fuera de la primera pantalla del correo.
+    .slice(0, 5);
 }

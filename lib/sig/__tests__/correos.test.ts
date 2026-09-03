@@ -43,6 +43,10 @@ const MENSUAL = {
   deuda: { cantidad: 3, masAntiguaDias: 31 },
   peorCumplimiento: [{ codigo: 'LEC-008', titulo: 'Manual de Riesgos', porciento: 44 }],
   cierresAdministrativos: 2,
+  proximoMes: [
+    { fecha: d('2026-09-05'), titulo: 'Conciliación bancaria de agosto', personas: 1 },
+    { fecha: d('2026-09-15'), titulo: 'Inducción y reinducción del SGC', personas: 34 },
+  ],
   urlOperacion: 'https://sig.cuantico.com/sig/obligaciones',
 };
 
@@ -235,5 +239,37 @@ describe('restricciones de cliente de correo', () => {
       expect(h).not.toContain('display:flex');
       expect(h).not.toContain('display:grid');
     }
+  });
+});
+
+describe('correoMensualHtml · lo que vence el mes siguiente', () => {
+  const html = correoMensualHtml(MENSUAL);
+
+  // Es lo unico ACCIONABLE del correo: el resumen mira hacia atras, y sin esta lista el
+  // lider se enteraba del mes que viene cuando ya iba tarde.
+  it('nombra el mes siguiente, no el que cerro', () => {
+    expect(html).toContain('Vence en septiembre');
+    expect(html).not.toContain('Vence en agosto');
+  });
+
+  it('lista cada obligacion con su fecha y a cuanta gente alcanza', () => {
+    expect(html).toContain('Conciliación bancaria de agosto');
+    expect(html).toContain('5 de septiembre');
+    expect(html).toContain('34 personas');
+  });
+
+  it('una sola persona va en singular', () => {
+    expect(html).toContain('1 persona<');
+  });
+
+  // Diciembre cierra el año: el mes siguiente es ENERO, no el mes 12.
+  it('el mensual de diciembre apunta a enero', () => {
+    const h = correoMensualHtml({ ...MENSUAL, mes: { anio: 2026, mes: 11 } });
+    expect(h).toContain('Vence en enero');
+  });
+
+  it('sin nada el mes que viene no dibuja la seccion', () => {
+    const h = correoMensualHtml({ ...MENSUAL, proximoMes: [] });
+    expect(h).not.toContain('Vence en');
   });
 });

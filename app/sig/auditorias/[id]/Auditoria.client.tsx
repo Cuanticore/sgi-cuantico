@@ -397,7 +397,12 @@ export default function AuditoriaClient({
                   <span className="font-mono text-11 text-muted">{x.fecha}</span>
                 </div>
                 <p className="mt-1 text-11_5 text-muted">Asistentes: {x.asistentes}</p>
-                <p className="mt-1 text-12_5 text-primary">{x.contenido}</p>
+                {/* El lienzo rotula este bloque «Contenido tratado». El texto se mostraba
+                    sin etiqueta, pegado a los asistentes, y los dos parecian lo mismo. */}
+                <p className="mt-2.5 font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+                  Contenido tratado
+                </p>
+                <p className="mt-1 text-12_5 leading-relaxed text-primary [text-wrap:pretty]">{x.contenido}</p>
               </div>
             ))}
             {auditoria.actas.length === 0 && (
@@ -454,6 +459,9 @@ export default function AuditoriaClient({
         {pestana === 'informe' && (
           <div className="flex max-w-[760px] flex-col gap-3">
             <div className="flex items-center gap-2">
+              <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-muted">
+                Versión del informe
+              </span>
               <span
                 className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
                 style={preliminar ? { background: '#faf1d3', color: '#6b5410' } : { background: '#e6efe9', color: '#0b5c44' }}

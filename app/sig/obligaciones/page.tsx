@@ -116,6 +116,13 @@ export default async function ObligacionesPage() {
       <div className="flex items-start gap-5">
         <div className="flex flex-col gap-1.5">
           <h1 className="titulo-pagina">Obligaciones del SIG</h1>
+          {/* Las dos cifras del lienzo. Dicen la escala de la pantalla antes de scrollear:
+              treinta obligaciones que producen ciento veintiocho asignaciones no es lo
+              mismo que treinta que producen treinta. */}
+          <p className="font-mono text-11_5 text-muted">
+            {filas.length} {filas.length === 1 ? 'obligación' : 'obligaciones'} ·{' '}
+            {asignaciones.length} {asignaciones.length === 1 ? 'asignación' : 'asignaciones'}
+          </p>
           <p className="max-w-[70ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
             El registro del numeral 8. Cada obligación declara qué contenido, a quién alcanza,
             cada cuánto y con qué plazo; de ahí salen las asignaciones que la gente ve en Mi SIG.
