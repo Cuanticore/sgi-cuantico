@@ -5,7 +5,7 @@
 
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { estadoAuditoria } from '@/lib/sig/auditorias';
+import { coberturaDeNorma, estadoAuditoria, listarFaltantes } from '@/lib/sig/auditorias';
 import AuditoriaClient from './Auditoria.client';
 
 export const dynamic = 'force-dynamic';
@@ -67,6 +67,27 @@ export default async function FichaAuditoriaPage({
     preliminar: a.informes.some((i) => i.version === 'PRELIMINAR'),
   });
 
+  // «Cobertura de la norma este año» (rótulo del lienzo). Son TODAS las auditorías del
+  // año, no ésta: la obligación de la norma es cubrir el sistema completo en el ciclo, y
+  // una sola auditoría nunca lo hace. Mirar sólo la actual daba un número que parecía malo
+  // siempre, y que no respondía la pregunta que el rótulo hace.
+  const anio = a.fechaInicio.getUTCFullYear();
+  const celdasDelAnio = await prisma.celdaPlan.findMany({
+    where: {
+      auditoria: {
+        fechaInicio: {
+          gte: new Date(Date.UTC(anio, 0, 1)),
+          lt: new Date(Date.UTC(anio + 1, 0, 1)),
+        },
+      },
+    },
+    select: { requisito: { select: { numeral: true } } },
+  });
+  const cobertura = coberturaDeNorma(
+    requisitos,
+    celdasDelAnio.map((c) => ({ numeral: c.requisito.numeral })),
+  );
+
   const conteos = {
     notas: notas.length,
     NC: notas.filter((n) => n.tipo === 'NC').length,
@@ -107,8 +128,15 @@ export default async function FichaAuditoriaPage({
           version: i.version,
           conclusiones: i.conclusiones,
           recomendaciones: i.recomendaciones,
+          fechaInforme: i.fechaInforme.toISOString().slice(0, 10),
           emitido: i.emitidoEn !== null,
         })),
+      }}
+      coberturaAnual={{
+        cubiertos: cobertura.cubiertos,
+        total: cobertura.total,
+        faltantes: listarFaltantes(cobertura.faltantes),
+        porciento: cobertura.porciento,
       }}
       requisitos={requisitos.map((r) => ({
         id: r.id,

@@ -26,6 +26,7 @@ const TIPO_CHIP: Record<string, { fondo: string; texto: string }> = {
 export default function AuditoriaClient({
   auditoria,
   requisitos,
+  coberturaAnual,
   procesos,
   personas,
 }: {
@@ -44,10 +45,13 @@ export default function AuditoriaClient({
     notas: { id: number; tipo: string; texto: string; numeral: string; proceso: string; auditor: string; hallazgo: boolean }[];
     celdas: { id: number; proceso: string; numeral: string; hora: string | null; planificada: boolean }[];
     actas: { tipo: string; fecha: string; asistentes: string; contenido: string }[];
-    informes: { version: string; conclusiones: string; recomendaciones: string; emitido: boolean }[];
+    informes: { version: string; conclusiones: string; recomendaciones: string; fechaInforme: string; emitido: boolean }[];
   };
   /// Los numerales auditables de la norma: el universo contra el que se mide la cobertura.
   requisitos: { id: number; numeral: string; titulo: string; norma: string }[];
+  /// La cobertura del AÑO, ya redactada en el servidor: son todas las auditorías del
+  /// periodo, no sólo esta.
+  coberturaAnual: { cubiertos: number; total: number; faltantes: string; porciento: number | null };
   procesos: string[];
   personas: { id: number; nombre: string }[];
 }) {
@@ -58,6 +62,10 @@ export default function AuditoriaClient({
   const [celdaId, setCeldaId] = useState(auditoria.celdas[0]?.id ?? 0);
   const [conclusiones, setConclusiones] = useState(auditoria.informes[0]?.conclusiones ?? '');
   const [recomendaciones, setRecomendaciones] = useState(auditoria.informes[0]?.recomendaciones ?? '');
+  // La fecha del informe existente, o hoy. Se enviaba `new Date()` sin preguntar.
+  const [fechaInforme, setFechaInforme] = useState(
+    auditoria.informes[0]?.fechaInforme ?? new Date().toISOString().slice(0, 10),
+  );
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [agregandoCelda, setAgregandoCelda] = useState(false);
@@ -151,10 +159,24 @@ export default function AuditoriaClient({
 
       <div className="mt-5">
         {pestana === 'plan' && (
-          <div className="overflow-hidden rounded-tarjeta border border-border-field bg-surface">
+          <div className="flex flex-col gap-3">
+            {/* El sello del formato. El lienzo lo pone en la cabecera de la sección porque
+                esta matriz ES el FOR-CAL-06: quien la audita lo busca por ese código. */}
+            <span className="flex items-center gap-2.5">
+              <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+                Plan · proceso × numeral de la norma
+              </span>
+              <span className="h-px flex-1 bg-hairline" />
+              <span className="font-mono text-9_5 text-muted">FOR-CAL-06</span>
+            </span>
+          <div className="overflow-x-auto rounded-tarjeta border border-border-field bg-surface">
             <table className="w-full text-left text-12">
               <thead>
                 <tr className="text-11 uppercase tracking-[0.05em]" style={{ color: 'var(--hf-text-label)' }}>
+                  {/* La hora estaba en la base (`CeldaPlan.hora`), viajaba hasta el cliente
+                      y no se dibujaba. Un plan de auditoría sin horario no se puede
+                      convocar: es la columna que la gente mira para saber cuándo la citan. */}
+                  <th className="px-3 py-2.5 font-semibold">Hora</th>
                   <th className="px-3 py-2.5 font-semibold">Proceso</th>
                   {numerales.map((n) => (
                     <th key={n} className="px-2 py-2.5 text-center font-semibold">{n}</th>
@@ -164,7 +186,10 @@ export default function AuditoriaClient({
               <tbody>
                 {proces.map((p) => (
                   <tr key={p} className="border-t border-border-default">
-                    <td className="px-3 py-2 font-medium text-primary">{p}</td>
+                    <td className="px-3 py-2 font-mono text-10_5 text-muted">
+                      {auditoria.celdas.find((c) => c.proceso === p && c.hora)?.hora ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 font-medium whitespace-nowrap text-primary">{p}</td>
                     {numerales.map((n) => {
                       const celda = auditoria.celdas.find((c) => c.proceso === p && c.numeral === n);
                       return (
@@ -191,17 +216,29 @@ export default function AuditoriaClient({
                 ))}
               </tbody>
             </table>
-            <div className="flex flex-wrap items-center gap-3 border-t border-border-default px-3 py-2.5">
-              <span className="text-11_5 text-muted [text-wrap:pretty]">
-                {cobertura === null ? (
-                  'No hay numerales auditables cargados: sin catálogo de norma no hay contra qué medir la cobertura.'
-                ) : (
-                  <>
-                    Cobertura: <strong className="font-semibold text-secondary-soft">{cubiertos} de {auditables}</strong>{' '}
-                    numerales auditables · {cobertura} %. Las celdas «+» se agregaron durante la
-                    ejecución (C4).
-                  </>
-                )}
+            <div className="flex flex-wrap items-center gap-4 border-t border-border-default px-3 py-2.5">
+              {/* La leyenda del lienzo. El «+» no es adorno: C4 exige que lo agregado
+                  durante la ejecución quede marcado como no planificado, y sin leyenda
+                  esa marca no se puede leer. */}
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-flex h-[17px] w-[17px] items-center justify-center rounded-[4px] text-9 font-bold text-white"
+                  style={{ background: '#12437f' }}
+                >
+                  ✗
+                </span>
+                <span className="text-11 text-secondary">Planificado</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-flex h-[17px] w-[17px] items-center justify-center rounded-[4px] text-9 font-bold"
+                  style={{ background: '#fff3e6', border: '1px dashed #f2b473', color: '#8a4407' }}
+                >
+                  +
+                </span>
+                <span className="text-11 text-secondary">
+                  Agregado durante la ejecución · queda marcado como no planificado
+                </span>
               </span>
               {!auditoria.emitido && (
                 <button
@@ -216,6 +253,7 @@ export default function AuditoriaClient({
                 </button>
               )}
             </div>
+          </div>
 
             {agregandoCelda && (
               <NuevaCelda
@@ -228,6 +266,25 @@ export default function AuditoriaClient({
                 setError={setError}
               />
             )}
+
+            {/* «Cobertura de la norma este año», no de esta auditoría: la obligación de la
+                norma es cubrir el sistema completo en el ciclo, y una sola auditoría nunca
+                lo hace. Se calcula en el servidor sobre todas las del año. */}
+            <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              {coberturaAnual.porciento === null ? (
+                'No hay numerales auditables cargados: sin catálogo de norma no hay contra qué medir la cobertura.'
+              ) : (
+                <>
+                  Cobertura de la norma este año:{' '}
+                  <strong className="font-semibold text-secondary">
+                    {coberturaAnual.cubiertos} de {coberturaAnual.total} numerales
+                  </strong>
+                  {coberturaAnual.faltantes !== '' && <> · faltan {coberturaAnual.faltantes}</>}
+                </>
+              )}
+              {' · '}
+              Esta auditoría cubre {cubiertos} de {auditables}.
+            </p>
           </div>
         )}
 
@@ -404,6 +461,25 @@ export default function AuditoriaClient({
                 {preliminar ? 'PRELIMINAR · borrador del auditor' : 'FINAL'}
               </span>
             </div>
+            {/* El objeto y la fecha son parte del documento, no adorno: el informe se
+                imprime y se entrega, y un informe sin fecha no sirve como evidencia. La
+                fecha se enviaba como `new Date()` en silencio — el auditor no podía
+                fecharlo el día que lo firmó. */}
+            <div className="flex flex-col gap-1 rounded-tarjeta border border-border-field bg-subtle px-4 py-3">
+              <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+                Objeto
+              </span>
+              <span className="text-12_5 leading-relaxed text-primary">{auditoria.objeto}</span>
+            </div>
+            <label className="flex flex-col gap-1">
+              <span className="etiqueta-campo">Fecha del informe</span>
+              <input
+                type="date"
+                value={fechaInforme}
+                onChange={(e) => setFechaInforme(e.target.value)}
+                className="entrada-campo max-w-[190px]"
+              />
+            </label>
             <label className="flex flex-col gap-1">
               <span className="etiqueta-campo">Conclusiones</span>
               <textarea
@@ -422,9 +498,22 @@ export default function AuditoriaClient({
                 className="rounded-campo border border-border-field bg-surface px-3 py-2 text-13"
               />
             </label>
-            <p className="text-11_5 text-muted">
-              Fortalezas ({auditoria.conteos.FORTALEZA}) y oportunidades ({auditoria.conteos.OM}) se
-              derivan de las notas: no se capturan dos veces (C9).
+            {/* El lienzo LISTA las fortalezas y las oportunidades, no sólo las cuenta. Un
+                conteo obliga a volver a la pestaña de Ejecución y filtrar para saber qué
+                se va a imprimir; el informe es el documento, así que acá se lee. */}
+            <ListaDerivada
+              titulo="Fortalezas"
+              color="#0b5c44"
+              notas={auditoria.notas.filter((n) => n.tipo === 'FORTALEZA')}
+            />
+            <ListaDerivada
+              titulo="Oportunidades de mejora"
+              color="#c25a1e"
+              notas={auditoria.notas.filter((n) => n.tipo === 'OM')}
+            />
+            <p className="text-11_5 text-muted [text-wrap:pretty]">
+              Las dos listas se derivan de las notas: no se capturan dos veces (C9). Para
+              cambiarlas hay que editar la nota en Ejecución, que es donde queda el autor.
             </p>
             {!auditoria.emitido ? (
               <div className="flex gap-2">
@@ -432,7 +521,7 @@ export default function AuditoriaClient({
                   onClick={async () => {
                     const r = await guardarInforme(auditoria.id, {
                       version: 'PRELIMINAR',
-                      fechaInforme: new Date(),
+                      fechaInforme: new Date(`${fechaInforme}T00:00:00.000Z`),
                       conclusiones,
                       recomendaciones,
                     });
@@ -466,5 +555,69 @@ export default function AuditoriaClient({
         )}
       </div>
     </main>
+  );
+}
+/// Las fortalezas y las oportunidades del informe, derivadas de las notas.
+///
+/// El lienzo las lista y las recorta con «… y N más»: quince oportunidades completas
+/// empujan las conclusiones y el botón de emitir fuera de la pantalla, y las conclusiones
+/// son lo que el auditor está escribiendo cuando mira esto.
+function ListaDerivada({
+  titulo,
+  color,
+  notas,
+  tope = 4,
+}: {
+  titulo: string;
+  color: string;
+  notas: { id: number; texto: string; numeral: string }[];
+  tope?: number;
+}) {
+  const [todas, setTodas] = useState(false);
+  const visibles = todas ? notas : notas.slice(0, tope);
+  const restantes = notas.length - visibles.length;
+
+  return (
+    <section className="flex flex-col gap-2">
+      <span className="flex items-center gap-2.5">
+        <span
+          className="font-mono text-9 font-medium uppercase tracking-[0.07em]"
+          style={{ color }}
+        >
+          {titulo} · {notas.length}
+        </span>
+        <span className="h-px flex-1 bg-hairline" />
+      </span>
+      {notas.length === 0 ? (
+        <p className="text-11_5 text-muted">
+          Ninguna registrada. Salen de las notas de tipo{' '}
+          {titulo === 'Fortalezas' ? 'fortaleza' : 'OM'} en Ejecución.
+        </p>
+      ) : (
+        <>
+          <ol className="flex flex-col gap-1.5">
+            {visibles.map((n, i) => (
+              <li key={n.id} className="flex gap-2.5 text-11_5 leading-relaxed">
+                <span className="flex-none font-mono text-10_5" style={{ color }}>
+                  {i + 1}
+                </span>
+                <span className="text-secondary [text-wrap:pretty]">
+                  {n.texto}
+                  <span className="ml-1.5 font-mono text-10 text-muted">{n.numeral}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+          {restantes > 0 && (
+            <button
+              onClick={() => setTodas(true)}
+              className="self-start text-11 underline underline-offset-2 text-muted"
+            >
+              … y {restantes} más
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }
