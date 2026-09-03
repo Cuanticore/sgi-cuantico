@@ -1075,6 +1075,9 @@ model Persona {
   solicitudesAutorizadas Solicitud[]     @relation("SolicitudAutoriza")
   solicitudesEjecutadas  Solicitud[]     @relation("SolicitudEjecuta")
 
+  pasosCompletados PasoDeColaborador[] @relation("PasoPersona")
+  pasosQueCompleto PasoDeColaborador[] @relation("PasoCompletadoPor")
+
   @@map("persona")
 }
 
@@ -2626,4 +2629,79 @@ model AccesoPersona {
   @@index([personaId, desde])
   @@index([perfilId, desde])
   @@map("acceso_persona")
+}
+
+// ─── Ciclos de vinculación y desvinculación (REQ-SIG-09 · Fase 2) ──────────────────────
+
+enum CicloColaborador {
+  VINCULACION
+  DESVINCULACION
+
+  @@map("ciclo_colaborador")
+}
+
+enum GrupoPaso {
+  /// Los siete pasos de seguridad. **Idénticos para todos**, y ése es el argumento del
+  /// módulo: la seguridad de la información no distingue el tipo de contrato.
+  SEGURIDAD
+  /// Lo administrativo, que sí cambia según el tipo de vinculación.
+  ADMINISTRATIVO
+
+  @@map("grupo_paso")
+}
+
+enum AplicaA {
+  TODOS
+  NOMINA
+  CONTRATISTA
+
+  @@map("aplica_a")
+}
+
+/// Un paso del trámite. Catálogo, no código: los pasos son datos y agregar uno no debería
+/// exigir un despliegue.
+///
+/// **Criterio de aceptación 5: cambiar el tipo de vinculación NO cambia ninguno de los
+/// siete pasos de seguridad.** Lo garantiza el esquema: los de `SEGURIDAD` se cargan con
+/// `aplicaA = TODOS`, y el filtro por tipo sólo puede recortar los `ADMINISTRATIVO`.
+model PasoCiclo {
+  id      Int              @id @default(autoincrement())
+  ciclo   CicloColaborador
+  grupo   GrupoPaso
+  aplicaA AplicaA          @default(TODOS) @map("aplica_a")
+  codigo  String           @unique
+  texto   String
+  /// La fuente documental que lo exige. No es adorno: es la respuesta a «¿por qué este
+  /// paso?» y lo que permite quitarlo cuando el procedimiento cambie.
+  fuente  String?
+  orden   Int              @default(0)
+  activo  Boolean          @default(true)
+
+  completados PasoDeColaborador[]
+
+  @@index([ciclo, grupo, orden])
+  @@map("paso_ciclo")
+}
+
+/// Un paso completado por una persona.
+///
+/// **C4 · ningún paso de la desvinculación depende de otro.** No hay campo de orden ni de
+/// prerrequisito a propósito: PRO-TAL-03 dice que «la revocación de accesos se ejecuta el
+/// mismo día de la terminación, SIN ESPERAR a la liquidación ni al paz y salvo», y un
+/// modelo que encadenara los pasos contradiría el procedimiento. La pantalla los muestra en
+/// orden de lectura, no de dependencia.
+model PasoDeColaborador {
+  id              Int      @id @default(autoincrement())
+  personaId       Int      @map("persona_id")
+  pasoId          Int      @map("paso_id")
+  completadoEn    DateTime @default(now()) @map("completado_en")
+  completadoPorId Int?     @map("completado_por_id")
+  nota            String?
+
+  persona       Persona   @relation("PasoPersona", fields: [personaId], references: [id])
+  paso          PasoCiclo @relation(fields: [pasoId], references: [id])
+  completadoPor Persona?  @relation("PasoCompletadoPor", fields: [completadoPorId], references: [id])
+
+  @@unique([personaId, pasoId])
+  @@map("paso_de_colaborador")
 }

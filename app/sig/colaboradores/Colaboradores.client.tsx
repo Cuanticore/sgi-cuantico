@@ -11,6 +11,7 @@
 // control a la mayoría de la organización — y esa cifra está a la vista para que la
 // decisión se pueda discutir con el dato delante.
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 type Filtro = 'todos' | 'activos' | 'inactivos' | 'anomalia';
@@ -139,7 +140,11 @@ export default function ColaboradoresClient({
               {visibles.map((f) => (
                 <tr key={f.id} className="border-t border-border-default">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-primary">{f.nombre}</div>
+                    {/* La ficha es el destino de la lista. Sin enlace la ruta existe y no se
+                        alcanza, que es el defecto que ya aparecio dos veces en este repo. */}
+                    <Link href={`/sig/colaboradores/${f.id}`} className="font-medium text-primary hover:underline">
+                      {f.nombre}
+                    </Link>
                     <div className="font-mono text-10_5 text-muted">{f.correo}</div>
                   </td>
                   <td className="px-4 py-3">
