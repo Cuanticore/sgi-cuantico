@@ -581,6 +581,8 @@ model Evidencia {
 
   control Control? @relation(fields: [controlId], references: [id])
 
+  actaPdf ActaAceptacion[] @relation("ActaPdf")
+
   @@map("evidencia")
 }
 
@@ -1066,6 +1068,8 @@ model Persona {
   actasBorrado       ActaBorradoSeguro[] @relation("ActaBorradoPersona")
   borradosEjecutados ActaBorradoSeguro[] @relation("ActaBorradoEjecutor")
 
+  actasAceptacion ActaAceptacion[] @relation("ActaPersona")
+
   @@map("persona")
 }
 
@@ -1167,6 +1171,14 @@ model ContenidoSig {
   duracionHoras   Decimal? @map("duracion_horas")
   modalidad       String?
   exigeEvaluacion Boolean  @default(false) @map("exige_evaluacion")
+  /// Cualquier tipo de contenido puede exigir firma, no solo las lecturas: una
+  /// capacitacion puede exigirla y una lista de verificacion tambien. NO es un tipo nuevo
+  /// de contenido — hacerlo un tipo obligaria a duplicar cada contenido que ademas
+  /// necesite firmarse.
+  exigeFirma      Boolean  @default(false) @map("exige_firma")
+  /// El texto que la persona acepta. Obligatorio cuando `exigeFirma`: una firma sin
+  /// declaracion es un clic.
+  declaracion     String?
   notaMinima      Decimal? @map("nota_minima")
 
   items        ItemVerificacion[]
@@ -1174,6 +1186,8 @@ model ContenidoSig {
   asignaciones Asignacion[]
 
   versiones VersionContenido[]
+
+  actas ActaAceptacion[]
 
   @@map("contenido_sig")
 }
@@ -1308,6 +1322,7 @@ model RegistroRealizado {
   asignacion       Asignacion        @relation(fields: [asignacionId], references: [id])
   respuestas       RespuestaItem[]
   versionContenido VersionContenido? @relation(fields: [versionContenidoId], references: [id])
+  acta             ActaAceptacion?
 
   @@index([asignacionId])
   @@map("registro_realizado")
@@ -2277,6 +2292,7 @@ model VersionContenido {
   contenido    ContenidoSig        @relation(fields: [contenidoId], references: [id])
   publicadaPor Persona?            @relation("VersionPublicadaPor", fields: [publicadaPorId], references: [id])
   registros    RegistroRealizado[]
+  actas        ActaAceptacion[]
 
   @@unique([contenidoId, version])
   @@map("version_contenido")
@@ -2422,4 +2438,77 @@ model ActaBorradoActivo {
 
   @@id([actaId, activoId])
   @@map("acta_borrado_activo")
+}
+
+// ─── Leer, aceptar y firmar (REQ-SIG-02 · docs/handoff_a/lectura-aceptacion-firma.md) ──
+
+/// Un solo mecanismo para todo lo que el sistema documental dice que «se firmará»: acuerdos
+/// de confidencialidad, autorización de tratamiento de datos, aceptación de políticas,
+/// lineamientos del puesto remoto, actas de compromiso y la autoevaluación FOR-SIG-13.
+///
+/// **F4 · el acta es INMUTABLE.** No se corrige ni se reemplaza. Si el documento cambia y
+/// hay que volver a firmar, nace una nueva y la anterior se conserva.
+///
+/// **F6 · es firma electrónica SIMPLE, y se dice así.** No hay certificado digital ni
+/// entidad de certificación. La confiabilidad viene del control de acceso a la cuenta
+/// corporativa, de la trazabilidad del numeral 4 del acta y de la inalterabilidad del
+/// registro. Prometer más de eso sería falso.
+model ActaAceptacion {
+  id                 Int      @id @default(autoincrement())
+  /// `ACT-2026-0001`. Inmutable: es la referencia con la que el acta se cita.
+  codigo             String   @unique
+  personaId          Int      @map("persona_id")
+  contenidoId        Int      @map("contenido_id")
+  /// La versión leída, congelada como número.
+  contenidoVersion   Int      @map("contenido_version")
+  /// Y la FILA de esa versión, que es donde vive su texto. El número solo no prueba nada si
+  /// el texto se sobreescribió — es la lección de D6, y acá importa más porque un acta es
+  /// evidencia ante un auditor.
+  versionContenidoId Int?     @map("version_contenido_id")
+  /// Un acta por registro de realizado: el acta ES el cierre de esa asignación.
+  registroId         Int      @unique @map("registro_id")
+  /// **F2 · la declaración se COPIA, no se referencia.** Si mañana se cambia la redacción
+  /// para las firmas futuras, esta acta conserva la suya. Referenciarla convertiría cada
+  /// edición en una falsificación retroactiva de lo que la gente aceptó.
+  declaracion        String
+  /// **F3 · la huella del archivo mostrado.** Sin ella, «acepté la versión 2» no prueba
+  /// nada si el archivo de la versión 2 cambió después.
+  documentoHash      String   @map("documento_hash")
+  /// Lo TECLEADO. La identidad no la aporta este tecleo —la aporta la sesión autenticada
+  /// con la cuenta corporativa— pero el tecleo es el acto deliberado que distingue firmar
+  /// de hacer clic.
+  nombreFirmante     String   @map("nombre_firmante")
+  documentoFirmante  String   @map("documento_firmante")
+  aceptadoEn         DateTime @default(now()) @map("aceptado_en")
+  /// El numeral 4 del acta: la constancia de la aceptación. Es lo que sostiene la
+  /// confiabilidad de una firma simple.
+  ip                 String?
+  agente             String?
+  sesionId           String?  @map("sesion_id")
+  /// El artefacto congelado del acta, guardado como `Evidencia`. **F5 · se genera al
+  /// aceptar, no al consultar**: uno que se arma cada vez que alguien lo abre puede salir
+  /// distinto mañana.
+  pdfId              Int?     @map("pdf_id")
+  /// SHA-256 del artefacto generado.
+  actaHash           String   @map("acta_hash")
+
+  persona          Persona           @relation("ActaPersona", fields: [personaId], references: [id])
+  contenido        ContenidoSig      @relation(fields: [contenidoId], references: [id])
+  versionContenido VersionContenido? @relation(fields: [versionContenidoId], references: [id])
+  registro         RegistroRealizado @relation(fields: [registroId], references: [id])
+  pdf              Evidencia?        @relation("ActaPdf", fields: [pdfId], references: [id])
+
+  @@index([personaId, aceptadoEn])
+  @@map("acta_aceptacion")
+}
+
+/// El consecutivo de las actas por año, con el mismo patrón que `ContadorHallazgo`. Una
+/// tabla y no un `count()`: contar filas y sumar uno produce dos actas con el mismo código
+/// cuando dos personas firman a la vez, y el código es la referencia con la que el acta se
+/// cita.
+model ContadorActa {
+  anio        Int @id
+  ultimoValor Int @default(0) @map("ultimo_valor")
+
+  @@map("contador_acta")
 }

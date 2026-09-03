@@ -10,6 +10,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { Bandeja, TarjetaBandeja } from './bandeja.query';
 import PanelCierre from './PanelCierre';
+import PanelFirma from './PanelFirma';
 
 type Filtro = 'TODAS' | 'VENCIDAS' | 'POR_VENCER' | 'PENDIENTES';
 
@@ -143,7 +144,25 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
         </div>
       </section>
 
-      {cerrando && <PanelCierre tarjeta={cerrando} alCerrar={() => setCerrando(null)} />}
+      {/* Un contenido que exige firma se cierra por los TRES PASOS, no por el panel normal:
+          el acta es el cierre, y cerrarlo por la via normal dejaria la asignacion realizada
+          sin la evidencia que la sostiene. */}
+      {cerrando?.exigeFirma && cerrando.declaracion !== null ? (
+        <PanelFirma
+          datos={{
+            asignacionId: cerrando.id,
+            codigo: cerrando.codigo,
+            titulo: cerrando.titulo,
+            descripcion: cerrando.descripcion,
+            version: cerrando.version,
+            declaracion: cerrando.declaracion,
+            documentoUrl: cerrando.documentoUrl,
+          }}
+          onCerrar={() => setCerrando(null)}
+        />
+      ) : (
+        cerrando && <PanelCierre tarjeta={cerrando} alCerrar={() => setCerrando(null)} />
+      )}
     </main>
   );
 }

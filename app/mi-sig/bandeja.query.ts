@@ -12,6 +12,10 @@ export type EstadoBandeja = 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
 export interface TarjetaBandeja {
   id: number;
   tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA';
+  /// Cualquier tipo puede exigir firma. Cuando la exige, el cierre pasa por los tres pasos
+  /// de leer/aceptar/firmar en vez del panel normal.
+  exigeFirma: boolean;
+  declaracion: string | null;
   codigo: string;
   titulo: string;
   descripcion: string;
@@ -95,6 +99,9 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       vencida,
       dias,
       exigeEvaluacion: contenido?.exigeEvaluacion ?? false,
+      // El mecanismo de firma no es un TIPO de contenido: cualquiera puede exigirla.
+      exigeFirma: contenido?.exigeFirma ?? false,
+      declaracion: contenido?.declaracion ?? null,
       notaMinima: contenido?.notaMinima ? Number(contenido.notaMinima) : null,
       documentoVersion: contenido?.documentoVersion ?? null,
       documentoUrl: contenido?.documentoUrl ?? null,
