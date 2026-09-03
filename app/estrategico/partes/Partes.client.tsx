@@ -15,6 +15,13 @@
 
 import { useMemo, useState } from 'react';
 import {
+  ETIQUETA_ESTADO,
+  ETIQUETA_RESULTADO,
+  ETIQUETA_TIPO_ORGANIZACION,
+  type EstadoEvaluacion,
+  type ResultadoEvaluacion,
+} from '@/lib/sig/organizaciones';
+import {
   agregarNecesidad,
   crearParteInteresada,
   guardarSeguimientoParte,
@@ -41,6 +48,20 @@ export interface ParteFila {
   tipo: 'INTERNA' | 'EXTERNA';
   descripcion: string;
   necesidades: NecesidadFila[];
+  organizaciones: OrganizacionFila[];
+}
+
+export interface OrganizacionFila {
+  id: number;
+  nombre: string;
+  tipo: string;
+  /// Cuantos activos vigentes soporta. Es lo que POL-TEC-02 necesita para saber a cuantos
+  /// afecta una reevaluacion que sale mal.
+  activos: number;
+  /// Los tres se derivan de las evaluaciones registradas, no se guardan.
+  estado: EstadoEvaluacion;
+  resultado: ResultadoEvaluacion | null;
+  proxima: string | null;
 }
 
 const TIPO_CHIP: Record<string, { fondo: string; texto: string; etiqueta: string }> = {
@@ -253,6 +274,11 @@ export default function PartesClient({
                   Sin necesidades declaradas. Una parte sin necesidades no genera nada.
                 </p>
               )}
+
+              {/* D4 · «Organizaciones · las mismas del inventario de activos».
+                  Sólo cuando hay: una sección vacía en cada tarjeta ocuparía media pantalla
+                  para no decir nada. */}
+              {p.organizaciones.length > 0 && <Organizaciones lista={p.organizaciones} />}
             </div>
           ))}
           {visibles.length === 0 && (
@@ -739,3 +765,77 @@ function NuevaNecesidad({
     </div>
   );
 }
+
+/// «Organizaciones · las mismas del inventario de activos» (D4).
+///
+/// El lienzo lo dibuja en la ficha de la parte, no en una pantalla aparte, y la nota explica
+/// por qué: «antes, el proveedor de nube existía dos veces sin relación: como parte
+/// interesada acá y como proveedor en el inventario. Ahora es una sola organización, y por
+/// eso la reevaluación anual que exige POL-TEC-02 puede colgarse de ella y saber a cuántos
+/// activos afecta».
+///
+/// El estado y el resultado se muestran SEPARADOS a propósito: una organización al día con
+/// «no cumple» está peor que una vencida con «cumple», y un solo semáforo no distingue las
+/// dos.
+function Organizaciones({ lista }: { lista: OrganizacionFila[] }) {
+  return (
+    <section className="mt-3 flex flex-col gap-2 border-t border-hairline pt-3">
+      <span className="flex items-center gap-2.5">
+        <span className="font-mono text-9 font-medium uppercase tracking-[0.07em] text-accent">
+          Organizaciones · las mismas del inventario de activos
+        </span>
+        <span className="h-px flex-1 bg-hairline" />
+        <span className="font-mono text-9_5 text-muted">{lista.length}</span>
+      </span>
+
+      {lista.map((o) => {
+        const e = COLOR_ESTADO[o.estado];
+        return (
+          <div
+            key={o.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-campo border border-border-default px-2.5 py-2"
+          >
+            <span className="text-12_5 font-medium text-primary">{o.nombre}</span>
+            <span className="font-mono text-9 uppercase tracking-[0.06em] text-muted">
+              {ETIQUETA_TIPO_ORGANIZACION[o.tipo] ?? o.tipo}
+            </span>
+            {/* El conteo de activos es el dato que convierte una evaluación en una
+                decisión: reevaluar mal a quien soporta cuatro activos no es lo mismo que
+                a quien no soporta ninguno. */}
+            <span className="font-mono text-10_5 text-muted">
+              {o.activos === 0 ? 'no soporta activos' : `soporta ${o.activos} activo(s)`}
+            </span>
+            <span className="ml-auto flex flex-none items-center gap-2">
+              {o.resultado !== null && (
+                <span className="text-11 text-secondary">{ETIQUETA_RESULTADO[o.resultado]}</span>
+              )}
+              <span
+                className="rounded-[4px] px-2 py-0.5 font-mono text-9 font-semibold uppercase"
+                style={{ background: e.fondo, color: e.texto }}
+              >
+                {ETIQUETA_ESTADO[o.estado]}
+              </span>
+              <span className="font-mono text-10 text-muted">
+                {o.proxima !== null ? `próxima ${o.proxima}` : 'nunca evaluada'}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+
+      <p className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
+        La reevaluación anual que exige POL-TEC-02 se cuelga de la organización, y el conteo
+        de activos dice a cuántos afecta. «Sin evaluar» no es lo mismo que «vencida»: dar de
+        alta una organización no genera un incumplimiento el mismo día.
+      </p>
+    </section>
+  );
+}
+
+/// «Sin evaluar» va en gris y no en rojo: informa que falta el dato, no que se incumplió.
+const COLOR_ESTADO: Record<EstadoEvaluacion, { fondo: string; texto: string }> = {
+  AL_DIA: { fondo: '#e6efe9', texto: '#0b5c44' },
+  POR_VENCER: { fondo: '#faf1d3', texto: '#6b5410' },
+  VENCIDA: { fondo: '#fdeeeb', texto: '#a52016' },
+  SIN_EVALUAR: { fondo: 'var(--hf-bg-subtle)', texto: 'var(--hf-text-muted)' },
+};

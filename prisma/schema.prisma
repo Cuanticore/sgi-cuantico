@@ -258,13 +258,37 @@ model CargoResponsable {
 
 /// Editable catalogue. The protected value "No aplica" cannot be deleted; the flag
 /// lives on the row rather than being keyed off the name.
+/// Una organizacion con la que la empresa se relaciona: el proveedor de nube, el cliente,
+/// el ente de control.
+///
+/// **Sigue llamandose `Proveedor` a proposito.** D4 pide «una tabla de organizaciones con un
+/// tipo, en vez de dos registros sin relacion para la misma empresa» — pero esa premisa no
+/// se cumple en los datos: `ParteInteresada` no guarda empresas, guarda CATEGORIAS de parte
+/// («Clientes corporativos del sector financiero», «Entes reguladores»), sin campo nombre.
+/// No hay ninguna empresa en las dos tablas, asi que no hay nada que fusionar: lo que
+/// faltaba era el VINCULO y la evaluacion, que es lo que se agrega aca.
+///
+/// Renombrar la tabla a `Organizacion` tocaria 121 llamadas del inventario de activos —el
+/// modulo con 247 activos y 2.256 riesgos detras— por cero ganancia funcional. La interfaz
+/// dice «Organizaciones», como el lienzo; el codigo conserva el nombre hasta que un cambio
+/// lo justifique por si mismo.
 model Proveedor {
-  id        Int     @id @default(autoincrement())
-  nombre    String  @unique
-  protegido Boolean @default(false)
-  activo    Boolean @default(true)
+  id                Int              @id @default(autoincrement())
+  nombre            String           @unique
+  /// Que es esta organizacion para nosotros. `PROVEEDOR` es el valor de las siete filas
+  /// cargadas: todas entraron por el inventario de activos.
+  tipo              TipoOrganizacion @default(PROVEEDOR)
+  /// La categoria de parte interesada que la agrupa, cuando la hay. El lienzo lo dibuja al
+  /// reves —la ficha de una parte lista SUS organizaciones— y esta es la llave que lo
+  /// permite. Opcional: una organizacion del inventario puede no estar clasificada
+  /// todavia, y forzarla obligaria a inventar la categoria.
+  parteInteresadaId Int?             @map("parte_interesada_id")
+  protegido         Boolean          @default(false)
+  activo            Boolean          @default(true)
 
-  activos Activo[]
+  activos         Activo[]
+  parteInteresada ParteInteresada?         @relation(fields: [parteInteresadaId], references: [id])
+  evaluaciones    EvaluacionOrganizacion[]
 
   @@map("proveedor")
 }
@@ -1009,6 +1033,8 @@ model Persona {
 
   versionesPublicadas VersionContenido[] @relation("VersionPublicadaPor")
 
+  evaluacionesOrg EvaluacionOrganizacion[] @relation("EvaluacionOrgPor")
+
   @@map("persona")
 }
 
@@ -1585,6 +1611,8 @@ model ParteInteresada {
   activa      Boolean   @default(true)
 
   necesidades NecesidadExpectativa[]
+
+  organizaciones Proveedor[]
 
   @@map("parte_interesada")
 }
@@ -2221,4 +2249,48 @@ model VersionContenido {
 
   @@unique([contenidoId, version])
   @@map("version_contenido")
+}
+
+// ─── Organizaciones (D4 · POL-TEC-02) ──────────────────────────────────────────────────
+
+enum TipoOrganizacion {
+  PROVEEDOR
+  CLIENTE
+  ENTE_CONTROL
+  ALIADO
+  OTRO
+
+  @@map("tipo_organizacion")
+}
+
+enum ResultadoEvaluacionOrg {
+  CUMPLE
+  CUMPLE_CON_OBSERVACIONES
+  NO_CUMPLE
+
+  @@map("resultado_evaluacion_org")
+}
+
+/// La reevaluación anual que exige POL-TEC-02, por organización.
+///
+/// Es un HECHO fechado, no un estado: se registra una por año y el historial queda. Que la
+/// organización esté al día, por vencer o vencida se DERIVA de la última evaluación y de la
+/// periodicidad (invariante 1) — una columna «estado» quedaría vieja el 1 de enero y nadie
+/// se enteraría hasta la auditoría.
+model EvaluacionOrganizacion {
+  id             Int                    @id @default(autoincrement())
+  organizacionId Int                    @map("organizacion_id")
+  /// El año que se evalúa. Uno por año y por organización: dos evaluaciones del mismo año
+  /// son dos versiones de la verdad sobre el mismo periodo.
+  anio           Int
+  fecha          DateTime               @db.Date
+  resultado      ResultadoEvaluacionOrg
+  nota           String?
+  evaluadoPorId  Int?                   @map("evaluado_por_id")
+
+  organizacion Proveedor @relation(fields: [organizacionId], references: [id])
+  evaluadoPor  Persona?  @relation("EvaluacionOrgPor", fields: [evaluadoPorId], references: [id])
+
+  @@unique([organizacionId, anio])
+  @@map("evaluacion_organizacion")
 }
