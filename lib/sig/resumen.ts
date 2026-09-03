@@ -8,6 +8,8 @@ import {
   cumplimientoDePeriodo,
   deudaVencida,
   cierresAdministrativos,
+  diasEntre,
+  medianocheUtc,
   type AsignacionIndicador,
   type CumplimientoPeriodo,
 } from './cumplimiento';
@@ -65,7 +67,11 @@ export function planificarSemanales(
 
   for (const a of asignaciones) {
     if (a.estado !== 'PENDIENTE') continue;
-    const dias = diaDe(a.fechaLimite) - diaDe(hoy);
+    // Restar `diaDe` era un defecto: devuelve `YYYYMMDD`, que compara bien y resta mal.
+    // Del 28 de agosto al 1 de septiembre daban 73 «dias», asi que una tarea que vencia
+    // en CUATRO no entraba en `dias <= 7` y desaparecia del correo del lunes. Pasaba en
+    // toda semana que cruzara un fin de mes: doce veces al año, en silencio.
+    const dias = diasEntre(medianocheUtc(hoy), medianocheUtc(a.fechaLimite));
     const linea: TareaLinea = {
       id: a.id,
       tipo: a.tipo,
