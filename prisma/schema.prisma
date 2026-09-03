@@ -207,6 +207,8 @@ model Area {
   obligacionesAlcance Obligacion[]
   hallazgos           Hallazgo[]        @relation("HallazgoArea")
 
+  procesos Proceso[]
+
   @@map("area")
 }
 
@@ -248,6 +250,8 @@ model CargoResponsable {
   accionesAprueba     AccionPlan[] @relation("AccionAprueba")
   personas            Persona[]
   obligacionesAlcance Obligacion[]
+
+  procesos Proceso[] @relation("ProcesoCargo")
 
   @@map("cargo_responsable")
 }
@@ -1571,7 +1575,10 @@ model RequisitoLegal {
   objeto               String
   aplicacion           String
   sistemaGestion       String    @map("sistema_gestion")
+  /// Texto libre heredado — la ultima violacion viva del invariante de origen tipado. Se
+  /// conserva mientras `procesoId` se puebla; despues se retira.
   procesoEncargado     String?   @map("proceso_encargado")
+  procesoId            Int?      @map("proceso_id")
   responsableId        Int?      @map("responsable_id")
   enlace               String?
   periodicidadRevision String    @map("periodicidad_revision")
@@ -1581,6 +1588,8 @@ model RequisitoLegal {
 
   responsable  Persona?                 @relation("RequisitoResponsable", fields: [responsableId], references: [id])
   evaluaciones EvaluacionCumplimiento[]
+
+  proceso Proceso? @relation(fields: [procesoId], references: [id])
 
   @@map("requisito_legal")
 }
@@ -1871,7 +1880,10 @@ model ProgramaAuditoria {
 model AuditoriaProgramada {
   id               Int           @id @default(autoincrement())
   programaId       Int           @map("programa_id")
+  /// Texto libre heredado. Se conserva hasta que la migracion a `procesoId` termine: es
+  /// el dato con el que se va a poder verificar que la migracion no perdio filas.
   procesoRef       String        @map("proceso_ref")
+  procesoId        Int?          @map("proceso_id")
   meses            String
   tipo             TipoAuditoria @default(INTERNA)
   responsableId    Int           @map("responsable_id")
@@ -1880,6 +1892,8 @@ model AuditoriaProgramada {
   programa    ProgramaAuditoria @relation(fields: [programaId], references: [id])
   responsable Persona           @relation("ProgramadaResponsable", fields: [responsableId], references: [id])
   auditorias  Auditoria[]
+
+  proceso Proceso? @relation(fields: [procesoId], references: [id])
 
   @@map("auditoria_programada")
 }
@@ -1936,6 +1950,8 @@ model CeldaPlan {
   auditoria Auditoria      @relation(fields: [auditoriaId], references: [id])
   requisito RequisitoNorma @relation(fields: [requisitoNormaId], references: [id])
   notas     NotaAuditor[]
+  proceso   Proceso?       @relation(fields: [procesoId], references: [id])
+  procesoId Int?
 
   @@unique([auditoriaId, procesoRef, requisitoNormaId])
   @@map("celda_plan")
@@ -2046,4 +2062,55 @@ model EjecucionTrabajo {
 
   @@index([trabajo, inicio])
   @@map("ejecucion_trabajo")
+}
+
+// ─── Proceso (D1 y D2 · docs/handoff_sig/proceso-entidad.md) ───────────────────────────
+
+enum TipoProceso {
+  ESTRATEGICO
+  MISIONAL
+  APOYO
+
+  @@map("tipo_proceso")
+}
+
+/// El proceso como entidad distinta del área.
+///
+/// En el esquema sólo existía `Area`, y «área» hacía de dos cosas a la vez: el programa de
+/// auditoría se planea por proceso, los dueños de tarea son por proceso, y
+/// `RequisitoLegal.procesoEncargado` quedó como `String` —la última violación viva del
+/// invariante de origen tipado—. El caso que lo zanja es real: la Gerencia de Operaciones
+/// responde por tres procesos (Proyectos, Soporte y Servicio al Cliente, y Gestión
+/// Tecnológica), dos misionales y uno de apoyo. Con una sola entidad eso no se puede
+/// escribir.
+///
+/// **La tabla nace VACÍA a propósito.** Poblarla exige dos datos que la fuente no da y que
+/// no se inventan acá: a qué área pertenece cada proceso, y a qué cargo unificado apunta.
+/// Ver la nota de `lib/sig/procesos.ts`.
+model Proceso {
+  id      Int         @id @default(autoincrement())
+  /// EST, COM, PRO, SAC, TAL, LCO, TEC, SIG, FIN — del mapa de MAN-SIG-02. NO coinciden
+  /// con los prefijos de `Area`: el área de Proyectos es `PRY` y la legal es `LEG`.
+  codigo  String      @unique
+  nombre  String
+  /// Del mapa, y no es decorativo: la clasificación en estratégicos, misionales y de apoyo
+  /// es la que ISO 9001 espera ver, y es como se agrupa el programa de auditoría.
+  tipo    TipoProceso
+  /// Obligatorio: un proceso vive en UNA área; un área puede tener varios procesos.
+  areaId  Int         @map("area_id")
+  /// El dueño es un CARGO, no una persona. El mapa nombra gerencias —«Gerencia de
+  /// Operaciones», no «Yuliet Rojas»— y así sobrevive a la rotación: cuando alguien cambia
+  /// de puesto, las obligaciones del proceso lo siguen solas.
+  cargoId Int         @map("cargo_id")
+  activo  Boolean     @default(true)
+
+  area  Area             @relation(fields: [areaId], references: [id])
+  cargo CargoResponsable @relation("ProcesoCargo", fields: [cargoId], references: [id])
+
+  programadas AuditoriaProgramada[]
+  celdas      CeldaPlan[]
+  requisitos  RequisitoLegal[]
+
+  @@index([tipo, activo])
+  @@map("proceso")
 }

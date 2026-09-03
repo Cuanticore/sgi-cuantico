@@ -76,6 +76,7 @@ const GRUPOS: Grupo[] = [
     items: [
       { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
       { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sig/normas', sub: true },
+      { etiqueta: 'Procesos', abreviatura: 'PCS', href: '/sig/procesos', sub: true },
     ],
   },
 ];
