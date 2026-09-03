@@ -33,17 +33,14 @@ export interface Pestana {
   deshabilitada?: boolean;
 }
 
-const PESTANAS: Pestana[] = [
-  { etiqueta: 'Mi SIG', href: '/mi-sig' },
-  { etiqueta: 'Indicadores', href: '/' },
-  { etiqueta: 'Estratégico', href: '', deshabilitada: true },
-  { etiqueta: 'SGSI', href: '/sgsi' },
-  { etiqueta: 'Operación', href: '/sig/obligaciones' },
-];
-
 export default function HeaderCorporativo({ usuario, rol, cuenta, pestanas }: Props) {
   const ruta = usePathname();
-  const visibles = pestanas ?? PESTANAS;
+  // Sin respaldo cableado. Acá había una lista de cinco pestañas «por si no llegan», y
+  // `EncabezadoSig` —el único que renderiza este componente— siempre las pasa. Era código
+  // muerto, y encima desactualizado: tenía Estratégico deshabilitada con `href` vacío
+  // mientras sus siete rutas ya funcionaban. Un respaldo que nadie ejecuta no se mantiene,
+  // y el día que se ejecutara mostraría la navegación de hace tres versiones.
+  const visibles = pestanas ?? [];
   const enRaiz = (href: string) =>
     href === '/' ? ruta === '/' : ruta === href || ruta.startsWith(`${href}/`);
 
@@ -100,7 +97,7 @@ export default function HeaderCorporativo({ usuario, rol, cuenta, pestanas }: Pr
             <span
               key={p.etiqueta}
               aria-disabled="true"
-              title="Disponible con el módulo D"
+              title="Todavía sin pantallas construidas"
               className="rounded-[7px]"
               style={{
                 fontSize: 12.5,

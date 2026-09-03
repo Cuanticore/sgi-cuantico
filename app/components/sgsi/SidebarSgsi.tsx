@@ -66,7 +66,12 @@ const GRUPOS: Grupo[] = [
     tituloCorto: 'SIG',
     items: [
       { etiqueta: 'Indicadores', abreviatura: 'IND', href: '/', contador: 'indicadores' },
+      // El lienzo de navegacion mueve «Cumplimiento de tareas» aca, junto a Indicadores:
+      // las dos responden la misma pregunta —como va el sistema— y estaban en pestanas
+      // distintas. Vivia bajo Actividades.
+      { etiqueta: 'Cumplimiento de tareas', abreviatura: 'CUM', href: '/sig/tablero-tareas' },
       { etiqueta: 'Resumen SGSI', abreviatura: 'RSG', href: '/sgsi' },
+      { etiqueta: 'Verificación del motor', abreviatura: 'VER', href: '/sgsi/verificacion' },
     ],
   },
   {

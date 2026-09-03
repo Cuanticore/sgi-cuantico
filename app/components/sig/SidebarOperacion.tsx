@@ -41,15 +41,14 @@ interface Grupo {
 // CONFIGURACIÓN.
 const GRUPOS: Grupo[] = [
   {
-    titulo: 'Tareas',
-    tituloCorto: 'TAR',
+    titulo: 'Motor',
+    tituloCorto: 'MOT',
     items: [
       { etiqueta: 'Obligaciones', abreviatura: 'OBL', href: '/sig/obligaciones', contador: 'obligaciones' },
       { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },
       { etiqueta: 'Tareas', abreviatura: 'TAR', href: '/sig/tareas', contador: 'tareas' },
       { etiqueta: 'Contenidos', abreviatura: 'CON', href: '/sig/contenidos', contador: 'contenidos' },
       { etiqueta: 'Notificaciones', abreviatura: 'NOT', href: '/sig/notificaciones' },
-      { etiqueta: 'Cumplimiento', abreviatura: 'CUM', href: '/sig/tablero-tareas' },
     ],
   },
   {
@@ -57,25 +56,30 @@ const GRUPOS: Grupo[] = [
     tituloCorto: 'MEJ',
     items: [
       { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sig/hallazgos' },
-      { etiqueta: 'Tablero de mejora', abreviatura: 'MEJ', href: '/sig/mejora' },
+      { etiqueta: 'Acciones', abreviatura: 'ACC', href: '/sig/mejora' },
     ],
   },
   {
     titulo: 'Auditoría',
     tituloCorto: 'AUD',
     items: [
-      { etiqueta: 'Programa de auditoría', abreviatura: 'PRG', href: '/sig/auditorias/programa' },
+      { etiqueta: 'Programa anual', abreviatura: 'PRG', href: '/sig/auditorias/programa' },
       { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sig/auditorias' },
       { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sig/auditorias/externas' },
+      { etiqueta: 'Tablero de auditoría', abreviatura: 'TAU', href: '/sig/tablero-auditoria' },
+      { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sig/normas' },
     ],
   },
   {
+    // El lienzo le da a Personas su propia pestana, con Colaboradores y Fichas al lado.
+    // Ese modulo (REQ-SIG-09) no esta construido, asi que la pestana aterriza en
+    // `/sig/personas`, cuya unica barra lateral es esta: quitar la entrada dejaria la
+    // pantalla sin nada que la marque como activa. Se mueve cuando exista su barra.
     titulo: 'Configuración',
     tituloCorto: '···',
     sub: true,
     items: [
       { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
-      { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sig/normas', sub: true },
       { etiqueta: 'Procesos', abreviatura: 'PCS', href: '/sig/procesos', sub: true },
     ],
   },
