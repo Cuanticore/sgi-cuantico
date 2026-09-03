@@ -83,6 +83,7 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
       { etiqueta: 'Eventos e incidentes', abreviatura: 'EVT', href: '/sgsi/eventos' },
+      { etiqueta: 'Solicitudes', abreviatura: 'SOL', href: '/sgsi/solicitudes' },
       { etiqueta: 'Accesos y perfiles', abreviatura: 'ACC', href: '/sgsi/accesos' },
       { etiqueta: 'Verificaciones', abreviatura: 'VRF', href: '/sgsi/verificaciones' },
       { etiqueta: 'Métricas del SGSI', abreviatura: 'MET', href: '/sgsi/metricas' },
