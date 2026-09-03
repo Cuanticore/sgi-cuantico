@@ -718,10 +718,13 @@ export async function duplicarContenido(id: number): Promise<Resultado> {
 
 export interface DatosObligacion {
   contenidoId: number;
-  alcance: 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS';
+  alcance: 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS' | 'ACTIVO' | 'TIPO_ACTIVO' | 'NIVEL_ACTIVO';
   alcancePersonaId?: number;
   alcanceCargoId?: number;
   alcanceAreaId?: number;
+  alcanceActivoId?: number;
+  alcanceTipoActivoId?: number;
+  alcanceNivelActivoId?: number;
   periodicidad: 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
   fechaInicio: Date;
   plazoDias: number;
@@ -753,12 +756,44 @@ function validarDatosObligacion(datos: DatosObligacion): string[] {
   if (!Number.isFinite(datos.diasAviso) || datos.diasAviso < 0) {
     errores.push('los días de aviso no pueden ser negativos');
   }
-  const cuantos = [datos.alcancePersonaId, datos.alcanceCargoId, datos.alcanceAreaId].filter((v) => v !== undefined).length;
-  if (datos.alcance !== 'TODOS' && cuantos !== 1) {
+  // R4: exactamente UN destino, y ahora hay seis columnas donde puede estar. Contarlas
+  // todas juntas es lo que impide que una obligación quede con dos destinos —por ejemplo,
+  // un área Y un tipo de activo— y que la generación tenga que elegir uno en silencio.
+  const destinos = [
+    datos.alcancePersonaId,
+    datos.alcanceCargoId,
+    datos.alcanceAreaId,
+    datos.alcanceActivoId,
+    datos.alcanceTipoActivoId,
+    datos.alcanceNivelActivoId,
+  ].filter((v) => v !== undefined);
+  if (datos.alcance !== 'TODOS' && destinos.length !== 1) {
     errores.push('el alcance exige exactamente un destino');
   }
-  if (datos.alcance === 'TODOS' && cuantos !== 0) {
+  if (datos.alcance === 'TODOS' && destinos.length !== 0) {
     errores.push('el alcance TODOS no lleva destino');
+  }
+  // Y el destino tiene que ser el de SU columna. Sin esto, un alcance `TIPO_ACTIVO` con
+  // `alcanceAreaId` puesto pasaba la cuenta de arriba y la generación no encontraba
+  // ningún activo: la obligación quedaba creada y sin generar nada, en silencio.
+  const columnaDe: Record<string, number | undefined> = {
+    PERSONA: datos.alcancePersonaId,
+    CARGO: datos.alcanceCargoId,
+    AREA: datos.alcanceAreaId,
+    ACTIVO: datos.alcanceActivoId,
+    TIPO_ACTIVO: datos.alcanceTipoActivoId,
+    NIVEL_ACTIVO: datos.alcanceNivelActivoId,
+  };
+  if (datos.alcance !== 'TODOS' && columnaDe[datos.alcance] === undefined) {
+    errores.push(`el alcance ${datos.alcance} exige su propio destino, no el de otro alcance`);
+  }
+  // `NivelActivo` es de REQ-SIG-06 y no existe. Se rechaza al CREAR y no sólo al generar:
+  // una obligación que nunca va a producir nada no debería poder guardarse.
+  if (datos.alcance === 'NIVEL_ACTIVO') {
+    errores.push(
+      'el alcance por nivel de activo necesita la jerarquía de niveles (REQ-SIG-06), que ' +
+        'todavía no está construida',
+    );
   }
   return errores;
 }
@@ -780,6 +815,9 @@ export async function crearObligacion(datos: DatosObligacion): Promise<Resultado
           alcancePersonaId: datos.alcancePersonaId ?? null,
           alcanceCargoId: datos.alcanceCargoId ?? null,
           alcanceAreaId: datos.alcanceAreaId ?? null,
+          alcanceActivoId: datos.alcanceActivoId ?? null,
+          alcanceTipoActivoId: datos.alcanceTipoActivoId ?? null,
+          alcanceNivelActivoId: datos.alcanceNivelActivoId ?? null,
           periodicidad: datos.periodicidad,
           fechaInicio: datos.fechaInicio,
           plazoDias: datos.plazoDias,

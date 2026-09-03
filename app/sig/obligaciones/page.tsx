@@ -73,7 +73,7 @@ export default async function ObligacionesPage() {
   // «Id del contenido»—, así que había que abrir otra pantalla, buscar la clave primaria y
   // transcribirla. Un dígito equivocado creaba la obligación sobre el contenido de otro sin
   // que nada avisara, porque el id existía.
-  const [contenidos, personas, cargos, areas] = await Promise.all([
+  const [contenidos, personas, cargos, areas, activos, tiposDeActivo] = await Promise.all([
     prisma.contenidoSig.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -90,6 +90,31 @@ export default async function ObligacionesPage() {
       where: { activa: true },
       select: { id: true, nombre: true },
       orderBy: { orden: 'asc' },
+    }),
+    // D3 · el alcance por activo. Sólo los VIGENTES: una obligación no le pide nada a un
+    // activo que salió del inventario, y ofrecerlo en el selector sería crear una
+    // obligación que nunca va a generar.
+    prisma.activo.findMany({
+      where: { activo: true },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        tipoId: true,
+        propietarioId: true,
+        tipo: { select: { nombre: true } },
+      },
+      orderBy: { codigo: 'asc' },
+    }),
+    prisma.tipoMagerit.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        // El conteo de activos VIGENTES del tipo. Es la cifra que decide: elegir un tipo
+        // con 180 activos crea 180 asignaciones por periodo.
+        _count: { select: { activos: { where: { activo: true } } } },
+      },
+      orderBy: { nombre: 'asc' },
     }),
   ]);
 
@@ -136,6 +161,27 @@ export default async function ObligacionesPage() {
               personas: personas.map((x) => ({ id: x.id, nombre: x.nombre })),
               cargos,
               areas,
+              activos: activos.map((a) => ({
+                id: a.id,
+                codigo: a.codigo ?? `#${a.id}`,
+                nombre: a.nombre,
+                tipo: a.tipo.nombre,
+                // Se muestra en la opcion: elegir un activo sin propietario significa que
+                // la tarea va a llegar al responsable de seguimiento, y eso hay que saberlo
+                // antes de guardar.
+                sinPropietario: a.propietarioId === null,
+              })),
+              inventario: activos.map((a) => ({
+                id: a.id,
+                activo: true, // la consulta ya filtra por vigentes
+                tipoId: a.tipoId,
+                propietarioId: a.propietarioId,
+              })),
+              tiposDeActivo: tiposDeActivo.map((t) => ({
+                id: t.id,
+                nombre: t.nombre,
+                cuantos: t._count.activos,
+              })),
               censo: personas.map((x) => ({
                 id: x.id,
                 activa: x.activa,

@@ -309,6 +309,8 @@ model TipoMagerit {
   amenazas   AmenazaTipo[]
   contadores ContadorCodigo[]
 
+  obligacionesAlcance Obligacion[] @relation("ObligacionAlcanceTipo")
+
   @@map("tipo_magerit")
 }
 
@@ -632,18 +634,20 @@ model Activo {
   bajaEn   DateTime? @map("baja_en")
   creadoEn DateTime  @default(now()) @map("creado_en")
 
-  area         Area              @relation(fields: [areaId], references: [id])
-  tipo         TipoMagerit       @relation(fields: [tipoId], references: [id])
-  subtipo      SubtipoMagerit    @relation(fields: [subtipoId], references: [id])
-  propietario  CargoResponsable? @relation("ActivoPropietario", fields: [propietarioId], references: [id])
-  custodio     CargoResponsable? @relation("ActivoCustodio", fields: [custodioId], references: [id])
-  ubicacion    Ubicacion?        @relation(fields: [ubicacionId], references: [id])
-  entorno      Entorno?          @relation(fields: [entornoId], references: [id])
-  proveedor    Proveedor?        @relation(fields: [proveedorId], references: [id])
-  superior     Activo?           @relation("ActivoJerarquia", fields: [superiorId], references: [id])
-  dependientes Activo[]          @relation("ActivoJerarquia")
-  valores      ActivoValor[]
-  riesgos      Riesgo[]
+  area                Area              @relation(fields: [areaId], references: [id])
+  tipo                TipoMagerit       @relation(fields: [tipoId], references: [id])
+  subtipo             SubtipoMagerit    @relation(fields: [subtipoId], references: [id])
+  propietario         CargoResponsable? @relation("ActivoPropietario", fields: [propietarioId], references: [id])
+  custodio            CargoResponsable? @relation("ActivoCustodio", fields: [custodioId], references: [id])
+  ubicacion           Ubicacion?        @relation(fields: [ubicacionId], references: [id])
+  entorno             Entorno?          @relation(fields: [entornoId], references: [id])
+  proveedor           Proveedor?        @relation(fields: [proveedorId], references: [id])
+  superior            Activo?           @relation("ActivoJerarquia", fields: [superiorId], references: [id])
+  dependientes        Activo[]          @relation("ActivoJerarquia")
+  valores             ActivoValor[]
+  riesgos             Riesgo[]
+  obligacionesAlcance Obligacion[]      @relation("ObligacionAlcanceActivo")
+  asignaciones        Asignacion[]      @relation("AsignacionActivo")
 
   @@index([areaId])
   @@index([tipoId])
@@ -1016,6 +1020,20 @@ enum AlcanceObligacion {
   CARGO
   AREA
   TODOS
+  /// D3 · la costura que vuelve al activo el eje del sistema. Sin ella, cuatro
+  /// obligaciones de politica no se pueden expresar: POL-TEC-01 exige que «los derechos
+  /// de acceso sean revisados al menos una vez al año por el propietario de cada activo»,
+  /// y eso solo se podia cargar nombrando el activo en el titulo, en texto libre.
+  ///
+  /// Un activo concreto.
+  ACTIVO
+  /// Todos los activos de un tipo MAGERIT. Una sola obligacion cubre los 247 y sigue viva
+  /// cuando entre el 248.
+  TIPO_ACTIVO
+  /// Todos los activos de un nivel de la jerarquia. **Declarado y sin resolver**:
+  /// `NivelActivo` es de REQ-SIG-06 y todavia no existe, asi que la generacion rechaza
+  /// este alcance con un mensaje explicito en vez de generar nada en silencio.
+  NIVEL_ACTIVO
 
   @@map("alcance_obligacion")
 }
@@ -1114,6 +1132,11 @@ model Obligacion {
   alcancePersonaId         Int?              @map("alcance_persona_id")
   alcanceCargoId           Int?              @map("alcance_cargo_id")
   alcanceAreaId            Int?              @map("alcance_area_id")
+  alcanceActivoId          Int?              @map("alcance_activo_id")
+  alcanceTipoActivoId      Int?              @map("alcance_tipo_activo_id")
+  /// Sin llave foranea todavia: `NivelActivo` no existe. Nace opcional, como `procesoId`,
+  /// y la llave se agrega cuando REQ-SIG-06 cree la tabla.
+  alcanceNivelActivoId     Int?              @map("alcance_nivel_activo_id")
   periodicidad             Periodicidad
   fechaInicio              DateTime          @map("fecha_inicio") @db.Date
   plazoDias                Int               @map("plazo_dias")
@@ -1127,6 +1150,8 @@ model Obligacion {
   alcancePersona         Persona?          @relation("ObligacionAlcancePersona", fields: [alcancePersonaId], references: [id])
   alcanceCargo           CargoResponsable? @relation(fields: [alcanceCargoId], references: [id])
   alcanceArea            Area?             @relation(fields: [alcanceAreaId], references: [id])
+  alcanceActivo          Activo?           @relation("ObligacionAlcanceActivo", fields: [alcanceActivoId], references: [id])
+  alcanceTipoActivo      TipoMagerit?      @relation("ObligacionAlcanceTipo", fields: [alcanceTipoActivoId], references: [id])
   responsableSeguimiento Persona           @relation("ObligacionSeguimiento", fields: [responsableSeguimientoId], references: [id])
   asignaciones           Asignacion[]
 
@@ -1153,6 +1178,14 @@ model Asignacion {
   cerradaPor    Int?             @map("cerrada_por")
   /// Obligatorio en prórroga, anulación, no aplica y cierre administrativo.
   motivo        String?
+  /// El activo sobre el que se ejecuta, cuando el alcance de la obligacion es por activo,
+  /// tipo o nivel. D3: «la generacion produce una asignacion POR ACTIVO vigente».
+  ///
+  /// Que la asignacion haya llegado al responsable de seguimiento porque el activo no
+  /// tiene propietario NO se guarda: se deriva al leer comparando contra
+  /// `activo.propietarioId`. Guardarlo seria guardar lo derivable (invariante 1), y
+  /// quedaria desactualizado el dia que alguien le ponga propietario al activo.
+  activoId      Int?             @map("activo_id")
   creadaEn      DateTime         @default(now()) @map("creada_en")
 
   obligacion        Obligacion?         @relation(fields: [obligacionId], references: [id])
@@ -1160,9 +1193,19 @@ model Asignacion {
   persona           Persona             @relation("AsignacionPersona", fields: [personaId], references: [id])
   cerradaPorPersona Persona?            @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
   registros         RegistroRealizado[]
+  activo            Activo?             @relation("AsignacionActivo", fields: [activoId], references: [id])
   hallazgos         HallazgoAccion[]
 
-  @@unique([obligacionId, personaId, periodo])
+  /// T1 · la idempotencia que permite que el cron reintente sin miedo.
+  ///
+  /// Pasa de tres columnas a CUATRO porque una obligacion por tipo de activo produce
+  /// varias asignaciones para la misma persona en el mismo periodo —una por activo que
+  /// posee— y con la restriccion de tres solo cabia la primera.
+  ///
+  /// La migracion la recrea con **NULLS NOT DISTINCT** (Postgres 15+): sin eso, dos filas
+  /// con `activo_id` nulo se consideran distintas y la garantia se perderia justo para las
+  /// obligaciones que NO son por activo, que son todas las que hay hoy.
+  @@unique([obligacionId, personaId, periodo, activoId])
   @@index([personaId, estado])
   @@index([fechaLimite])
   @@map("asignacion")

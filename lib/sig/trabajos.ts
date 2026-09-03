@@ -42,7 +42,7 @@ export async function generarAsignacionesComo(
   autor: string,
   hoy: Date,
 ): Promise<ResultadoTrabajo> {
-  const [obligaciones, personas, existentes] = await Promise.all([
+  const [obligaciones, personas, existentes, activos] = await Promise.all([
     prisma.obligacion.findMany({
       select: {
         id: true,
@@ -51,6 +51,10 @@ export async function generarAsignacionesComo(
         alcancePersonaId: true,
         alcanceCargoId: true,
         alcanceAreaId: true,
+        alcanceActivoId: true,
+        alcanceTipoActivoId: true,
+        alcanceNivelActivoId: true,
+        responsableSeguimientoId: true,
         periodicidad: true,
         fechaInicio: true,
         plazoDias: true,
@@ -61,11 +65,16 @@ export async function generarAsignacionesComo(
       select: { id: true, activa: true, areaId: true, cargoId: true },
     }),
     prisma.asignacion.findMany({
-      select: { obligacionId: true, personaId: true, periodo: true },
+      select: { obligacionId: true, personaId: true, periodo: true, activoId: true },
+    }),
+    // Los activos, para los alcances por activo y por tipo (D3). El propietario es un
+    // CARGO, no una persona.
+    prisma.activo.findMany({
+      select: { id: true, activo: true, tipoId: true, propietarioId: true },
     }),
   ]);
 
-  const plan = planificarGeneracion(obligaciones, personas, existentes, hoy);
+  const plan = planificarGeneracion(obligaciones, personas, existentes, hoy, 90, activos);
   if (plan.crear.length === 0) {
     return { creados: 0, detalle: 'no había periodos nuevos por abrir' };
   }
@@ -80,6 +89,7 @@ export async function generarAsignacionesComo(
           periodo: a.periodo,
           fechaApertura: a.fechaApertura,
           fechaLimite: a.fechaLimite,
+          activoId: a.activoId,
         },
       });
       await registrar(tx, autor, [

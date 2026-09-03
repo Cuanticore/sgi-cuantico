@@ -20,6 +20,12 @@ const obligacionBase = {
   alcancePersonaId: null,
   alcanceCargoId: null,
   alcanceAreaId: null,
+  alcanceActivoId: null,
+  alcanceTipoActivoId: null,
+  alcanceNivelActivoId: null,
+  // A quien llega la asignacion cuando el activo no tiene propietario (D3). En los
+  // alcances por persona no interviene.
+  responsableSeguimientoId: 99,
   periodicidad: 'MENSUAL' as const,
   fechaInicio: d('2026-09-01'),
   plazoDias: 10,
@@ -52,7 +58,12 @@ describe('planificarGeneracion — alcance TODOS', () => {
     const segunda = planificarGeneracion(
       [obligacionBase],
       [ADA, GRACE],
-      primera.crear.map((c) => ({ obligacionId: 1, personaId: c.personaId, periodo: c.periodo })),
+      primera.crear.map((c) => ({
+        obligacionId: 1,
+        personaId: c.personaId,
+        periodo: c.periodo,
+        activoId: c.activoId,
+      })),
       HOY,
     );
     expect(segunda.crear).toEqual([]);
@@ -103,6 +114,7 @@ describe('planificarGeneracion — periodos y estado', () => {
         periodo: '2026-09',
         fechaApertura: d('2026-09-01'),
         fechaLimite: d('2026-09-11'),
+        activoId: null,
       },
       {
         obligacionId: 1,
@@ -111,6 +123,7 @@ describe('planificarGeneracion — periodos y estado', () => {
         periodo: '2026-10',
         fechaApertura: d('2026-10-01'),
         fechaLimite: d('2026-10-11'),
+        activoId: null,
       },
       {
         obligacionId: 1,
@@ -119,6 +132,7 @@ describe('planificarGeneracion — periodos y estado', () => {
         periodo: '2026-11',
         fechaApertura: d('2026-11-01'),
         fechaLimite: d('2026-11-11'),
+        activoId: null,
       },
       {
         obligacionId: 1,
@@ -127,6 +141,7 @@ describe('planificarGeneracion — periodos y estado', () => {
         periodo: '2026-12',
         fechaApertura: d('2026-12-01'),
         fechaLimite: d('2026-12-11'),
+        activoId: null,
       },
     ]);
   });
@@ -151,7 +166,7 @@ describe('planificarGeneracion — periodos y estado', () => {
     const plan = planificarGeneracion(
       [obligacionBase],
       [ADA],
-      [{ obligacionId: 1, personaId: 1, periodo: '2026-09' }],
+      [{ obligacionId: 1, personaId: 1, periodo: '2026-09', activoId: null }],
       HOY,
     );
     // ADA ya tiene septiembre; quedan octubre a diciembre dentro del horizonte.

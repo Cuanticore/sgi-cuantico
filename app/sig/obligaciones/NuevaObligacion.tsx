@@ -21,9 +21,13 @@
 
 import { useMemo, useState } from 'react';
 import { crearObligacion } from '@/app/sig/acciones/tareas';
-import { preverGeneracion, type PersonaDelCenso } from '@/lib/sig/prevision';
+import {
+  preverGeneracion,
+  type ActivoDelInventario,
+  type PersonaDelCenso,
+} from '@/lib/sig/prevision';
 
-type Alcance = 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS';
+type Alcance = 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS' | 'ACTIVO' | 'TIPO_ACTIVO';
 type Periodicidad = 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
 
 export interface CatalogosObligacion {
@@ -31,6 +35,14 @@ export interface CatalogosObligacion {
   personas: { id: number; nombre: string }[];
   cargos: { id: number; nombre: string }[];
   areas: { id: number; nombre: string }[];
+  /// Los activos vigentes y los tipos MAGERIT: lo que hace posible el alcance por activo
+  /// (D3). Sin ellos, POL-TEC-01 solo se podia cargar nombrando el activo en el titulo, en
+  /// texto libre.
+  activos: { id: number; codigo: string; nombre: string; tipo: string; sinPropietario: boolean }[];
+  tiposDeActivo: { id: number; nombre: string; cuantos: number }[];
+  /// El inventario con tipo y propietario: lo que la prevision necesita para contar los
+  /// activos alcanzados y cuantos van a caer en el responsable de seguimiento.
+  inventario: ActivoDelInventario[];
   /// El censo con su área y cargo: lo que la previsión necesita para resolver el alcance.
   censo: PersonaDelCenso[];
 }
@@ -50,6 +62,11 @@ const ALCANCES: { valor: Alcance; etiqueta: string; ayuda: string }[] = [
   { valor: 'AREA', etiqueta: 'Un área', ayuda: 'Quienes pertenezcan a ella' },
   { valor: 'CARGO', etiqueta: 'Un cargo', ayuda: 'Quienes lo ocupen, en cualquier área' },
   { valor: 'PERSONA', etiqueta: 'Una persona', ayuda: 'Sólo a ella' },
+  // D3. La ayuda dice a QUIEN le llega, que es la pregunta que nadie hace hasta que la
+  // tarea aparece en la bandeja de alguien inesperado: al propietario del activo, que es
+  // un cargo, no una persona.
+  { valor: 'TIPO_ACTIVO', etiqueta: 'Un tipo de activo', ayuda: 'Una tarea por activo, a su propietario' },
+  { valor: 'ACTIVO', etiqueta: 'Un activo', ayuda: 'Solo ese, a su propietario' },
 ];
 
 export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObligacion }) {
@@ -71,6 +88,9 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
 
   // La previsión se recalcula con cada tecla, como el panel de riesgos: el punto es ver el
   // efecto de la decisión mientras se toma, no después de guardarla.
+  // Los dos alcances por activo cambian la unidad de la prevision y el texto de la ayuda.
+  const porActivo = alcance === 'ACTIVO' || alcance === 'TIPO_ACTIVO';
+
   const prevision = useMemo(
     () =>
       preverGeneracion(
@@ -79,14 +99,18 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
           alcancePersonaId: alcance === 'PERSONA' ? Number(destinoId) || undefined : undefined,
           alcanceCargoId: alcance === 'CARGO' ? Number(destinoId) || undefined : undefined,
           alcanceAreaId: alcance === 'AREA' ? Number(destinoId) || undefined : undefined,
+          alcanceActivoId: alcance === 'ACTIVO' ? Number(destinoId) || undefined : undefined,
+          alcanceTipoActivoId:
+            alcance === 'TIPO_ACTIVO' ? Number(destinoId) || undefined : undefined,
           periodicidad,
           fechaInicio: new Date(`${fechaInicio}T00:00:00.000Z`),
           plazoDias: Number(plazoDias),
         },
         catalogos.censo,
         new Date(),
+        catalogos.inventario,
       ),
-    [alcance, destinoId, periodicidad, fechaInicio, plazoDias, catalogos.censo],
+    [alcance, destinoId, periodicidad, fechaInicio, plazoDias, catalogos.censo, catalogos.inventario],
   );
 
   const listo =
@@ -96,7 +120,26 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
     fechaInicio !== '';
 
   const destinos =
-    alcance === 'AREA' ? catalogos.areas : alcance === 'CARGO' ? catalogos.cargos : catalogos.personas;
+    alcance === 'AREA'
+      ? catalogos.areas
+      : alcance === 'CARGO'
+        ? catalogos.cargos
+        : alcance === 'ACTIVO'
+          ? catalogos.activos.map((a) => ({
+              id: a.id,
+              // El código va primero: es como se nombra un activo en el inventario y en
+              // una auditoría, y hay activos con nombres parecidos.
+              nombre: `${a.codigo} · ${a.nombre}${a.sinPropietario ? ' — sin propietario' : ''}`,
+            }))
+          : alcance === 'TIPO_ACTIVO'
+            ? catalogos.tiposDeActivo.map((t) => ({
+                id: t.id,
+                // El conteo va en la opción porque es la cifra que decide: elegir un tipo
+                // con 180 activos vigentes crea 180 asignaciones por periodo, y eso hay
+                // que saberlo ANTES de elegirlo, no después en la previsión.
+                nombre: `${t.nombre} — ${t.cuantos} activo(s) vigente(s)`,
+              }))
+            : catalogos.personas;
 
   async function guardar() {
     setGuardando(true);
@@ -107,6 +150,8 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
       alcancePersonaId: alcance === 'PERSONA' ? Number(destinoId) : undefined,
       alcanceCargoId: alcance === 'CARGO' ? Number(destinoId) : undefined,
       alcanceAreaId: alcance === 'AREA' ? Number(destinoId) : undefined,
+      alcanceActivoId: alcance === 'ACTIVO' ? Number(destinoId) : undefined,
+      alcanceTipoActivoId: alcance === 'TIPO_ACTIVO' ? Number(destinoId) : undefined,
       periodicidad,
       fechaInicio: new Date(`${fechaInicio}T00:00:00.000Z`),
       plazoDias: Number(plazoDias),
@@ -212,7 +257,15 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
               className="entrada-campo mt-1"
             >
               <option value="">
-                {alcance === 'AREA' ? 'Elegir el área…' : alcance === 'CARGO' ? 'Elegir el cargo…' : 'Elegir la persona…'}
+                {alcance === 'AREA'
+                  ? 'Elegir el área…'
+                  : alcance === 'CARGO'
+                    ? 'Elegir el cargo…'
+                    : alcance === 'ACTIVO'
+                      ? 'Elegir el activo…'
+                      : alcance === 'TIPO_ACTIVO'
+                        ? 'Elegir el tipo de activo…'
+                        : 'Elegir la persona…'}
               </option>
               {destinos.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -320,7 +373,13 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
           ) : (
             <>
               <div className="grid grid-cols-4 gap-3">
-                <Dato n={prevision.personas} etiqueta="Personas" />
+                {/* En el alcance por activo la unidad es el ACTIVO, no la persona: mostrar
+                    «0 personas» sobre 180 activos sería una previsión que no dice nada. */}
+                {porActivo ? (
+                  <Dato n={prevision.activos} etiqueta="Activos vigentes" />
+                ) : (
+                  <Dato n={prevision.personas} etiqueta="Personas" />
+                )}
                 <Dato n={prevision.periodosAlAnio} etiqueta="Periodos al año" />
                 <Dato
                   n={prevision.asignacionesAlAnio}

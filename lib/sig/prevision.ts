@@ -15,7 +15,22 @@
 import { periodosHasta } from './periodos';
 import type { Periodicidad } from '@prisma/client';
 
-export type AlcanceObligacion = 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS';
+export type AlcanceObligacion =
+  | 'PERSONA'
+  | 'CARGO'
+  | 'AREA'
+  | 'TODOS'
+  | 'ACTIVO'
+  | 'TIPO_ACTIVO';
+
+/// Un activo vigente con su tipo y su propietario (que es un CARGO, no una persona). Es lo
+/// que la previsión necesita para contar el alcance por activo (D3).
+export interface ActivoDelInventario {
+  id: number;
+  activo: boolean;
+  tipoId: number;
+  propietarioId: number | null;
+}
 
 export interface PersonaDelCenso {
   id: number;
@@ -29,6 +44,8 @@ export interface EntradaPrevision {
   alcancePersonaId?: number;
   alcanceCargoId?: number;
   alcanceAreaId?: number;
+  alcanceActivoId?: number;
+  alcanceTipoActivoId?: number;
   periodicidad: Periodicidad;
   fechaInicio: Date;
   plazoDias: number;
@@ -38,6 +55,13 @@ export interface Prevision {
   /// A cuántas personas alcanza HOY. El lienzo subraya que el alcance se resuelve al
   /// generar cada periodo, así que este número es de hoy y puede cambiar.
   personas: number;
+  /// Cuantos ACTIVOS vigentes alcanza. Cero en los alcances por persona. Es la cifra que
+  /// decide en el alcance por tipo: un tipo con 180 activos crea 180 asignaciones por
+  /// periodo, y eso hay que verlo antes de guardar.
+  activos: number;
+  /// De esos activos, cuantos no tienen a quien dirigirse y van a caer en el responsable de
+  /// seguimiento (D3). Es un aviso, no un error: un activo sin propietario es un hallazgo.
+  activosSinDueno: number;
   periodosAlAnio: number;
   asignacionesAlAnio: number;
   /// Las primeras fechas límite, para ver si el plazo cae donde se espera.
@@ -76,13 +100,40 @@ export function personasAlcanzadas(
       return activas.filter((p) => p.cargoId === entrada.alcanceCargoId);
     case 'AREA':
       return activas.filter((p) => p.areaId === entrada.alcanceAreaId);
+    // Los alcances por activo NO cuentan personas: cuentan activos. Una tarea por activo,
+    // dirigida al cargo que lo posee. `activosAlcanzados` hace esa cuenta.
+    case 'ACTIVO':
+    case 'TIPO_ACTIVO':
+      return [];
   }
+}
+
+/// Los activos VIGENTES que el alcance toca. Sólo vigentes: una obligación no le pide nada
+/// a un activo que salió del inventario.
+export function activosAlcanzados(
+  entrada: EntradaPrevision,
+  inventario: readonly ActivoDelInventario[],
+): ActivoDelInventario[] {
+  const vigentes = inventario.filter((a) => a.activo);
+  switch (entrada.alcance) {
+    case 'ACTIVO':
+      return vigentes.filter((a) => a.id === entrada.alcanceActivoId);
+    case 'TIPO_ACTIVO':
+      return vigentes.filter((a) => a.tipoId === entrada.alcanceTipoActivoId);
+    default:
+      return [];
+  }
+}
+
+function esPorActivo(alcance: AlcanceObligacion): boolean {
+  return alcance === 'ACTIVO' || alcance === 'TIPO_ACTIVO';
 }
 
 export function preverGeneracion(
   entrada: EntradaPrevision,
   censo: readonly PersonaDelCenso[],
   hoy: Date,
+  inventario: readonly ActivoDelInventario[] = [],
 ): Prevision {
   const problemas: string[] = [];
   const avisos: string[] = [];
@@ -93,6 +144,8 @@ export function preverGeneracion(
     entrada.alcance === 'PERSONA' ? entrada.alcancePersonaId : undefined,
     entrada.alcance === 'CARGO' ? entrada.alcanceCargoId : undefined,
     entrada.alcance === 'AREA' ? entrada.alcanceAreaId : undefined,
+    entrada.alcance === 'ACTIVO' ? entrada.alcanceActivoId : undefined,
+    entrada.alcance === 'TIPO_ACTIVO' ? entrada.alcanceTipoActivoId : undefined,
   ].filter((d) => d !== undefined);
   if (entrada.alcance !== 'TODOS' && destinos.length === 0) {
     problemas.push(`falta elegir a quién alcanza: el alcance es ${entrada.alcance.toLowerCase()}`);
@@ -108,6 +161,8 @@ export function preverGeneracion(
   if (problemas.length > 0) {
     return {
       personas: 0,
+      activos: 0,
+      activosSinDueno: 0,
       periodosAlAnio: 0,
       asignacionesAlAnio: 0,
       primerosVencimientos: [],
@@ -117,8 +172,26 @@ export function preverGeneracion(
   }
 
   const alcanzadas = personasAlcanzadas(entrada, censo);
+  const activosDelAlcance = activosAlcanzados(entrada, inventario);
   const periodosAlAnio = PERIODOS_AL_ANIO[entrada.periodicidad];
-  const asignacionesAlAnio = alcanzadas.length * periodosAlAnio;
+
+  // En el alcance por activo la unidad es el ACTIVO, no la persona: D3 dice «una asignacion
+  // por activo vigente». Un activo cuyo cargo propietario lo ocupan dos personas produce
+  // dos, igual que el alcance por cargo.
+  const cargosOcupados = new Set(censo.filter((p) => p.activa).map((p) => p.cargoId));
+  const asignacionesPorPeriodo = esPorActivo(entrada.alcance)
+    ? activosDelAlcance.reduce((total, a) => {
+        if (a.propietarioId === null || !cargosOcupados.has(a.propietarioId)) return total + 1;
+        return (
+          total +
+          censo.filter((p) => p.activa && p.cargoId === a.propietarioId).length
+        );
+      }, 0)
+    : alcanzadas.length;
+  const asignacionesAlAnio = asignacionesPorPeriodo * periodosAlAnio;
+  const activosSinDueno = activosDelAlcance.filter(
+    (a) => a.propietarioId === null || !cargosOcupados.has(a.propietarioId),
+  ).length;
 
   // Las primeras fechas límite reales, del mismo módulo que usa la generación: si acá
   // saliera otra cuenta, la previsión estaría mintiendo sobre lo que va a pasar.
@@ -135,17 +208,33 @@ export function preverGeneracion(
     .slice(0, 4)
     .map((p) => p.fechaLimite.toISOString().slice(0, 10));
 
-  if (alcanzadas.length === 0) {
+  if (!esPorActivo(entrada.alcance) && alcanzadas.length === 0) {
     avisos.push(
       'el alcance no resuelve a ninguna persona activa: la obligación se crea y no genera nada ' +
         'hasta que alguien entre en ese alcance',
+    );
+  }
+  if (esPorActivo(entrada.alcance) && activosDelAlcance.length === 0) {
+    avisos.push(
+      'el alcance no resuelve a ningún activo vigente: la obligación se crea y no genera nada ' +
+        'hasta que entre uno',
+    );
+  }
+  // D3: «un activo sin propietario es un hallazgo, no un error de generación». La tarea SE
+  // CREA y va al responsable de seguimiento; el aviso dice cuántas van a llegarle, porque
+  // con 234 de 247 activos sin propietario eso puede ser toda la carga en una sola bandeja.
+  if (activosSinDueno > 0) {
+    avisos.push(
+      `${activosSinDueno} de ${activosDelAlcance.length} activo(s) no tienen a quién dirigirse ` +
+        '—sin propietario, o con un cargo que nadie ocupa— así que esas tareas van a caer en ' +
+        'el responsable de seguimiento y quedan marcadas como faltante',
     );
   }
   // 500 es donde una obligación deja de ser una tarea y pasa a ser una campaña. No se
   // bloquea —puede ser deliberado— pero nadie debería enterarse después.
   if (asignacionesAlAnio > 500) {
     avisos.push(
-      `son ${asignacionesAlAnio} asignaciones al año: ${alcanzadas.length} persona(s) por ` +
+      `son ${asignacionesAlAnio} asignaciones al año: ${asignacionesPorPeriodo} por periodo por ` +
         `${periodosAlAnio} periodo(s). Cada una aparece en la bandeja de alguien`,
     );
   }
@@ -166,6 +255,8 @@ export function preverGeneracion(
 
   return {
     personas: alcanzadas.length,
+    activos: activosDelAlcance.length,
+    activosSinDueno,
     periodosAlAnio,
     asignacionesAlAnio,
     primerosVencimientos,
