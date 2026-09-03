@@ -10,6 +10,7 @@
 import {
   accesosALaFecha,
   accesosSinSustento,
+  cierresDeTrimestre,
   codigoSolicitud,
   estadoDeSolicitud,
   personasConAccesoVigente,
@@ -202,5 +203,34 @@ describe('personasConAccesoVigente', () => {
 describe('codigoSolicitud', () => {
   it('lleva el año y cuatro digitos', () => {
     expect(codigoSolicitud(2026, 88)).toBe('SOL-2026-0088');
+  });
+});
+
+describe('cierresDeTrimestre — atajos de navegación, no una periodicidad', () => {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+  it('da los tres cierres anteriores desde un día cualquiera', () => {
+    // 3 de septiembre de 2026 está en el trimestre que arranca en julio.
+    expect(cierresDeTrimestre(new Date(Date.UTC(2026, 8, 3))).map(iso)).toEqual([
+      '2026-06-30',
+      '2026-03-31',
+      '2025-12-31',
+    ]);
+  });
+
+  it('cruza el año sin quedarse en el mismo', () => {
+    expect(cierresDeTrimestre(new Date(Date.UTC(2026, 0, 15))).map(iso)).toEqual([
+      '2025-12-31',
+      '2025-09-30',
+      '2025-06-30',
+    ]);
+  });
+
+  it('no repite el cierre cuando hoy ES el cierre', () => {
+    // 30 de junio ya se consulta como «hoy»; ofrecerlo otra vez sugeriría que son
+    // consultas distintas.
+    const r = cierresDeTrimestre(new Date(Date.UTC(2026, 5, 30))).map(iso);
+    expect(r).not.toContain('2026-06-30');
+    expect(r[0]).toBe('2026-03-31');
   });
 });

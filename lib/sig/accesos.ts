@@ -140,3 +140,29 @@ export const ETIQUETA_TIPO_SOLICITUD: Record<string, { etiqueta: string; control
   DEVOLUCION: { etiqueta: 'Devolución de activos', control: 'A.5.11' },
   UTILITARIO: { etiqueta: 'Utilitario', control: 'A.8.18' },
 };
+
+/// Los últimos cierres de trimestre anteriores a `hoy`, del más reciente al más viejo.
+///
+/// Son atajos de NAVEGACIÓN, no una periodicidad del sistema: el 31 de marzo es un hecho
+/// del calendario, y esta función no dice cada cuánto hay que revisar los accesos. Esa
+/// cadencia es una decisión que no está en ninguna fuente y no se inventa acá.
+///
+/// Si `hoy` cae exactamente en un cierre, ese cierre NO se repite en la lista: ya está
+/// disponible como «hoy» y ofrecerlo dos veces sugeriría que son consultas distintas.
+export function cierresDeTrimestre(hoy: Date, cuantos = 3): Date[] {
+  const salida: Date[] = [];
+  let anio = hoy.getUTCFullYear();
+  // El trimestre en curso arranca en el mes 0, 3, 6 o 9; su cierre anterior es el último
+  // día del mes previo a ese arranque.
+  let mesDeCierre = Math.floor(hoy.getUTCMonth() / 3) * 3;
+  while (salida.length < cuantos) {
+    if (mesDeCierre === 0) {
+      anio -= 1;
+      mesDeCierre = 12;
+    }
+    // Día 0 del mes de arranque = último día del mes anterior.
+    salida.push(new Date(Date.UTC(anio, mesDeCierre, 0)));
+    mesDeCierre -= 3;
+  }
+  return salida;
+}
