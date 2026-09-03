@@ -668,20 +668,21 @@ model Activo {
   bajaEn   DateTime? @map("baja_en")
   creadoEn DateTime  @default(now()) @map("creado_en")
 
-  area                Area              @relation(fields: [areaId], references: [id])
-  tipo                TipoMagerit       @relation(fields: [tipoId], references: [id])
-  subtipo             SubtipoMagerit    @relation(fields: [subtipoId], references: [id])
-  propietario         CargoResponsable? @relation("ActivoPropietario", fields: [propietarioId], references: [id])
-  custodio            CargoResponsable? @relation("ActivoCustodio", fields: [custodioId], references: [id])
-  ubicacion           Ubicacion?        @relation(fields: [ubicacionId], references: [id])
-  entorno             Entorno?          @relation(fields: [entornoId], references: [id])
-  proveedor           Proveedor?        @relation(fields: [proveedorId], references: [id])
-  superior            Activo?           @relation("ActivoJerarquia", fields: [superiorId], references: [id])
-  dependientes        Activo[]          @relation("ActivoJerarquia")
+  area                Area                @relation(fields: [areaId], references: [id])
+  tipo                TipoMagerit         @relation(fields: [tipoId], references: [id])
+  subtipo             SubtipoMagerit      @relation(fields: [subtipoId], references: [id])
+  propietario         CargoResponsable?   @relation("ActivoPropietario", fields: [propietarioId], references: [id])
+  custodio            CargoResponsable?   @relation("ActivoCustodio", fields: [custodioId], references: [id])
+  ubicacion           Ubicacion?          @relation(fields: [ubicacionId], references: [id])
+  entorno             Entorno?            @relation(fields: [entornoId], references: [id])
+  proveedor           Proveedor?          @relation(fields: [proveedorId], references: [id])
+  superior            Activo?             @relation("ActivoJerarquia", fields: [superiorId], references: [id])
+  dependientes        Activo[]            @relation("ActivoJerarquia")
   valores             ActivoValor[]
   riesgos             Riesgo[]
-  obligacionesAlcance Obligacion[]      @relation("ObligacionAlcanceActivo")
-  asignaciones        Asignacion[]      @relation("AsignacionActivo")
+  obligacionesAlcance Obligacion[]        @relation("ObligacionAlcanceActivo")
+  asignaciones        Asignacion[]        @relation("AsignacionActivo")
+  actasBorrado        ActaBorradoActivo[]
 
   @@index([areaId])
   @@index([tipoId])
@@ -999,7 +1000,33 @@ model Persona {
   sincronizadaEn DateTime? @map("sincronizada_en")
   areaId         Int?      @map("area_id")
   cargoId        Int?      @map("cargo_id")
-  creadaEn       DateTime  @default(now()) @map("creada_en")
+
+  // ── REQ-SIG-09 · Gestion de Colaboradores ──
+  /// C1 · todo colaborador activo tiene cuenta del Directorio. `MANUAL` es anomalia.
+  origen                     OrigenPersona    @default(DIRECTORIO)
+  documentoIdentidad         String?          @map("documento_identidad")
+  tipoContratoId             Int?             @map("tipo_contrato_id")
+  tipoColaborador            TipoColaborador?
+  fechaIngreso               DateTime?        @map("fecha_ingreso") @db.Date
+  fechaInicioContrato        DateTime?        @map("fecha_inicio_contrato") @db.Date
+  fechaTerminacion           DateTime?        @map("fecha_terminacion") @db.Date
+  telefono                   String?
+  correoPersonal             String?          @map("correo_personal")
+  ciudad                     String?
+  direccion                  String?
+  /// C6 · se repite al promover a un cargo con acceso Confidencial o privilegios de
+  /// administracion. Deber por evento, no periodico.
+  verificacionAntecedentesEn DateTime?        @map("verificacion_antecedentes_en") @db.Date
+  /// CUANDO se retiro. Es una FECHA y no un booleano a proposito: el criterio 2 pide
+  /// «consultar la lista al 31/12/2025 y ver a quien estaba activo ese dia», y eso un
+  /// booleano no lo puede responder.
+  ///
+  /// `activa` sigue siendo el espejo del Directorio —lo escribe la sincronización— y
+  /// `retiradoEn` es el retiro de la ORGANIZACIÓN. Se derivan juntos en
+  /// `lib/sig/colaboradores.ts`: son dos fuentes del mismo hecho, y por eso ninguna
+  /// pantalla las lee por separado.
+  retiradoEn                 DateTime?        @map("retirado_en")
+  creadaEn                   DateTime         @default(now()) @map("creada_en")
 
   area  Area?             @relation(fields: [areaId], references: [id])
   cargo CargoResponsable? @relation(fields: [cargoId], references: [id])
@@ -1034,6 +1061,10 @@ model Persona {
   versionesPublicadas VersionContenido[] @relation("VersionPublicadaPor")
 
   evaluacionesOrg EvaluacionOrganizacion[] @relation("EvaluacionOrgPor")
+
+  tipoContrato       TipoContrato?       @relation(fields: [tipoContratoId], references: [id])
+  actasBorrado       ActaBorradoSeguro[] @relation("ActaBorradoPersona")
+  borradosEjecutados ActaBorradoSeguro[] @relation("ActaBorradoEjecutor")
 
   @@map("persona")
 }
@@ -2293,4 +2324,102 @@ model EvaluacionOrganizacion {
 
   @@unique([organizacionId, anio])
   @@map("evaluacion_organizacion")
+}
+
+// ─── Gestión de Colaboradores (REQ-SIG-09 · Fase 2) ────────────────────────────────────
+
+enum OrigenPersona {
+  DIRECTORIO
+  /// C1 · excepción transitoria, NO una categoría válida. La lista lo muestra como
+  /// anomalía: una persona activa sin cuenta del Directorio no puede recibir asignaciones
+  /// ni firmar, así que es un defecto de la vinculación.
+  MANUAL
+
+  @@map("origen_persona")
+}
+
+/// `BASE` · `RECURRENTE` · `TEMPORAL`. Enum y no tabla porque son tres valores cerrados sin
+/// atributos propios; `TipoContrato` sí es tabla porque su dato de origen viene sucio.
+///
+/// **Sin `INACTIVO`**: el estado no es un tipo. Es lo que la spec subraya y lo que hace que
+/// el tipo de contrato sobreviva al retiro, que es justo lo que hoy se pierde.
+enum TipoColaborador {
+  BASE
+  RECURRENTE
+  TEMPORAL
+
+  @@map("tipo_colaborador")
+}
+
+/// C8 · el tipo de contrato es un catálogo CERRADO.
+///
+/// El texto libre produjo siete valores para cuatro conceptos, uno con error de digitación:
+/// «Prestación de Servicios» estaba escrito de tres formas. Una tabla con `protegido` es lo
+/// que impide que vuelva a pasar.
+model TipoContrato {
+  id       Int     @id @default(autoincrement())
+  nombre   String  @unique
+  /// De nómina o no. Es lo único que el tipo de contrato cambia para el SIG: las
+  /// afiliaciones y la liquidación. Los siete pasos de seguridad son idénticos para todos.
+  esNomina Boolean @default(false) @map("es_nomina")
+  orden    Int     @default(0)
+  activo   Boolean @default(true)
+
+  personas Persona[]
+
+  @@map("tipo_contrato")
+}
+
+/// Cómo se borró la información del equipo. Catálogo porque el método es evidencia: «tres
+/// pasadas» y «destrucción física» no responden lo mismo ante un auditor.
+model MetodoBorrado {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  orden  Int     @default(0)
+  activo Boolean @default(true)
+
+  actas ActaBorradoSeguro[]
+
+  @@map("metodo_borrado")
+}
+
+/// FOR-SIG-18 · el acta de borrado seguro.
+///
+/// Cierra el control A.8.10 y el ítem 62 del catálogo PTR-TEC-03. **Sin acta, la
+/// desvinculación no está completa aunque la persona ya no tenga cuenta** — y quien salió
+/// sin acta es una de las cuatro anomalías que la lista responde sola.
+///
+/// Criterio de aceptación 7: un acta sin activos asociados NO se guarda. Un acta que no
+/// dice de qué equipo se borró la información no es evidencia de nada.
+model ActaBorradoSeguro {
+  id             Int      @id @default(autoincrement())
+  personaId      Int      @map("persona_id")
+  fecha          DateTime @db.Date
+  metodoId       Int      @map("metodo_id")
+  ejecutadoPorId Int?     @map("ejecutado_por_id")
+  /// La evidencia del borrado, cuando se adjuntó. Va por `Evidencia`, que ya maneja
+  /// archivos para los tres consumidores.
+  evidenciaId    Int?     @map("evidencia_id")
+  nota           String?
+  creadaEn       DateTime @default(now()) @map("creada_en")
+
+  persona      Persona             @relation("ActaBorradoPersona", fields: [personaId], references: [id])
+  metodo       MetodoBorrado       @relation(fields: [metodoId], references: [id])
+  ejecutadoPor Persona?            @relation("ActaBorradoEjecutor", fields: [ejecutadoPorId], references: [id])
+  activos      ActaBorradoActivo[]
+
+  @@map("acta_borrado_seguro")
+}
+
+/// Los activos cuya información se borró. N:M porque una desvinculación puede cubrir el
+/// portátil, el celular y un disco externo en la misma acta.
+model ActaBorradoActivo {
+  actaId   Int @map("acta_id")
+  activoId Int @map("activo_id")
+
+  acta   ActaBorradoSeguro @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  activo Activo            @relation(fields: [activoId], references: [id])
+
+  @@id([actaId, activoId])
+  @@map("acta_borrado_activo")
 }
