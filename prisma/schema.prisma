@@ -665,6 +665,14 @@ model Activo {
   entornoId      Int?    @map("entorno_id")
   proveedorId    Int?    @map("proveedor_id")
   superiorId     Int?    @map("superior_id")
+  /// E2 · apunta al NIVEL 3, el mas especifico. Los grados 1 y 2 se derivan subiendo por
+  /// `padreId`; guardar los tres seria guardar lo derivable.
+  nivelId        Int?    @map("nivel_id")
+  /// E9 · el custodio PERSONA. `custodioId` sigue siendo el cargo, y son dos cosas
+  /// distintas: el cargo dice quien responde por el activo en el organigrama, la persona
+  /// dice quien lo tiene en la mano. Al inactivar una persona sus activos quedan listados
+  /// para reasignar, igual que sus tareas.
+  personaId      Int?    @map("persona_id")
 
   datosCliente     Ternario @default(POR_DEFINIR) @map("datos_cliente")
   datosPersonales  Ternario @default(POR_DEFINIR) @map("datos_personales")
@@ -691,6 +699,12 @@ model Activo {
   asignaciones        Asignacion[]        @relation("AsignacionActivo")
   actasBorrado        ActaBorradoActivo[]
   eventosAfectado     ActivoAfectado[]
+  nivel               NivelActivo?        @relation(fields: [nivelId], references: [id])
+  persona             Persona?            @relation("ActivoCustodioPersona", fields: [personaId], references: [id])
+  dependenciasDe      DependenciaActivo[] @relation("DependenciaBase")
+  dependenciasHacia   DependenciaActivo[] @relation("DependenciaDestino")
+  despliegues         Despliegue[]        @relation("DespliegueActivo")
+  desplieguesServidor Despliegue[]        @relation("DespliegueServidor")
 
   @@index([areaId])
   @@index([tipoId])
@@ -1043,6 +1057,8 @@ model Persona {
   obligacionesSeguimiento  Obligacion[]                   @relation("ObligacionSeguimiento")
   asignaciones             Asignacion[]                   @relation("AsignacionPersona")
   ejecucionesRegistradas   EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
+  activosACargo            Activo[]                       @relation("ActivoCustodioPersona")
+  productosResponsable     Producto[]                     @relation("ProductoResponsable")
   metricasResponsable      Metrica[]                      @relation("MetricaResponsable")
   medicionesRegistradas    MedicionMetrica[]              @relation("MedicionRegistradaPor")
   asignacionesCerradasPor  Asignacion[]                   @relation("AsignacionCerradaPor")
@@ -3045,4 +3061,194 @@ model MedicionMetrica {
   /// Un periodo no se puede registrar dos veces.
   @@unique([metricaId, periodo])
   @@map("medicion_metrica")
+}
+
+// ─── Gestion Tecnologica (REQ-SIG-06) ──────────────────────────────────────────────────
+
+/// D8 (02/09/2026) · el nivel 1 no separa razones sociales, separa NATURALEZAS de activo.
+/// Lo que soporta a la organizacion entera va en `EMPRESA`; lo que pertenece a un producto
+/// o a un proyecto va en el suyo. Por eso se descarto `CUANTICO` de la hoja de diseño.
+enum ClaseNivel {
+  EMPRESA
+  PRODUCTOS
+  PROYECTOS
+
+  @@map("clase_nivel")
+}
+
+/// E1 · la jerarquia de tres grados. **Es una jerarquia de verdad, no tres columnas
+/// sueltas.**
+///
+/// En el Excel nada impide que `MINTRACE` aparezca bajo `EMPRESA`: son tres columnas y
+/// cualquier combinacion se puede escribir. Aca el nivel 2 pertenece a un nivel 1 y el 3 a
+/// un 2. Sin eso, «agrupar por niveles» produce arboles imposibles y el mapa tecnologico no
+/// se puede dibujar.
+model NivelActivo {
+  id      Int         @id @default(autoincrement())
+  grado   Int
+  nombre  String
+  /// Nulo SOLO en grado 1. La regla no la impone el esquema porque una llave foranea no
+  /// sabe de grados: la impone `lib/sig/niveles.ts` y la valida el servidor.
+  padreId Int?        @map("padre_id")
+  /// Solo en grado 1. Un nivel 2 o 3 hereda la clase de su raiz; guardarla otra vez seria
+  /// guardar lo derivable y permitiria que un hijo contradijera a su padre.
+  clase   ClaseNivel?
+  orden   Int         @default(0)
+  activo  Boolean     @default(true)
+
+  padre     NivelActivo?  @relation("NivelJerarquia", fields: [padreId], references: [id])
+  hijos     NivelActivo[] @relation("NivelJerarquia")
+  activos   Activo[]
+  productos Producto[]
+
+  @@index([grado, padreId])
+  @@map("nivel_activo")
+}
+
+/// E8 · la configuracion minima de un producto o proyecto. **No bloquea: señala lo que
+/// falta.**
+///
+/// Es lo que convierte el inventario en algo verificable. La ficha del producto puede decir
+/// «le faltan el ambiente de staging y la documentacion publica», que es exactamente el
+/// trabajo que hoy nadie hace porque nadie sabe que deberia estar.
+model PlantillaNivel {
+  id             Int        @id @default(autoincrement())
+  claseNivel     ClaseNivel @map("clase_nivel")
+  nombreNivel3   String     @map("nombre_nivel_3")
+  activoEsperado String     @map("activo_esperado")
+  obligatorio    Boolean    @default(true)
+  orden          Int        @default(0)
+
+  @@unique([claseNivel, nombreNivel3, activoEsperado])
+  @@map("plantilla_nivel")
+}
+
+/// E4 · la dependencia es DIRIGIDA y TIPADA. «A depende de B» no implica «B depende de A»,
+/// y el tipo dice en que sentido.
+///
+/// El cuarto valor era `SE_DESPLIEGA_EN` y se cambio a `SE_ALOJA_EN` el 02/09/2026: «se
+/// despliega en» describe exactamente lo que registra `Despliegue`, asi que dejarlo como
+/// tipo de dependencia crea dos lugares para el mismo hecho. `SE_ALOJA_EN` si es una
+/// relacion activo-activo legitima: la base de datos se aloja en el servidor, y ninguna de
+/// las dos es un despliegue.
+enum TipoDependencia {
+  USA
+  SE_ALOJA_EN
+  AUTENTICA_CON
+  ALMACENA_EN
+
+  @@map("tipo_dependencia")
+}
+
+/// El grafo, que **convive con `superiorId` y no lo reemplaza**. Confundirlos es el error
+/// clasico de estos inventarios:
+///
+/// - `superiorId` es CONTENCION: «este ambiente esta dentro de MINTRACE». Un padre, un arbol.
+/// - `DependenciaActivo` es DEPENDENCIA: «el CRM depende de Apollo, RNEC, ANI, RUES…».
+///   Muchos, y un grafo.
+///
+/// E3 · **no se admiten ciclos, de ninguna longitud.** La validacion recorre la cadena
+/// completa antes de aceptar la arista: comprobar solo la reciprocidad directa deja pasar el
+/// ciclo largo, que es justo el que hace que el drill-down no termine.
+model DependenciaActivo {
+  id          Int             @id @default(autoincrement())
+  activoId    Int             @map("activo_id")
+  dependeDeId Int             @map("depende_de_id")
+  tipo        TipoDependencia
+  nota        String?
+  creadaEn    DateTime        @default(now()) @map("creada_en")
+
+  activo    Activo @relation("DependenciaBase", fields: [activoId], references: [id])
+  dependeDe Activo @relation("DependenciaDestino", fields: [dependeDeId], references: [id])
+
+  @@unique([activoId, dependeDeId, tipo])
+  @@index([dependeDeId])
+  @@map("dependencia_activo")
+}
+
+enum ConfianzaDato {
+  ALTA
+  MEDIA
+  BAJA
+
+  @@map("confianza_dato")
+}
+
+/// E5 · **un despliegue NO es un activo, y no genera riesgos.**
+///
+/// El CRM aparece tres veces —staging, desarrollo y experimental— y son el mismo activo
+/// desplegado tres veces. Si cada fila fuera un activo, el inventario se multiplicaria por
+/// seis y el motor generaria cerca de mil doscientos riesgos que nadie va a valorar. El
+/// riesgo se aprecia sobre el activo; el despliegue dice DONDE VIVE.
+model Despliegue {
+  id         Int  @id @default(autoincrement())
+  /// El activo padre —el componente—. Nulo cuando la importacion no lo reconocio: E7, ese
+  /// despliegue queda PENDIENTE DE ASOCIAR, visible y contado. No se descarta en silencio,
+  /// que es como se pierden los servicios olvidados.
+  activoId   Int? @map("activo_id")
+  /// El activo servidor, cuando se conoce.
+  servidorId Int? @map("servidor_id")
+
+  nombre             String
+  componente         String?
+  repoGithub         String?       @map("repo_github")
+  ambiente           String
+  plataforma         String?
+  servidor           String?
+  ip                 String?
+  url                String?
+  imagen             String?
+  tagRama            String?       @map("tag_rama")
+  contenedorServicio String?       @map("contenedor_servicio")
+  puerto             String?
+  baseDatos          String?       @map("base_datos")
+  estado             String
+  /// De donde salio el dato: «Coolify DB (tabla applications) + nginx sites-enabled». Un
+  /// inventario tecnico sin esto no se puede volver a verificar, y es la mitad del valor
+  /// de la hoja.
+  evidencia          String?
+  /// Un dato inferido y uno confirmado no valen igual, y la pantalla lo muestra.
+  confianza          ConfianzaDato @default(MEDIA)
+  notas              String?
+
+  activoRegistro Boolean  @default(true) @map("activo_registro")
+  importadoEn    DateTime @default(now()) @map("importado_en")
+
+  activo         Activo? @relation("DespliegueActivo", fields: [activoId], references: [id])
+  servidorActivo Activo? @relation("DespliegueServidor", fields: [servidorId], references: [id])
+
+  /// E6 · la importacion es IDEMPOTENTE por `repoGithub + ambiente + servidor`: reimportar
+  /// la exportacion actualiza, no duplica. `NULLS NOT DISTINCT` se agrega en el SQL de la
+  /// migracion —Prisma no lo sabe expresar—, y sin eso dos filas con el mismo repo y
+  /// servidor nulo se duplicarian en cada importacion.
+  @@unique([repoGithub, ambiente, servidor])
+  @@index([activoId])
+  @@map("despliegue")
+}
+
+/// D14 · **solo el agrupador.** Un producto agrupa sistemas y agrupa activos; NO tiene ciclo
+/// de vida propio.
+///
+/// La version anterior de la spec definia `VersionProducto` y `EtapaCicloVida` con siete
+/// etapas deducidas del Anexo A. El sistema documental ya tenia todo eso, mejor: FOR-TEC-04
+/// con doce hojas, PRO-TEC-04 con ocho fases y seis puertas. La version y el ciclo de vida
+/// no son del producto: son del SISTEMA, y viven en REQ-SIG-08.
+///
+/// MINTRACE se compone de varios desplegables con ciclo independiente, y preguntar «¿en que
+/// fase esta MINTRACE?» no tiene respuesta: la tienen sus tres sistemas, cada uno en la suya.
+model Producto {
+  id            Int      @id @default(autoincrement())
+  /// El nivel 1 de clase PRODUCTOS o PROYECTOS que este producto encabeza.
+  nivelId       Int      @unique @map("nivel_id")
+  nombre        String
+  descripcion   String?
+  responsableId Int      @map("responsable_id")
+  clienteRef    String?  @map("cliente_ref")
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en")
+
+  nivel       NivelActivo @relation(fields: [nivelId], references: [id])
+  responsable Persona     @relation("ProductoResponsable", fields: [responsableId], references: [id])
+
+  @@map("producto")
 }

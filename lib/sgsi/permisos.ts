@@ -61,6 +61,9 @@ export type Permiso =
   | 'auditoria:administrar'
   | 'sgsi:ver'
   | 'sgsi:escribir'
+  | 'tecnologia:ver'
+  | 'tecnologia:escribir'
+  | 'tecnologia:administrar'
   | 'activo:valorar'
   | 'riesgo:tratar'
   | 'parametrizacion:escribir'
@@ -86,6 +89,12 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'auditoria:administrar',
     'sgsi:ver',
     'sgsi:escribir',
+    // REQ-SIG-06 · Lideres SIG administra todo el modulo. Colaborador no entra, salvo
+    // para ver los activos que tiene a cargo desde su propia ficha — y eso lo resuelve
+    // `misig:ver`, no un permiso de tecnologia.
+    'tecnologia:ver',
+    'tecnologia:escribir',
+    'tecnologia:administrar',
     'activo:valorar',
     'riesgo:tratar',
     'parametrizacion:escribir',
