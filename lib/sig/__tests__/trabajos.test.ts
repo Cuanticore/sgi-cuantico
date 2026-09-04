@@ -8,7 +8,14 @@
 // buscar un error de escritura en el crontab; 501 dice «el nombre esta bien, el modulo no
 // esta». Con la respuesta equivocada se pierde una tarde.
 
-import { TRABAJOS, trabajoPorNombre, AUTOR_SISTEMA } from '../trabajos-catalogo';
+import {
+  TRABAJOS,
+  trabajoPorNombre,
+  AUTOR_SISTEMA,
+  estadoDeTrabajo,
+  saludDelSistema,
+  type UltimaCorrida,
+} from '../trabajos-catalogo';
 
 describe('el catalogo', () => {
   // Los ocho del documento, mas el de envios que agrupa tres. Si alguien agrega o quita
@@ -75,5 +82,83 @@ describe('AUTOR_SISTEMA', () => {
   it('no se puede confundir con una persona', () => {
     expect(AUTOR_SISTEMA).toContain('sistema');
     expect(AUTOR_SISTEMA).not.toContain('@cuantico.com');
+  });
+});
+
+describe('estadoDeTrabajo — nunca corrió NO es al día', () => {
+  const ahora = new Date('2026-09-04T15:00:00.000Z');
+  const hace = (horas: number) => new Date(ahora.getTime() - horas * 3_600_000);
+  const u = (horas: number, resultado: UltimaCorrida['resultado'] = 'EXITOSO'): UltimaCorrida => ({
+    trabajo: 'x',
+    inicio: hace(horas),
+    resultado,
+  });
+
+  it('un trabajo que jamás se ejecutó se reporta como tal', () => {
+    // Es exactamente el que nadie nota que falta; pintarlo de verde sería el defecto que
+    // esta pantalla existe para evitar.
+    expect(estadoDeTrabajo('Diario, 05:00', null, ahora)).toBe('NUNCA_CORRIO');
+  });
+
+  it('un diario que corrió ayer está al día', () => {
+    expect(estadoDeTrabajo('Diario, 05:00', u(20), ahora)).toBe('AL_DIA');
+  });
+
+  it('un diario con más de dos días está atrasado', () => {
+    expect(estadoDeTrabajo('Diario, 05:00', u(50), ahora)).toBe('ATRASADO');
+  });
+
+  it('el margen extra evita la alarma diaria a la hora del cron', () => {
+    // Un cron de las 05:00 mirado a las 04:00 del día siguiente lleva 23 h: no está
+    // atrasado. Una tolerancia justa produciría una alarma diaria que la gente ignoraría.
+    expect(estadoDeTrabajo('Diario, 05:00', u(23), ahora)).toBe('AL_DIA');
+  });
+
+  it('un semanal aguanta ocho días, no dos', () => {
+    expect(estadoDeTrabajo('Semanal, lunes 07:00', u(24 * 7), ahora)).toBe('AL_DIA');
+    expect(estadoDeTrabajo('Semanal, lunes 07:00', u(24 * 9), ahora)).toBe('ATRASADO');
+  });
+
+  it('el FALLO manda sobre el atraso', () => {
+    // Decir «al día» porque corrió hace una hora sería contar la hora y callar el resultado.
+    expect(estadoDeTrabajo('Diario, 05:00', u(1, 'FALLIDO'), ahora)).toBe('FALLIDO');
+  });
+
+  it('una corrida PARCIAL no se toma por fallo', () => {
+    // Parcial es «hizo parte»: no es exito y no es falla, y colapsarla en fallo escondería
+    // que algo si se hizo.
+    expect(estadoDeTrabajo('Diario, 05:00', u(1, 'PARCIAL'), ahora)).toBe('AL_DIA');
+  });
+
+  it('un `cuando` que no se reconoce no se da por bueno automáticamente', () => {
+    expect(estadoDeTrabajo('cuando alguien se acuerde', u(24 * 40), ahora)).toBe('ATRASADO');
+  });
+});
+
+describe('saludDelSistema — sólo lo que ABRE PERIODOS decide si medimos', () => {
+  it('con la generación atrasada, el sistema NO está midiendo', () => {
+    const r = saludDelSistema([{ trabajo: 'generar-asignaciones', estado: 'ATRASADO' }]);
+    expect(r.midiendo).toBe(false);
+    expect(r.culpables).toEqual(['generar-asignaciones']);
+  });
+
+  it('un correo caído NO atenúa el tablero', () => {
+    // Los indicadores siguen siendo ciertos: nadie recibió el aviso, pero las tareas
+    // existen. Mezclarlo haría que la gente aprendiera a ignorar la banda.
+    const r = saludDelSistema([
+      { trabajo: 'generar-asignaciones', estado: 'AL_DIA' },
+      { trabajo: 'correo-semanal', estado: 'FALLIDO' },
+    ]);
+    expect(r.midiendo).toBe(true);
+  });
+
+  it('nunca haber corrido también rompe la medición', () => {
+    expect(saludDelSistema([{ trabajo: 'generar-asignaciones', estado: 'NUNCA_CORRIO' }]).midiendo).toBe(
+      false,
+    );
+  });
+
+  it('con todo al día, mide', () => {
+    expect(saludDelSistema([{ trabajo: 'generar-asignaciones', estado: 'AL_DIA' }]).midiendo).toBe(true);
   });
 });

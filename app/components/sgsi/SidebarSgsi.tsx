@@ -72,6 +72,9 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Cumplimiento de tareas', abreviatura: 'CUM', href: '/sig/tablero-tareas' },
       { etiqueta: 'Resumen SGSI', abreviatura: 'RSG', href: '/sgsi' },
       { etiqueta: 'Verificación del motor', abreviatura: 'VER', href: '/sgsi/verificacion' },
+      // La pregunta que va primero que cualquier porcentaje: ¿el motor corrio? Va junto a
+      // los indicadores porque es la condicion para que esos indicadores sean de fiar.
+      { etiqueta: 'Estado del sistema', abreviatura: 'EST', href: '/sig/estado' },
     ],
   },
   {

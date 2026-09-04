@@ -92,3 +92,85 @@ export function trabajoPorNombre(nombre: string): DefinicionTrabajo | null {
 /// un registro firmado por alguien que estaba durmiendo es peor que uno firmado por el
 /// sistema, porque el autor de la bitácora es evidencia de auditoría.
 export const AUTOR_SISTEMA = 'sistema@cron';
+
+// ─── ¿El sistema está midiendo? ────────────────────────────────────────────────────────
+
+export type EstadoTrabajo = 'AL_DIA' | 'ATRASADO' | 'FALLIDO' | 'NUNCA_CORRIO';
+
+export interface UltimaCorrida {
+  trabajo: string;
+  inicio: Date;
+  resultado: 'EXITOSO' | 'FALLIDO' | 'PARCIAL' | null;
+}
+
+/// Cuántas horas puede pasar cada trabajo sin correr antes de considerarse atrasado.
+///
+/// Sale de `cuando` y no de una tabla de tolerancias: un trabajo diario que lleva más de
+/// **dos días** sin correr está atrasado, y uno semanal más de **ocho**. El margen de un día
+/// extra es a propósito — un cron que corre a las 05:00 y se mira a las 04:00 del día
+/// siguiente no está atrasado, y una tolerancia justa produciría una alarma diaria a esa
+/// hora que la gente aprendería a ignorar.
+export function horasDeTolerancia(cuando: string): number {
+  const c = cuando.toLowerCase();
+  if (c.startsWith('diario')) return 48;
+  if (c.startsWith('semanal') || c.startsWith('lunes')) return 24 * 8;
+  if (c.startsWith('mensual')) return 24 * 35;
+  if (c.startsWith('cada hora') || c.startsWith('horario')) return 3;
+  // Un `cuando` que no se reconoce NO se da por bueno: se le aplica la tolerancia más
+  // laxa que el catálogo maneja, y la pantalla lo muestra igual con su última corrida.
+  return 24 * 35;
+}
+
+/// El estado de un trabajo contra su última corrida.
+///
+/// **`NUNCA_CORRIO` no es «al día».** Un trabajo declarado que jamás se ejecutó es
+/// exactamente el que nadie nota que falta, y pintarlo de verde sería el defecto que esta
+/// pantalla existe para evitar.
+export function estadoDeTrabajo(
+  cuando: string,
+  ultima: UltimaCorrida | null,
+  ahora: Date,
+): EstadoTrabajo {
+  if (ultima === null) return 'NUNCA_CORRIO';
+  // Un fallo manda sobre el atraso: si la última corrida reventó, decir «al día» porque
+  // fue hace una hora sería contar la hora y callar el resultado.
+  if (ultima.resultado === 'FALLIDO') return 'FALLIDO';
+  const horas = (ahora.getTime() - ultima.inicio.getTime()) / 3_600_000;
+  return horas > horasDeTolerancia(cuando) ? 'ATRASADO' : 'AL_DIA';
+}
+
+export interface SaludDelSistema {
+  midiendo: boolean;
+  /// Los trabajos que rompen la medición, por nombre. Vacío cuando todo corre.
+  culpables: string[];
+}
+
+/// **La pregunta que va primero que cualquier porcentaje: ¿el sistema está midiendo?**
+///
+/// Sólo los trabajos que ABREN PERIODOS deciden esto. Si el correo semanal no salió, los
+/// indicadores siguen siendo ciertos —nadie recibió el aviso, pero las tareas existen—; si
+/// `generar-asignaciones` no corrió, los porcentajes de cumplimiento no son bajos porque la
+/// gente incumpla: son bajos porque los periodos no se abrieron.
+///
+/// Mezclar los dos tipos de trabajo en una sola alarma haría que un correo caído atenuara
+/// todo el tablero sin motivo, y la gente aprendería a ignorar la banda.
+export function saludDelSistema(
+  estados: readonly { trabajo: string; estado: EstadoTrabajo }[],
+  trabajosQueAbrenPeriodos: readonly string[] = ['generar-asignaciones'],
+): SaludDelSistema {
+  const culpables = estados
+    .filter(
+      (e) =>
+        trabajosQueAbrenPeriodos.includes(e.trabajo) &&
+        (e.estado === 'ATRASADO' || e.estado === 'FALLIDO' || e.estado === 'NUNCA_CORRIO'),
+    )
+    .map((e) => e.trabajo);
+  return { midiendo: culpables.length === 0, culpables };
+}
+
+export const ETIQUETA_ESTADO_TRABAJO: Record<EstadoTrabajo, string> = {
+  AL_DIA: 'al día',
+  ATRASADO: 'atrasado',
+  FALLIDO: 'falló',
+  NUNCA_CORRIO: 'nunca corrió',
+};
