@@ -138,15 +138,20 @@ export default function ProductosClient({
             <div className="flex flex-col gap-3 px-4 py-4">
               {/* El hueco declarado. Se dibuja con su motivo en vez de omitirse: un panel
                   que falta y no se ve es indistinguible de uno que se decidió no construir. */}
+              {/* El hueco que esta pantalla declaró y REQ-SIG-08 llenó. Ya no se dice «no
+                  existe»: se lleva a donde vive. */}
               <p
                 className="rounded-tarjeta border border-dashed px-4 py-4 text-11_5 leading-relaxed [text-wrap:pretty]"
                 style={{ borderColor: 'var(--hf-border-field)', color: 'var(--hf-text-muted)' }}
               >
                 <strong className="font-semibold">Las seis puertas viven en el sistema, no en el producto.</strong>{' '}
-                La hoja de vida —fases, puertas, requisitos, pruebas y los 73 ítems de
-                PTR-TEC-03— pertenece a cada sistema desplegable y se especifica en REQ-SIG-08.
-                Esa entidad todavía no existe, y definirla acá crearía el segundo lugar donde
-                se especifica lo mismo.
+                La hoja de vida —fases, puertas, requisitos, pruebas, componentes y liberaciones—
+                pertenece a cada sistema desplegable. Se abre en{' '}
+                <Link href="/tecnologia/sistemas" className="font-semibold text-accent underline">
+                  Hoja de vida del sistema
+                </Link>
+                , y ahí se registra el resultado de cada puerta con quién verificó y quién
+                autorizó.
               </p>
               <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
                 F3 Construcción y F6 Operación no tienen puerta: llevan controles continuos

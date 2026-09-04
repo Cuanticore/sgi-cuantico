@@ -55,6 +55,8 @@ function NavTecnologia() {
     { etiqueta: 'Dependencias', href: '/tecnologia/dependencias' },
     { etiqueta: 'Impacto', href: '/tecnologia/impacto' },
     { etiqueta: 'Equipos', href: '/tecnologia/equipos' },
+    { etiqueta: 'Sistemas', href: '/tecnologia/sistemas' },
+    { etiqueta: 'Excepciones', href: '/tecnologia/excepciones' },
   ];
 
   return (
