@@ -705,6 +705,7 @@ model Activo {
   dependenciasHacia   DependenciaActivo[] @relation("DependenciaDestino")
   despliegues         Despliegue[]        @relation("DespliegueActivo")
   desplieguesServidor Despliegue[]        @relation("DespliegueServidor")
+  sistemas            Sistema[]           @relation("SistemaActivo")
 
   @@index([areaId])
   @@index([tipoId])
@@ -1059,6 +1060,16 @@ model Persona {
   ejecucionesRegistradas   EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
   activosACargo            Activo[]                       @relation("ActivoCustodioPersona")
   productosResponsable     Producto[]                     @relation("ProductoResponsable")
+  sistemasPropietario      Sistema[]                      @relation("SistemaPropietario")
+  sistemasTecnico          Sistema[]                      @relation("SistemaResponsableTecnico")
+  puertasVerificadas       PuertaSistema[]                @relation("PuertaVerifica")
+  puertasAutorizadas       PuertaSistema[]                @relation("PuertaAutoriza")
+  excepcionesAprobadas     ExcepcionSeguridad[]           @relation("ExcepcionAprueba")
+  excepcionesCerradas      ExcepcionSeguridad[]           @relation("ExcepcionCierra")
+  pruebasEjecutadas        PruebaSeguridad[]              @relation("PruebaEjecutor")
+  tratamientosResponsable  TratamientoDatosPersonales[]   @relation("TratamientoResponsable")
+  liberacionesAutoriza     Liberacion[]                   @relation("LiberacionAutoriza")
+  liberacionesEjecuta      Liberacion[]                   @relation("LiberacionEjecuta")
   metricasResponsable      Metrica[]                      @relation("MetricaResponsable")
   medicionesRegistradas    MedicionMetrica[]              @relation("MedicionRegistradaPor")
   asignacionesCerradasPor  Asignacion[]                   @relation("AsignacionCerradaPor")
@@ -1246,6 +1257,16 @@ model ItemVerificacion {
   texto           String
   obligatorio     Boolean @default(true)
   permiteNoAplica Boolean @default(true) @map("permite_no_aplica")
+  /// REQ-SIG-08 · lo unico que los 73 items de PTR-TEC-03 necesitan agregar. **No crean
+  /// tablas nuevas**: el catalogo es un `ContenidoSig` de tipo VERIFICACION y el resultado
+  /// por item es la `RespuestaItem` que ya existe. Construir un segundo motor de listas
+  /// seria el error mas caro del paquete.
+  puerta            Puerta?  @map("puerta")
+  controlAnexoA     String?  @map("control_anexo_a")
+  evidenciaEsperada String?  @map("evidencia_esperada")
+  /// G10 · `CONTRATADO` marca los que SE SUMAN cuando el desarrollo es contratado. Ninguno
+  /// se resta: cambia quien ejecuta, no el nivel de exigencia.
+  aplicaA           String   @default("AMBOS") @map("aplica_a")
 
   contenido  ContenidoSig    @relation(fields: [contenidoId], references: [id])
   respuestas RespuestaItem[]
@@ -2638,6 +2659,7 @@ model Solicitud {
   autorizadoPor Persona?        @relation("SolicitudAutoriza", fields: [autorizadoPorId], references: [id])
   ejecutadoPor  Persona?        @relation("SolicitudEjecuta", fields: [ejecutadoPorId], references: [id])
   accesos       AccesoPersona[]
+  liberaciones  Liberacion[]
 
   @@index([tipo, creadaEn])
   @@map("solicitud")
@@ -3249,6 +3271,294 @@ model Producto {
 
   nivel       NivelActivo @relation(fields: [nivelId], references: [id])
   responsable Persona     @relation("ProductoResponsable", fields: [responsableId], references: [id])
+  sistemas    Sistema[]
 
   @@map("producto")
+}
+
+// ─── Desarrollo seguro (REQ-SIG-08) ────────────────────────────────────────────────────
+
+/// Las ocho fases de PRO-TEC-04. F3 Construccion y F6 Operacion no tienen puerta: llevan
+/// controles continuos que se verifican con los 73 items de PTR-TEC-03, no en un punto de
+/// corte.
+enum FaseSistema {
+  F0
+  F1
+  F2
+  F3
+  F4
+  F5
+  F6
+  F7
+
+  @@map("fase_sistema")
+}
+
+enum RolTratamiento {
+  RESPONSABLE
+  ENCARGADO
+
+  @@map("rol_tratamiento")
+}
+
+/// D14 · el ciclo de vida es del SISTEMA, no del producto. MINTRACE se compone de varios
+/// desplegables con ciclo independiente, y preguntar «en que fase esta MINTRACE» no tiene
+/// respuesta: la tienen sus sistemas.
+///
+/// G1 · **el codigo es inmutable y sobrevive al renombre.** Lo dice el propio formato, y es
+/// lo que permite que la trazabilidad no se rompa cuando el sistema cambia de nombre.
+///
+/// G12 · **este modulo NO tiene entidad de riesgo** (D15). La hoja `Riesgos` de FOR-TEC-04
+/// usa probabilidad x impacto 1-5, que no es MAGERIT ni ISO 31000: seria una tercera escala.
+/// El hueco es deliberado y va al comite.
+model Sistema {
+  id            Int         @id @default(autoincrement())
+  /// `SIS-001`. Inmutable.
+  codigo        String      @unique
+  nombre        String
+  descripcion   String?
+  tipo          String
+  productoId    Int?        @map("producto_id")
+  /// Sin llave foranea todavia: `Proyecto` no existe como entidad (punto 4 de lo que queda
+  /// por decidir). Nace opcional y la llave se agrega cuando la tabla exista.
+  proyectoId    Int?        @map("proyecto_id")
+  clienteRef    String?     @map("cliente_ref")
+  /// Contra la escala del SGSI, la misma con la que se valora todo lo demas.
+  criticidad    Int?
+  clasificacionId Int?      @map("clasificacion_id")
+  trataDatosPersonales Boolean @default(false) @map("trata_datos_personales")
+  rolTratamiento RolTratamiento? @map("rol_tratamiento")
+  /// **No son decorativos**: son el insumo del BIA anual que exige el sistema de
+  /// continuidad, y hoy no existen en ninguna otra parte. En minutos.
+  rtoObjetivo   Int?        @map("rto_objetivo")
+  rpoObjetivo   Int?        @map("rpo_objetivo")
+  propietarioId Int?        @map("propietario_id")
+  responsableTecnicoId Int? @map("responsable_tecnico_id")
+  /// El item 50 exige que el sistema quede en el inventario de activos.
+  activoId      Int?        @map("activo_id")
+  /// G10 · las mismas puertas aplican al desarrollo contratado. Cambia quien ejecuta y que
+  /// la evidencia se exige por contrato, no el nivel de exigencia: los items marcados
+  /// CONTRATADO se SUMAN, ninguno se resta.
+  contratado    Boolean     @default(false)
+  faseActual    FaseSistema @default(F0) @map("fase_actual")
+  abiertaEn     DateTime?   @map("abierta_en")
+  /// G11 · cerrar la hoja de vida exige P6 registrada.
+  cerradaEn     DateTime?   @map("cerrada_en")
+  activo        Boolean     @default(true)
+  creadoEn      DateTime    @default(now()) @map("creado_en")
+
+  producto           Producto? @relation(fields: [productoId], references: [id])
+  propietario        Persona?  @relation("SistemaPropietario", fields: [propietarioId], references: [id])
+  responsableTecnico Persona?  @relation("SistemaResponsableTecnico", fields: [responsableTecnicoId], references: [id])
+  activoInventario   Activo?   @relation("SistemaActivo", fields: [activoId], references: [id])
+
+  puertas       PuertaSistema[]
+  excepciones   ExcepcionSeguridad[]
+  requisitos    RequisitoSeguridad[]
+  pruebas       PruebaSeguridad[]
+  tratamientos  TratamientoDatosPersonales[]
+  liberaciones  Liberacion[]
+  componentes   ComponenteTercero[]
+
+  @@map("sistema")
+}
+
+enum Puerta {
+  P1
+  P2
+  P3
+  P4
+  P5
+  P6
+
+  @@map("puerta")
+}
+
+enum ResultadoPuerta {
+  PENDIENTE
+  SUPERADA
+  SUPERADA_CON_EXCEPCION
+  NO_SUPERADA
+
+  @@map("resultado_puerta")
+}
+
+/// G3 · **las puertas no bloquean el avance** (D17). Se registran, se cuentan y salen en el
+/// tablero; el control vive en PRO-TEC-04 y en la gerencia de proyectos. Una herramienta que
+/// bloquea sin conocer el contexto termina obligando a mentirle.
+///
+/// G5 · **quien verifica no es quien autoriza.** Dos campos y dos personas, porque el
+/// procedimiento asigna esas dos autoridades a roles distintos.
+model PuertaSistema {
+  id              Int             @id @default(autoincrement())
+  sistemaId       Int             @map("sistema_id")
+  puerta          Puerta
+  resultado       ResultadoPuerta @default(PENDIENTE)
+  fecha           DateTime?
+  verificadoPorId Int?            @map("verificado_por_id")
+  autorizaId      Int?            @map("autoriza_id")
+  evidenciaId     Int?            @map("evidencia_id")
+  excepcionId     Int?            @map("excepcion_id")
+  observacion     String?
+
+  sistema      Sistema             @relation(fields: [sistemaId], references: [id])
+  verificadoPor Persona?           @relation("PuertaVerifica", fields: [verificadoPorId], references: [id])
+  autoriza     Persona?            @relation("PuertaAutoriza", fields: [autorizaId], references: [id])
+  excepcion    ExcepcionSeguridad? @relation(fields: [excepcionId], references: [id])
+
+  @@unique([sistemaId, puerta])
+  @@map("puerta_sistema")
+}
+
+/// **La entidad mas importante del modulo y la que ninguna spec tenia.**
+///
+/// Una excepcion es la unica forma documentada de avanzar sin cumplir, asi que lo que hay
+/// que controlar NO es que exista, sino que SE CIERRE.
+///
+/// G4 · por eso `fechaCierre` es obligatoria al crearla, no opcional: **una excepcion sin
+/// fecha de cierre es una exencion permanente disfrazada.** Una vencida y sin cerrar es un
+/// hallazgo automatico.
+model ExcepcionSeguridad {
+  id              Int      @id @default(autoincrement())
+  /// `EXC-2026-007`.
+  codigo          String   @unique
+  sistemaId       Int      @map("sistema_id")
+  puerta          Puerta?
+  justificacion   String
+  evaluacionRiesgo String  @map("evaluacion_riesgo")
+  /// El Responsable de Seguridad de la Informacion.
+  aprobadaPorId   Int?     @map("aprobada_por_id")
+  fechaAprobacion DateTime @map("fecha_aprobacion") @db.Date
+  /// OBLIGATORIA. No es opcional a proposito.
+  fechaCierre     DateTime @map("fecha_cierre") @db.Date
+  cerradaEn       DateTime? @map("cerrada_en")
+  cerradaPorId    Int?     @map("cerrada_por_id")
+  notaCierre      String?  @map("nota_cierre")
+
+  sistema     Sistema  @relation(fields: [sistemaId], references: [id])
+  aprobadaPor Persona? @relation("ExcepcionAprueba", fields: [aprobadaPorId], references: [id])
+  cerradaPor  Persona? @relation("ExcepcionCierra", fields: [cerradaPorId], references: [id])
+
+  puertas PuertaSistema[]
+
+  @@map("excepcion_seguridad")
+}
+
+model RequisitoSeguridad {
+  id            Int     @id @default(autoincrement())
+  sistemaId     Int     @map("sistema_id")
+  codigo        String
+  categoria     String
+  texto         String
+  origen        String?
+  prioridad     String?
+  estado        String  @default("PROPUESTO")
+  verificadoEnId Int?   @map("verificado_en_id")
+  observacion   String?
+
+  sistema      Sistema          @relation(fields: [sistemaId], references: [id])
+  verificadoEn PruebaSeguridad? @relation(fields: [verificadoEnId], references: [id])
+
+  @@unique([sistemaId, codigo])
+  @@map("requisito_seguridad")
+}
+
+/// Los cuatro conteos por severidad se CAPTURAN; **el veredicto de si bloquea se CALCULA**
+/// contra los criterios de aceptacion y la excepcion, si la hay (G6). La severidad que
+/// bloquea es un parametro, no un numero en el codigo.
+model PruebaSeguridad {
+  id             Int      @id @default(autoincrement())
+  sistemaId      Int      @map("sistema_id")
+  codigo         String
+  tipo           String
+  versionProbada String?  @map("version_probada")
+  fecha          DateTime @db.Date
+  ejecutorId     Int?     @map("ejecutor_id")
+  /// Cuando la corre un tercero que no entra a la aplicacion.
+  ejecutorExterno String? @map("ejecutor_externo")
+  criticos       Int      @default(0)
+  altos          Int      @default(0)
+  medios         Int      @default(0)
+  bajos          Int      @default(0)
+  evidenciaId    Int?     @map("evidencia_id")
+  observacion    String?
+
+  sistema  Sistema  @relation(fields: [sistemaId], references: [id])
+  ejecutor Persona? @relation("PruebaEjecutor", fields: [ejecutorId], references: [id])
+
+  requisitos RequisitoSeguridad[]
+
+  @@unique([sistemaId, codigo])
+  @@map("prueba_seguridad")
+}
+
+/// Ley 1581 de 2012. **Es el bloque con mayor exposicion legal del paquete** y hoy no existe
+/// en ninguna parte del sistema.
+model TratamientoDatosPersonales {
+  id                        Int      @id @default(autoincrement())
+  sistemaId                 Int      @map("sistema_id")
+  categoria                 String
+  sensibles                 Boolean  @default(false)
+  finalidad                 String
+  baseLegitimacion          String   @map("base_legitimacion")
+  titulares                 String?
+  volumen                   String?
+  ubicacionAlmacenamiento   String?  @map("ubicacion_almacenamiento")
+  transferenciaInternacional Boolean @default(false) @map("transferencia_internacional")
+  paisDestino               String?  @map("pais_destino")
+  garantiaAplicada          String?  @map("garantia_aplicada")
+  retencion                 String?
+  responsableId             Int?     @map("responsable_id")
+
+  sistema     Sistema  @relation(fields: [sistemaId], references: [id])
+  responsable Persona? @relation("TratamientoResponsable", fields: [responsableId], references: [id])
+
+  @@map("tratamiento_datos_personales")
+}
+
+/// **Ojo con el nombre.** El `Despliegue` de REQ-SIG-06 es DONDE CORRE —servidor, URL,
+/// contenedor, puerto—. `Liberacion` es QUE SE LIBERO. Son objetos distintos y en FOR-TEC-04
+/// comparten la palabra «despliegue».
+model Liberacion {
+  id            Int      @id @default(autoincrement())
+  sistemaId     Int      @map("sistema_id")
+  version       String
+  fecha         DateTime @db.Date
+  tipo          String
+  /// La solicitud de CAMBIO_TI de REQ-SIG-07 que la autorizo, cuando la hubo.
+  solicitudId   Int?     @map("solicitud_id")
+  autorizaId    Int?     @map("autoriza_id")
+  ejecutaId     Int?     @map("ejecuta_id")
+  planReversion Boolean  @default(false) @map("plan_reversion")
+  resultado     String?
+  observacion   String?
+
+  sistema    Sistema    @relation(fields: [sistemaId], references: [id])
+  solicitud  Solicitud? @relation(fields: [solicitudId], references: [id])
+  autoriza   Persona?   @relation("LiberacionAutoriza", fields: [autorizaId], references: [id])
+  ejecuta    Persona?   @relation("LiberacionEjecuta", fields: [ejecutaId], references: [id])
+
+  @@unique([sistemaId, version])
+  @@map("liberacion")
+}
+
+/// El SBOM. La parte de «proveedor» ya la resolvio D4; lo nuevo es el COMPONENTE con su
+/// licencia, que el item 23 exige revisar por compatibilidad.
+model ComponenteTercero {
+  id                       Int      @id @default(autoincrement())
+  sistemaId                Int      @map("sistema_id")
+  organizacionId           Int?     @map("organizacion_id")
+  nombre                   String
+  tipo                     String?
+  funcion                  String?
+  criticidad               String?
+  licencia                 String?
+  version                  String?
+  ultimaEvaluacion         DateTime? @map("ultima_evaluacion") @db.Date
+  vulnerabilidadesConocidas String?  @map("vulnerabilidades_conocidas")
+  estado                   String   @default("VIGENTE")
+
+  sistema Sistema @relation(fields: [sistemaId], references: [id])
+
+  @@map("componente_tercero")
 }
