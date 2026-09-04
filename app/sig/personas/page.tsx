@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
-import PersonasClient from './Personas.client';
+import PersonasClient, { type AsignacionAbierta } from './Personas.client';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,15 @@ export default async function PersonasPage() {
     }),
     prisma.asignacion.findMany({
       where: { estado: 'PENDIENTE' },
-      select: { personaId: true, fechaLimite: true },
+      select: {
+        id: true,
+        personaId: true,
+        titulo: true,
+        fechaLimite: true,
+        contenido: { select: { codigo: true, titulo: true } },
+        obligacion: { select: { contenido: { select: { codigo: true, titulo: true } } } },
+      },
+      orderBy: { fechaLimite: 'asc' },
     }),
     // El rol no está en la base y no va a estar: lo dan los grupos del Directorio. Se
     // pregunta al leer, junto con el censo, y cuando no se puede, viene la causa.
@@ -36,24 +44,44 @@ export default async function PersonasPage() {
   ]);
 
   const hoy = new Date();
-  const porPersona = new Map<number, number>();
+  // La columna cuenta PENDIENTES ABIERTOS, no solo los vencidos.
+  //
+  // Contar únicamente vencidos dejaba en cero a quien acaba de salir del Directorio con seis
+  // tareas todavía en plazo, y ese cero es la única señal de que hay carga que reasignar: la
+  // pantalla decía que no había nada que mover justo cuando más había. Las vencidas siguen
+  // contándose aparte, porque son las que urgen.
+  const abiertasDe = new Map<number, AsignacionAbierta[]>();
   for (const p of pendientes) {
-    if (esVencida('PENDIENTE', p.fechaLimite, hoy)) {
-      porPersona.set(p.personaId, (porPersona.get(p.personaId) ?? 0) + 1);
-    }
+    const contenido = p.contenido ?? p.obligacion?.contenido ?? null;
+    const lista = abiertasDe.get(p.personaId) ?? [];
+    lista.push({
+      id: p.id,
+      codigo: contenido?.codigo ?? '—',
+      titulo: contenido?.titulo ?? p.titulo ?? 'Puntual',
+      fechaLimite: p.fechaLimite.toISOString(),
+      vencida: esVencida('PENDIENTE', p.fechaLimite, hoy),
+    });
+    abiertasDe.set(p.personaId, lista);
   }
 
-  const filas = personas.map((p) => ({
-    id: p.id,
-    nombre: p.nombre,
-    correo: p.correo,
-    area: p.area?.nombre ?? null,
-    cargo: p.cargo?.nombre ?? null,
-    activa: p.activa,
-    sincronizadaEn: p.sincronizadaEn?.toISOString() ?? null,
-    pendientes: porPersona.get(p.id) ?? 0,
-    rol: rolDeLaPersona(p.oid, miembrosDelGrupo.ok ? miembrosDelGrupo.datos : null),
-  }));
+  const filas = personas.map((p) => {
+    const abiertas = abiertasDe.get(p.id) ?? [];
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      correo: p.correo,
+      area: p.area?.nombre ?? null,
+      cargo: p.cargo?.nombre ?? null,
+      activa: p.activa,
+      sincronizadaEn: p.sincronizadaEn?.toISOString() ?? null,
+      pendientes: abiertas.length,
+      vencidas: abiertas.filter((a) => a.vencida).length,
+      // El panel las lista una por una: reasignar «3 pendientes» sin decir cuáles obliga a
+      // salir de la pantalla para saber qué se está moviendo.
+      abiertas,
+      rol: rolDeLaPersona(p.oid, miembrosDelGrupo.ok ? miembrosDelGrupo.datos : null),
+    };
+  });
 
   return (
     <PersonasClient

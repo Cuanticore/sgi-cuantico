@@ -8,8 +8,17 @@
 
 import { useState } from 'react';
 import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
-import { reasignarAsignacion } from '@/app/sig/acciones/tareas';
+import { reasignarPendientesDe } from '@/app/sig/acciones/tareas';
 import type { RolDeclarado } from '@/lib/sgsi/permisos';
+
+/// Una asignación abierta de la persona, para listarla antes de moverla.
+export interface AsignacionAbierta {
+  id: number;
+  codigo: string;
+  titulo: string;
+  fechaLimite: string;
+  vencida: boolean;
+}
 
 export interface PersonaFila {
   id: number;
@@ -19,7 +28,10 @@ export interface PersonaFila {
   cargo: string | null;
   activa: boolean;
   sincronizadaEn: string | null;
+  /// Pendientes ABIERTOS. Las vencidas son un subconjunto, no el total.
   pendientes: number;
+  vencidas: number;
+  abiertas: AsignacionAbierta[];
   /// Derivado del Directorio al leer, nunca guardado. `DESCONOCIDO` no es Colaborador.
   rol: RolDeclarado;
 }
@@ -86,13 +98,23 @@ export default function PersonasClient({
     if (!reasignando) return;
     setError(null);
     setMensaje(null);
-    const r = await reasignarAsignacion(
+    // `reasignando.id` es el id de la PERSONA, y esta acción es la que espera eso. Antes se
+    // llamaba a `reasignarAsignacion`, que recibe el id de una ASIGNACIÓN: con ese número
+    // movía la tarea de un tercero sin relación con nadie de este panel.
+    const r = await reasignarPendientesDe(
       reasignando.id,
       Number(destino),
-      `reasignación por inactivación de ${reasignando.nombre}`,
+      reasignando.activa
+        ? `reasignación de la carga abierta de ${reasignando.nombre}`
+        : `reasignación por inactivación de ${reasignando.nombre}`,
     );
-    if (r.ok) setMensaje(r.mensaje);
-    else setError(r.mensaje);
+    if (r.ok) {
+      setMensaje(r.mensaje);
+      setReasignando(null);
+      setDestino('');
+    } else {
+      setError(r.mensaje);
+    }
   }
 
   return (
@@ -221,10 +243,23 @@ export default function PersonasClient({
                     <button
                       onClick={() => setReasignando(p)}
                       className="font-mono text-11 font-semibold"
-                      style={{ color: 'var(--hf-danger-text)' }}
-                      title="Ver pendientes para reasignar"
+                      // Rojo solo si hay vencidas. Antes la columna contaba únicamente
+                      // vencidas, así que todo número era rojo por construcción; ahora
+                      // cuenta lo abierto y pintarlo todo de rojo diría que todo urge.
+                      style={{
+                        color:
+                          p.vencidas > 0 ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
+                      }}
+                      title={
+                        p.vencidas > 0
+                          ? `${p.pendientes} abierta(s), ${p.vencidas} vencida(s) — reasignar`
+                          : `${p.pendientes} abierta(s) en plazo — reasignar`
+                      }
                     >
                       {p.pendientes}
+                      {p.vencidas > 0 && (
+                        <span className="text-9_5"> ({p.vencidas} venc.)</span>
+                      )}
                     </button>
                   ) : (
                     <span className="font-mono text-11 text-muted">0</span>
@@ -247,12 +282,44 @@ export default function PersonasClient({
             style={{ borderTop: '3px solid var(--hf-danger-text)' }}
           >
             <h2 className="text-15 font-semibold text-primary">
-              {reasignando.nombre} ya no figura en el Directorio
+              {reasignando.activa
+                ? `Carga abierta de ${reasignando.nombre}`
+                : `${reasignando.nombre} ya no figura en el Directorio`}
             </h2>
             <p className="text-12_5 text-muted">
-              Sus {reasignando.pendientes} pendiente(s) siguen exigibles y hay que
-              reasignarlas. No se cierran solas (R9).
+              {reasignando.activa
+                ? 'Estas asignaciones pasan completas a otra persona, con motivo en bitácora.'
+                : 'Sus pendientes siguen exigibles y hay que reasignarlas. No se cierran solas (R9).'}
+              {reasignando.vencidas > 0 && (
+                <>
+                  {' '}
+                  <strong style={{ color: 'var(--hf-danger-text)' }}>
+                    {reasignando.vencidas} vencida(s).
+                  </strong>
+                </>
+              )}
             </p>
+
+            {/* Se listan una por una: mover «3 pendientes» sin decir cuáles obliga a salir
+                de la pantalla para saber qué se está reasignando. */}
+            <ul className="flex max-h-[210px] flex-col gap-1 overflow-y-auto rounded-campo border border-border-field p-2">
+              {reasignando.abiertas.map((a) => (
+                <li key={a.id} className="flex items-baseline justify-between gap-3 px-1 py-1">
+                  <span className="min-w-0 text-12_5 text-primary">
+                    <span className="font-mono text-11 text-muted">{a.codigo}</span>{' '}
+                    {a.titulo}
+                  </span>
+                  <span
+                    className="shrink-0 font-mono text-10_5"
+                    style={{
+                      color: a.vencida ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
+                    }}
+                  >
+                    {a.fechaLimite.slice(0, 10)}
+                  </span>
+                </li>
+              ))}
+            </ul>
             <label className="flex flex-col gap-1">
               <span className="etiqueta-campo">Reasignar a</span>
               <select
@@ -283,7 +350,11 @@ export default function PersonasClient({
                 className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white disabled:opacity-50"
                 style={{ background: 'var(--hf-danger-text)' }}
               >
-                Reasignar
+                {/* Dice cuántas porque las mueve TODAS, en una transacción. Un «Reasignar»
+                    suelto al lado de una lista no dice si mueve una o las seis. */}
+                {reasignando.pendientes === 1
+                  ? 'Reasignar la pendiente'
+                  : `Reasignar las ${reasignando.pendientes}`}
               </button>
             </div>
             {mensaje && (

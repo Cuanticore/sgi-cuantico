@@ -433,6 +433,69 @@ export async function reasignarAsignacion(
   });
 }
 
+/// R9 desde el censo: toda la carga abierta de una persona pasa a otra, de una vez.
+///
+/// La pantalla de Personas reasigna a la PERSONA, no una asignación suelta —quien salió del
+/// Directorio deja N pendientes—, y por eso necesita su propia acción: `reasignarAsignacion`
+/// recibe el id de UNA asignación, así que llamarla con el id de la persona movía la
+/// asignación que casualmente tuviera ese número, de cualquier otro. Ese era el defecto.
+///
+/// Va en UNA transacción con la bitácora adentro: mover tres de seis y fallar deja un censo
+/// donde nadie puede decir cuáles faltan, que es justo lo que R9 quiere evitar.
+export async function reasignarPendientesDe(
+  personaId: number,
+  nuevaPersonaId: number,
+  motivo: string,
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    exigirId(personaId, 'la persona cuya carga se reasigna');
+    exigirId(nuevaPersonaId, 'la persona a la que se reasigna');
+    if (!motivo.trim()) return { ok: false, mensaje: 'La reasignación exige motivo.' };
+    if (personaId === nuevaPersonaId) {
+      return { ok: false, mensaje: 'El destino es la misma persona.' };
+    }
+
+    const persona = await prisma.persona.findUnique({ where: { id: nuevaPersonaId } });
+    if (!persona) return { ok: false, mensaje: 'La persona destino no existe.' };
+    if (!persona.activa) return { ok: false, mensaje: 'La persona destino está inactiva.' };
+
+    const abiertas = await prisma.asignacion.findMany({
+      where: { personaId, estado: 'PENDIENTE' },
+      select: { id: true },
+    });
+    if (abiertas.length === 0) {
+      return { ok: false, mensaje: 'Esa persona no tiene pendientes abiertos.' };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.asignacion.updateMany({
+        where: { id: { in: abiertas.map((a) => a.id) } },
+        data: { personaId: nuevaPersonaId },
+      });
+      await registrar(
+        tx,
+        autor,
+        abiertas.map((a) => ({
+          tabla: 'asignacion',
+          registroId: String(a.id),
+          campo: 'persona_id',
+          anterior: personaId,
+          nuevo: nuevaPersonaId,
+          motivo,
+        })),
+      );
+    });
+
+    revalidatePath('/sig/personas');
+    return {
+      ok: true,
+      mensaje: `${abiertas.length} ${abiertas.length === 1 ? 'asignación reasignada' : 'asignaciones reasignadas'} a ${persona.nombre}.`,
+      cambios: abiertas.length,
+    };
+  });
+}
+
 import { registrarAlta } from '@/lib/sgsi/bitacora';
 import {
   cambiaElTexto,
