@@ -233,3 +233,61 @@ export const ETIQUETA_TIPO_DEPENDENCIA: Record<TipoDependencia, string> = {
   AUTENTICA_CON: 'autentica con',
   ALMACENA_EN: 'almacena en',
 };
+
+// ─── El acomodo del grafo ──────────────────────────────────────────────────────────────
+
+/// **Las columnas NO son niveles: son distancia a la dependencia más profunda.** Por eso la
+/// flecha siempre va hacia la derecha, y por eso un activo de nivel 3 puede quedar a la
+/// izquierda de uno de nivel 1.
+///
+/// La columna de un nodo es uno más que la del más lejano de los que dependen de él: así
+/// toda arista «A depende de B» queda con B estrictamente a la derecha de A, sin
+/// excepciones. Los que no tienen a nadie encima —las aplicaciones finales— caen en la
+/// columna 0.
+///
+/// **Este cálculo sólo termina porque no hay ciclos** (E3). Con un ciclo, cada vuelta
+/// empujaría a sus miembros una columna más a la derecha y el recorrido no pararía nunca.
+/// Es la razón concreta por la que la validación del ciclo no es una formalidad: sin ella
+/// esta pantalla se cuelga. La guarda de `vueltas` está igual, porque un dato corrupto no
+/// debería colgar una pantalla — pero si se dispara, hay un ciclo en la base.
+export function columnasDelGrafo(
+  activoIds: readonly number[],
+  aristas: readonly Arista[],
+): Map<number, number> {
+  const columna = new Map<number, number>(activoIds.map((id) => [id, 0]));
+  // Relajación repetida: mientras alguna arista viole «el destino va a la derecha», se
+  // empuja. Sin ciclos converge en, como mucho, tantas vueltas como nodos.
+  const tope = activoIds.length + 1;
+  let vueltas = 0;
+  let cambio = true;
+  while (cambio && vueltas < tope) {
+    cambio = false;
+    vueltas += 1;
+    for (const a of aristas) {
+      const desde = columna.get(a.activoId);
+      const hasta = columna.get(a.dependeDeId);
+      if (desde === undefined || hasta === undefined) continue;
+      if (hasta <= desde) {
+        columna.set(a.dependeDeId, desde + 1);
+        cambio = true;
+      }
+    }
+  }
+  return columna;
+}
+
+/// Los vecinos directos de un activo, en las dos direcciones y con el sentido dicho en
+/// palabras. Es lo que el panel del grafo muestra al elegir un nodo.
+export function vecinosDirectos(
+  activoId: number,
+  aristas: readonly Arista[],
+): { activoId: number; sentido: 'depende de' | 'depende de él'; tipo: TipoDependencia }[] {
+  return [
+    ...aristas
+      .filter((a) => a.activoId === activoId)
+      .map((a) => ({ activoId: a.dependeDeId, sentido: 'depende de' as const, tipo: a.tipo })),
+    ...aristas
+      .filter((a) => a.dependeDeId === activoId)
+      .map((a) => ({ activoId: a.activoId, sentido: 'depende de él' as const, tipo: a.tipo })),
+  ];
+}

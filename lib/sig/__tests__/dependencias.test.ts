@@ -9,6 +9,8 @@ import {
   asimetrias,
   caminoDelCiclo,
   cerrariaCiclo,
+  columnasDelGrafo,
+  vecinosDirectos,
   type Arista,
 } from '../dependencias';
 
@@ -149,5 +151,65 @@ describe('el «via» de cada nodo — sin el, una cadena de tres saltos no se pu
     // «vía postgres» es lo que permite reconstruir el camino sin volver a recorrer el grafo.
     const r = aguasArriba(1, CADENA);
     expect(r.find((n) => n.activoId === 4)?.viaId).toBe(3);
+  });
+});
+
+describe('columnasDelGrafo — la columna no es un nivel', () => {
+  it('lo que nada usa queda en la columna 0 y su cadena va creciendo', () => {
+    // CRM(1) → postgres(2) → servidor(3) → nube(4). La flecha siempre a la derecha.
+    const c = columnasDelGrafo([1, 2, 3, 4], CADENA);
+    expect(c.get(1)).toBe(0);
+    expect(c.get(2)).toBe(1);
+    expect(c.get(3)).toBe(2);
+    expect(c.get(4)).toBe(3);
+  });
+
+  it('toda arista deja al destino ESTRICTAMENTE a la derecha', () => {
+    // Es la propiedad que hace que el dibujo se pueda leer: si una flecha fuera hacia
+    // atrás, el grafo dejaría de decir «esto depende de aquello».
+    const rombo = [usa(1, 2), usa(1, 3), usa(2, 4), usa(3, 4)];
+    const c = columnasDelGrafo([1, 2, 3, 4], rombo);
+    for (const a of rombo) {
+      expect(c.get(a.dependeDeId)!).toBeGreaterThan(c.get(a.activoId)!);
+    }
+  });
+
+  it('toma el camino MÁS LARGO, no el primero', () => {
+    // A→B→D y A→D. D tiene que quedar en la columna 2, no en la 1: si quedara en la 1,
+    // la arista B→D iría hacia atrás.
+    const dos = [usa(1, 2), usa(2, 4), usa(1, 4)];
+    expect(columnasDelGrafo([1, 2, 4], dos).get(4)).toBe(2);
+  });
+
+  it('un activo aislado queda en la columna 0', () => {
+    expect(columnasDelGrafo([9], CADENA).get(9)).toBe(0);
+  });
+
+  it('no se cuelga si los datos ya traen un ciclo', () => {
+    // Sin la guarda, cada vuelta del ciclo empujaría a sus miembros una columna más y el
+    // recorrido no pararía nunca. Con un ciclo el dibujo saldrá mal, pero la pantalla
+    // responde — y eso es lo que se prueba acá.
+    const conCiclo = [usa(1, 2), usa(2, 3), usa(3, 1)];
+    const c = columnasDelGrafo([1, 2, 3], conCiclo);
+    expect(c.size).toBe(3);
+    for (const v of c.values()) expect(Number.isFinite(v)).toBe(true);
+  });
+
+  it('ignora aristas hacia activos que no están en la lista', () => {
+    // Un activo dado de baja sigue teniendo sus aristas; colarlo movería columnas por un
+    // nodo que no se dibuja.
+    const c = columnasDelGrafo([1], [usa(1, 99)]);
+    expect(c.size).toBe(1);
+    expect(c.get(1)).toBe(0);
+  });
+});
+
+describe('vecinosDirectos — las dos direcciones con el sentido dicho', () => {
+  it('separa de qué depende y qué depende de él', () => {
+    const v = vecinosDirectos(2, CADENA);
+    expect(v).toEqual([
+      { activoId: 3, sentido: 'depende de', tipo: 'USA' },
+      { activoId: 1, sentido: 'depende de él', tipo: 'USA' },
+    ]);
   });
 });
