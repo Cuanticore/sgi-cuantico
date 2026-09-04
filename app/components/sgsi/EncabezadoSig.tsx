@@ -44,7 +44,7 @@ const TODAS: { pestana: Pestana; permiso: Permiso | null }[] = [
   { pestana: { etiqueta: 'SIG', href: '/sgsi' }, permiso: 'sgsi:ver' },
   { pestana: { etiqueta: 'Actividades', href: '/sig/obligaciones' }, permiso: 'operacion:ver' },
   { pestana: { etiqueta: 'Estratégico', href: '/estrategico/mapa' }, permiso: 'estrategico:ver' },
-  { pestana: { etiqueta: 'Tecnología', href: '/tecnologia/dependencias' }, permiso: 'tecnologia:ver' },
+  { pestana: { etiqueta: 'Tecnología', href: '/tecnologia/mapa' }, permiso: 'tecnologia:ver' },
   { pestana: { etiqueta: 'Personas', href: '/sig/personas' }, permiso: 'operacion:administrar' },
 ];
 

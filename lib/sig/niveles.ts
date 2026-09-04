@@ -180,3 +180,190 @@ export const ETIQUETA_CLASE: Record<ClaseNivel, string> = {
   PRODUCTOS: 'Productos',
   PROYECTOS: 'Proyectos',
 };
+
+// ─── El árbol del mapa tecnológico ─────────────────────────────────────────────────────
+
+export type ClaseNodo = 'NIVEL_1' | 'NIVEL_2' | 'NIVEL_3' | 'ACTIVO' | 'DESPLIEGUE';
+
+export interface NodoArbol {
+  /// Único en todo el árbol. Lleva el prefijo del tipo porque un nivel y un activo pueden
+  /// compartir id numérico y en una lista plana chocarían.
+  id: string;
+  padreId: string | null;
+  clase: ClaseNodo;
+  nombre: string;
+  /// El código del activo, o `null` en los nodos que no lo tienen.
+  codigo: string | null;
+  profundidad: number;
+  /// Lo que se dibuja a la derecha del nombre: el tipo del activo, el ambiente del
+  /// despliegue, el conteo de hijos de un nivel.
+  meta: string | null;
+  /// Una marca que exige atención: «sin propietario», «legacy», «sin valorar».
+  marca: string | null;
+  refId: number;
+}
+
+export interface EntradaArbol {
+  niveles: readonly Nivel[];
+  activos: readonly {
+    id: number;
+    codigo: string | null;
+    nombre: string;
+    nivelId: number | null;
+    tipo: string;
+    propietarioId: number | null;
+    criticidad: number | null;
+  }[];
+  despliegues: readonly {
+    id: number;
+    activoId: number | null;
+    nombre: string;
+    ambiente: string;
+    estado: string;
+  }[];
+}
+
+/// **D3 (02/09/2026) · el mapa incluye los despliegues como HOJAS**, no se detiene en el
+/// activo. Es donde está la información que hoy no se ve, y el despliegue sigue sin ser un
+/// activo: es una hoja de presentación, no un nodo del inventario.
+///
+/// Devuelve la lista PLANA en orden de recorrido. Plana y no anidada porque la pantalla
+/// necesita poder colapsar cualquier rama sin volver a recorrer un árbol de objetos, y
+/// porque el orden de una lista plana es el orden en que se lee.
+///
+/// **Lo que no encaja se muestra igual, al final.** Los activos sin nivel y los despliegues
+/// sin activo padre son el trabajo pendiente del módulo; esconderlos haría que el mapa se
+/// viera completo justamente porque le falta información.
+export function armarArbol(e: EntradaArbol): NodoArbol[] {
+  const salida: NodoArbol[] = [];
+  const activosPorNivel = new Map<number, EntradaArbol['activos'][number][]>();
+  for (const a of e.activos) {
+    if (a.nivelId === null) continue;
+    const previos = activosPorNivel.get(a.nivelId);
+    if (previos === undefined) activosPorNivel.set(a.nivelId, [a]);
+    else previos.push(a);
+  }
+  const desplieguesPorActivo = new Map<number, EntradaArbol['despliegues'][number][]>();
+  for (const d of e.despliegues) {
+    if (d.activoId === null) continue;
+    const previos = desplieguesPorActivo.get(d.activoId);
+    if (previos === undefined) desplieguesPorActivo.set(d.activoId, [d]);
+    else previos.push(d);
+  }
+
+  const marcaDeActivo = (a: EntradaArbol['activos'][number]): string | null => {
+    // Se reporta UNA marca, la más grave: dos etiquetas en la misma fila del árbol compiten
+    // por la atención y ninguna gana.
+    if (a.propietarioId === null) return 'sin propietario';
+    if (a.criticidad === null) return 'sin valorar';
+    return null;
+  };
+
+  const empujarActivos = (nivelId: number, padreId: string, profundidad: number) => {
+    for (const a of activosPorNivel.get(nivelId) ?? []) {
+      const idActivo = `a${a.id}`;
+      salida.push({
+        id: idActivo,
+        padreId,
+        clase: 'ACTIVO',
+        nombre: a.nombre,
+        codigo: a.codigo,
+        profundidad,
+        meta: a.tipo,
+        marca: marcaDeActivo(a),
+        refId: a.id,
+      });
+      for (const d of desplieguesPorActivo.get(a.id) ?? []) {
+        salida.push({
+          id: `d${d.id}`,
+          padreId: idActivo,
+          clase: 'DESPLIEGUE',
+          nombre: d.nombre,
+          codigo: null,
+          profundidad: profundidad + 1,
+          meta: d.ambiente,
+          marca: /legacy|aband/i.test(d.estado) ? d.estado : null,
+          refId: d.id,
+        });
+      }
+    }
+  };
+
+  const vigentes = e.niveles.filter((n) => n.activo);
+  for (const n1 of vigentes.filter((n) => n.grado === 1)) {
+    const id1 = `n${n1.id}`;
+    salida.push({
+      id: id1,
+      padreId: null,
+      clase: 'NIVEL_1',
+      nombre: n1.nombre,
+      codigo: null,
+      profundidad: 0,
+      meta: null,
+      marca: null,
+      refId: n1.id,
+    });
+    empujarActivos(n1.id, id1, 1);
+
+    for (const n2 of vigentes.filter((n) => n.padreId === n1.id && n.grado === 2)) {
+      const id2 = `n${n2.id}`;
+      salida.push({
+        id: id2,
+        padreId: id1,
+        clase: 'NIVEL_2',
+        nombre: n2.nombre,
+        codigo: null,
+        profundidad: 1,
+        meta: null,
+        marca: null,
+        refId: n2.id,
+      });
+      empujarActivos(n2.id, id2, 2);
+
+      for (const n3 of vigentes.filter((n) => n.padreId === n2.id && n.grado === 3)) {
+        const id3 = `n${n3.id}`;
+        const cuantos = (activosPorNivel.get(n3.id) ?? []).length;
+        salida.push({
+          id: id3,
+          padreId: id2,
+          clase: 'NIVEL_3',
+          nombre: n3.nombre,
+          codigo: null,
+          profundidad: 2,
+          meta: `${cuantos} activo(s)`,
+          marca: cuantos === 0 ? 'vacío' : null,
+          refId: n3.id,
+        });
+        empujarActivos(n3.id, id3, 3);
+      }
+    }
+  }
+
+  return salida;
+}
+
+/// Los nodos VISIBLES dado el conjunto de ramas abiertas. Un nodo se ve si todos sus
+/// ancestros están abiertos.
+///
+/// Se calcula recorriendo la lista plana una sola vez y arrastrando la visibilidad del
+/// padre: subir por la cadena en cada nodo sería cuadrático, y el árbol real tiene
+/// centenares de nodos.
+export function nodosVisibles(
+  arbol: readonly NodoArbol[],
+  abiertos: ReadonlySet<string>,
+): NodoArbol[] {
+  const visible = new Map<string, boolean>();
+  const salida: NodoArbol[] = [];
+  for (const n of arbol) {
+    const seVe = n.padreId === null || (visible.get(n.padreId) === true && abiertos.has(n.padreId));
+    if (seVe) salida.push(n);
+    visible.set(n.id, seVe);
+  }
+  return salida;
+}
+
+/// Si un nodo tiene hijos. Lo necesita la flecha de expandir: dibujarla en una hoja invita
+/// a un clic que no hace nada.
+export function tieneHijos(arbol: readonly NodoArbol[], id: string): boolean {
+  return arbol.some((n) => n.padreId === id);
+}

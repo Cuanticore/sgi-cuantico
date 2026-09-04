@@ -4,12 +4,15 @@
 // cualquier combinación se puede escribir; acá no.
 
 import {
+  armarArbol,
   cadenaDeNivel,
   claseDeNivel,
   faltantesDePlantilla,
   impedimentosParaDesactivar,
   resumenDeFaltantes,
+  nodosVisibles,
   rutaDeNivel,
+  tieneHijos,
   validarPadre,
   type Nivel,
 } from '../niveles';
@@ -161,5 +164,139 @@ describe('resumenDeFaltantes — el texto de la ficha', () => {
 
   it('sin faltantes lo dice en positivo', () => {
     expect(resumenDeFaltantes([])).toContain('completa');
+  });
+});
+
+describe('armarArbol — de la empresa al contenedor', () => {
+  const NIV: Nivel[] = [
+    n(1, 1, 'PRODUCTOS', null, 'PRODUCTOS'),
+    n(2, 2, 'MINTRACE', 1),
+    n(3, 3, 'Ambientes', 2),
+    n(4, 3, 'Vacio', 2),
+    n(10, 1, 'EMPRESA', null, 'EMPRESA'),
+  ];
+  const act = (id: number, nivelId: number | null, extra: Partial<{ propietarioId: number | null; criticidad: number | null }> = {}) => ({
+    id,
+    codigo: `TEC-APP-000${id}`,
+    nombre: `Activo ${id}`,
+    nivelId,
+    tipo: 'Aplicación',
+    propietarioId: 7 as number | null,
+    criticidad: 4 as number | null,
+    ...extra,
+  });
+
+  it('anida nivel 1 › 2 › 3 › activo › despliegue', () => {
+    const a = armarArbol({
+      niveles: NIV,
+      activos: [act(1, 3)],
+      despliegues: [{ id: 9, activoId: 1, nombre: 'crm-prod', ambiente: 'produccion', estado: 'running' }],
+    });
+    const clases = a.map((x) => x.clase);
+    expect(clases).toContain('NIVEL_1');
+    expect(clases).toContain('DESPLIEGUE');
+    // El despliegue cuelga del ACTIVO, no del nivel: es una hoja de presentación.
+    const d = a.find((x) => x.clase === 'DESPLIEGUE');
+    expect(d?.padreId).toBe('a1');
+    expect(d?.profundidad).toBe(4);
+  });
+
+  it('los ids llevan prefijo: un nivel y un activo pueden compartir número', () => {
+    // Sin prefijo chocarían en la lista plana y la expansión abriría la rama equivocada.
+    const a = armarArbol({ niveles: NIV, activos: [act(1, 3)], despliegues: [] });
+    expect(a.some((x) => x.id === 'n1')).toBe(true);
+    expect(a.some((x) => x.id === 'a1')).toBe(true);
+  });
+
+  it('un activo puede colgar de cualquiera de los tres grados', () => {
+    const a = armarArbol({ niveles: NIV, activos: [act(1, 1), act(2, 2), act(3, 3)], despliegues: [] });
+    expect(a.find((x) => x.id === 'a1')?.padreId).toBe('n1');
+    expect(a.find((x) => x.id === 'a2')?.padreId).toBe('n2');
+    expect(a.find((x) => x.id === 'a3')?.padreId).toBe('n3');
+  });
+
+  it('el activo sin nivel NO entra al árbol', () => {
+    // Se cuenta aparte en la pantalla; colgarlo de una rama cualquiera sería inventarle
+    // una clasificación que nadie le dio.
+    const a = armarArbol({ niveles: NIV, activos: [act(1, null)], despliegues: [] });
+    expect(a.some((x) => x.clase === 'ACTIVO')).toBe(false);
+  });
+
+  it('un nivel 3 vacío se marca como tal', () => {
+    const a = armarArbol({ niveles: NIV, activos: [], despliegues: [] });
+    expect(a.find((x) => x.nombre === 'Vacio')?.marca).toBe('vacío');
+  });
+
+  it('la marca del activo es UNA, la más grave', () => {
+    // Dos etiquetas en la misma fila compiten por la atención y ninguna gana.
+    const sinDueno = armarArbol({
+      niveles: NIV,
+      activos: [act(1, 3, { propietarioId: null, criticidad: null })],
+      despliegues: [],
+    });
+    expect(sinDueno.find((x) => x.id === 'a1')?.marca).toBe('sin propietario');
+  });
+
+  it('marca el despliegue legacy', () => {
+    const a = armarArbol({
+      niveles: NIV,
+      activos: [act(1, 3)],
+      despliegues: [{ id: 9, activoId: 1, nombre: 'viejo', ambiente: 'legacy', estado: 'legacy / abandonado' }],
+    });
+    expect(a.find((x) => x.clase === 'DESPLIEGUE')?.marca).toContain('legacy');
+  });
+
+  it('un nivel inactivo no se dibuja, ni sus hijos', () => {
+    const conInactivo = [...NIV.filter((x) => x.id !== 2), { ...n(2, 2, 'MINTRACE', 1), activo: false }];
+    const a = armarArbol({ niveles: conInactivo, activos: [act(1, 3)], despliegues: [] });
+    expect(a.some((x) => x.nombre === 'MINTRACE')).toBe(false);
+    expect(a.some((x) => x.nombre === 'Ambientes')).toBe(false);
+  });
+});
+
+describe('nodosVisibles — un nodo se ve si TODOS sus ancestros están abiertos', () => {
+  const arbol = armarArbol({
+    niveles: [n(1, 1, 'PRODUCTOS', null, 'PRODUCTOS'), n(2, 2, 'MINTRACE', 1), n(3, 3, 'Ambientes', 2)],
+    activos: [
+      {
+        id: 1,
+        codigo: 'X',
+        nombre: 'App',
+        nivelId: 3,
+        tipo: 'Aplicación',
+        propietarioId: 7,
+        criticidad: 4,
+      },
+    ],
+    despliegues: [],
+  });
+
+  it('con todo cerrado sólo se ven las raíces', () => {
+    expect(nodosVisibles(arbol, new Set()).map((x) => x.nombre)).toEqual(['PRODUCTOS']);
+  });
+
+  it('abrir el abuelo no basta para ver al nieto', () => {
+    // Es el caso que un cálculo por «mi padre está abierto» resolvería mal.
+    const r = nodosVisibles(arbol, new Set(['n1', 'n3']));
+    expect(r.map((x) => x.nombre)).toEqual(['PRODUCTOS', 'MINTRACE']);
+  });
+
+  it('con la cadena entera abierta se ve todo', () => {
+    const r = nodosVisibles(arbol, new Set(['n1', 'n2', 'n3', 'a1']));
+    expect(r).toHaveLength(4);
+  });
+});
+
+describe('tieneHijos — la flecha no se dibuja en una hoja', () => {
+  const arbol = armarArbol({
+    niveles: [n(1, 1, 'PRODUCTOS', null, 'PRODUCTOS'), n(2, 2, 'MINTRACE', 1)],
+    activos: [],
+    despliegues: [],
+  });
+
+  it('la raíz con hijo sí, la hoja no', () => {
+    // Dibujar la flecha en una hoja invita a un clic que no hace nada.
+    expect(tieneHijos(arbol, 'n1')).toBe(true);
+    expect(tieneHijos(arbol, 'n2')).toBe(false);
   });
 });
