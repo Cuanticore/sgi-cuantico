@@ -241,6 +241,15 @@ export default function FichaClient({
                 {/* La huella recortada: cita el acta sin pegar 64 caracteres, y es lo que
                     permite verificarla contra el artefacto guardado. */}
                 <span className="font-mono text-faint">huella {a.huella}…</span>
+                {/* Y el artefacto que esa huella verifica. Citar la huella sin poder abrir
+                    el documento deja la verificación a medias: se puede nombrar la prueba
+                    y no contrastarla. */}
+                <a
+                  href={`/api/sig/acta?codigo=${encodeURIComponent(a.codigo)}`}
+                  className="font-medium text-accent"
+                >
+                  descargar
+                </a>
               </div>
             ))}
           </Bloque>

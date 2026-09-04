@@ -51,6 +51,13 @@ export default async function HistorialPage() {
       // el versionado viene a cerrar.
       versionContenido: true,
       respuestas: { include: { item: true } },
+      // El acta de aceptación de esta misma fila. `ActaAceptacion.registroId` es `@unique`,
+      // así que es 1:1 con el registro que ya se consulta: no hay consulta extra.
+      //
+      // Faltaba, y por eso el aviso posterior a firmar decía «queda en tu historial» sobre
+      // una pantalla donde el acta no aparecía. La spec lo pide con todas las letras: cada
+      // persona ve sus propias actas, con enlace al documento.
+      acta: { select: { codigo: true } },
     },
   });
 
@@ -90,6 +97,9 @@ export default async function HistorialPage() {
       /// Si el acuse se puede verificar contra el texto que se leyo. `false` en los
       /// registros anteriores al versionado: ese texto se sobreescribio y no vuelve.
       textoVerificable: r.versionContenido !== null,
+      /// El acta de aceptacion, cuando el contenido exigia firma. `null` en el acuse
+      /// simple, que no genera acta: la mayoria de las filas no tiene y esta bien.
+      actaCodigo: r.acta?.codigo ?? null,
     };
   });
 

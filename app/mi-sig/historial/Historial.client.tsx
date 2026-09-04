@@ -22,6 +22,10 @@ export interface HistorialFila {
   motivo: string | null;
   periodo: string;
   versionLeida: string | null;
+  textoVerificable: boolean;
+  /// Código del acta de aceptación, cuando el contenido exigía firma. `null` en el acuse
+  /// simple: la mayoría de las filas no tiene acta y eso es lo normal.
+  actaCodigo: string | null;
 }
 
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -169,6 +173,19 @@ export default function HistorialClient({
                       <p className="mt-1 text-11_5" style={{ color: '#6b5410' }}>
                         Cerrada por {f.cerradaPor} en tu nombre. Motivo: {f.motivo}.
                       </p>
+                    )}
+                    {/* El acta se genera al firmar y queda congelada con su huella. Acá
+                        estaba la promesa incumplida: el aviso posterior a firmar decía
+                        «queda en tu historial» y en el historial no había nada. */}
+                    {f.actaCodigo !== null && (
+                      <a
+                        href={`/api/sig/acta?codigo=${encodeURIComponent(f.actaCodigo)}`}
+                        className="mt-1 inline-flex items-center gap-1.5 text-11_5 font-medium"
+                        style={{ color: 'var(--hf-brand-nav)' }}
+                      >
+                        Descargar el acta
+                        <span className="font-mono text-10 text-muted">{f.actaCodigo}</span>
+                      </a>
                     )}
                   </div>
                   <span
