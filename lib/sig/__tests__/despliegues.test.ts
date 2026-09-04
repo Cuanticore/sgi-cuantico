@@ -5,6 +5,7 @@
 
 import {
   llaveDeDespliegue,
+  parsearCsvDeDespliegues,
   planificarImportacion,
   resolverActivoPadre,
   resumirDespliegues,
@@ -160,5 +161,86 @@ describe('resumirDespliegues — contar los legacy es el punto', () => {
     const r = resumirDespliegues([]);
     expect(r.total).toBe(0);
     expect(r.porAmbiente).toEqual([]);
+  });
+});
+
+describe('parsearCsvDeDespliegues — donde se esconden los bugs', () => {
+  const cab = 'nombre,componente,repo,ambiente,servidor,ip,url,estado,confianza\n';
+
+  it('lee una fila normal', () => {
+    const r = parsearCsvDeDespliegues(cab + 'crm,App web,org/crm,produccion,srv1,10.0.0.1,https://x,running,alta\n');
+    expect(r.problemas).toEqual([]);
+    expect(r.filas).toHaveLength(1);
+    expect(r.filas[0].repoGithub).toBe('org/crm');
+    expect(r.filas[0].confianza).toBe('ALTA');
+  });
+
+  it('respeta la coma dentro de comillas', () => {
+    // Sin esto, «Coolify DB, nginx» partiría la fila y todas las columnas siguientes
+    // quedarían corridas — en silencio.
+    const r = parsearCsvDeDespliegues(
+      'nombre,ambiente,estado,evidencia\n"crm","produccion","running","Coolify DB, tabla applications"\n',
+    );
+    expect(r.filas[0].evidencia).toBe('Coolify DB, tabla applications');
+  });
+
+  it('desdobla las comillas escapadas', () => {
+    const r = parsearCsvDeDespliegues('nombre,ambiente,estado,notas\ncrm,prod,running,"dice ""hola"""\n');
+    expect(r.filas[0].notas).toBe('dice "hola"');
+  });
+
+  it('come el BOM que antepone Excel', () => {
+    // Sin sacarlo, la primera columna se llamaría «\uFEFFnombre» y el archivo entero se
+    // rechazaría por «falta la columna nombre».
+    const r = parsearCsvDeDespliegues('\uFEFFnombre,ambiente,estado\ncrm,prod,running\n');
+    expect(r.problemas).toEqual([]);
+    expect(r.filas).toHaveLength(1);
+  });
+
+  it('acepta CRLF', () => {
+    const r = parsearCsvDeDespliegues('nombre,ambiente,estado\r\ncrm,prod,running\r\n');
+    expect(r.filas).toHaveLength(1);
+    expect(r.filas[0].estado).toBe('running');
+  });
+
+  it('acepta el encabezado con tildes y mayúsculas', () => {
+    const r = parsearCsvDeDespliegues('Nombre,Ambiente,Estado,Confianza\ncrm,prod,running,Baja\n');
+    expect(r.filas[0].confianza).toBe('BAJA');
+  });
+
+  it('una confianza que no reconoce queda MEDIA, no ALTA', () => {
+    // Darle la máxima confianza por omisión es lo que hace que un inventario técnico deje
+    // de ser verificable.
+    const r = parsearCsvDeDespliegues('nombre,ambiente,estado,confianza\ncrm,prod,running,cualquiercosa\n');
+    expect(r.filas[0].confianza).toBe('MEDIA');
+  });
+
+  it('reporta la fila incompleta con su número de línea', () => {
+    // Una fila perdida en una importación de 130 no la nota nadie si se salta callada.
+    const r = parsearCsvDeDespliegues('nombre,ambiente,estado\ncrm,prod,running\n,prod,running\n');
+    expect(r.filas).toHaveLength(1);
+    expect(r.problemas[0]).toContain('línea 3');
+  });
+
+  it('rechaza el archivo entero si falta una columna obligatoria', () => {
+    const r = parsearCsvDeDespliegues('nombre,servidor\ncrm,srv1\n');
+    expect(r.filas).toEqual([]);
+    expect(r.problemas.join(' ')).toContain('ambiente');
+    expect(r.problemas.join(' ')).toContain('estado');
+  });
+
+  it('ignora las líneas en blanco', () => {
+    const r = parsearCsvDeDespliegues('nombre,ambiente,estado\ncrm,prod,running\n\n\n');
+    expect(r.filas).toHaveLength(1);
+    expect(r.problemas).toEqual([]);
+  });
+
+  it('el archivo redondea con la llave de idempotencia', () => {
+    // El parseo y la llave tienen que encajar: parsear y planificar dos veces el mismo
+    // archivo no puede crear nada la segunda vez.
+    const csv = cab + 'crm,App web,org/crm,produccion,srv1,10.0.0.1,https://x,running,alta\n';
+    const filas = parsearCsvDeDespliegues(csv).filas;
+    const llaves = new Set(filas.map(llaveDeDespliegue));
+    expect(planificarImportacion(filas, llaves).crear).toHaveLength(0);
   });
 });

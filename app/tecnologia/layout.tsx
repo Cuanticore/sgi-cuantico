@@ -49,7 +49,7 @@ function NavTecnologia() {
   const rutas: { etiqueta: string; href: string | null }[] = [
     { etiqueta: 'Mapa tecnológico', href: null },
     { etiqueta: 'Niveles', href: null },
-    { etiqueta: 'Ambientes', href: null },
+    { etiqueta: 'Ambientes', href: '/tecnologia/ambientes' },
     { etiqueta: 'Productos y proyectos', href: null },
     { etiqueta: 'Dependencias', href: '/tecnologia/dependencias' },
     { etiqueta: 'Impacto', href: '/tecnologia/impacto' },
