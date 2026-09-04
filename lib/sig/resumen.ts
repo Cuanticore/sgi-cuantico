@@ -194,7 +194,18 @@ export function planificarMensuales(
 
   for (const area of areas) {
     if (!area.liderCorreo) continue;
-    resultado.set(area.liderCorreo, resumenDe(area.nombre, asignaciones));
+    // Cada líder de proceso ve SOLO su área. Pasar `asignaciones` completo mandaba el
+    // cumplimiento, la deuda y las peores obligaciones de TODA la organización bajo el
+    // rótulo «tu área» del encabezado: una fuga entre áreas, no un rótulo impreciso.
+    // `areaId` nulo es la persona sin área: no cuelga de ninguna, así que entra solo en el
+    // resumen del líder del SIG —el mismo criterio que `proximasDelArea`—.
+    resultado.set(
+      area.liderCorreo,
+      resumenDe(
+        area.nombre,
+        asignaciones.filter((a) => a.areaId === area.id),
+      ),
+    );
   }
 
   return resultado;
