@@ -95,6 +95,9 @@ const GRUPOS: Grupo[] = [
     sub: true,
     items: [
       { etiqueta: 'Parámetros', abreviatura: 'PAR', href: '/sgsi/parametros' },
+      // B7 · ningun plazo vive en el codigo. Va en Configuracion porque es
+      // parametrizacion, no operacion: quien la toca no esta gestionando un hallazgo.
+      { etiqueta: 'Plazos', abreviatura: 'PLZ', href: '/sig/plazos' },
       { etiqueta: 'Amenazas y tipos', abreviatura: 'AMZ', href: '/sgsi/amenazas', contador: 'amenazas' },
       { etiqueta: 'Metodología', abreviatura: 'MET', href: '/sgsi/metodologia', literal: 'MET-SIG-01' },
     ],

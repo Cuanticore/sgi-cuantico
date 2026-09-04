@@ -3,6 +3,7 @@
 // Las cuatro cifras y las cuatro tarjetas del artboard TableroMejora: embudo por
 // estado, por tipo, por origen y días hasta el cierre contra el plazo parametrizado.
 
+import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { estadoCalculado } from '@/lib/sig/hallazgos';
 
@@ -109,6 +110,19 @@ export default async function TableroMejoraPage() {
           ))}
         </Tarjeta>
         <Tarjeta titulo="Días hasta el cierre" nota="cerrados del año">
+          {/* Sin filas en `plazo_por_tipo_hallazgo` esta tarjeta se dibujaba VACIA y parecia
+              falta de cierres, cuando lo que faltaba era la configuracion. Se dice cual es
+              el problema y adonde se resuelve. */}
+          {plazos.length === 0 && (
+            <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+              No hay plazos por tipo de hallazgo configurados, asi que no hay contra que
+              comparar los cierres.{' '}
+              <Link href="/sig/plazos" className="font-medium text-accent underline">
+                Cargarlos en Plazos
+              </Link>
+              .
+            </p>
+          )}
           {plazos.map((p) => {
             const dias = cierrePorTipo.get(p.tipo) ?? [];
             const promedio =
