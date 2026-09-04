@@ -329,3 +329,105 @@ export async function cerrarHojaDeVida(sistemaId: number, motivo: string): Promi
     return { ok: true, mensaje: `Hoja de vida de ${sistema.codigo} cerrada.` };
   });
 }
+
+/// El registro de tratamiento de datos personales. **Ley 1581**, el bloque con más
+/// exposición legal del paquete.
+///
+/// Vive en el SISTEMA y no en el activo porque un mismo dato se trata distinto según qué
+/// sistema lo use: la cédula en el portal del cliente y la cédula en nómina tienen
+/// finalidad, base y retención diferentes.
+export async function registrarTratamiento(datos: {
+  sistemaId: number;
+  categoria: string;
+  sensibles: boolean;
+  finalidad: string;
+  baseLegitimacion: string;
+  titulares?: string;
+  volumen?: string;
+  ubicacionAlmacenamiento?: string;
+  transferenciaInternacional: boolean;
+  paisDestino?: string;
+  garantiaAplicada?: string;
+  retencion?: string;
+  responsableId?: number;
+}): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('tecnologia:escribir');
+    exigirId(datos.sistemaId, 'el sistema');
+
+    if (datos.categoria.trim() === '') return { ok: false, mensaje: 'Falta la categoría de datos.' };
+    if (datos.finalidad.trim().length < 10) {
+      return { ok: false, mensaje: 'La finalidad es obligatoria: es lo primero que pide un requerimiento.' };
+    }
+    if (datos.baseLegitimacion.trim() === '') {
+      return { ok: false, mensaje: 'Falta la base de legitimación: sin ella el tratamiento no tiene sustento legal.' };
+    }
+    // **Declarar la transferencia y callar el destino es peor que no declararla.** Es el
+    // caso que la Ley 1581 mira con más atención, y por eso los dos campos se exigen juntos
+    // al momento de marcar la casilla.
+    if (datos.transferenciaInternacional) {
+      if ((datos.paisDestino ?? '').trim() === '') {
+        return { ok: false, mensaje: 'Con transferencia internacional el país de destino es obligatorio.' };
+      }
+      if ((datos.garantiaAplicada ?? '').trim() === '') {
+        return {
+          ok: false,
+          mensaje: 'Con transferencia internacional hay que decir con qué garantía se hace.',
+        };
+      }
+    }
+
+    const sistema = await prisma.sistema.findUnique({
+      where: { id: datos.sistemaId },
+      select: { codigo: true, trataDatosPersonales: true },
+    });
+    if (!sistema) return { ok: false, mensaje: 'El sistema no existe.' };
+
+    await prisma.$transaction(async (tx) => {
+      const creado = await tx.tratamientoDatosPersonales.create({
+        data: {
+          sistemaId: datos.sistemaId,
+          categoria: datos.categoria.trim(),
+          sensibles: datos.sensibles,
+          finalidad: datos.finalidad.trim(),
+          baseLegitimacion: datos.baseLegitimacion.trim(),
+          titulares: datos.titulares?.trim() || null,
+          volumen: datos.volumen?.trim() || null,
+          ubicacionAlmacenamiento: datos.ubicacionAlmacenamiento?.trim() || null,
+          transferenciaInternacional: datos.transferenciaInternacional,
+          paisDestino: datos.paisDestino?.trim() || null,
+          garantiaAplicada: datos.garantiaAplicada?.trim() || null,
+          retencion: datos.retencion?.trim() || null,
+          responsableId: datos.responsableId ?? null,
+        },
+      });
+      // Registrar un tratamiento IMPLICA que el sistema trata datos personales. Dejar la
+      // bandera en false con un registro colgando haría que el sistema no apareciera en la
+      // lista de los que hay que revisar — y el registro sería invisible justo donde
+      // importa.
+      if (!sistema.trataDatosPersonales) {
+        await tx.sistema.update({
+          where: { id: datos.sistemaId },
+          data: { trataDatosPersonales: true },
+        });
+      }
+      await registrarAlta(tx, autor, 'tratamiento_datos_personales', String(creado.id));
+      await registrar(tx, autor, [
+        {
+          tabla: 'tratamiento_datos_personales',
+          registroId: `${sistema.codigo} · ${datos.categoria.trim()}`,
+          campo: 'alta',
+          anterior: null,
+          nuevo: datos.transferenciaInternacional
+            ? `transferencia a ${datos.paisDestino}`
+            : 'sin transferencia internacional',
+          motivo: datos.finalidad.trim(),
+        },
+      ]);
+    });
+
+    revalidatePath('/tecnologia/datos-personales');
+    revalidatePath('/tecnologia/sistemas');
+    return { ok: true, mensaje: 'Tratamiento registrado.' };
+  });
+}

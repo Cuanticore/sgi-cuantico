@@ -30,5 +30,11 @@ export const config = {
     '/mi-sig/:path*',
     '/sig/:path*',
     '/estrategico/:path*',
+    // REQ-SIG-06 y REQ-SIG-08. Faltaba: sin esta línea `/tecnologia` era el único módulo
+    // que no redirigía al login, y una cuenta sin sesión llegaba hasta el layout en vez de
+    // frenar en el borde. La puerta del layout igual lo cubría —comprueba
+    // `tecnologia:ver`— pero apoyarse sólo en ella deja el módulo desalineado con el resto
+    // y a merced de que la próxima ruta se olvide de su gate.
+    '/tecnologia/:path*',
   ],
 };
