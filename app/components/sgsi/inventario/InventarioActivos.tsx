@@ -38,6 +38,13 @@ export interface ActivoVista {
   propietario: string | null;
   custodio: string | null;
   proveedor: string | null;
+  /// La jerarquia del inventario (REQ-SIG-06). Los tres grados llegan DERIVADOS del
+  /// servidor: el activo guarda `nivelId` apuntando al nivel 3 y los otros dos salen de
+  /// subir por `padreId`. Nulos cuando el activo todavia no se clasifico, que hoy son casi
+  /// todos — y ese «Sin clasificar» es el trabajo pendiente, no un defecto.
+  nivel1: string | null;
+  nivel2: string | null;
+  nivel3: string | null;
   D: number;
   I: number;
   C: number;
@@ -159,7 +166,13 @@ const TODOS_SUBTIPOS = 'Todos los subtipos';
 const TODOS_RESPONSABLES = 'Todos los responsables';
 
 type ColorFiltro = 'Todos' | 'rojo' | 'verde' | 'blanco';
-type Agrupacion = 'proceso|tipo' | 'tipo|proceso' | 'proceso|nivel';
+type Agrupacion =
+  | 'proceso|tipo'
+  | 'tipo|proceso'
+  | 'proceso|nivel'
+  | 'nivel1|nivel2'
+  | 'nivel2|nivel3'
+  | 'nivel3|tipo';
 
 interface Filtros {
   tipo: string;
@@ -304,7 +317,7 @@ export default function InventarioActivos({
     [preColor, filtros.color],
   );
 
-  const [clave1, clave2] = agrupar.split('|') as ['proceso' | 'tipo', 'proceso' | 'tipo' | 'nivel'];
+  const [clave1, clave2] = agrupar.split('|') as [ClaveGrupo, ClaveGrupo];
 
   // Two collapsible levels. Insertion order is the asset order, which arrives sorted by
   // code, so the groups come out in the same order on every render.
@@ -430,6 +443,9 @@ export default function InventarioActivos({
               <option value="proceso|tipo">Proceso → Tipo</option>
               <option value="tipo|proceso">Tipo → Proceso</option>
               <option value="proceso|nivel">Proceso → Nivel del activo</option>
+              <option value="nivel1|nivel2">Jerarquía · Nivel 1 → Nivel 2</option>
+              <option value="nivel2|nivel3">Jerarquía · Nivel 2 → Nivel 3</option>
+              <option value="nivel3|tipo">Jerarquía · Nivel 3 → Tipo</option>
             </select>
           </div>
 
@@ -920,13 +936,20 @@ function unicos(valores: string[]): string[] {
 /// Grouping reads a key off the asset, except for "nivel", which is the DERIVED level of
 /// the current valuation — so raising a dimension in the grid moves the asset to another
 /// group without a reload.
-function claveDeGrupo(
-  fila: { activo: ActivoVista; nivel: string },
-  clave: 'proceso' | 'tipo' | 'nivel',
-): string {
+/// Las claves por las que se puede agrupar. `nivel` es el NIVEL DE VALOR del activo —el
+/// que sale de la escala—; `nivel1`, `nivel2` y `nivel3` son los tres grados de la
+/// jerarquia del inventario. Se llaman distinto a proposito: son dos cosas sin relacion y
+/// compartir la palabra «nivel» ya confundio a esta pantalla una vez.
+type ClaveGrupo = 'proceso' | 'tipo' | 'nivel' | 'nivel1' | 'nivel2' | 'nivel3';
+
+function claveDeGrupo(fila: { activo: ActivoVista; nivel: string }, clave: ClaveGrupo): string {
   if (clave === 'proceso') return fila.activo.proceso;
   if (clave === 'tipo') return fila.activo.tipo;
-  return fila.nivel;
+  if (clave === 'nivel') return fila.nivel;
+  // Sin clasificar se agrupa junto y con nombre: repartir esos activos en un grupo vacio
+  // por cada uno los volveria invisibles justo cuando hay que clasificarlos.
+  const g = clave === 'nivel1' ? fila.activo.nivel1 : clave === 'nivel2' ? fila.activo.nivel2 : fila.activo.nivel3;
+  return g ?? 'Sin clasificar';
 }
 
 /// The filtered set, exported as the FOR-SIG-12 form (.xlsx real, with its dropdowns),

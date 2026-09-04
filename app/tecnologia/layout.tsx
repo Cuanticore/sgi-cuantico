@@ -50,7 +50,7 @@ function NavTecnologia() {
     { etiqueta: 'Mapa tecnológico', href: '/tecnologia/mapa' },
     { etiqueta: 'Niveles', href: '/tecnologia/niveles' },
     { etiqueta: 'Ambientes', href: '/tecnologia/ambientes' },
-    { etiqueta: 'Productos y proyectos', href: null },
+    { etiqueta: 'Productos y proyectos', href: '/tecnologia/productos' },
     { etiqueta: 'Dependencias', href: '/tecnologia/dependencias' },
     { etiqueta: 'Impacto', href: '/tecnologia/impacto' },
     { etiqueta: 'Equipos', href: '/tecnologia/equipos' },

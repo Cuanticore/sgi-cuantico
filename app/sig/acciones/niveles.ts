@@ -230,3 +230,59 @@ export async function asignarNivelAActivo(activoId: number, nivelId: number | nu
     return { ok: true, mensaje: nivelId === null ? 'Activo sin clasificar.' : 'Activo clasificado.' };
   });
 }
+
+/// D14 · crear el agrupador. **Un producto encabeza un nivel 1 de clase PRODUCTOS o
+/// PROYECTOS, y sólo uno.** La unique del esquema lo impone; acá se explica.
+///
+/// No recibe fase ni versión: no son del producto, son del sistema, y viven en REQ-SIG-08.
+export async function crearProducto(datos: {
+  nivelId: number;
+  nombre: string;
+  descripcion?: string;
+  responsableId: number;
+  clienteRef?: string;
+}): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('tecnologia:escribir');
+    exigirId(datos.nivelId, 'el nivel raíz');
+    exigirId(datos.responsableId, 'el responsable');
+    if (datos.nombre.trim() === '') return { ok: false, mensaje: 'Falta el nombre.' };
+
+    const nivel = await prisma.nivelActivo.findUnique({
+      where: { id: datos.nivelId },
+      select: { grado: true, clase: true, activo: true, nombre: true },
+    });
+    if (!nivel) return { ok: false, mensaje: 'El nivel no existe.' };
+    if (nivel.grado !== 1 || (nivel.clase !== 'PRODUCTOS' && nivel.clase !== 'PROYECTOS')) {
+      return {
+        ok: false,
+        mensaje: 'Un producto encabeza un nivel de grado 1 de clase PRODUCTOS o PROYECTOS.',
+      };
+    }
+    if (!nivel.activo) return { ok: false, mensaje: 'Ese nivel está inactivo.' };
+
+    const ocupado = await prisma.producto.findUnique({
+      where: { nivelId: datos.nivelId },
+      select: { nombre: true },
+    });
+    if (ocupado) {
+      return { ok: false, mensaje: `Ese nivel ya lo encabeza «${ocupado.nombre}».` };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const creado = await tx.producto.create({
+        data: {
+          nivelId: datos.nivelId,
+          nombre: datos.nombre.trim(),
+          descripcion: datos.descripcion?.trim() || null,
+          responsableId: datos.responsableId,
+          clienteRef: datos.clienteRef?.trim() || null,
+        },
+      });
+      await registrarAlta(tx, autor, 'producto', String(creado.id));
+    });
+
+    revalidatePath('/tecnologia/productos');
+    return { ok: true, mensaje: `«${datos.nombre.trim()}» creado.` };
+  });
+}

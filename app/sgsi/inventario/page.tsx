@@ -10,6 +10,7 @@
 // and the parametrized scales.
 
 import { prisma } from '@/lib/db';
+import { cadenaDeNivel, type Nivel } from '@/lib/sig/niveles';
 import InventarioActivos, {
   type ActivoVista,
   type BandaRiesgo,
@@ -19,7 +20,7 @@ import InventarioActivos, {
 export const dynamic = 'force-dynamic';
 
 export default async function InventarioPage() {
-  const [activos, escala, umbrales, parametro] = await Promise.all([
+  const [activos, escala, umbrales, parametro, niveles] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -44,12 +45,23 @@ export default async function InventarioPage() {
     prisma.escalaValor.findMany({ orderBy: { orden: 'asc' } }),
     prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
     prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } }),
+    // La jerarquia del inventario (REQ-SIG-06). Se trae ENTERA y los tres grados se derivan
+    // aca: el activo guarda solo `nivelId` apuntando al nivel 3, y guardar los otros dos
+    // seria guardar lo derivable.
+    prisma.nivelActivo.findMany({
+      select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true },
+    }),
   ]);
 
   // Same default as lib/sgsi/riesgos.ts: an asset enters the analysis at 4.
   const umbralValoracion = Number(parametro?.valor ?? 4);
 
+  const jerarquia: Nivel[] = niveles;
+
   const vista: ActivoVista[] = activos.map((a) => {
+    // `[nivel 1, nivel 2, nivel 3]`, o lo que haya. Una cadena mas corta significa que la
+    // rama esta incompleta, y se muestra como esta en vez de rellenarse.
+    const cadena = a.nivelId === null ? [] : cadenaDeNivel(a.nivelId, jerarquia);
     // A dimension with no row is a 0, not a hole: the workbook leaves the cell blank when
     // the dimension does not apply to the asset, and 0 is what "Irrelevante" means.
     const porDimension = new Map(a.valores.map((v) => [v.dimension.codigo, v.valor.valor]));
@@ -58,6 +70,9 @@ export default async function InventarioPage() {
       codigo: a.codigo ?? '(sin código)',
       codigoHeredado: a.codigoHeredado,
       nombre: a.nombre,
+      nivel1: cadena[0]?.nombre ?? null,
+      nivel2: cadena[1]?.nombre ?? null,
+      nivel3: cadena[2]?.nombre ?? null,
       proceso: a.area.nombre,
       // The catalogue code travels with the name — "[SW] Aplicaciones (software)" — so
       // grouping by type reads the same as the MAGERIT taxonomy the auditors use.
