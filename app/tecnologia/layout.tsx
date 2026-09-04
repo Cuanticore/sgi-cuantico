@@ -57,6 +57,7 @@ function NavTecnologia() {
     { etiqueta: 'Equipos', href: '/tecnologia/equipos' },
     { etiqueta: 'Sistemas', href: '/tecnologia/sistemas' },
     { etiqueta: 'Excepciones', href: '/tecnologia/excepciones' },
+    { etiqueta: 'Verificación', href: '/tecnologia/verificacion' },
     { etiqueta: 'Datos personales', href: '/tecnologia/datos-personales' },
   ];
 

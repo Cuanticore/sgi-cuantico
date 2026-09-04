@@ -5,17 +5,21 @@
 
 import {
   codigoExcepcion,
+  cumplimientoDeVerificacion,
   diasHastaCierre,
   estadoDeExcepcion,
   faltantesDeHojaDeVida,
   fechaLimiteRemediacion,
+  itemAplica,
   puedeCerrarHojaDeVida,
   resumirPuertas,
   validarExcepcion,
   validarPuerta,
   veredictoDePrueba,
   type HojaDeVida,
+  type ItemVerificado,
   type PlazosRemediacion,
+  type ValorRespuesta,
 } from '../desarrollo';
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -272,5 +276,64 @@ describe('faltantesDeHojaDeVida — señala, no impide', () => {
   it('reclama el RTO y el RPO por el BIA', () => {
     const f = faltantesDeHojaDeVida({ ...completa, rtoObjetivo: null });
     expect(f.join(' ')).toContain('BIA');
+  });
+});
+
+describe('cumplimientoDeVerificacion — el «no aplica» no regala puntos', () => {
+  const i = (respuesta: ValorRespuesta | null, nota: string | null = 'porque sí'): ItemVerificado => ({
+    respuesta,
+    nota,
+    aplicaA: 'AMBOS',
+  });
+
+  it('cuenta las cuatro categorías', () => {
+    const r = cumplimientoDeVerificacion([i('CUMPLE'), i('CUMPLE'), i('NO_CUMPLE'), i('NO_APLICA'), i(null)]);
+    expect(r).toMatchObject({ cumple: 2, noCumple: 1, noAplica: 1, pendientes: 1 });
+  });
+
+  it('el «no aplica» sale del denominador, no suma a favor', () => {
+    // Contarlo a favor haría que marcar «no aplica» en los 73 ítems diera 100 %, que es
+    // exactamente el abuso que la justificación escrita existe para frenar.
+    expect(cumplimientoDeVerificacion([i('CUMPLE'), i('NO_APLICA')]).porcentaje).toBe(100);
+    expect(cumplimientoDeVerificacion([i('CUMPLE'), i('NO_CUMPLE')]).porcentaje).toBe(50);
+  });
+
+  it('los pendientes SÍ están en el denominador', () => {
+    // Sacarlos daría 100 % a una verificación que nadie empezó.
+    expect(cumplimientoDeVerificacion([i('CUMPLE'), i(null), i(null)]).porcentaje).toBe(33);
+  });
+
+  it('todo «no aplica» no da 100 %: da null, porque no hay nada que medir', () => {
+    expect(cumplimientoDeVerificacion([i('NO_APLICA'), i('NO_APLICA')]).porcentaje).toBeNull();
+  });
+
+  it('una lista vacía no divide por cero', () => {
+    expect(cumplimientoDeVerificacion([]).porcentaje).toBeNull();
+  });
+
+  it('cuenta los «no aplica» SIN justificar, que es la casilla que se abusa', () => {
+    const r = cumplimientoDeVerificacion([i('NO_APLICA', null), i('NO_APLICA', '  '), i('NO_APLICA', 'el sistema no expone API')]);
+    expect(r.noAplicaSinJustificar).toBe(2);
+  });
+});
+
+describe('itemAplica — G10, los del contratado se SUMAN', () => {
+  it('los de AMBOS aplican siempre', () => {
+    expect(itemAplica('AMBOS', false)).toBe(true);
+    expect(itemAplica('AMBOS', true)).toBe(true);
+  });
+
+  it('los de CONTRATADO sólo cuando lo es', () => {
+    expect(itemAplica('CONTRATADO', false)).toBe(false);
+    expect(itemAplica('CONTRATADO', true)).toBe(true);
+  });
+
+  it('ser contratado NO resta ningún ítem', () => {
+    // Cambia quién ejecuta y que la evidencia se exige por contrato, no el nivel de
+    // exigencia: el conjunto contratado contiene al normal.
+    const catalogo = ['AMBOS', 'AMBOS', 'CONTRATADO'];
+    const normal = catalogo.filter((a) => itemAplica(a, false)).length;
+    const contratado = catalogo.filter((a) => itemAplica(a, true)).length;
+    expect(contratado).toBeGreaterThan(normal);
   });
 });

@@ -306,3 +306,66 @@ export const ETIQUETA_ESTADO_EXCEPCION: Record<EstadoExcepcion, string> = {
   VENCIDA: 'Vencida',
   CERRADA: 'Cerrada',
 };
+
+// ─── Los 73 ítems de PTR-TEC-03 ────────────────────────────────────────────────────────
+
+export type ValorRespuesta = 'CUMPLE' | 'NO_CUMPLE' | 'NO_APLICA';
+
+export interface ItemVerificado {
+  /// `null` cuando nadie lo respondió todavía. **No es «no cumple»**: es que nadie lo miró.
+  respuesta: ValorRespuesta | null;
+  nota: string | null;
+  aplicaA: string;
+}
+
+export interface Cumplimiento {
+  cumple: number;
+  noCumple: number;
+  noAplica: number;
+  pendientes: number;
+  /// Del 0 al 100, o `null` cuando no hay nada que medir todavía.
+  ///
+  /// **El «no aplica» no cuenta como incumplimiento, pero tampoco como cumplimiento**: sale
+  /// del denominador. Contarlo a favor haría que marcar «no aplica» en los 73 ítems diera
+  /// 100 %, que es exactamente el abuso que la justificación escrita existe para frenar.
+  porcentaje: number | null;
+  /// Los que dicen «no aplica» sin justificación escrita. **Es la casilla que más se usa
+  /// para esquivar un control**, y sin la nota no hay forma de distinguir un «no aplica»
+  /// legítimo de uno cómodo.
+  noAplicaSinJustificar: number;
+}
+
+export function cumplimientoDeVerificacion(items: readonly ItemVerificado[]): Cumplimiento {
+  const cuenta = (r: ValorRespuesta) => items.filter((i) => i.respuesta === r).length;
+  const cumple = cuenta('CUMPLE');
+  const noCumple = cuenta('NO_CUMPLE');
+  const noAplica = cuenta('NO_APLICA');
+  const pendientes = items.filter((i) => i.respuesta === null).length;
+  // Los pendientes SÍ están en el denominador: un ítem sin responder no está cumplido, y
+  // sacarlo daría 100 % a una verificación que nadie empezó.
+  const evaluables = cumple + noCumple + pendientes;
+  return {
+    cumple,
+    noCumple,
+    noAplica,
+    pendientes,
+    porcentaje: evaluables === 0 ? null : Math.round((cumple / evaluables) * 100),
+    noAplicaSinJustificar: items.filter(
+      (i) => i.respuesta === 'NO_APLICA' && (i.nota === null || i.nota.trim() === ''),
+    ).length,
+  };
+}
+
+/// G10 · qué ítems aplican a un sistema. **Los marcados `CONTRATADO` se SUMAN cuando el
+/// desarrollo es contratado; ninguno se resta.** Cambia quién ejecuta y que la evidencia se
+/// exige por contrato, no el nivel de exigencia.
+export function itemAplica(aplicaA: string, esContratado: boolean): boolean {
+  if (aplicaA === 'CONTRATADO') return esContratado;
+  return true;
+}
+
+export const ETIQUETA_RESPUESTA: Record<ValorRespuesta, string> = {
+  CUMPLE: 'Cumple',
+  NO_CUMPLE: 'No cumple',
+  NO_APLICA: 'No aplica',
+};
