@@ -52,7 +52,13 @@ export async function generarAsignaciones(): Promise<ResultadoGeneracion> {
   });
 }
 
-import { validarCierre, esExtemporaneo, aprobadoDe, type RespuestaCierre } from '@/lib/sig/cierre';
+import {
+  validarCierre,
+  cierraLaAsignacion,
+  esExtemporaneo,
+  aprobadoDe,
+  type RespuestaCierre,
+} from '@/lib/sig/cierre';
 import { autorActual } from '@/app/sgsi/acciones/sesion';
 import { registrarBaja } from '@/lib/sgsi/bitacora';
 
@@ -71,6 +77,9 @@ export interface DatosCerrar {
 export interface ResultadoCierre extends Resultado {
   extemporaneo: boolean;
   administrativo: boolean;
+  /// Un cierre puede ser válido y aun así no cerrar: capacitación reprobada registra el
+  /// intento y deja la asignación abierta. `ok` dice que se aceptó; esto, si quedó cerrada.
+  cerrada: boolean;
 }
 
 /// La persona asignada cierra lo suyo; un miembro de `operacion:administrar` puede
@@ -90,16 +99,16 @@ export async function cerrarAsignacion(
         obligacion: { include: { contenido: true } },
       },
     });
-    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.', extemporaneo: false, administrativo: false };
+    if (!asignacion) return { ok: false, mensaje: 'La asignación no existe.', extemporaneo: false, administrativo: false, cerrada: false };
 
     const contenido = asignacion.contenido ?? asignacion.obligacion?.contenido;
-    if (!contenido) return { ok: false, mensaje: 'La asignación no tiene contenido.', extemporaneo: false, administrativo: false };
+    if (!contenido) return { ok: false, mensaje: 'La asignación no tiene contenido.', extemporaneo: false, administrativo: false, cerrada: false };
 
     const esAdministrativo = asignacion.persona.correo !== sesion;
     if (esAdministrativo) {
       await autorConPermiso('operacion:administrar');
       if (!datos.motivo?.trim()) {
-        return { ok: false, mensaje: 'El cierre administrativo exige motivo.', extemporaneo: false, administrativo: true };
+        return { ok: false, mensaje: 'El cierre administrativo exige motivo.', extemporaneo: false, administrativo: true, cerrada: false };
       }
     }
 
@@ -116,6 +125,7 @@ export async function cerrarAsignacion(
           mensaje: 'Hay respuestas para ítems que no pertenecen a esta verificación.',
           extemporaneo: false,
           administrativo: esAdministrativo,
+          cerrada: false,
         };
       }
       respuestasValidadas = (datos.respuestas ?? []).map((r) => {
@@ -130,7 +140,7 @@ export async function cerrarAsignacion(
       });
     }
 
-    const errores = validarCierre({
+    const datosCierre = {
       tipo: contenido.tipo,
       versionLeida: datos.versionLeida,
       asistio: datos.asistio,
@@ -139,10 +149,16 @@ export async function cerrarAsignacion(
       notaMinima: contenido.notaMinima ? Number(contenido.notaMinima) : null,
       nota: datos.nota,
       respuestas: respuestasValidadas,
-    });
+    };
+
+    const errores = validarCierre(datosCierre);
     if (errores.length > 0) {
-      return { ok: false, mensaje: errores.join('. '), extemporaneo: false, administrativo: esAdministrativo };
+      return { ok: false, mensaje: errores.join('. '), extemporaneo: false, administrativo: esAdministrativo, cerrada: false };
     }
+
+    // Válido no es lo mismo que cerrado: una capacitación reprobada registra el intento y
+    // deja la asignación abierta para repetir la evaluación.
+    const cierra = cierraLaAsignacion(datosCierre);
 
     const ahora = new Date();
     const extemporaneo = esExtemporaneo(ahora, asignacion.fechaLimite);
@@ -212,6 +228,11 @@ export async function cerrarAsignacion(
         });
       }
 
+      // El registro de arriba ya quedó escrito con su nota: ES el intento fallido que la
+      // regla manda conservar. Lo único que no ocurre al reprobar es el cierre, así que la
+      // asignación no se toca y no hay cambio de estado que anotar en bitácora.
+      if (!cierra) return;
+
       await tx.asignacion.update({
         where: { id: asignacion.id },
         data: {
@@ -234,6 +255,19 @@ export async function cerrarAsignacion(
       ]);
     });
 
+    if (!cierra) {
+      const minima = contenido.notaMinima ? Number(contenido.notaMinima) : null;
+      return {
+        ok: true,
+        mensaje: `Intento registrado con ${datos.calificacion}${
+          minima === null ? '' : ` sobre la nota mínima de ${minima}`
+        }. La asignación sigue abierta: se refuerza la información y se repite la evaluación.`,
+        extemporaneo,
+        administrativo: esAdministrativo,
+        cerrada: false,
+      };
+    }
+
     return {
       ok: true,
       mensaje: esAdministrativo
@@ -241,6 +275,7 @@ export async function cerrarAsignacion(
         : `Cierre registrado${extemporaneo ? ' (extemporáneo)' : ''}.`,
       extemporaneo,
       administrativo: esAdministrativo,
+      cerrada: true,
     };
   });
 }

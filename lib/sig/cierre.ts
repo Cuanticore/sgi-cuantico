@@ -24,6 +24,25 @@ export interface DatosCierre {
   respuestas?: RespuestaCierre[];
 }
 
+/// ¿Este cierre válido deja la asignación REALIZADA, o la deja abierta?
+///
+/// Una capacitación reprobada NO cierra. El intento se registra igual —con su nota, que es
+/// la evidencia de que la persona se presentó— pero la obligación sigue exigible para
+/// repetir la evaluación: «quien no alcance la nota mínima no cierra la asignación; el
+/// intento fallido queda registrado con su nota, no se borra ni se sobrescribe».
+///
+/// Antes se cerraba igual. El sistema YA sabía que había reprobado —`aprobadoDe` lo calcula
+/// y lo congela en el registro— y aun así archivaba como cumplido justo el caso que la norma
+/// manda repetir: el dato correcto guardado junto a la decisión contraria.
+///
+/// Sin evaluación exigida, o sin nota mínima declarada, no hay nada que reprobar y cierra.
+export function cierraLaAsignacion(datos: DatosCierre): boolean {
+  if (datos.tipo !== 'CAPACITACION') return true;
+  if (!datos.asistio || !datos.exigeEvaluacion) return true;
+  // `null` es «no se puede decidir» (falta la nota o el mínimo): no bloquea.
+  return aprobadoDe(datos.calificacion, datos.notaMinima) !== false;
+}
+
 /// Devuelve los errores del cierre; vacío significa válido. La interfaz ayuda, no decide.
 export function validarCierre(datos: DatosCierre): string[] {
   const errores: string[] = [];

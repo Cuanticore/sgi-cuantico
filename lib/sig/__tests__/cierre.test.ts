@@ -6,6 +6,7 @@
 
 import {
   validarCierre,
+  cierraLaAsignacion,
   esVencida,
   esExtemporaneo,
   aprobadoDe,
@@ -46,6 +47,64 @@ describe('validarCierre — CAPACITACION', () => {
     expect(
       validarCierre({ tipo: 'CAPACITACION', asistio: true, exigeEvaluacion: true, calificacion: undefined }),
     ).toEqual(['registre la calificación']);
+  });
+
+  it('reprobar es un cierre VÁLIDO: el intento se registra, no se rechaza', () => {
+    // La distinción es el punto. Si `validarCierre` lo rechazara, el intento fallido no se
+    // guardaría en ningún lado y la regla exige lo contrario: «queda registrado con su
+    // nota; no se borra ni se sobrescribe».
+    expect(
+      validarCierre({
+        tipo: 'CAPACITACION',
+        asistio: true,
+        exigeEvaluacion: true,
+        calificacion: 60,
+        notaMinima: 80,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('cierraLaAsignacion — la nota mínima decide si cierra', () => {
+  const capacitacion = (calificacion: number | null, notaMinima: number | null = 80) => ({
+    tipo: 'CAPACITACION' as const,
+    asistio: true,
+    exigeEvaluacion: true,
+    calificacion,
+    notaMinima,
+  });
+
+  it('reprobar NO cierra la asignación: se repite la evaluación', () => {
+    expect(cierraLaAsignacion(capacitacion(60))).toBe(false);
+  });
+
+  it('justo en la nota mínima cierra: el criterio es ≥, no >', () => {
+    expect(cierraLaAsignacion(capacitacion(80))).toBe(true);
+  });
+
+  it('aprobar por encima cierra', () => {
+    expect(cierraLaAsignacion(capacitacion(95))).toBe(true);
+  });
+
+  it('sin nota mínima declarada no hay nada que reprobar', () => {
+    expect(cierraLaAsignacion(capacitacion(10, null))).toBe(true);
+  });
+
+  it('sin evaluación exigida cierra aunque no haya nota', () => {
+    expect(
+      cierraLaAsignacion({ tipo: 'CAPACITACION', asistio: true, exigeEvaluacion: false }),
+    ).toBe(true);
+  });
+
+  it('no haber asistido no se juzga por nota', () => {
+    expect(
+      cierraLaAsignacion({ tipo: 'CAPACITACION', asistio: false, exigeEvaluacion: true, notaMinima: 80 }),
+    ).toBe(true);
+  });
+
+  it('los otros tipos no tienen nota que alcanzar', () => {
+    expect(cierraLaAsignacion({ tipo: 'LECTURA', versionLeida: 'v2' })).toBe(true);
+    expect(cierraLaAsignacion({ tipo: 'VERIFICACION', respuestas: [] })).toBe(true);
   });
 });
 
