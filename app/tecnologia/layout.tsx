@@ -48,12 +48,12 @@ export default async function TecnologiaLayout({ children }: { children: React.R
 function NavTecnologia() {
   const rutas: { etiqueta: string; href: string | null }[] = [
     { etiqueta: 'Mapa tecnológico', href: null },
-    { etiqueta: 'Niveles', href: null },
+    { etiqueta: 'Niveles', href: '/tecnologia/niveles' },
     { etiqueta: 'Ambientes', href: '/tecnologia/ambientes' },
     { etiqueta: 'Productos y proyectos', href: null },
     { etiqueta: 'Dependencias', href: '/tecnologia/dependencias' },
     { etiqueta: 'Impacto', href: '/tecnologia/impacto' },
-    { etiqueta: 'Equipos', href: null },
+    { etiqueta: 'Equipos', href: '/tecnologia/equipos' },
   ];
 
   return (
