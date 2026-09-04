@@ -73,22 +73,24 @@ describe('caminoDelCiclo — decir POR DÓNDE, no sólo que lo hay', () => {
 describe('aguasArriba y aguasAbajo — la dirección inversa es la que no contesta nadie hoy', () => {
   it('aguas arriba sigue la cadena completa con su distancia', () => {
     expect(aguasArriba(1, CADENA)).toEqual([
-      { activoId: 2, distancia: 1 },
-      { activoId: 3, distancia: 2 },
-      { activoId: 4, distancia: 3 },
+      { activoId: 2, distancia: 1, tipo: 'USA', viaId: null },
+      { activoId: 3, distancia: 2, tipo: 'USA', viaId: 2 },
+      { activoId: 4, distancia: 3, tipo: 'USA', viaId: 3 },
     ]);
   });
 
   it('soloDirectas corta en el primer salto', () => {
-    expect(aguasArriba(1, CADENA, true)).toEqual([{ activoId: 2, distancia: 1 }]);
+    expect(aguasArriba(1, CADENA, true)).toEqual([
+      { activoId: 2, distancia: 1, tipo: 'USA', viaId: null },
+    ]);
   });
 
   it('aguas abajo responde quién se cae si esto se cae', () => {
     // Es la que alimenta el BIA anual, y la que el editor de dependencias no contesta.
     expect(aguasAbajo(4, CADENA)).toEqual([
-      { activoId: 3, distancia: 1 },
-      { activoId: 2, distancia: 2 },
-      { activoId: 1, distancia: 3 },
+      { activoId: 3, distancia: 1, tipo: 'USA', viaId: null },
+      { activoId: 2, distancia: 2, tipo: 'USA', viaId: 3 },
+      { activoId: 1, distancia: 3, tipo: 'USA', viaId: 2 },
     ]);
   });
 
@@ -134,5 +136,18 @@ describe('asimetrias — un crítico que depende de uno sin valorar es un hallaz
   it('no reporta cuando la dependencia es igual o más crítica', () => {
     expect(asimetrias([usa(1, 2)], [cr(1, 5), cr(2, 5)], 4)).toEqual([]);
     expect(asimetrias([usa(1, 2)], [cr(1, 4), cr(2, 5)], 4)).toEqual([]);
+  });
+});
+
+describe('el «via» de cada nodo — sin el, una cadena de tres saltos no se puede auditar', () => {
+  it('los directos no tienen via y llevan el tipo de su arista', () => {
+    const r = aguasArriba(1, [{ activoId: 1, dependeDeId: 9, tipo: 'ALMACENA_EN' }]);
+    expect(r[0]).toEqual({ activoId: 9, distancia: 1, tipo: 'ALMACENA_EN', viaId: null });
+  });
+
+  it('un nodo en cadena dice por donde se llega', () => {
+    // «vía postgres» es lo que permite reconstruir el camino sin volver a recorrer el grafo.
+    const r = aguasArriba(1, CADENA);
+    expect(r.find((n) => n.activoId === 4)?.viaId).toBe(3);
   });
 });

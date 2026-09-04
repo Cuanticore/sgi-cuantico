@@ -36,20 +36,15 @@ import HeaderCorporativo, { type Pestana } from './HeaderCorporativo';
 /// dentro de esta pestaña, no como pestaña propia.
 ///
 /// Dos pestañas nuevas —Tecnología y Personas— apuntan a su primera pantalla construida.
-/// Ninguna de las dos tiene todavía las pantallas de su módulo (REQ-SIG-06 y REQ-SIG-09),
-/// y por eso Tecnología no se dibuja: una pestaña que no lleva a ninguna parte no informa,
-/// frustra. Se agrega acá para que aparezca sola el día que exista su primera ruta.
+/// Tecnología estuvo deshabilitada hasta que REQ-SIG-06 tuvo su primera ruta: una pestaña
+/// que no lleva a ninguna parte no informa, frustra. Ahora lleva al mapa tecnológico y usa
+/// su propio permiso, `tecnologia:ver`, en vez de pedir prestado el del SGSI.
 const TODAS: { pestana: Pestana; permiso: Permiso | null }[] = [
   { pestana: { etiqueta: 'Mi SIG', href: '/mi-sig' }, permiso: null },
   { pestana: { etiqueta: 'SIG', href: '/sgsi' }, permiso: 'sgsi:ver' },
   { pestana: { etiqueta: 'Actividades', href: '/sig/obligaciones' }, permiso: 'operacion:ver' },
   { pestana: { etiqueta: 'Estratégico', href: '/estrategico/mapa' }, permiso: 'estrategico:ver' },
-  {
-    // Sin ninguna pantalla construida: se dibuja deshabilitada, que es lo que el resto de
-    // la barra ya hacía con Estratégico antes de que sus rutas existieran.
-    pestana: { etiqueta: 'Tecnología', href: '', deshabilitada: true },
-    permiso: 'sgsi:ver',
-  },
+  { pestana: { etiqueta: 'Tecnología', href: '/tecnologia/dependencias' }, permiso: 'tecnologia:ver' },
   { pestana: { etiqueta: 'Personas', href: '/sig/personas' }, permiso: 'operacion:administrar' },
 ];
 

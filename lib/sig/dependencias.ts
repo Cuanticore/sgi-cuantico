@@ -21,24 +21,32 @@ export interface Arista {
   tipo: TipoDependencia;
 }
 
-/// Adyacencia «de quién depende cada uno», sin tipos: para recorrer la cadena el tipo no
-/// importa, sólo la dirección.
-function aguasArribaDe(aristas: readonly Arista[]): Map<number, number[]> {
-  const m = new Map<number, number[]>();
+/// Adyacencia con el TIPO de la arista. El recorrido no lo necesita para avanzar —para eso
+/// sólo importa la dirección— pero la pantalla sí: «vía Coolify, se aloja en» dice por dónde
+/// llega la cadena, y sin eso una lista de siete nodos a tres saltos no se puede auditar.
+interface Salto {
+  hacia: number;
+  tipo: TipoDependencia;
+}
+
+function aguasArribaDe(aristas: readonly Arista[]): Map<number, Salto[]> {
+  const m = new Map<number, Salto[]>();
   for (const a of aristas) {
     const previas = m.get(a.activoId);
-    if (previas === undefined) m.set(a.activoId, [a.dependeDeId]);
-    else if (!previas.includes(a.dependeDeId)) previas.push(a.dependeDeId);
+    const salto = { hacia: a.dependeDeId, tipo: a.tipo };
+    if (previas === undefined) m.set(a.activoId, [salto]);
+    else previas.push(salto);
   }
   return m;
 }
 
-function aguasAbajoDe(aristas: readonly Arista[]): Map<number, number[]> {
-  const m = new Map<number, number[]>();
+function aguasAbajoDe(aristas: readonly Arista[]): Map<number, Salto[]> {
+  const m = new Map<number, Salto[]>();
   for (const a of aristas) {
     const previas = m.get(a.dependeDeId);
-    if (previas === undefined) m.set(a.dependeDeId, [a.activoId]);
-    else if (!previas.includes(a.activoId)) previas.push(a.activoId);
+    const salto = { hacia: a.activoId, tipo: a.tipo };
+    if (previas === undefined) m.set(a.dependeDeId, [salto]);
+    else previas.push(salto);
   }
   return m;
 }
@@ -61,11 +69,11 @@ export function cerrariaCiclo(
   const vistos = new Set<number>([dependeDeId]);
   while (pila.length > 0) {
     const actual = pila.pop() as number;
-    for (const siguiente of arriba.get(actual) ?? []) {
-      if (siguiente === activoId) return true;
-      if (!vistos.has(siguiente)) {
-        vistos.add(siguiente);
-        pila.push(siguiente);
+    for (const { hacia } of arriba.get(actual) ?? []) {
+      if (hacia === activoId) return true;
+      if (!vistos.has(hacia)) {
+        vistos.add(hacia);
+        pila.push(hacia);
       }
     }
   }
@@ -89,11 +97,11 @@ export function caminoDelCiclo(
   while (cola.length > 0) {
     const camino = cola.shift() as number[];
     const actual = camino[camino.length - 1];
-    for (const siguiente of arriba.get(actual) ?? []) {
-      if (siguiente === activoId) return [...camino, siguiente];
-      if (!vistos.has(siguiente)) {
-        vistos.add(siguiente);
-        cola.push([...camino, siguiente]);
+    for (const { hacia } of arriba.get(actual) ?? []) {
+      if (hacia === activoId) return [...camino, hacia];
+      if (!vistos.has(hacia)) {
+        vistos.add(hacia);
+        cola.push([...camino, hacia]);
       }
     }
   }
@@ -105,6 +113,12 @@ export interface NodoAlcanzado {
   /// En saltos. **Dos saltos no son dos niveles**: la distancia en la cadena no tiene nada
   /// que ver con la jerarquía de `NivelActivo`.
   distancia: number;
+  /// El tipo de la arista por la que se llegó.
+  tipo: TipoDependencia;
+  /// El activo desde el que se dio el último salto, o `null` en los directos. Es lo que
+  /// permite decir «vía Coolify»: sin eso, un nodo a tres saltos aparece sin explicación de
+  /// cómo se llega, y la cadena no se puede auditar.
+  viaId: number | null;
 }
 
 /// **De qué depende un activo.** Aguas arriba: lo que se cae y lo arrastra.
@@ -137,20 +151,23 @@ export function aguasAbajo(
 /// que responde «qué tan cerca está».
 function recorrer(
   desde: number,
-  adyacencia: ReadonlyMap<number, number[]>,
+  adyacencia: ReadonlyMap<number, Salto[]>,
   soloDirectas: boolean,
 ): NodoAlcanzado[] {
   const salida: NodoAlcanzado[] = [];
   const vistos = new Set<number>([desde]);
-  let frontera = adyacencia.get(desde) ?? [];
+  // Cada elemento de la frontera recuerda desde dónde vino, que es lo que da el «vía».
+  let frontera = (adyacencia.get(desde) ?? []).map((s) => ({ ...s, viaId: null as number | null }));
   let distancia = 1;
   while (frontera.length > 0) {
-    const siguiente: number[] = [];
-    for (const id of frontera) {
-      if (vistos.has(id)) continue;
-      vistos.add(id);
-      salida.push({ activoId: id, distancia });
-      for (const v of adyacencia.get(id) ?? []) if (!vistos.has(v)) siguiente.push(v);
+    const siguiente: { hacia: number; tipo: TipoDependencia; viaId: number | null }[] = [];
+    for (const paso of frontera) {
+      if (vistos.has(paso.hacia)) continue;
+      vistos.add(paso.hacia);
+      salida.push({ activoId: paso.hacia, distancia, tipo: paso.tipo, viaId: paso.viaId });
+      for (const v of adyacencia.get(paso.hacia) ?? []) {
+        if (!vistos.has(v.hacia)) siguiente.push({ ...v, viaId: paso.hacia });
+      }
     }
     if (soloDirectas) break;
     frontera = siguiente;
