@@ -63,6 +63,8 @@ export interface ProgresoFila {
 export default function FichaClient({
   persona,
   accesos,
+  activos,
+  formacion,
   compromisos,
   actas,
   vinculacion,
@@ -73,6 +75,11 @@ export default function FichaClient({
 }: {
   persona: PersonaFicha;
   accesos: AccesoFila[];
+  /// Los activos cuyo custodio es esta PERSONA (E9), no su cargo.
+  activos: { codigo: string; nombre: string; rol: string }[];
+  /// Las cuatro tarjetas de competencia. El `tono` es semántico y no un color: la pantalla
+  /// decide cómo se pinta, y así «no aprobado» y «sin identificar» avisan igual.
+  formacion: { etiqueta: string; valor: string; nota: string; tono: 'ok' | 'aviso' | 'neutro' }[];
   compromisos: {
     puerta: { abierta: boolean; faltan: number } | null;
     exigidos: { codigo: string; titulo: string; firmado: boolean }[];
@@ -219,6 +226,63 @@ export default function FichaClient({
                 revisión trimestral tiene que explicar por qué existe o retirarlo.
               </p>
             )}
+          </Bloque>
+
+          {/* Lo que la persona tiene en la mano. Faltaba, y es lo primero que se pregunta
+              cuando alguien se va: la desvinculación exige acta de borrado seguro sobre
+              estos activos, así que sin la lista el trámite se hace de memoria. */}
+          <Bloque
+            titulo="Activos a cargo"
+            derecha={`${activos.length} ${activos.length === 1 ? 'activo' : 'activos'}`}
+          >
+            {activos.length === 0 ? (
+              <p className="text-11_5 text-muted">
+                Ninguno registrado a su nombre. No prueba que no tenga: prueba que nadie
+                quedó anotado como custodio.
+              </p>
+            ) : (
+              activos.map((a) => (
+                <div
+                  key={a.codigo}
+                  className="flex items-center gap-2 border-t border-hairline py-1.5 first:border-t-0"
+                >
+                  <span className="font-mono text-10_5 text-accent">{a.codigo}</span>
+                  <span className="min-w-0 flex-1 truncate text-11_5 text-secondary">
+                    {a.nombre}
+                  </span>
+                  <span className="font-mono text-10 text-muted">{a.rol}</span>
+                </div>
+              ))
+            )}
+          </Bloque>
+
+          {/* La competencia sale del MOTOR, no del Excel de Talento Humano. Ése es el
+              punto del bloque: una sola verdad sobre cuándo se capacitó y con qué nota. */}
+          <Bloque titulo="Formación y competencia">
+            <div className="grid grid-cols-2 gap-2.5">
+              {formacion.map((f) => (
+                <div
+                  key={f.etiqueta}
+                  className="flex flex-col gap-1 rounded-tarjeta border border-border-field bg-app px-3 py-2.5"
+                >
+                  <span className="etiqueta-campo">{f.etiqueta}</span>
+                  <span
+                    className="text-13 font-semibold"
+                    style={{
+                      color:
+                        f.tono === 'ok'
+                          ? '#0b5c44'
+                          : f.tono === 'aviso'
+                            ? 'var(--hf-warn-text)'
+                            : 'var(--hf-text-secondary)',
+                    }}
+                  >
+                    {f.valor}
+                  </span>
+                  <span className="text-10 text-muted [text-wrap:pretty]">{f.nota}</span>
+                </div>
+              ))}
+            </div>
           </Bloque>
 
           <Bloque titulo="Compromisos firmados" derecha={`${actas.length} acta(s)`}>

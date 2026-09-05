@@ -31,7 +31,7 @@ export default async function FichaColaboradorPage({
   const personaId = Number(id);
   if (!Number.isInteger(personaId) || personaId <= 0) notFound();
 
-  const [persona, pasos, exigidos] = await Promise.all([
+  const [persona, pasos, ultimaCapacitacion, exigidos] = await Promise.all([
     prisma.persona.findUnique({
       where: { id: personaId },
       include: {
@@ -50,6 +50,15 @@ export default async function FichaColaboradorPage({
           include: { metodo: { select: { nombre: true } }, activos: { include: { activo: { select: { codigo: true, nombre: true } } } } },
           orderBy: { fecha: 'desc' },
         },
+        // E9 · el custodio PERSONA (`Activo.personaId`), que no es lo mismo que el custodio
+        // CARGO ni que el propietario: esos dos son `CargoResponsable`. Sólo los vigentes,
+        // igual que en `/tecnologia/equipos`: un activo dado de baja no está a cargo de
+        // nadie, y contarlo inflaría lo que hay que devolver al salir.
+        activosACargo: {
+          where: { activo: true },
+          select: { id: true, codigo: true, nombre: true },
+          orderBy: { codigo: 'asc' },
+        },
         pasosCompletados: { select: { pasoId: true, completadoEn: true } },
         asignaciones: {
           take: 8,
@@ -63,6 +72,32 @@ export default async function FichaColaboradorPage({
       },
     }),
     prisma.pasoCiclo.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
+    // La última capacitación con registro, consultada APARTE.
+    //
+    // Las `asignaciones` de arriba están capadas en 8 para el bloque de últimos registros;
+    // derivar la formación de ahí daría «sin capacitación» en cuanto la persona tuviera
+    // ocho cosas más recientes, que es el caso normal. Un dato de competencia que se apaga
+    // solo cuando hay actividad es peor que no mostrarlo.
+    prisma.registroRealizado.findFirst({
+      where: {
+        asignacion: {
+          personaId,
+          OR: [
+            { contenido: { tipo: 'CAPACITACION' } },
+            { obligacion: { contenido: { tipo: 'CAPACITACION' } } },
+          ],
+        },
+      },
+      orderBy: { fechaHora: 'desc' },
+      include: {
+        asignacion: {
+          include: {
+            contenido: { select: { titulo: true, notaMinima: true } },
+            obligacion: { include: { contenido: { select: { titulo: true, notaMinima: true } } } },
+          },
+        },
+      },
+    }),
     // Los contenidos que exigen firma son los compromisos que C3 cuenta.
     prisma.contenidoSig.findMany({
       where: { exigeFirma: true, activo: true },
@@ -150,6 +185,62 @@ export default async function FichaColaboradorPage({
           firmado: firmados.has(c.codigo),
         })),
       }}
+      formacion={(() => {
+        const cap = ultimaCapacitacion;
+        const contenidoCap = cap?.asignacion.contenido ?? cap?.asignacion.obligacion?.contenido;
+        const minima = contenidoCap?.notaMinima ? Number(contenidoCap.notaMinima) : null;
+        return [
+          {
+            etiqueta: 'Última capacitación',
+            valor: cap ? cap.fechaHora.toISOString().slice(0, 10) : 'Sin registro',
+            nota: contenidoCap?.titulo ?? 'Ninguna capacitación cerrada todavía',
+            tono: cap ? ('ok' as const) : ('neutro' as const),
+          },
+          {
+            etiqueta: 'Calificación',
+            valor: cap?.calificacion !== null && cap?.calificacion !== undefined
+              ? String(cap.calificacion)
+              : '—',
+            nota:
+              cap?.aprobado === null || cap?.aprobado === undefined
+                ? 'Sin evaluación registrada'
+                : `${cap.aprobado ? 'Aprobado' : 'No aprobado'}${minima === null ? '' : ` · mínimo ${minima}`}`,
+            tono:
+              cap?.aprobado === true
+                ? ('ok' as const)
+                : cap?.aprobado === false
+                  ? ('aviso' as const)
+                  : ('neutro' as const),
+          },
+          {
+            // El lienzo la dibuja como «No aplica». No es un hueco: es la frontera del
+            // alcance dicha en voz alta, para que nadie la busque acá. El desempeño es
+            // dato de nómina y no entra al SIG.
+            etiqueta: 'Evaluación de desempeño',
+            valor: 'No aplica',
+            nota: 'Dato de nómina, fuera del alcance del SIG',
+            tono: 'neutro' as const,
+          },
+          {
+            // NO se deriva, y decirlo es la respuesta correcta. El único contenido que hoy
+            // hace de inducción se identifica por su código en el seed, y escribir ese
+            // código acá sería meter configuración de negocio en el código —lo mismo que
+            // el proyecto prohíbe para los plazos—. Hace falta marcarla en el modelo.
+            etiqueta: 'Inducción',
+            valor: 'Sin identificar',
+            nota: 'Ningún contenido está marcado como inducción en el modelo',
+            tono: 'aviso' as const,
+          },
+        ];
+      })()}
+      activos={persona.activosACargo.map((a) => ({
+        codigo: a.codigo ?? '—',
+        nombre: a.nombre,
+        // El lienzo pone «custodio» en cada fila, y hoy es el único rol que una PERSONA
+        // puede tener sobre un activo: propietario y custodio de cargo son cargos, no
+        // personas. Se escribe igual porque es justo la distinción que se confunde acá.
+        rol: 'custodio',
+      }))}
       actas={persona.actasAceptacion.map((a) => ({
         codigo: a.codigo,
         contenido: `${a.contenido.codigo} · ${a.contenido.titulo}`,
