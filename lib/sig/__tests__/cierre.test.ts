@@ -252,3 +252,87 @@ describe('diasHasta · la ventana de siete dias que cruza el fin de mes', () => 
     expect(diasHasta(limite, hoy)).toBe(7);
   });
 });
+
+// ─── R4 · el ítem obligatorio sin responder ────────────────────────────────────────────
+//
+// La regla existía y NO PODÍA DISPARARSE. `app/sig/acciones/tareas.ts` armaba el conjunto a
+// validar con las respuestas QUE LLEGARON, y el cliente sólo envía las respondidas: un ítem
+// obligatorio en blanco no estaba en el arreglo, así que el `for` nunca lo veía. Una
+// verificación se cerraba con todos sus obligatorios vacíos y el servidor la aceptaba.
+//
+// Estas pruebas fijan la forma correcta del conjunto —UNA entrada por ÍTEM, con la
+// respuesta ausente cuando no hubo— porque es lo que hace real a la regla. Probar sólo
+// `validarCierre` con entradas ya rellenas era probar el camino que nunca fallaba.
+describe('validarCierre · VERIFICACION con ítems sin responder', () => {
+  const item = (itemId: number, numero: number, extra = {}) => ({
+    itemId,
+    numero,
+    obligatorio: true,
+    permiteNoAplica: false,
+    respuesta: undefined,
+    ...extra,
+  });
+
+  it('un obligatorio sin responder NO deja cerrar', () => {
+    const errores = validarCierre({ tipo: 'VERIFICACION', respuestas: [item(47, 3)] });
+    expect(errores).toHaveLength(1);
+    expect(errores[0]).toContain('obligatorio');
+  });
+
+  // El mensaje señala el NÚMERO que la pantalla muestra, no el id de la base. «El ítem 47»
+  // no le sirve a quien está mirando ocho ítems numerados del 01 al 08.
+  it('el mensaje nombra el número de pantalla, no el id', () => {
+    const errores = validarCierre({ tipo: 'VERIFICACION', respuestas: [item(47, 3)] });
+    expect(errores[0]).toContain('03');
+    expect(errores[0]).not.toContain('47');
+  });
+
+  it('sin número cae al id, en vez de quedarse sin señalar nada', () => {
+    const errores = validarCierre({
+      tipo: 'VERIFICACION',
+      respuestas: [{ itemId: 47, obligatorio: true, permiteNoAplica: false, respuesta: undefined }],
+    });
+    expect(errores[0]).toContain('47');
+  });
+
+  it('un NO obligatorio sin responder sí deja cerrar', () => {
+    const errores = validarCierre({
+      tipo: 'VERIFICACION',
+      respuestas: [item(47, 3, { obligatorio: false })],
+    });
+    expect(errores).toEqual([]);
+  });
+
+  it('nombra TODOS los obligatorios que faltan, no sólo el primero', () => {
+    const errores = validarCierre({
+      tipo: 'VERIFICACION',
+      respuestas: [item(10, 1), item(20, 2, { respuesta: 'CUMPLE' }), item(30, 3)],
+    });
+    expect(errores).toHaveLength(2);
+    expect(errores.join(' ')).toContain('01');
+    expect(errores.join(' ')).toContain('03');
+  });
+
+  it('respondidos todos los obligatorios, cierra', () => {
+    const errores = validarCierre({
+      tipo: 'VERIFICACION',
+      respuestas: [
+        item(10, 1, { respuesta: 'CUMPLE' }),
+        item(20, 2, { respuesta: 'NO_CUMPLE' }),
+        item(30, 3, { obligatorio: false }),
+      ],
+    });
+    expect(errores).toEqual([]);
+  });
+
+  // La otra rama del mismo `for`: «no aplica» donde el ítem no lo admite.
+  it('«no aplica» en un ítem que no lo admite se rechaza, con su número', () => {
+    const errores = validarCierre({
+      tipo: 'VERIFICACION',
+      respuestas: [item(47, 5, { respuesta: 'NO_APLICA' })],
+    });
+    expect(errores).toHaveLength(1);
+    expect(errores[0]).toContain('05');
+    expect(errores[0]).toContain('no aplica');
+  });
+});

@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { Bandeja, TarjetaBandeja } from './bandeja.query';
+import { textoPlazo, verboDeCierre } from '@/lib/sig/bandeja';
 import PanelCierre from './PanelCierre';
 import PanelFirma from './PanelFirma';
 
@@ -137,7 +138,7 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
           {!colapsada && (
             <div className="mt-2 flex flex-col gap-2">
               {bandeja.realizadas.map((t) => (
-                <Tarjeta key={t.id} tarjeta={t} alCerrar={setCerrando} />
+                <FilaRealizada key={t.id} tarjeta={t} />
               ))}
             </div>
           )}
@@ -274,17 +275,41 @@ function Tarjeta({
               : 'var(--hf-text-secondary-soft)',
         }}
       >
-        {tarjeta.vencida || tarjeta.tipo === 'LECTURA' ? 'Leer y acusar' : 'Registrar'}
+        {verboDeCierre(tarjeta.tipo)}
       </button>
     </article>
   );
 }
 
-function textoPlazo(t: TarjetaBandeja): string {
-  if (t.vencida) {
-    const dias = Math.abs(t.dias);
-    return dias === 0 ? 'Vencida hoy' : `Vencida hace ${dias} día${dias === 1 ? '' : 's'}`;
-  }
-  if (t.dias === 0) return 'Vence hoy';
-  return `Faltan ${t.dias} día${t.dias === 1 ? '' : 's'}`;
+/// Una realizada es historia, no trabajo.
+///
+/// Reusaba la `<Tarjeta>` de las pendientes, así que cada cierre traía su botón —que reabría
+/// el panel de cierre de algo ya cerrado— y un «Vencida hace 34 días» calculado contra una
+/// fecha límite que dejó de exigir el día que se cerró. El lienzo la dibuja verde y de sólo
+/// lectura: tipo, título y la fecha en que se cerró, que es el único dato que aporta.
+function FilaRealizada({ tarjeta }: { tarjeta: TarjetaBandeja }) {
+  return (
+    <article
+      className="flex items-center gap-4 rounded-tarjeta px-5 py-3"
+      style={{ background: 'var(--hf-row-verde)', border: '1px solid #c9e3d8' }}
+    >
+      <span
+        className="flex h-[26px] w-[74px] flex-none items-center justify-center rounded-[4px] font-mono text-8_5 font-semibold uppercase"
+        style={{ background: '#e6efe9', color: '#0b5c44' }}
+      >
+        {ETIQUETA_TIPO[tarjeta.tipo] ?? tarjeta.tipo}
+      </span>
+      <h3 className="min-w-0 flex-1 truncate text-13 text-secondary">{tarjeta.titulo}</h3>
+      {/* Sin fecha se dice que falta: un guion en la columna del cierre se lee como «se
+          cerró y no importa cuándo», y lo que pasa es que el dato no está. */}
+      <span
+        className="flex-none font-mono text-10_5"
+        style={{ color: tarjeta.fechaCierre ? '#0b5c44' : 'var(--hf-text-label)' }}
+      >
+        {tarjeta.fechaCierre
+          ? tarjeta.fechaCierre.toISOString().slice(0, 10)
+          : 'sin fecha de cierre registrada'}
+      </span>
+    </article>
+  );
 }

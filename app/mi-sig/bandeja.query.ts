@@ -5,7 +5,7 @@
 // por vencer y «hace N días» se CALCULAN al leer (R3); el estado guardado nunca cambia.
 
 import { prisma } from '@/lib/db';
-import { esVencida } from '@/lib/sig/cierre';
+import { diasHasta, esVencida } from '@/lib/sig/cierre';
 
 export type EstadoBandeja = 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
 
@@ -23,6 +23,10 @@ export interface TarjetaBandeja {
   version: number;
   periodo: string;
   fechaLimite: Date;
+  /// Cuándo se cerró. Nula mientras siga abierta, y también en una realizada antigua a la
+  /// que nadie le grabó la fecha: la fila de realizadas la distingue de un cierre sin fecha
+  /// en vez de inventarle una.
+  fechaCierre: Date | null;
   estado: EstadoBandeja;
   vencida: boolean;
   /// Días desde la fecha límite si está vencida; negativos si faltan.
@@ -45,10 +49,6 @@ export interface Bandeja {
   porVencer: TarjetaBandeja[];
   pendientes: TarjetaBandeja[];
   realizadas: TarjetaBandeja[];
-}
-
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
 
 export async function leerBandeja(correo: string): Promise<Bandeja> {
@@ -78,13 +78,16 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
   });
 
   const hoy = new Date();
-  const hoyNum = diaDe(hoy);
 
   const tarjetas: TarjetaBandeja[] = filas.map((f) => {
     const contenido = f.contenido ?? f.obligacion?.contenido;
     const fechaLimite = f.fechaLimite;
     const vencida = esVencida(f.estado, fechaLimite, hoy);
-    const dias = diaDe(fechaLimite) - hoyNum;
+    // Se restaba `diaDe`, que empaqueta la fecha como `YYYYMMDD`: entre el 31 de agosto y
+    // el 1 de septiembre daba 70 «días». La bandeja agrupa y redacta el plazo con este
+    // número, así que el último día de cada mes movía las tarjetas de grupo y anunciaba
+    // plazos imposibles. `diasHasta` cuenta días calendario, que es lo que se lee.
+    const dias = diasHasta(fechaLimite, hoy);
     return {
       id: f.id,
       tipo: contenido?.tipo ?? 'TAREA',
@@ -95,6 +98,7 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       version: contenido?.version ?? 1,
       periodo: f.periodo,
       fechaLimite,
+      fechaCierre: f.fechaCierre,
       estado: f.estado as EstadoBandeja,
       vencida,
       dias,

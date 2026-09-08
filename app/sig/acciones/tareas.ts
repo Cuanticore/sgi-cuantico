@@ -116,7 +116,10 @@ export async function cerrarAsignacion(
     // no pertenece a la verificación se rechaza antes de validar.
     let respuestasValidadas: RespuestaCierre[] | undefined;
     if (contenido.tipo === 'VERIFICACION') {
-      const items = await prisma.itemVerificacion.findMany({ where: { contenidoId: contenido.id } });
+      const items = await prisma.itemVerificacion.findMany({
+        where: { contenidoId: contenido.id },
+        orderBy: { orden: 'asc' },
+      });
       const porItem = new Map(items.map((i) => [i.id, i]));
       const ajenos = (datos.respuestas ?? []).filter((r) => !porItem.has(r.itemId));
       if (ajenos.length > 0) {
@@ -128,14 +131,29 @@ export async function cerrarAsignacion(
           cerrada: false,
         };
       }
-      respuestasValidadas = (datos.respuestas ?? []).map((r) => {
-        const item = porItem.get(r.itemId)!;
+      // **R4 era código muerto.** El conjunto a validar se armaba con las respuestas QUE
+      // LLEGARON, y el cliente sólo envía las respondidas: un ítem obligatorio sin
+      // responder no estaba en el arreglo, así que la rama `if (!r.respuesta)` de
+      // `validarCierre` no podía dispararse nunca. Una verificación se cerraba con todos
+      // sus obligatorios en blanco y el servidor la aceptaba.
+      //
+      // Se arma desde los ÍTEMS y se rellena con lo que llegó. Así el conjunto describe la
+      // verificación completa —que es lo que la regla dice— y no el subconjunto que el
+      // navegador decidió mandar. Una regla que depende de lo que el cliente envíe no es
+      // una regla del servidor.
+      const enviadas = new Map((datos.respuestas ?? []).map((r) => [r.itemId, r]));
+      respuestasValidadas = items.map((item, n) => {
+        const r = enviadas.get(item.id);
         return {
-          itemId: r.itemId,
+          itemId: item.id,
+          // El NÚMERO que se ve en pantalla. El mensaje decía «el ítem 47 es obligatorio»
+          // con el id de la base, que en la pantalla no aparece en ninguna parte: quien lo
+          // leía no tenía cómo saber cuál de los ocho ítems le faltaba.
+          numero: n + 1,
           obligatorio: item.obligatorio,
           permiteNoAplica: item.permiteNoAplica,
-          respuesta: r.respuesta,
-          nota: r.nota,
+          respuesta: r?.respuesta,
+          nota: r?.nota,
         };
       });
     }

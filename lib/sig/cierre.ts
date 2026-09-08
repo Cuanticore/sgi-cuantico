@@ -5,8 +5,14 @@
 
 import type { TipoContenido, ValorRespuesta } from '@prisma/client';
 
+import { esDiaPosterior } from './fechas';
+
 export interface RespuestaCierre {
   itemId: number;
+  /// La posición del ítem en la verificación, 1-indexada. Es lo que la pantalla numera, y
+  /// por eso lo único con lo que un mensaje de error puede señalar cuál falta. Opcional
+  /// para no romper a quien construya el conjunto sin ella; el mensaje cae al id.
+  numero?: number;
   obligatorio: boolean;
   permiteNoAplica: boolean;
   respuesta: ValorRespuesta | undefined;
@@ -64,10 +70,11 @@ export function validarCierre(datos: DatosCierre): string[] {
 
     case 'VERIFICACION':
       for (const r of datos.respuestas ?? []) {
+        const cual = r.numero === undefined ? r.itemId : String(r.numero).padStart(2, '0');
         if (!r.respuesta) {
-          if (r.obligatorio) errores.push(`el ítem ${r.itemId} es obligatorio`);
+          if (r.obligatorio) errores.push(`el ítem ${cual} es obligatorio`);
         } else if (r.respuesta === 'NO_APLICA' && !r.permiteNoAplica) {
-          errores.push(`el ítem ${r.itemId} no admite "no aplica"`);
+          errores.push(`el ítem ${cual} no admite "no aplica"`);
         }
       }
       break;
@@ -87,7 +94,7 @@ export function esVencida(
   hoy: Date,
 ): boolean {
   if (estado !== 'PENDIENTE') return false;
-  return diaDe(hoy) > diaDe(fechaLimite);
+  return esDiaPosterior(hoy, fechaLimite);
 }
 
 /// Los cuatro estados que la interfaz pinta, con el mismo vocabulario en todas partes.
@@ -116,8 +123,8 @@ export function estadoDeVencimiento(
 
 /// Días calendario que faltan para la fecha límite. Negativo si ya pasó.
 ///
-/// No se resta `diaDe`: ése devuelve un entero empaquetado `YYYYMMDD`, y restarlo daría
-/// 100 «días» entre el 31 de enero y el 1 de febrero. Se normaliza cada fecha a la
+/// La única resta de días del dominio. Comparar es `lib/sig/fechas.ts`, que a propósito
+/// no expone el entero empaquetado; restar es esto. Se normaliza cada fecha a la
 /// medianoche UTC de su día y ahí sí la diferencia son días.
 export function diasHasta(fechaLimite: Date, hoy: Date): number {
   const MS_DIA = 86_400_000;
@@ -131,7 +138,7 @@ function medianocheUtc(fecha: Date): number {
 /// Extemporáneo se deduce de las fechas: cerró después de la fecha límite.
 export function esExtemporaneo(fechaCierre: Date | null, fechaLimite: Date): boolean {
   if (!fechaCierre) return false;
-  return diaDe(fechaCierre) > diaDe(fechaLimite);
+  return esDiaPosterior(fechaCierre, fechaLimite);
 }
 
 /// La decisión del cierre, congelada en el registro (ver cabecera del plan, decisión 2).
@@ -148,8 +155,4 @@ export function aprobadoDe(
     return null;
   }
   return calificacion >= notaMinima;
-}
-
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
