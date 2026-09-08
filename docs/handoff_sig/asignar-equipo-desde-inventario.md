@@ -159,18 +159,33 @@ Seis campos. Todo lo demás se propone y se puede corregir:
 | Campo | Se propone | Editable | Obligatorio |
 |---|---|---|---|
 | Nombre | vacío | Sí | **Sí** |
+| **Titularidad** | **BYOD — es del colaborador** | Sí | Sí (T1) |
 | Tipo MAGERIT | `[HW] Equipamiento informático` | Sí | Sí |
 | Subtipo | `[pc] Informática personal` | Sí | Sí |
 | Proceso o área | **el área de la persona** | Sí | Sí |
 | Custodio (cargo) | **el cargo de la persona** | Sí | Sí — lo exige `crearActivo` |
-| Valoración D / I / C | vacía | Sí | **Sí** (P11) |
+| Valoración D / I / C | **D 2 · I 2 · C 4** | Sí | Sí (P11) |
 | Descripción, ubicación, entorno, proveedor, propietario | — | No se piden | No |
+
+La titularidad arranca en **BYOD** porque es el caso mayoritario (§3.5). Es una propuesta, no un candado: el campo se cambia con un clic y, por P12b, el valor elegido se hereda a las altas siguientes de la misma corrida.
 
 **P10 · el área y el cargo se proponen desde la persona, y se dicen en voz alta.** Bajo los dos campos: «tomados de la ficha de Andres Felipe Jaramillo». Si la persona no tiene área o cargo —hoy las 36 están así, `sin área` en cada fila de la pantalla— los campos quedan vacíos y obligatorios, con el enlace al popup de REQ-SIG-15 para ponérselos. **No se inventa un área por defecto**: el prefijo del área forma el código del activo, y el código es inmutable (`activos.ts:233-237`). Un `TEC-EQU-0022` emitido con un área adivinada no se corrige nunca.
 
-**P11 · la valoración D/I/C es obligatoria en el alta desde este popup, aunque `crearActivo` la acepte vacía.** Un activo sin valoración no alcanza el umbral, no entra al análisis y **no genera un solo riesgo** —lo dice la propia acción, `activos.ts:341-343`—. Crear 36 portátiles sin valorar produciría 36 activos invisibles para las matrices, para el SoA y para los planes: un listado de bienes, no un inventario de activos de información. Y nadie vuelve después a valorar 36 filas una por una.
+**P11 · la valoración nunca queda vacía, y viene propuesta en D 2 · I 2 · C 4.** Un activo sin valoración no alcanza el umbral, no entra al análisis y **no genera un solo riesgo** —lo dice la propia acción, `activos.ts:341-343`—. Crear 36 portátiles sin valorar produciría 36 activos invisibles para las matrices, para el SoA y para los planes: un listado de bienes, no un inventario de activos de información. Y nadie vuelve después a valorar 36 filas una por una.
 
-Para que la obligación no sea un muro, el formulario ofrece **la valoración del último equipo creado desde este popup** como valor inicial de los tres campos, con la frase «igual que el equipo anterior». Los portátiles de una organización se parecen entre sí; lo que no se puede es que el sistema decida por su cuenta cuánto vale la información de alguien.
+La solución no es exigirla vacía —eso son 108 números tecleados en la corrida de arranque— sino **proponerla ya puesta**:
+
+| Dimensión | Valor | Por qué |
+|---|:-:|---|
+| **Disponibilidad** | 2 | El equipo se reemplaza. Con teletrabajo sobre servicios en la nube, el portátil que falla interrumpe a una persona, no a la operación |
+| **Integridad** | 2 | La información de valor no vive en el disco; vive en los servicios que el equipo consulta |
+| **Confidencialidad** | **4** | Es la que manda. El SoA de **A.8.1** lo dice sin rodeos: «el dispositivo de punto final es la **principal superficie de exposición** en un modelo de teletrabajo» |
+
+**El 4 no es decorativo: es lo que hace que el equipo exista para el sistema.** El valor del activo es `max(D, I, C)` y el umbral es `umbral_valoracion`, hoy **4** (`ficha.query.ts:396`). Con 2/2/4 el equipo **alcanza exactamente el umbral** y entra al análisis con sus riesgos. Con 2/2/3 los 36 portátiles quedarían fuera de las matrices y el inventario de equipos no tocaría el SGSI en ningún punto. El default está elegido para caer del lado correcto de esa línea, y no por casualidad.
+
+**Y no es una constante del fuente.** Vive en `Parametro`, clave `equipos_valoracion_por_defecto`, valor `2/2/4` (§4.3). El día que la organización decida que la confidencialidad de un equipo es 5 —o que la disponibilidad sube porque alguien opera algo crítico desde su máquina— eso es editar una fila, no desplegar.
+
+Los tres campos siguen siendo **editables y no se pueden dejar en blanco**: el default es un punto de partida razonable, no un veredicto. Y por P12b, lo que se ponga en un alta se hereda a la siguiente, así que corregir la propuesta una vez la corrige para toda la corrida.
 
 **P12 · el alta usa `crearActivo`, extendida con un campo.** No nace una segunda acción de creación de activos. `ActivoNuevo` (`activos.ts:212-231`) suma `personaId?: number | null`, el `create` (`activos.ts:302-320`) lo pasa, y todo lo demás —contador atómico, código `AAA-TTT-NNNN`, valoración, `registrarAlta`, `generarRiesgos`— queda exactamente como está. Una segunda ruta de alta sería una segunda forma de emitir códigos, y los códigos son irrepetibles por diseño.
 
@@ -198,7 +213,84 @@ Es un aviso, no un bloqueo: dos monitores idénticos con nombre igual son legít
 
 **P12e · el código lo emite el contador, y por eso la corrida no se puede paralelizar a mano.** Cada alta incrementa `ContadorCodigo` dentro de la transacción (`activos.ts:289-300`), así que 36 altas seguidas producen `TEC-EQU-0022` … `TEC-EQU-0057` sin huecos ni choques. Quien haga la corrida con dos pestañas abiertas obtiene códigos correctos igual; lo que no obtiene es un orden predecible, y el código no se corrige después porque es inmutable.
 
-### 3.5 · Equipo nuevo o equipo usado: el acta de borrado
+### 3.5 · De quién es el equipo: la pregunta que va primero
+
+**El parque de CUANTICO es mayoritariamente BYOD: el computador es del colaborador.** Eso no es un detalle de inventario, es lo que decide qué acta corresponde, qué se puede borrar y si el equipo puede cambiar de manos alguna vez. Y no lo inventa este requerimiento: el SoA de la organización ya lo declaró.
+
+| Control | Lo que el SoA ya dice (`prisma/data/soa.json`) |
+|---|---|
+| **A.6.7** Trabajo remoto | «el teletrabajo es el modelo operativo **único** de CUANTICO. Se sostiene en los **lineamientos de dispositivos personales**, la gestión mediante **Microsoft Intune** y el acceso condicional de Entra ID» |
+| **A.8.1** Dispositivos de punto final | «**Microsoft Intune gestiona el 100 % del parque** con cumplimiento verificado o en periodo de gracia» |
+| **A.7.9** Activos fuera de las instalaciones | «cifrado de disco, cumplimiento verificado y **capacidad de borrado remoto** mediante Microsoft Intune» |
+| **A.5.10** Uso aceptable | «soportado en la POL-SIG-03 y en los **lineamientos de dispositivos personales**» |
+
+Los puntos de este bloque llevan la serie **T**, de titularidad.
+
+**T1 · la primera pregunta del popup no es «nuevo o usado»: es de quién es.** Dos respuestas, y cada una lleva a un acta distinta:
+
+| | **BYOD — el equipo es del colaborador** | **De la organización** |
+|---|---|---|
+| Frecuencia hoy | **La mayoría** | La minoría |
+| Qué acta corresponde | **Acta de aceptación de políticas**, la que ya se firma al ingresar (T3) | **Acta de ingreso**: el equipo entra al parque y queda a nombre de alguien (T4) |
+| ¿Se puede reasignar a otra persona? | **No.** Se va con su dueño | Sí, con el acta de borrado de §3.6 |
+| Qué pasa a la salida | Se **retira la información de la organización** del equipo personal (T5) | Se recibe el equipo y se borra |
+| Quién lo administra técnicamente | Intune | Intune |
+
+**T2 · la aplicación no es el registro de dispositivos. Intune lo es.** El SoA dice que Intune gestiona el 100 % del parque con cumplimiento verificado; pretender que esta pantalla lleve el inventario técnico —versión de sistema operativo, cifrado, cumplimiento, última sincronización— sería construir un segundo registro que va a discrepar del primero a la semana. Lo que esta pantalla registra es lo que Intune **no** sabe y el SGSI sí necesita:
+
+- **de quién es el equipo** y quién lo tiene a cargo,
+- **que esa persona aceptó los lineamientos** antes de usarlo (T3),
+- **que al salir se le retiró la información de la organización** (§3.6).
+
+Ése es el reparto, y conviene que quede escrito antes de que alguien proponga sincronizar dispositivos desde Graph.
+
+**T3 · BYOD: el acta no se crea acá, se VERIFICA.** El acta que corresponde al equipo personal es la aceptación de los **lineamientos de dispositivos personales**, y esa acta ya existe en la aplicación: es uno de los tres compromisos de vinculación de PRO-TAL-01 —confidencialidad, tratamiento de datos y aceptación de políticas— y se firma con el mecanismo de REQ-SIG-02, `ActaAceptacion` (`schema.prisma:2552-2599`), con su declaración copiada, el hash del documento mostrado y el PDF congelado.
+
+Así que el popup **no pide un acta nueva**: consulta si esa persona ya la firmó y lo muestra en una línea.
+
+```
+│  ● BYOD — el equipo es de Andres Felipe Jaramillo                │
+│                                                                  │
+│  ✓ Aceptó los lineamientos de dispositivos personales            │
+│    el 12/03/2026 · acta ACT-2026-0034                            │
+```
+
+…o, cuando no la ha firmado:
+
+```
+│  ⚠ Andres Felipe Jaramillo NO ha aceptado los lineamientos de    │
+│    dispositivos personales. PRO-TAL-01 es tajante: ningún        │
+│    acceso se habilita antes de que las obligaciones estén        │
+│    suscritas.                             [ Ver sus pendientes ] │
+```
+
+**Es un bloqueo, no un aviso.** Registrar el equipo personal de alguien que no ha aceptado las reglas de uso deja al SGSI afirmando que un dispositivo no gobernado procesa información de la organización, y dejándolo por escrito. El enlace lleva a la bandeja de esa persona, que es donde la firma se resuelve.
+
+**T4 · de la organización: es un acta de INGRESO, no de entrega.** Cuando el equipo es de la empresa, el enrolamiento en Intune lo hace otro proceso —el que instala el MDM— y para cuando esta pantalla interviene el dispositivo ya está gestionado. Lo que queda por registrar no es una ceremonia de entrega sino un hecho de inventario: **este equipo entró al parque y quedó a nombre de esta persona**. Eso es exactamente lo que hace la asignación de §3 más la bitácora de P14. No hace falta ningún artefacto adicional, y llamarlo «acta de entrega» prometería una firma que no ocurre.
+
+La firma —el compromiso de devolución y las condiciones de uso— sigue fuera del alcance (D-6), y para el caso BYOD, que es la mayoría, **ya está resuelta por T3**: los lineamientos de dispositivos personales son justamente ese compromiso.
+
+**T5 · un equipo BYOD no se reasigna nunca, y el popup no lo ofrece.** El portátil de alguien se va con esa persona. Marcado BYOD, el activo:
+
+- **no aparece** en la lista de candidatos de otra persona, ni siquiera con el interruptor «ver todo el inventario» (P4). Aparece con la leyenda «equipo personal de …», deshabilitado;
+- al salir su dueño, no se libera para nadie: se **da de baja** del inventario (`darDeBajaActivo`, `activos.ts:357`) con el acta que dice que se le retiró la información de la organización (§3.6, B8).
+
+Ofrecer el equipo personal de Carlos para dárselo a Andrés es una operación que no existe en el mundo real, y una lista que la ofrece va a hacer que alguien la intente.
+
+**T6 · la titularidad es una columna, y es la única migración que este requerimiento pide.** `Activo` suma:
+
+```prisma
+/// REQ-SIG-16 · el equipo es del colaborador (BYOD), no de la organización. Decide qué
+/// acta corresponde, qué métodos de borrado son posibles y si el activo puede cambiar
+/// de manos alguna vez. Falso en todo lo que no sea un dispositivo de punto final.
+esDelColaborador Boolean @default(false) @map("es_del_colaborador")
+```
+
+**No se puede derivar de nada de lo que ya existe, y lo verifiqué.** `propietarioId` no sirve: está vacío en los 234 activos de la migración —lo dice el propio esquema, `schema.prisma:658-661`— así que «sin propietario» no distingue un equipo personal de un servidor cualquiera. `Proveedor` guarda organizaciones, no personas. El subtipo dice qué es el aparato, no de quién. Y una convención en el nombre o en la descripción es una convención que se rompe el día que alguien escriba distinto.
+
+Es una columna booleana con default, así que la migración no toca ni una fila existente: todo lo que hay hoy —servicios, datos, servidores— es de la organización, que es lo que `false` significa. **Rompe la propiedad de «este requerimiento no toca el esquema» que traía la versión 1.2**, y hay que decirlo: se cambió porque llegó BYOD, no porque se relajó el criterio. Ver **D-11**.
+
+### 3.6 · Equipo nuevo o equipo usado: el acta de borrado
 
 Entregarle a alguien un equipo que otra persona usó **sin haber borrado la información** es entregarle los correos, los archivos y las credenciales del anterior. Es el control **A.8.10** y es el ítem 62 de PTR-TEC-03. Por eso la asignación de un equipo usado no se completa sin el acta.
 
@@ -259,13 +351,24 @@ El formulario de B3.2 se construye en **`app/components/sgsi/ActaBorrado.tsx`** 
 
 **B7 · la corrida de arranque no ve nada de esto.** Un equipo creado en el formulario de §3.3 es nuevo por construcción —acaba de nacer con `personaId` puesto— y la pregunta no se hace. Las 36 altas seguidas de §3.4 no pagan un solo clic por este control. Aparece cuando tiene que aparecer: el día que el primer portátil cambie de manos.
 
+**B8 · para un equipo BYOD el acta de borrado existe, pero dice otra cosa y se levanta en otro momento.** No se puede formatear el computador personal de alguien, y la reasignación no ocurre nunca (T5). Lo que sí ocurre —y es un control de la norma— es que **al salir la persona, se le retira la información de la organización de su equipo propio**: el borrado selectivo que Intune hace, y que el SoA de A.7.9 ya declara como «capacidad de borrado remoto».
+
+Eso cambia dos cosas frente al caso corporativo:
+
+1. **El momento.** El acta no se levanta al reasignar —eso no pasa— sino **a la salida**, en la desvinculación de REQ-SIG-09. Este popup no la crea; la muestra si existe y la pide cuando alguien dé de baja un activo BYOD.
+2. **El método.** Los cuatro métodos sembrados —formateo con sobrescritura, borrado criptográfico, destrucción física, restablecimiento de fábrica— describen lo que se le hace a un equipo **de la empresa**. Aplicarle «destrucción física» al portátil personal de un colaborador no es una opción que deba estar en la lista. Se siembra un quinto: **«Retiro remoto de datos corporativos (MDM)»**, que es el que corresponde y el que Intune ejecuta. Y para un activo con `esDelColaborador = true` el formulario **solo ofrece ese**.
+
+Es una fila en el catálogo `MetodoBorrado`, no una migración: la tabla existe y ya está sembrada por `20260903170000_colaboradores/migration.sql:119-124`.
+
 ---
 
 ## 4 · Modelo de datos
 
-### 4.1 · No se agrega nada: el campo ya está
+### 4.1 · Una columna, y ninguna tabla
 
-**El esquema no cambia.** `Activo.personaId` existe con su `@map("persona_id")` (`schema.prisma:675`), su relación `ActivoCustodioPersona` (`schema.prisma:703`) y su contraparte `Persona.activosACargo` (`schema.prisma:1061`). No hay migración, no hay tabla nueva, no hay columna nueva.
+**`Activo.personaId` ya está**, con su `@map("persona_id")` (`schema.prisma:675`), su relación `ActivoCustodioPersona` (`schema.prisma:703`) y su contraparte `Persona.activosACargo` (`schema.prisma:1061`). El custodio persona no necesita nada nuevo.
+
+Lo único que la migración agrega es **`Activo.esDelColaborador`** (T6), la titularidad BYOD. Es booleana, con `@default(false)`, así que no toca una sola fila existente: todo lo que hay hoy es de la organización.
 
 **Y no hay historia de custodia** (D-2, resuelta por el líder del SIG). Un activo apunta a quien lo tiene ahora y a nadie más. La consecuencia hay que decirla una vez y con nombre propio, porque es la que se va a sentir:
 
@@ -279,12 +382,22 @@ Dónde muerde: la desvinculación de REQ-SIG-09 arma el **acta de borrado seguro
 
 Lo único que cambia en el modelo de escritura son dos tipos, no dos tablas:
 
-- `ActivoNuevo` (`activos.ts:212-231`) suma `personaId?: number | null` (P12), y el `create` de `activos.ts:302-320` lo pasa.
+- `ActivoNuevo` (`activos.ts:212-231`) suma `personaId?: number | null` y `esDelColaborador?: boolean` (P12, T6), y el `create` de `activos.ts:302-320` los pasa.
 - `DatosGenerales` (`activos.ts:95-115`) **no lo suma.** La custodia no se edita en la ficha del activo: se asigna en el popup, que es el único camino y el único que escribe la bitácora con su motivo. Agregarlo a los dos sería reabrir el problema que `Equipos.client.tsx:196-198` señala con razón — y sin tabla de historia, **la bitácora es todo el rastro que hay**, así que un segundo camino que la escriba distinto es más caro ahora que en la versión 1.0 de este documento.
 
-### 4.3 El parámetro
+### 4.3 Los parámetros y las dos filas de catálogo
 
-Una fila en `Parametro`: clave `equipos_subtipos_asignables`, valor la lista de pares `tipo/subtipo` de P3 separados por coma, descripción «Subtipos MAGERIT que se entregan a una persona y que ofrece el popup de asignación de equipos (REQ-SIG-16)».
+Tres filas en `Parametro` (`schema.prisma:179-186`), todas editables sin desplegar:
+
+| Clave | Valor sembrado | Para qué |
+|---|---|---|
+| `equipos_subtipos_asignables` | los pares `tipo/subtipo` de P3, separados por coma | Qué se ofrece en la lista de candidatos |
+| `equipos_valoracion_por_defecto` | `2/2/4` | La valoración D/I/C propuesta en el alta (P11) |
+| `contenido_lineamientos_dispositivos` | el código del `ContenidoSig` de los lineamientos de dispositivos personales | Contra qué acta se verifica la aceptación en el caso BYOD (T3) |
+
+El tercero es un parámetro y no una constante por la misma razón que los otros dos, y por una más: el contenido de los lineamientos se puede reemplazar por otro documento, y **la verificación tiene que seguir al documento vigente sin que nadie toque el código**. Si el parámetro apunta a un contenido que no existe, la verificación de T3 no falla en silencio: dice que el parámetro está mal configurado y nombra la clave.
+
+Y una fila en el catálogo `MetodoBorrado`: **«Retiro remoto de datos corporativos (MDM)»**, el único método que se ofrece para un equipo BYOD (B8).
 
 ---
 
@@ -372,8 +485,16 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 **D-5 · La custodia se escribe SOLO desde este popup; la ficha del activo no la edita** (P6, §4.2).
 *Por qué:* es la regla que el comentario de `Equipos.client.tsx:196-198` defiende, aplicada por campo en vez de por pantalla. Un campo, un camino, una bitácora.
 
-**D-6 · El acta de ENTREGA queda fuera; la de BORRADO no** (§9, D-9). ⚠️ **Para ratificación: es lo que un auditor puede pedir a continuación.**
-*Son dos actas distintas y conviene no confundirlas:* la de **borrado** (FOR-SIG-18, A.8.10) certifica que la información del anterior se eliminó, y **entra en este requerimiento** porque sin ella la reasignación es el incidente. La de **entrega** la firma quien recibe, con las condiciones de uso y el compromiso de devolución, y ésa es la que queda fuera.
+**D-6 · No se construye un «acta de entrega»: el caso BYOD ya la tiene y el corporativo no la necesita** (T3, T4). **Reformulada por el líder del SIG el 2026-09-08.**
+*La versión 1.2 dejaba fuera «el acta de entrega» como si fuera una sola cosa pendiente. Son tres, y solo una queda fuera:*
+
+| Acta | Qué certifica | Dónde vive |
+|---|---|---|
+| **Aceptación de los lineamientos de dispositivos personales** | Que quien usa su equipo propio aceptó las reglas | **Ya existe**: `ActaAceptacion`, se firma al ingresar (PRO-TAL-01). El popup la **verifica** (T3) |
+| **Ingreso al parque** | Que el equipo de la empresa entró y quedó a nombre de alguien | **Es la asignación misma** más su bitácora (T4). No hace falta un artefacto aparte |
+| **Borrado** | Que la información del anterior se eliminó | `ActaBorradoSeguro`, y **entra** en este requerimiento (D-9) |
+
+*Lo único que queda fuera* es una firma del receptor específica del equipo, distinta de la aceptación de políticas. Para BYOD sería redundante con la primera fila. Para el equipo corporativo es deseable y es otro requerimiento.
 *Por qué:* la entrega firmada con condiciones de uso y compromiso de devolución necesita plantilla de documento, firma (REQ-SIG-02) y publicación del soporte (REQ-SIG-13). Meterlo acá triplica el requerimiento y retrasa lo que hoy no existe, que es el registro. Ese requerimiento es el que va a necesitar la **fecha real de entrega**, que este no guarda (§4.1): es la columna que agregará, junto con la firma.
 
 **D-7 · El popup no informa tareas generadas** (P19).
@@ -391,6 +512,20 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 *Por qué:* `TipoSolicitud` tiene cuatro valores —`CAMBIO_TI`, `ACCESO`, `DEVOLUCION`, `UTILITARIO` (`schema.prisma:2614-2625`)— y ninguno es «borrado seguro». Agregar uno es una migración y, sobre todo, un flujo de tres pasos —pide, autoriza, ejecuta— para una acción que dura veinte minutos y que hace la misma persona que está entregando el equipo. El circuito de B4 —no se entrega, se libera, se borra, se vuelve— resuelve lo mismo sin estado nuevo.
 *Si se revierte:* el día que el borrado lo ejecute un área distinta de la que entrega —un proveedor, por ejemplo— el trámite sí hace falta, y entonces `Solicitud` es el modelo correcto y no uno nuevo.
 
+**D-11 · La titularidad BYOD es una columna nueva: `Activo.esDelColaborador`** (T6). ⚠️ **Para ratificación: es la única migración del requerimiento y contradice la propiedad «no toca el esquema» de la versión 1.2.**
+*Por qué no se puede evitar:* la titularidad decide qué acta corresponde (T3 vs T4), qué métodos de borrado son legales (B8) y si el activo puede cambiar de manos (T5). No se deriva de `propietarioId` —vacío en los 234 activos por diseño, `schema.prisma:658-661`—, ni de `Proveedor`, que guarda organizaciones, ni del subtipo, que dice qué aparato es y no de quién.
+*Qué cuesta:* un booleano con default. Ni una fila existente cambia de significado.
+*Si se rechaza* (no distinguir BYOD del equipo corporativo): el popup ofrecería el portátil personal de una persona para dárselo a otra, el formulario de borrado ofrecería «destrucción física» para un equipo que no es de la empresa, y el SGSI no podría responder cuántos de sus dispositivos de punto final son propiedad de terceros — que es la primera pregunta de A.8.1 en un modelo de teletrabajo.
+
+**D-12 · Sin aceptación de los lineamientos, no se registra el equipo BYOD** (T3).
+*Por qué es bloqueo y no aviso:* PRO-TAL-01 dice «ningún acceso se habilita antes de que estas obligaciones estén suscritas» (`docs/handoff_a/directorio-de-colaboradores.md:103`). Registrar el equipo personal de quien no aceptó las reglas deja al SGSI certificando por escrito que un dispositivo no gobernado procesa información de la organización.
+*Lo que lo hace tolerable:* no se pide firmar nada en este popup. Se consulta un acta que ya debería existir desde la vinculación, y si falta, el enlace lleva a donde se resuelve. Si en la práctica la aceptación va después del equipo, esa es una inversión del procedimiento que hay que corregir en PRO-TAL-01, no en esta pantalla.
+
+**D-13 · La aplicación no sincroniza dispositivos desde Intune** (T2).
+*Por qué:* el SoA de A.8.1 declara que Intune gestiona el 100 % del parque con cumplimiento verificado. Un segundo registro de estado técnico —cifrado, versión, cumplimiento, última sincronización— discreparía del primero en una semana, y entonces habría dos respuestas a «¿este equipo cumple?».
+*Qué sí registra el SGSI:* de quién es, quién lo tiene, que aceptó las reglas y que al salir se le retiró la información. Nada de eso lo sabe Intune.
+*Si se revierte:* traer el estado de cumplimiento desde Graph es un requerimiento propio, con su permiso de aplicación (`DeviceManagementManagedDevices.Read.All`) y la misma disciplina de REQ-SIG-15 §7 sobre pedir el permiso mínimo.
+
 ---
 
 ## 8 · Verificación — hecho significa demostrado
@@ -403,7 +538,7 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 | 4 | El par tipo/subtipo, no el subtipo suelto | Con un activo `[COM]/[mobile]` (red celular) en el inventario: **no** aparece en la lista. Con uno `[HW]/[mobile]`: sí |
 | 5 | El pie dice cuántos quedaron fuera | «Se ofrecen 3 de 21 equipos», y los dos números cuadran con `SELECT count(*)` |
 | 6 | Reasignar exige motivo, y la bitácora lo cuenta con nombres | Mover un equipo de A a B: el botón está deshabilitado sin motivo; después existe una fila de `Bitacora` con `campo = 'custodio persona'`, `valor_anterior` = **«Carlos Andrés Mejía»** y `valor_nuevo` = **«Andres Felipe Jaramillo»** — nombres, no ids (P14) |
-| 7 | El esquema no cambió | `npx prisma migrate diff` entre `main` y la rama: **cero migraciones**. Lo único nuevo en la base es la fila de `Parametro` (§4.3) |
+| 7 | El custodio persona no necesitó esquema | Toda la asignación —custodio, bitácora, liberación, acta de borrado— funciona **sin una sola columna nueva**: la única de la migración es la titularidad BYOD (verificación 24) |
 | 8 | El vacío abre el formulario | Con `personaId` puesto en todos los equipos: el popup no muestra «sin resultados», muestra el alta desplegada (P9) |
 | 9 | El alta queda asignada de una vez | Crear un equipo desde el popup: el activo nace con código `AAA-TTT-NNNN` y con `personaId` puesto, en una sola operación. No queda ni un instante en que el activo exista sin dueño |
 | 9b | **La corrida de arranque completa** | Con el inventario sin equipos y 36 personas sin nada: crear los 36 PCs **sin cerrar el popup ni una vez**, usando «Guardar y seguir». Al final, `SIN NINGÚN ACTIVO` = 0, `PROMEDIO POR PERSONA` = 1.0, y 36 activos nuevos con código consecutivo y sin huecos (P12c, P12e) |
@@ -427,6 +562,14 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 | 18g | El pendiente se deriva, no se guarda | Liberar un equipo usado sin acta: aparece en el renglón «N equipos esperando acta de borrado» y **no hay ninguna columna nueva** que lo diga (B4, B5) |
 | 18h | El formulario del acta es reusable | El acta se crea desde `app/components/sgsi/ActaBorrado.tsx`, no en línea dentro del popup (B6) |
 | 19 | La corrida de arranque no lo padece | Las 36 altas de la verificación 9b: la pregunta de equipo nuevo/usado **no aparece ni una vez** (B7) |
+| **20** | **La valoración por defecto cae del lado correcto del umbral** | Crear un equipo aceptando el default: `max(2,2,4) = 4 ≥ umbral_valoracion`, el activo **entra al análisis** y `generarRiesgos` le crea sus riesgos. Bajar `C` a 3 y comprobar que ya no entra: es la línea que el default está pisando a propósito (P11) |
+| 20b | Y sale de un parámetro | Cambiar `equipos_valoracion_por_defecto` a `3/3/5` y recargar: el formulario propone lo nuevo, sin desplegar nada |
+| **21** | **BYOD exige la aceptación de los lineamientos** | Registrar un equipo BYOD a una persona **sin** acta de aceptación: rechazado, con el nombre del compromiso que falta y el enlace a su bandeja. Con el acta firmada: se registra, y el popup muestra su código y su fecha (T3, D-12) |
+| 21b | El parámetro mal configurado se nota | Con `contenido_lineamientos_dispositivos` apuntando a un contenido inexistente: el popup dice que el parámetro está mal configurado y nombra la clave. **No** deja pasar el registro como si nadie hubiera firmado, ni lo bloquea como si todos hubieran incumplido |
+| **22** | **Un equipo BYOD no se le puede dar a otra persona** | Con un portátil marcado BYOD de Carlos: abrir el popup de Andrés, activar «ver todo el inventario» y buscarlo. Aparece con «equipo personal de Carlos Andrés Mejía» y **deshabilitado**; llamando a la acción de servidor directamente, rechazada (T5) |
+| 22b | Y a la salida se da de baja, no se libera | Desvincular a Carlos: su equipo BYOD se ofrece para **baja** con acta, no para reasignación (T5) |
+| 23 | El método de borrado corresponde a la titularidad | Activo BYOD: el formulario ofrece **solo** «Retiro remoto de datos corporativos (MDM)». Activo de la organización: ofrece los cuatro sembrados y no ofrece ése (B8) |
+| 24 | La migración es una columna y nada más | El diff de esquema contra `main`: **una** columna booleana con default en `activo`. Ninguna tabla nueva, ninguna fila existente alterada (T6, D-11) |
 
 ---
 
