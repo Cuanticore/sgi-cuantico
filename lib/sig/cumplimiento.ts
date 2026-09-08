@@ -4,6 +4,8 @@
 // mensual y el histórico comparten estas reglas, y «nunca pueden contradecir a la
 // bandeja» (nota del lienzo de Obligaciones). Nada de esto se almacena (regla 01).
 
+import { esDiaPosterior } from './fechas';
+
 export interface AsignacionIndicador {
   id: number;
   estado: 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
@@ -57,13 +59,13 @@ export function deudaVencida(
   hoy: Date,
 ): DeudaVencida {
   const vencidas = asignaciones.filter(
-    (a) => a.estado === 'PENDIENTE' && diaDe(a.fechaLimite) < diaDe(hoy),
+    (a) => a.estado === 'PENDIENTE' && esDiaPosterior(hoy, a.fechaLimite),
   );
   if (vencidas.length === 0) return { cantidad: 0, masAntiguaDias: null };
-  // Restar `diaDe` era un defecto: devuelve la fecha EMPAQUETADA como `YYYYMMDD`, que
-  // sirve para comparar —el orden se conserva— pero no para restar. Una asignación vencida
-  // AYER, 31 de enero contra 1 de febrero, daba 20260201 − 20260131 = 70 «días». El número
-  // sale en la barra de Obligaciones y en el correo mensual.
+  // Restar la fecha empaquetada `YYYYMMDD` era un defecto: una asignación vencida AYER,
+  // 31 de enero contra 1 de febrero, daba 20260201 − 20260131 = 70 «días». El número sale
+  // en la barra de Obligaciones y en el correo mensual. Por eso `lib/sig/fechas.ts` no
+  // expone ese entero: comparar se pide, restar se hace sobre medianoches UTC.
   const masVieja = vencidas.reduce(
     (peor, a) => Math.min(peor, medianocheUtc(a.fechaLimite)),
     Number.POSITIVE_INFINITY,
@@ -71,7 +73,7 @@ export function deudaVencida(
   return { cantidad: vencidas.length, masAntiguaDias: diasEntre(masVieja, medianocheUtc(hoy)) };
 }
 
-/// Días completos entre dos medianoches UTC. La resta que `diaDe` no puede hacer.
+/// Días completos entre dos medianoches UTC. La resta que la comparación no puede hacer.
 export function diasEntre(desde: number, hasta: number): number {
   return Math.round((hasta - desde) / 86_400_000);
 }
@@ -83,12 +85,6 @@ export function cierresAdministrativos(
   return asignaciones.filter(
     (a) => a.estado === 'REALIZADA' && a.cerradaPor !== null && a.cerradaPor !== a.personaId,
   ).length;
-}
-
-/// La fecha empaquetada `YYYYMMDD`. Conserva el orden, así que sirve para `<` y `>`.
-/// NUNCA para restar: entre dos días consecutivos a fin de mes la diferencia salta 70.
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
 
 /// Milisegundos de la medianoche UTC de ese día. Esta SÍ se puede restar.

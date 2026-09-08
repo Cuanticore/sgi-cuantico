@@ -4,6 +4,8 @@
 // y el consecutivo anual no lleva el tipo (B1). Puro a propósito: son las reglas que
 // un auditor lee, y se prueban sin base de datos.
 
+import { esDiaPosterior } from './fechas';
+
 export type EstadoHallazgo =
   | 'ABIERTO'
   | 'EN_ANALISIS'
@@ -34,7 +36,7 @@ export function estadoCalculado(h: DatosEstado): EstadoHallazgo {
 /// B8: vencido contra la fecha compromiso, nunca una marca que alguien deba poner.
 export function vencidoContra(fechaCompromiso: Date | null, hoy: Date): boolean {
   if (!fechaCompromiso) return false;
-  return diaDe(hoy) > diaDe(fechaCompromiso);
+  return esDiaPosterior(hoy, fechaCompromiso);
 }
 
 export interface ExigenciaTipo {
@@ -109,9 +111,6 @@ export function motivoQueImpideCerrar(h: DatosCierre): string | null {
   return null;
 }
 
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
-}
 /// Si el hallazgo ya lo clasificó alguien.
 ///
 /// El enum `TipoHallazgo` no tiene `SIN_CLASIFICAR`, así que un hallazgo recién reportado

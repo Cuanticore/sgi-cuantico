@@ -11,14 +11,12 @@
 
 import { useRouter } from 'next/navigation';
 import { ETIQUETA_TIPO_DEPENDENCIA, type TipoDependencia } from '@/lib/sig/dependencias';
+import { pintarValor, type NivelEscala } from '@/lib/sig/valoracion';
 
-function pintarCriticidad(v: number | null): { texto: string; color: string } {
-  if (v === null) return { texto: 'sin valorar', color: 'var(--hf-text-faint)' };
-  if (v >= 5) return { texto: 'muy alto', color: '#a52016' };
-  if (v === 4) return { texto: 'alto', color: '#b8791a' };
-  if (v === 3) return { texto: 'medio', color: '#0f7a5a' };
-  return { texto: 'bajo', color: 'var(--hf-text-muted)' };
-}
+
+
+/// La criticidad se nombra con el catálogo `escala_valor`. Ver `lib/sig/valoracion.ts`:
+/// la escala tiene SEIS niveles y la copia que vivía acá los aplastaba en cuatro.
 
 export interface NodoImpacto {
   activoId: number;
@@ -37,6 +35,7 @@ export default function ImpactoClient({
   arriba,
   abajo,
   asimetricos,
+  escala,
 }: {
   baseId: number | null;
   soloDirectas: boolean;
@@ -44,10 +43,12 @@ export default function ImpactoClient({
   arriba: NodoImpacto[];
   abajo: NodoImpacto[];
   asimetricos: { dependeDeId: number; nombre: string; motivo: string }[];
+  /// El catálogo `escala_valor`, que es donde vive el nombre de cada nivel.
+  escala: NivelEscala[];
 }) {
   const router = useRouter();
   const base = activos.find((a) => a.id === baseId) ?? null;
-  const c = pintarCriticidad(base?.criticidad ?? null);
+  const c = pintarValor(escala, base?.criticidad ?? null);
 
   const irA = (id: number, directas: boolean) =>
     router.push(`/tecnologia/impacto?base=${id}${directas ? '&cadena=0' : ''}`);
@@ -118,6 +119,7 @@ export default function ImpactoClient({
             titulo="Aguas arriba · de qué depende"
             color="#8a4407"
             explicacion={<>Si algo de esta columna cae, <strong className="font-semibold text-secondary">{base.nombre}</strong> se ve afectado.</>}
+            escala={escala}
             nodos={arriba}
             soloDirectas={soloDirectas}
             sufijo={soloDirectas ? 'directas' : 'en cadena'}
@@ -182,6 +184,7 @@ export default function ImpactoClient({
             titulo="Aguas abajo · qué depende de él"
             color="var(--hf-brand-nav)"
             explicacion={<>Si <strong className="font-semibold text-secondary">{base.nombre}</strong> cae, esto se ve afectado. Es la columna del BIA.</>}
+            escala={escala}
             nodos={abajo}
             soloDirectas={soloDirectas}
             sufijo={soloDirectas ? 'directos' : 'en cadena'}
@@ -274,6 +277,7 @@ function Columna({
   sufijo,
   alSeleccionar,
   pie,
+  escala,
 }: {
   titulo: string;
   color: string;
@@ -283,6 +287,7 @@ function Columna({
   sufijo: string;
   alSeleccionar: (id: number) => void;
   pie: React.ReactNode;
+  escala: NivelEscala[];
 }) {
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-tarjeta border border-border-field bg-surface">
@@ -300,7 +305,7 @@ function Columna({
 
       <div className="max-h-[520px] min-h-0 flex-1 overflow-y-auto p-2.5">
         {nodos.map((n) => {
-          const c = pintarCriticidad(n.criticidad);
+          const c = pintarValor(escala, n.criticidad);
           return (
             <button
               key={n.activoId}

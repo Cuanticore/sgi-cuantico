@@ -21,7 +21,7 @@ export default async function DependenciasPage({
   const { base } = await searchParams;
   const baseId = base !== undefined && /^\d+$/.test(base) ? Number(base) : null;
 
-  const [activos, valores, dependencias, niveles] = await Promise.all([
+  const [activos, valores, dependencias, niveles, escala] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       select: { id: true, codigo: true, nombre: true, nivelId: true },
@@ -40,6 +40,9 @@ export default async function DependenciasPage({
       orderBy: { id: 'asc' },
     }),
     prisma.nivelActivo.findMany({ select: { id: true, nombre: true, grado: true } }),
+    // El catalogo de la escala: el nombre de cada nivel vive ahi y no en el codigo, asi
+    // que renombrar un nivel en `escala_valor` lo cambia en toda la aplicacion.
+    prisma.escalaValor.findMany({ select: { valor: true, etiqueta: true }, orderBy: { valor: 'desc' } }),
   ]);
 
   const criticidadPorActivo = new Map<number, number>();
@@ -73,6 +76,7 @@ export default async function DependenciasPage({
         }))}
       // El grafo completo viaja al cliente para que la pantalla pueda avisar ANTES de
       // enviar. No reemplaza la validación del servidor: la adelanta.
+      escala={escala}
       grafo={dependencias.map((d) => ({
         activoId: d.activoId,
         dependeDeId: d.dependeDeId,

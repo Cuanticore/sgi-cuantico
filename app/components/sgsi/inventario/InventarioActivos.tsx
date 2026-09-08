@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { guardarValoracion } from '@/app/sgsi/acciones/activos';
 import PopupImportacion from '@/app/components/sgsi/inventario/PopupImportacion';
 import { clasificar } from '@/lib/sgsi/clasificar';
+import { etiquetaDeValor } from '@/lib/sig/valoracion';
 import {
   nivelDeRiesgoDelActivo,
   type NivelRiesgo,
@@ -218,8 +219,9 @@ export default function InventarioActivos({
   const [importando, setImportando] = useState(false);
 
   const nombreDeNivel = useMemo(() => {
-    const porValor = new Map(escala.map((e) => [e.valor, e.etiqueta.split('— ')[1] ?? e.etiqueta]));
-    return (v: number) => porValor.get(v) ?? String(v);
+    // El nombre sale de `lib/sig/valoracion.ts`: la misma funcion que usan Dependencias e
+    // Impacto. Eran tres formas distintas de partir la misma etiqueta.
+    return (v: number) => etiquetaDeValor(escala, v);
   }, [escala]);
 
   // Every derived figure for every asset, recomputed from the current D/I/C. This is the

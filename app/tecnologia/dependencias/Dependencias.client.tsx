@@ -19,6 +19,7 @@ import {
   type Arista,
   type TipoDependencia,
 } from '@/lib/sig/dependencias';
+import { pintarValor, type NivelEscala } from '@/lib/sig/valoracion';
 
 const TIPOS: TipoDependencia[] = ['USA', 'SE_ALOJA_EN', 'AUTENTICA_CON', 'ALMACENA_EN'];
 
@@ -32,15 +33,12 @@ const COLOR_TIPO: Record<TipoDependencia, { fondo: string; texto: string }> = {
   ALMACENA_EN: { fondo: '#e8f4ef', texto: '#0b5c44' },
 };
 
-/// La criticidad numérica se pinta con el vocabulario del resto del sistema. **`null` no es
-/// «bajo»**: es que nadie lo valoró, y ese es el dato que hace interesante a la asimetría.
-function pintarCriticidad(v: number | null): { texto: string; color: string } {
-  if (v === null) return { texto: 'sin valorar', color: 'var(--hf-text-faint)' };
-  if (v >= 5) return { texto: 'muy alto', color: '#a52016' };
-  if (v === 4) return { texto: 'alto', color: '#b8791a' };
-  if (v === 3) return { texto: 'medio', color: '#0f7a5a' };
-  return { texto: 'bajo', color: 'var(--hf-text-muted)' };
-}
+
+
+/// La criticidad se nombra con el catálogo `escala_valor`, no con una escala escrita acá.
+/// La copia anterior aplastaba los seis niveles en cuatro: 2, 1 y 0 salían todos «bajo».
+/// **`null` no es «bajo»**: es que nadie lo valoró, y ese es el dato que hace interesante a
+/// la asimetría.
 
 export interface ActivoCandidato {
   id: number;
@@ -64,11 +62,14 @@ export default function DependenciasClient({
   activos,
   relacionados,
   grafo,
+  escala,
 }: {
   baseId: number | null;
   activos: ActivoCandidato[];
   relacionados: Relacionado[];
   grafo: Arista[];
+  /// El catalogo `escala_valor`, que es donde vive el nombre de cada nivel.
+  escala: NivelEscala[];
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<TipoDependencia>('USA');
@@ -204,7 +205,7 @@ export default function DependenciasClient({
             <div className="max-h-[520px] min-h-0 flex-1 overflow-y-auto p-2">
               {disponibles.map((a) => {
                 const marcado = marcados.includes(a.id);
-                const c = pintarCriticidad(a.criticidad);
+                const c = pintarValor(escala, a.criticidad);
                 const rompe = conCiclo.has(a.id);
                 return (
                   <button
@@ -320,7 +321,7 @@ export default function DependenciasClient({
             </div>
             <div className="max-h-[520px] min-h-0 flex-1 overflow-y-auto p-2">
               {relacionados.map((d) => {
-                const c = pintarCriticidad(d.criticidad);
+                const c = pintarValor(escala, d.criticidad);
                 const t = COLOR_TIPO[d.tipo];
                 return (
                   <div

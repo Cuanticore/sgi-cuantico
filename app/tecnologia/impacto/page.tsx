@@ -37,7 +37,7 @@ export default async function ImpactoPage({
   // el primer salto lo pide.
   const soloDirectas = cadena === '0';
 
-  const [activos, valores, dependencias] = await Promise.all([
+  const [activos, valores, dependencias, escala] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       select: { id: true, codigo: true, nombre: true },
@@ -45,6 +45,9 @@ export default async function ImpactoPage({
     }),
     prisma.activoValor.findMany({ select: { activoId: true, valor: { select: { valor: true } } } }),
     prisma.dependenciaActivo.findMany({ select: { activoId: true, dependeDeId: true, tipo: true } }),
+    // El catalogo de la escala: el nombre de cada nivel vive ahi y no en el codigo, asi
+    // que renombrar un nivel en `escala_valor` lo cambia en toda la aplicacion.
+    prisma.escalaValor.findMany({ select: { valor: true, etiqueta: true }, orderBy: { valor: 'desc' } }),
   ]);
 
   const criticidad = new Map<number, number>();
@@ -95,6 +98,7 @@ export default async function ImpactoPage({
       }))}
       arriba={arriba}
       abajo={abajo}
+      escala={escala}
       asimetricos={flojos.map((f) => ({
         dependeDeId: f.dependeDeId,
         nombre: porId.get(f.dependeDeId)?.nombre ?? `#${f.dependeDeId}`,
