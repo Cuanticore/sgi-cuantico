@@ -9,7 +9,7 @@
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Extiende** | REQ-SIG-02 (contenidos, asignaciones y cierre) · `docs/handoff_a/contenidos-capacitacion.md` |
 | **Paquete de prueba** | `scorm_package_2004.zip` (18 KB, 17 archivos) · **verificado**, ver §2 |
-| **Estado** | Decisiones D-1 a D-5 tomadas por defecto (§12). **D-4 exige confirmación del líder del SIG antes de producción.** |
+| **Estado** | Decisiones D-1 a D-5 cerradas (§12) · listo para ejecutar. **D-4 quedó decidida el 08/09/2026** (correo y nombre); lo único abierto es si existe cobertura contractual para la transferencia a un proveedor de cursos, y eso no bloquea la construcción. |
 
 ---
 
@@ -136,7 +136,7 @@ Elementos del modelo de datos, con su nivel de soporte exigido:
 | Elemento | Acceso | Notas |
 |---|---|---|
 | `cmi._version` | R | `1.0` |
-| `cmi.learner_id` · `cmi.learner_name` | R | **Ver D-4.** Lo que se ponga acá puede salir hacia un tercero |
+| `cmi.learner_id` · `cmi.learner_name` | R | `Persona.correo` y `Persona.nombre` (D-4). En un paquete `DESPACHO` **salen hacia el tercero** |
 | `cmi.completion_status` | RW | `completed` · `incomplete` · `not attempted` · `unknown` |
 | `cmi.success_status` | RW | `passed` · `failed` · `unknown` |
 | `cmi.score.scaled` | RW | `-1..1`. **Es la que manda** para la nota (§8) |
@@ -260,7 +260,7 @@ Mapeo, al recibir `Terminate` o el `Commit` que completa el curso:
 | Escritura no autorizada en el modelo de datos | El servidor valida elemento, tipo y estado del intento (P5) |
 | *Zip slip*, bomba zip, XXE | P6 y P7, con pruebas por cada uno |
 | Archivos ejecutables dentro del paquete | Lista blanca de MIME para servir; nada se sirve como `text/html` salvo los `.html` del paquete; `X-Content-Type-Options: nosniff` |
-| Datos personales hacia un tercero | D-4 |
+| Datos personales hacia un tercero | Solo en paquetes `DESPACHO`, solo correo y nombre (D-4), registrado en `Bitacora` (P20) y advertido en pantalla al subir el paquete |
 
 **Hoy el proyecto no define ninguna CSP** —ni `Content-Security-Policy`, ni `X-Frame-Options`, ni `frame-ancestors` en ningún archivo—, así que esto se agrega desde cero y no hay una política previa que respetar.
 
@@ -295,9 +295,20 @@ La CSP y los encabezados por ruta van en `next.config.js` (`headers()`), que hoy
 **D-3 · Fase 1 soporta paquetes de un solo SCO; multi-SCO queda para fase 2 con tabla de contenidos plana y navegación `choice`.** **No se construye el motor completo de secuenciación IMS SS** (reglas de precondición, *rollup* con medida, objetivos globales, aleatorización).
 *Por qué:* el paquete de prueba es de un SCO, como la enorme mayoría de los cursos de cumplimiento; y el motor de secuenciación completo es, con distancia, la parte más grande y menos usada del estándar. Construirlo primero atrasa meses lo que ya sirve. Lo que sí se hace en fase 1: **detectar** un paquete multi-SCO al analizarlo y **rechazarlo con el motivo claro**, en vez de ejecutar el primer SCO y dar por hecho el curso completo.
 
-**D-4 · Qué se envía como `cmi.learner_id` y `cmi.learner_name` lo decide el líder del SIG. Requiere confirmación explícita antes de producción.**
-*Recomendación del desarrollo:* `learner_id = p-<Persona.id>` (un identificador opaco, no el correo ni la cédula) y `learner_name` solo cuando el curso lo necesite para mostrarlo. Con un paquete de **despacho**, esos dos valores **salen hacia el tercero** (`my.coursebox.ai`, §2).
-*Por qué es una decisión y no un detalle:* es tratamiento de datos personales por un tercero, muy probablemente con transferencia internacional — Ley 1581 y control A.5.19 (relaciones con proveedores). Hay que saber si existe contrato o cláusula con ese proveedor. La alternativa técnica, si no existe, es no permitir paquetes de despacho y exigir cursos autocontenidos: el player soporta ambos, así que la decisión es de gobierno, no de código.
+**D-4 · `cmi.learner_id` es el correo corporativo y `cmi.learner_name` es el nombre de la persona.** Decidido por el líder del SIG el 08/09/2026.
+
+```
+cmi.learner_id   = Persona.correo    (userPrincipalName, minúsculas)
+cmi.learner_name = Persona.nombre
+```
+
+*Ventaja de usar el correo:* es la misma llave con la que la persona se identifica en toda la organización, así que el reporte que devuelva un proveedor de cursos se cruza con el SIG sin tabla de traducción, y un curso reanudado meses después reconoce a la misma persona aunque su registro en la app haya cambiado de `id`.
+
+*Lo que hay que aceptar, dicho una vez y anotado acá para que no sorprenda:* con un paquete de **despacho**, el correo corporativo y el nombre completo de cada colaborador **se transmiten al tercero** —hoy `my.coursebox.ai`, §2— porque el propio SCO los pone en la URL del contenido. Con un paquete **autocontenido** no salen de la aplicación. Por eso `PaqueteScorm.clase` no es un dato decorativo: es lo que separa «este curso no comparte datos» de «este curso comparte correo y nombre», y la pantalla que sube el paquete debe decirlo con esas palabras **antes** de guardar.
+
+*Lo que sigue abierto y no es de desarrollo:* si existe contrato, cláusula de tratamiento o autorización que cubra esa transferencia a ese proveedor (Ley 1581 · transferencia internacional; control A.5.19 · relaciones con proveedores). El player no lo puede resolver y no lo bloquea: **construye los dos caminos**. Si la respuesta es que no hay cobertura contractual, la salida es no habilitar paquetes de despacho y exigir cursos autocontenidos — una decisión de configuración, no un rediseño.
+
+**P20 · el envío de datos al tercero queda registrado.** Cada lanzamiento de un paquete `DESPACHO` anota en `Bitacora` qué datos salieron y hacia qué dominio. Sin ese registro, la organización no puede responder «a quién le compartimos los datos de nuestros colaboradores y cuándo», que es exactamente lo que un titular de datos tiene derecho a preguntar.
 
 **D-5 · La CSP se define por paquete, a partir de los dominios que el análisis encontró, y un dominio nuevo exige aprobación al subir el paquete.**
 *Por qué:* una lista blanca global crecería hasta permitir cualquier cosa, y el día que un curso empiece a cargar contenido de un dominio nuevo eso debe ser una decisión visible y no un efecto secundario.
@@ -352,4 +363,4 @@ SCORM_INTENTO_ABANDONO_MINUTOS=720
 - **No soporta xAPI ni cmi5.**
 - **No es una herramienta de autoría**: no crea ni edita cursos.
 - **No convierte el paquete en evidencia congelada cuando es un despacho** (D-1). Publica lo que sabe y dice lo que no.
-- **No decide qué datos personales se envían al tercero** (D-4).
+- **No verifica la cobertura contractual** de la transferencia de correo y nombre a un proveedor de cursos (D-4). Envía lo decidido, lo advierte en pantalla y lo registra; que exista el contrato es de gobierno.
