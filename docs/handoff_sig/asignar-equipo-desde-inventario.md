@@ -3,13 +3,13 @@
 | Campo | Contenido |
 |---|---|
 | **Código** | REQ-SIG-16 · asignación de custodio persona |
-| **Versión** | 1.2 — D-2 cerrada **sin tabla de historia** (se usa `Activo.personaId`, que ya existe), la pantalla se diseña alrededor de la primera corrida (§3.4), y el equipo usado exige **acta de borrado** antes de cambiar de manos (§3.5, D-9) |
+| **Versión** | 1.3 — **titularidad BYOD** como primera pregunta y única migración (§3.5), valoración por defecto **D 2 · I 2 · C 4** (P11), y el acta reencuadrada en tres según el caso (D-6) |
 | **Fecha** | 2026-09-08 |
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
-| **Extiende** | El inventario del SGSI (`app/sgsi/acciones/activos.ts`) · la pantalla `tecnologia/equipos` · REQ-SIG-09 (desvinculación y acta de borrado FOR-SIG-18) |
-| **Controles** | **A.5.9** inventario de activos con su responsable · **A.5.10** uso aceptable · **A.5.11** devolución de activos · **A.8.10** borrado de información antes de reutilizar un equipo (PTR-TEC-03 ítem 62) |
-| **Estado** | Decisiones D-1 a D-10 **cerradas** (§7). **D-2 y D-9 las resolvió el líder del SIG**: sin tabla nueva, y el acta de borrado se exige y se registra desde el popup. D-4 y D-6 siguen marcadas para ratificación; el desarrollo no las espera |
+| **Extiende** | El inventario del SGSI (`app/sgsi/acciones/activos.ts`) · la pantalla `tecnologia/equipos` · REQ-SIG-02 (firma y actas de aceptación) · REQ-SIG-09 (desvinculación y acta de borrado FOR-SIG-18) |
+| **Controles** | **A.5.9** inventario con su responsable · **A.5.10** uso aceptable · **A.5.11** devolución de activos · **A.6.7** trabajo remoto · **A.7.9** activos fuera de las instalaciones · **A.8.1** dispositivos de punto final · **A.8.10** eliminación de información (PTR-TEC-03 ítem 62) |
+| **Estado** | Decisiones D-1 a D-13 **cerradas** (§7). **D-2, D-6 y D-9 las resolvió el líder del SIG.** **D-11 (la columna BYOD) y D-4 quedan marcadas para ratificación**; el desarrollo no las espera |
 
 ---
 
@@ -19,9 +19,9 @@ Que desde **Equipos de colaboradores** se abra un popup sobre la fila de una per
 
 El resultado que se busca no es un formulario: es que la tarjeta **ACTIVOS ASIGNADOS** deje de decir `0` y que **SIN NINGÚN ACTIVO** deje de decir `36`.
 
-Y que un equipo que **ya estuvo en manos de otra persona no se entregue sin el acta de borrado** de quien lo tuvo (§3.5). Es el control A.8.10, y hoy no hay dónde cumplirlo: `ActaBorradoSeguro` está en el esquema y ninguna pantalla la crea.
+Y que el registro diga la verdad sobre **de quién es cada equipo**. En CUANTICO el teletrabajo es el modelo operativo único y la mayoría de los computadores **son del colaborador**: para ésos el acta que corresponde no es una entrega, es la **aceptación de los lineamientos de dispositivos personales** que ya se firma al ingresar (§3.5). Para los de la organización, Intune ya hizo el enrolamiento y lo que queda por registrar es el **ingreso al parque**, no una ceremonia de entrega. Y un equipo que ya estuvo en manos de otra persona no se entrega sin el **acta de borrado** de quien lo tuvo (§3.6, A.8.10) — un acta que hoy no se puede crear desde ninguna pantalla.
 
-**No hay campo que crear ni tabla que agregar.** `Activo.personaId` ya existe (§2.1), `ActaBorradoSeguro` y `ActaBorradoActivo` también, y `MetodoBorrado` está sembrado. Este requerimiento **no toca el esquema**: lo único que suma a la base es una fila en `Parametro` (§4.3). Todo el trabajo está en abrirles el camino de escritura y en la pantalla que los usa.
+**Casi nada de esto necesita esquema.** `Activo.personaId`, `ActaBorradoSeguro`, `ActaBorradoActivo`, `ActaAceptacion` y `MetodoBorrado` ya existen; lo que falta son los caminos de escritura. La migración se reduce a **una columna booleana**: la titularidad BYOD (T6, D-11), que no se puede derivar de nada de lo que hay.
 
 ---
 
@@ -76,7 +76,9 @@ Por eso el popup de §3 tiene **dos mitades del mismo tamaño**, no una lista co
 | Bitácora | `lib/sgsi/bitacora.ts` (`registrar`, `registrarAlta`) | Toda asignación con anterior, nuevo y motivo |
 | Permisos | `lib/sgsi/permisos.ts:74-76` | `tecnologia:escribir` ya existe y ya es el permiso del módulo |
 | Acta de borrado | `ActaBorradoSeguro` + `ActaBorradoActivo` (`schema.prisma:2498-2537`) | El modelo de FOR-SIG-18, con su N:M de activos. **Está y nadie lo escribe** (B6) |
-| Métodos de borrado | `MetodoBorrado`, sembrado en `20260903170000_colaboradores/migration.sql:119-124` | Cuatro métodos ya cargados: formateo con sobrescritura, borrado criptográfico, destrucción física, restablecimiento de fábrica |
+| Métodos de borrado | `MetodoBorrado`, sembrado en `20260903170000_colaboradores/migration.sql:119-124` | Cuatro métodos ya cargados: formateo con sobrescritura, borrado criptográfico, destrucción física, restablecimiento de fábrica. Se le suma el quinto de B8 |
+| Acta de aceptación firmada | `ActaAceptacion` (`schema.prisma:2552-2599`), REQ-SIG-02 | La aceptación de los lineamientos de dispositivos personales, con declaración copiada, hash del documento y PDF congelado. El popup la **lee** para el caso BYOD (T3) |
+| El SoA de la organización | `prisma/data/soa.json` | Ya declaró Intune, el teletrabajo como modelo único y los lineamientos de dispositivos personales. §3.5 no propone nada nuevo: le da registro a lo que el SoA ya afirma |
 | Regeneración de riesgos | `lib/sgsi/riesgos.ts` (`generarRiesgos`) | El alta valorada trae riesgos a la existencia, igual que hoy |
 
 ---
@@ -294,6 +296,8 @@ Es una columna booleana con default, así que la migración no toca ni una fila 
 
 Entregarle a alguien un equipo que otra persona usó **sin haber borrado la información** es entregarle los correos, los archivos y las credenciales del anterior. Es el control **A.8.10** y es el ítem 62 de PTR-TEC-03. Por eso la asignación de un equipo usado no se completa sin el acta.
 
+**Este bloque gobierna los equipos DE LA ORGANIZACIÓN.** Un equipo BYOD no se reasigna nunca (T5), así que la pregunta «nuevo o usado» no se le hace: su acta de borrado existe, dice otra cosa y se levanta a la salida, no acá (B8).
+
 Los puntos de este bloque llevan la serie **B**, porque son un control propio y no detalles del popup.
 
 **B1 · el popup pregunta, pero no pregunta a ciegas: propone la respuesta y dice de dónde la sacó.**
@@ -503,7 +507,7 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 **D-8 · El activo con `cantidad > 1` se asigna con confirmación, no se rechaza** (P7).
 *Por qué:* hay agrupaciones legítimas y el sistema no puede distinguirlas. Lo que no puede pasar es que alguien registre veinte portátiles en manos de una persona sin enterarse.
 
-**D-9 · El equipo usado no se entrega sin acta de borrado, y el acta se registra desde este popup** (§3.5). **Pedida por el líder del SIG el 2026-09-08.**
+**D-9 · El equipo usado no se entrega sin acta de borrado, y el acta se registra desde este popup** (§3.6). **Pedida por el líder del SIG el 2026-09-08.**
 *Por qué se registra acá y no se remite a otra pantalla:* porque esa pantalla no existe. `ActaBorradoSeguro` lleva en el esquema desde el 03/09 sin un solo camino de escritura (B6), así que «escoja el acta del listado» encontraría el listado vacío para siempre. La alternativa —bloquear la asignación y mandar a crear el acta a otra parte— sería mandar a un lugar que no está construido.
 *Qué se acepta:* el requerimiento crece con un formulario de cinco campos y con el componente `ActaBorrado.tsx`. A cambio, la anomalía «salió sin acta de borrado» que `sig/estado/page.tsx:96` hoy solo sabe **contar** pasa a tener cómo resolverse, y la desvinculación de REQ-SIG-09 se encuentra el componente hecho.
 *Qué NO se hace:* no se guarda un estado «pendiente de borrado» (B4). El equipo que espera borrado se deriva (B5).
@@ -584,6 +588,10 @@ Las ocho quedan **cerradas con la recomendación técnica adoptada el 2026-09-08
 - **No tramita el borrado con una `Solicitud`** (D-10). No hace falta un flujo de pide-autoriza-ejecuta para algo que hace la misma persona que entrega el equipo.
 - **No construye la pantalla de actas de borrado.** Crea el componente que la escribe (B6) y la primera vía para registrarlas. La lista completa de actas, su consulta y su exportación son de REQ-SIG-09, que es donde vive la desvinculación.
 - **No verifica que el borrado se hizo.** Registra quién dice que lo hizo, cuándo, con qué método y con qué evidencia. La aplicación no puede mirar un disco; lo que puede es que nadie entregue un equipo usado sin que alguien firme esa afirmación.
+- **No sincroniza nada desde Intune** (T2, D-13). Ni cumplimiento, ni cifrado, ni versión de sistema operativo, ni última conexión. Ese registro ya existe y es el de Intune; duplicarlo produciría dos respuestas a la misma pregunta.
+- **No ejecuta el borrado remoto.** Registra que se hizo. Quien lo ejecuta es Intune, desde su propia consola y con sus propios permisos.
+- **No crea el acta de aceptación de los lineamientos** (T3). La consulta. Firmarla es de REQ-SIG-02 y ocurre en la vinculación, antes de que este popup tenga nada que hacer.
+- **No permite reasignar un equipo BYOD** (T5). Se va con su dueño; a la salida se da de baja con su acta.
 - **No libera equipos al desvincular ni al bloquear** (P21). Los deja asignados para armar el acta de borrado, y agrega el renglón que los hace visibles.
 - **No importa equipos en lote.** El consolidado que traiga los computadores entra por `importar.ts` con las reglas de REQ-SIG-12, y ése ya sabe cargar activos; lo que **no** trae el consolidado es a quién pertenece cada uno, así que la asignación se sigue haciendo acá. Cargar la pareja equipo↔persona desde un Excel es un requerimiento aparte, y solo tiene sentido el día que exista un archivo que ya traiga esa columna.
 - **No deja que la persona vea ni edite su propia custodia.** Los activos a cargo en Mi SIG son de solo lectura y ya los resuelve `misig:ver` (`permisos.ts:102-104`).
