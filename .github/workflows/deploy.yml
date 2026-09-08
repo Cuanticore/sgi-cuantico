@@ -68,6 +68,53 @@ jobs:
 
           echo "preflight ok"
 
+      # THE DISK. The runner is self-hosted ON the deploy host, so every deploy builds an
+      # image on the machine that serves the application. Nothing here pruned anything, and
+      # after enough deploys the build cache and the unused layers filled the disk: run #41
+      # died at 9m26s with `No space left on device`, writing its own log. The image had
+      # already been built, so the failure landed after the expensive part.
+      #
+      # Same principle as the variable preflight above: fail BEFORE building, when failing
+      # costs nothing and the old container keeps serving. A deploy that runs out of disk
+      # halfway is the one that can leave the stack half-recreated.
+      #
+      # `--volumes` is NOT used and must never be: the Postgres data lives in a volume, and
+      # pruning volumes on this host destroys the database.
+      - name: Preflight — espacio en disco
+        run: |
+          set -euo pipefail
+
+          libre_gb() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
+
+          echo "antes de podar:"
+          df -h / | tail -1
+
+          # El cache de construcción, acotado. Es lo que más crece: una capa nueva por
+          # despliegue y ninguna se iba.
+          docker builder prune -f --keep-storage=5GB || true
+
+          # Capas huérfanas: no las referencia ninguna imagen.
+          docker image prune -f || true
+
+          # Imágenes sin uso de más de catorce días. La que corre el contenedor está EN uso,
+          # así que `-a` no se la lleva: eso es lo que hace seguro este filtro.
+          docker image prune -a -f --filter "until=336h" || true
+
+          echo "después de podar:"
+          df -h / | tail -1
+
+          libre="$(libre_gb)"
+          minimo=8
+          if [ "$libre" -lt "$minimo" ]; then
+            echo "::error::Quedan ${libre}G libres en / y la imagen necesita al menos ${minimo}G. NO se construyó nada y el contenedor actual sigue sirviendo." >&2
+            echo "Qué ocupa, para revisar por ssh:" >&2
+            echo "  docker system df" >&2
+            echo "  du -sh /home/ubuntu/actions-runner/_diag /home/ubuntu/respaldos/sgi" >&2
+            echo "NUNCA uses docker system prune --volumes: ahí vive la base de datos." >&2
+            exit 1
+          fi
+          echo "espacio ok: ${libre}G libres"
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
