@@ -262,7 +262,11 @@ Mapeo, al recibir `Terminate` o el `Commit` que completa el curso:
 | Archivos ejecutables dentro del paquete | Lista blanca de MIME para servir; nada se sirve como `text/html` salvo los `.html` del paquete; `X-Content-Type-Options: nosniff` |
 | Datos personales hacia un tercero | D-4 |
 
-La CSP y los encabezados por ruta van en `next.config.js` (`headers()`) o en `proxy.ts`. **Ojo con el nombre**: en Next 16 el archivo `middleware.ts` está **deprecado y renombrado a `proxy.ts`** (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`). Las rutas de API siguen siendo `route.ts` dentro de `app/`.
+**Hoy el proyecto no define ninguna CSP** —ni `Content-Security-Policy`, ni `X-Frame-Options`, ni `frame-ancestors` en ningún archivo—, así que esto se agrega desde cero y no hay una política previa que respetar.
+
+La CSP y los encabezados por ruta van en `next.config.js` (`headers()`), que hoy solo tiene `typescript.ignoreBuildErrors` y `output: 'standalone'`. **No moverlos al archivo de middleware ni renombrarlo:** el proyecto mantiene `middleware.ts` deliberadamente en lugar del `proxy.ts` de Next 16 porque, como dice el propio archivo (`middleware.ts:10-12`), «el rename también cambia el runtime de edge a nodejs, y eso necesita su propia verificación». Ese cambio no es parte de este requerimiento y meterlo acá mezclaría dos riesgos distintos en un mismo despliegue. Las rutas de API siguen siendo `route.ts` dentro de `app/`.
+
+**P19 · la página del player queda cubierta por la puerta que ya existe; las rutas del origen de contenido no deben estarlo.** `/mi-sig/curso/<asignacionId>` cae bajo el `matcher` de `/mi-sig/:path*` (`middleware.ts:30`), así que exige sesión sin tocar nada. El runner y el servidor de archivos **no** llevan sesión —por diseño (P3)— y por eso el origen de contenido tiene que **rechazar todo lo que no sea esas dos rutas**: si se sirve desde la misma aplicación en otro nombre de host, cualquier otra ruta quedaría alcanzable desde el JavaScript del curso como si fuera propia.
 
 ---
 
