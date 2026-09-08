@@ -69,7 +69,8 @@ Son criterio de aceptación, no orientación. Si te sale otra, el error está en
 | `... = 'TRIMESTRAL'` | **4** |
 | `... = 'SEMESTRAL'` | **1** |
 | `obligacion` con `alcance = 'AREA'` | **10** (9 de indicadores + satisfacción del cliente) |
-| `select count(distinct contenido_id) from obligacion where alcance='AREA' and ...` (las 9 de indicadores) | **1** |
+| `obligacion` con `alcance = 'CARGO'` | **17** |
+| `select count(distinct contenido_id)` de las 9 de indicadores | **1** |
 | `select count(*) from obligacion where fecha_inicio < '2026-09-01'` | **0** |
 | `select count(*) from obligacion where es_proveedor` | **1** |
 | `select count(*) from analisis_contexto` | **2** |
