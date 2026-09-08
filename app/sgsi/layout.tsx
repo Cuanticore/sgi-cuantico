@@ -19,7 +19,7 @@
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
-import { GRUPOS, puede, rolDesdeGrupos, type OrigenRol } from '@/lib/sgsi/permisos';
+import { GRUPOS, puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import ShellSig from '@/app/components/sgsi/ShellSig';
 import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
 
@@ -37,7 +37,7 @@ export default async function SgsiLayout({ children }: { children: React.ReactNo
     return (
       <div className="flex min-h-screen flex-col bg-app">
         <EncabezadoSig />
-        <SinAcceso origen={rol.origen} />
+        <SinAcceso />
       </div>
     );
   }
@@ -48,7 +48,7 @@ export default async function SgsiLayout({ children }: { children: React.ReactNo
 /// Says WHICH group grants access, because "no tenés permiso" without that is a dead end
 /// that turns into a support ticket. It names the groups rather than telling the person to
 /// ask someone, and it does not reveal anything about the register itself.
-function SinAcceso({ origen }: { origen: OrigenRol }) {
+function SinAcceso() {
   return (
     <main className="px-8 pt-10 pb-14">
       <div
@@ -75,13 +75,8 @@ function SinAcceso({ origen }: { origen: OrigenRol }) {
           se derivan de esa pertenencia: la aplicación no los concede por su cuenta. Mientras
           tanto seguís viendo tus propias tareas en Mi SIG.
         </p>
-        {origen !== 'directorio' && (
-          <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>
-            Nota para quien administra: el token de esta sesión no trae el claim de grupos,
-            así que el rol vino del respaldo configurado y no del Directorio. Configurá el
-            claim de grupos en el App Registration para que los permisos sean reales.
-          </p>
-        )}
+        {/* La nota sobre el respaldo configurado se fue con el respaldo: ya no hay otra
+            procedencia posible. Quien quiera ver que trae su token tiene /mi-sig/diagnostico. */}
         <Link
           href="/mi-sig"
           className="mt-1 w-fit rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"

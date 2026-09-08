@@ -70,9 +70,7 @@ export default async function ShellSig({ children }: { children: React.ReactNode
     // a quien mira una captura.
     permisos: rol.grupos.length
       ? `${
-          rol.origen === 'simulado'
-            ? `ROL SIMULADO para pruebas · SGI_ROL_DEV=${rol.grupos.join(', ')} · NO viene del Directorio Activo`
-              : `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
+          `Sesión iniciada con Directorio Activo · grupo ${rol.grupos.join(', ')}`
         } · ${
           puede(rol, 'sgsi:escribir')
             ? 'lectura y escritura'

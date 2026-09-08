@@ -9,7 +9,8 @@ import { prisma } from '@/lib/db';
 import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
-import PersonasClient, { type AsignacionAbierta } from './Personas.client';
+import { resumirCorrida } from '@/lib/sig/personas';
+import PersonasClient, { type AsignacionAbierta, type Corrida } from './Personas.client';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function PersonasPage() {
   const rol = rolDesdeGrupos(session?.user?.grupos);
   const administra = puede(rol, 'personas:administrar');
 
-  const [personas, pendientes, miembrosDelGrupo] = await Promise.all([
+  const [personas, pendientes, miembrosDelGrupo, ultimaFilaDeCorrida] = await Promise.all([
     prisma.persona.findMany({
       orderBy: { nombre: 'asc' },
       include: {
@@ -41,7 +42,37 @@ export default async function PersonasPage() {
     // El rol no está en la base y no va a estar: lo dan los grupos del Directorio. Se
     // pregunta al leer, junto con el censo, y cuando no se puede, viene la causa.
     oidsDelGrupoSig(),
+    // La franja del lienzo resume la última corrida, y ese resumen sólo existía dentro del
+    // mensaje que devolvía `sincronizarDirectorio`: se perdía al recargar, así que entrar en
+    // frío a la pantalla no dejaba rastro de qué había hecho la última sincronización.
+    //
+    // Se DERIVA de la bitácora en vez de guardarse. `app/sig/acciones/personas.ts` es el
+    // único escritor de filas con `tabla: 'persona'`, así que el rastro no tiene ruido de
+    // otros orígenes, y toda la corrida va en una sola transacción: `ocurrido_en` sale del
+    // `CURRENT_TIMESTAMP` de Postgres, que dentro de una transacción es el instante en que
+    // empezó, y por eso las filas de una misma corrida comparten el valor exacto. Guardar
+    // aparte un resumen que la bitácora ya contiene sería guardar lo derivable.
+    prisma.bitacora.findFirst({
+      where: { tabla: 'persona' },
+      orderBy: { ocurridoEn: 'desc' },
+      select: { ocurridoEn: true },
+    }),
   ]);
+
+  // Una corrida que no cambió nada no escribe bitácora, así que lo que se puede reconstruir
+  // es la última corrida CON CAMBIOS. La franja lo dice con esas palabras y con su fecha, en
+  // vez de presentarla como «la última» a secas.
+  const corrida: Corrida | null = ultimaFilaDeCorrida
+    ? {
+        cuando: ultimaFilaDeCorrida.ocurridoEn.toISOString(),
+        ...resumirCorrida(
+          await prisma.bitacora.findMany({
+            where: { tabla: 'persona', ocurridoEn: ultimaFilaDeCorrida.ocurridoEn },
+            select: { campo: true, valorNuevo: true },
+          }),
+        ),
+      }
+    : null;
 
   const hoy = new Date();
   // La columna cuenta PENDIENTES ABIERTOS, no solo los vencidos.
@@ -86,6 +117,7 @@ export default async function PersonasPage() {
   return (
     <PersonasClient
       filas={filas}
+      corrida={corrida}
       administra={administra}
       rolesConsultables={miembrosDelGrupo.ok}
       motivoSinRoles={miembrosDelGrupo.ok ? null : explicarFallo(miembrosDelGrupo.fallo)}

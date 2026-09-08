@@ -6,7 +6,15 @@
 // just as well before object ids were mapped at all — and back then every real token
 // produced «Sin acceso al SGSI».
 
-import { GRUPOS, rolDeLaPersona, rolDesdeGrupos, puede, nombreDelRol } from '../permisos';
+import {
+  GRUPOS,
+  grupoDeIdentificador,
+  nombreDelRol,
+  OBJECT_ID_GRUPO_SIG,
+  puede,
+  rolDeLaPersona,
+  rolDesdeGrupos,
+} from '../permisos';
 
 
 // Dos casos de acceso y nada más: Mi SIG para toda la organización, el resto para
@@ -126,108 +134,74 @@ describe('el piso es Colaborador, no el SGSI', () => {
   });
 });
 
-describe('SGI_ROL_DEV', () => {
-  // `process.env.NODE_ENV` is typed read-only, so it is written through the index
-  // signature. The cases below need to observe production behaviour, and there is no
-  // point testing the guard without being able to stand on the other side of it.
+// ─── El respaldo retirado ──────────────────────────────────────────────────────────────
+//
+// `SGI_ROL_DEV` otorgaba el rol en desarrollo sin mirar ningun grupo del Directorio. Se
+// retiro el 08/09/2026, y estas pruebas fijan que NO otorgue nada — que es la garantia que
+// importa ahora. Antes fijaban lo contrario: que si otorgara.
+//
+// **Por que se retiro.** Hacia que el entorno local no ejercitara el camino real: el acceso
+// funcionaba en la maquina de quien programa y fallaba en produccion. Es el peor resultado
+// posible de una herramienta de pruebas, porque oculta justo el defecto que hay que
+// encontrar — y lo oculto durante semanas.
+//
+// La variable puede seguir puesta en un `.env` viejo. No hace nada, y eso se prueba.
+describe('SGI_ROL_DEV · retirado', () => {
   const entorno = process.env as Record<string, string | undefined>;
-  const nodeEnvOriginal = entorno.NODE_ENV;
 
-  function conEntorno(valores: Record<string, string | undefined>, prueba: () => void) {
-    const previos: Record<string, string | undefined> = {};
-    for (const [clave, valor] of Object.entries(valores)) {
-      previos[clave] = entorno[clave];
-      if (valor === undefined) delete entorno[clave];
-      else entorno[clave] = valor;
+  function conEntorno(vars: Record<string, string | undefined>, fn: () => void) {
+    const previos = Object.fromEntries(Object.keys(vars).map((k) => [k, entorno[k]]));
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === undefined) delete entorno[k];
+      else entorno[k] = v;
     }
     try {
-      prueba();
+      fn();
     } finally {
-      for (const [clave, valor] of Object.entries(previos)) {
-        if (valor === undefined) delete entorno[clave];
-        else entorno[clave] = valor;
+      for (const [k, v] of Object.entries(previos)) {
+        if (v === undefined) delete entorno[k];
+        else entorno[k] = v;
       }
     }
   }
 
-  afterEach(() => {
-    if (nodeEnvOriginal === undefined) delete entorno.NODE_ENV;
-    else entorno.NODE_ENV = nodeEnvOriginal;
-  });
+  it.each(['development', 'test', 'production'])(
+    'en NODE_ENV=%s no otorga nada',
+    (nodeEnv) => {
+      conEntorno({ NODE_ENV: nodeEnv, SGI_ROL_DEV: 'Líderes SIG' }, () => {
+        const rol = rolDesdeGrupos(['Domain Users']);
+        expect(rol.grupos).toEqual([]);
+        expect(puede(rol, 'sgsi:ver')).toBe(false);
+        expect(puede(rol, 'sgsi:escribir')).toBe(false);
+        expect(nombreDelRol(rol)).toBe('Colaborador');
+      });
+    },
+  );
 
-  it('fuera de producción otorga el rol declarado y lo marca como simulado', () => {
-    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'Líderes SIG' }, () => {
-      const rol = rolDesdeGrupos(['Domain Users']);
-      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
-      expect(puede(rol, 'sgsi:escribir')).toBe(true);
-      // Sin esta marca la pantalla no puede decir que el rol no vino del Directorio.
-      expect(rol.origen).toBe('simulado');
-    });
-  });
-
-  it('un grupo retirado en la variable tampoco otorga nada', () => {
-    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'SIG-Propietarios' }, () => {
-      const rol = rolDesdeGrupos(['Domain Users']);
-      expect(rol.grupos).toEqual([]);
-      expect(puede(rol, 'sgsi:ver')).toBe(false);
-    });
-  });
-
-  // El caso por el que se retiró SGI_ACCESO_SIN_GRUPO: en producción daba el SGSI entero a
-  // cualquier cuenta autenticada. Puesta en el servidor de producción, esta no hace nada.
-  it('en producción se ignora por completo', () => {
-    conEntorno({ NODE_ENV: 'production', SGI_ROL_DEV: GRUPOS.seguridad }, () => {
-      const rol = rolDesdeGrupos(['Domain Users']);
-      expect(rol.grupos).toEqual([]);
-      expect(puede(rol, 'sgsi:ver')).toBe(false);
-      expect(puede(rol, 'sgsi:escribir')).toBe(false);
-      expect(puede(rol, 'parametrizacion:escribir')).toBe(false);
-      expect(nombreDelRol(rol)).toBe('Colaborador');
-    });
-  });
-
-  it('un grupo real del token gana sobre la variable', () => {
+  // Con la variable puesta al nombre del grupo, una cuenta sin grupo real sigue siendo
+  // Colaborador. Es exactamente el caso que hacia pasar el local por bueno.
+  it('con la variable puesta, una cuenta sin grupo real sigue en el piso', () => {
     conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: GRUPOS.seguridad }, () => {
-      const rol = rolDesdeGrupos(['Líderes SIG']);
-      expect(rol.grupos).toEqual([GRUPOS.seguridad]);
-      // Vino del token, no de la variable: la marca de simulado no se enciende.
-      expect(rol.origen).toBe('directorio');
-    });
-  });
-
-  it('un valor que no nombra un grupo conocido no otorga nada', () => {
-    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: 'Administradores' }, () => {
-      const rol = rolDesdeGrupos(['Domain Users']);
-      expect(rol.grupos).toEqual([]);
-      expect(puede(rol, 'sgsi:ver')).toBe(false);
-    });
-  });
-
-  it('sin la variable el piso sigue siendo Colaborador', () => {
-    conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: undefined }, () => {
-      const rol = rolDesdeGrupos(['Domain Users']);
+      const rol = rolDesdeGrupos([]);
       expect(rol.grupos).toEqual([]);
       expect(puede(rol, 'misig:ver')).toBe(true);
       expect(puede(rol, 'sgsi:ver')).toBe(false);
     });
   });
 
-  // Sigue admitiendo varios valores separados por coma aunque hoy solo uno otorgue algo:
-  // el día que vuelva a haber más de un grupo, el formato no cambia.
-  it('acepta varios valores separados por coma y toma el que reconoce', () => {
-    conEntorno(
-      { NODE_ENV: 'development', SGI_ROL_DEV: 'SIG-Propietarios, Líderes SIG' },
-      () => {
-        const rol = rolDesdeGrupos([]);
+  // Y el grupo REAL del token sigue otorgando, con la variable puesta o no: lo que se
+  // retiro es el atajo, no el camino.
+  it('el grupo real del token otorga igual, con la variable o sin ella', () => {
+    for (const valor of [undefined, GRUPOS.seguridad]) {
+      conEntorno({ NODE_ENV: 'development', SGI_ROL_DEV: valor }, () => {
+        const rol = rolDesdeGrupos([OBJECT_ID_GRUPO_SIG]);
         expect(rol.grupos).toEqual([GRUPOS.seguridad]);
-        expect(puede(rol, 'bitacora:ver')).toBe(true);
-        expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
-      },
-    );
+        expect(puede(rol, 'sgsi:escribir')).toBe(true);
+      });
+    }
   });
 });
-// `Líderes SIG` es el grupo de seguridad que reemplaza al de Microsoft 365. Es el que el
-// token va a traer de verdad, así que es el que más importa que esté bien escrito.
+
 describe('Líderes SIG', () => {
   const OBJECT_ID_LIDERES = '2e0f4290-e91c-4f45-a663-77ece2d2a50e';
 
@@ -240,7 +214,6 @@ describe('Líderes SIG', () => {
     ]) {
       const rol = rolDesdeGrupos([identificador]);
       expect(rol.grupos).toEqual([GRUPOS.seguridad]);
-      expect(rol.origen).toBe('directorio');
       expect(puede(rol, 'sgsi:escribir')).toBe(true);
       expect(puede(rol, 'parametrizacion:escribir')).toBe(true);
     }
@@ -280,5 +253,55 @@ describe('rolDeLaPersona', () => {
 
   it('un conjunto vacío sí es una respuesta: nadie es responsable', () => {
     expect(rolDeLaPersona(MIEMBRO, new Set())).toBe('COLABORADOR');
+  });
+});
+
+// ─── grupoDeIdentificador · el object id que la pantalla decia ignorar ─────────────────
+//
+// La pantalla de diagnostico comparaba el valor CRUDO del token contra `Rol.grupos`, que
+// trae el NOMBRE ya resuelto. Como Azure emite object ids y no nombres, todo id salia
+// «ignorado» — incluido el que estaba otorgando el rol en ese mismo render, junto al aviso
+// de que habia que registrarlo. La herramienta hecha para responder «por que no tengo
+// acceso» daba una falsa alarma justo cuando el acceso funcionaba.
+//
+// Estas pruebas fijan que la resolucion se pregunte por el valor crudo, que es lo que el
+// token trae.
+describe('grupoDeIdentificador', () => {
+  it('reconoce el object id del grupo, que es lo que Azure emite', () => {
+    expect(grupoDeIdentificador(OBJECT_ID_GRUPO_SIG)).toBe(GRUPOS.seguridad);
+  });
+
+  // Los object ids son insensibles a la caja y Azure no es consistente con la que emite.
+  it('reconoce el object id sin importar la caja', () => {
+    expect(grupoDeIdentificador(OBJECT_ID_GRUPO_SIG.toUpperCase())).toBe(GRUPOS.seguridad);
+  });
+
+  it('reconoce el nombre vigente del grupo', () => {
+    expect(grupoDeIdentificador('Líderes SIG')).toBe(GRUPOS.seguridad);
+  });
+
+  it('reconoce el nombre canonico', () => {
+    expect(grupoDeIdentificador(GRUPOS.seguridad)).toBe(GRUPOS.seguridad);
+  });
+
+  it('un identificador ajeno no otorga nada', () => {
+    expect(grupoDeIdentificador('43228c97-493e-442e-8937-2f9828479094')).toBeNull();
+  });
+
+  it('el acento importa: «Lideres SIG» sin tilde no es el grupo', () => {
+    expect(grupoDeIdentificador('Lideres SIG')).toBeNull();
+  });
+
+  // El defecto exacto: lo que la pantalla comparaba antes. `rol.grupos` trae nombres, el
+  // token trae ids, y `Set.has` sobre nombres nunca acierta un id.
+  it('el object id que otorga el rol NO puede salir como ignorado', () => {
+    const rol = rolDesdeGrupos([OBJECT_ID_GRUPO_SIG]);
+    // Lo que hacia la pantalla vieja: comparar el crudo contra el nombre resuelto.
+    // `Set<string>` a proposito: es exactamente como lo escribia la pantalla, y ese
+    // ensanchamiento es lo que dejaba compilar la comparacion imposible. Con `Set<Grupo>`
+    // TypeScript la rechaza — el tipo sabia que el GUID no es un nombre de grupo.
+    expect(new Set<string>(rol.grupos).has(OBJECT_ID_GRUPO_SIG)).toBe(false);
+    // Lo que hay que preguntar.
+    expect(grupoDeIdentificador(OBJECT_ID_GRUPO_SIG)).not.toBeNull();
   });
 });

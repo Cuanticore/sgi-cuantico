@@ -148,3 +148,140 @@ describe('entradaDesdePerfil', () => {
     });
   });
 });
+
+import { resumirCorrida } from '../personas';
+
+// La franja de la pantalla se arma con estas cuatro cifras. Los casos que importan son los
+// que la harían mentir: inactivar y reactivar escriben el MISMO campo en la bitácora, así
+// que confundirlos diría que se dieron de baja personas que acaban de volver.
+describe('resumirCorrida', () => {
+  it('clasifica el rastro completo de una corrida', () => {
+    expect(
+      resumirCorrida([
+        { campo: 'alta', valorNuevo: 'creado' },
+        { campo: 'alta', valorNuevo: 'creado' },
+        { campo: 'nombre', valorNuevo: 'Ada Byron' },
+        { campo: 'correo', valorNuevo: 'ada.byron@cuantico.com' },
+        { campo: 'baja lógica', valorNuevo: 'dado de baja' },
+        { campo: 'baja lógica', valorNuevo: 'vigente' },
+      ]),
+    ).toEqual({ altas: 2, actualizaciones: 2, inactivaciones: 1, reactivaciones: 1 });
+  });
+
+  it('separa la inactivación de la reactivación por el valor nuevo', () => {
+    const soloBajas = resumirCorrida([
+      { campo: 'baja lógica', valorNuevo: 'dado de baja' },
+      { campo: 'baja lógica', valorNuevo: 'dado de baja' },
+    ]);
+    expect(soloBajas.inactivaciones).toBe(2);
+    expect(soloBajas.reactivaciones).toBe(0);
+  });
+
+  it('un rastro vacío da cuatro ceros, que es distinto de no tener rastro', () => {
+    expect(resumirCorrida([])).toEqual({
+      altas: 0,
+      actualizaciones: 0,
+      inactivaciones: 0,
+      reactivaciones: 0,
+    });
+  });
+
+  it('no cuenta una fila que no sabe clasificar', () => {
+    expect(resumirCorrida([{ campo: 'area', valorNuevo: 'Talento Humano' }])).toEqual({
+      altas: 0,
+      actualizaciones: 0,
+      inactivaciones: 0,
+      reactivaciones: 0,
+    });
+  });
+});
+
+// ─── Colisión de identidad ─────────────────────────────────────────────────────────────
+//
+// El caso que faltaba, y que rompió en la primera corrida real contra el Directorio:
+// `Persona` tiene DOS columnas únicas —`oid` y `correo`— y este módulo sólo cruzaba por la
+// primera. Una entrada con oid nuevo y correo ocupado se clasificaba como alta, el
+// `create` moría contra el único de correo, y como el alta corre dentro de una transacción
+// la corrida ENTERA se revertía. Un solo registro dejaba la sincronización inservible.
+//
+// Lo que estas pruebas fijan no es el mensaje: es que la colisión NO se cuele como alta.
+describe('colisión de identidad · oid nuevo con correo ocupado', () => {
+  const ADA_RECREADA = { ...ADA, oid: 'oid-ada-nuevo' };
+
+  it('no la propone como alta: la reporta como conflicto', () => {
+    const plan = planificarSincronizacion([ADA_RECREADA], [existente(ADA)]);
+
+    expect(plan.altas).toEqual([]);
+    expect(plan.conflictos).toEqual([
+      {
+        oid: 'oid-ada-nuevo',
+        nombre: ADA.nombre,
+        correo: ADA.correo,
+        oidExistente: ADA.oid,
+        nombreExistente: ADA.nombre,
+        activaExistente: true,
+      },
+    ]);
+  });
+
+  // El único de la base no distingue activas de inactivas: la fila sigue ahí. Éste es el
+  // caso que se volvió probable al inactivar 54 invitados —sus correos quedaron ocupados—.
+  it('también choca contra una persona INACTIVA', () => {
+    const plan = planificarSincronizacion([ADA_RECREADA], [existente(ADA, false)]);
+
+    expect(plan.altas).toEqual([]);
+    expect(plan.conflictos).toHaveLength(1);
+    expect(plan.conflictos[0].activaExistente).toBe(false);
+  });
+
+  it('el conflicto de una no frena a las demás', () => {
+    const plan = planificarSincronizacion([ADA_RECREADA, GRACE], [existente(ADA)]);
+
+    expect(plan.altas).toEqual([{ ...GRACE, correo: 'grace@cuantico.com' }]);
+    expect(plan.conflictos).toHaveLength(1);
+  });
+
+  // Compara por correo NORMALIZADO. Si comparara crudo, `ADA@CUANTICO.COM` pasaría el
+  // filtro y volvería a morir contra el único, que sí normaliza.
+  it('detecta la colisión aunque cambie la caja del correo', () => {
+    const plan = planificarSincronizacion(
+      [{ ...ADA_RECREADA, correo: 'ADA@Cuantico.COM' }],
+      [existente(ADA)],
+    );
+
+    expect(plan.altas).toEqual([]);
+    expect(plan.conflictos).toHaveLength(1);
+  });
+
+  // Un cambio de correo HACIA uno ocupado choca contra el mismo único y con el mismo
+  // efecto: dos personas que intercambian alias.
+  it('un cambio de correo hacia uno ajeno es conflicto, no cambio', () => {
+    const plan = planificarSincronizacion(
+      [{ ...ADA, correo: GRACE.correo }],
+      [existente(ADA), existente(GRACE)],
+    );
+
+    expect(plan.cambios).toEqual([]);
+    expect(plan.conflictos).toHaveLength(1);
+    expect(plan.conflictos[0].nombreExistente).toBe(GRACE.nombre);
+  });
+
+  // Y el caso normal no se rompe: cambiar el correo a uno LIBRE sigue siendo un cambio.
+  it('cambiar el correo a uno libre sigue siendo un cambio', () => {
+    const plan = planificarSincronizacion(
+      [{ ...ADA, correo: 'ada.lovelace@cuantico.com' }],
+      [existente(ADA)],
+    );
+
+    expect(plan.conflictos).toEqual([]);
+    expect(plan.cambios).toEqual([
+      { oid: ADA.oid, campo: 'correo', anterior: ADA.correo, nuevo: 'ada.lovelace@cuantico.com' },
+    ]);
+  });
+
+  it('sin colisiones, la lista de conflictos viene vacía', () => {
+    const plan = planificarSincronizacion([ADA, GRACE], [existente(ADA)]);
+    expect(plan.conflictos).toEqual([]);
+    expect(plan.altas).toHaveLength(1);
+  });
+});

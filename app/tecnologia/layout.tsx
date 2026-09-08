@@ -13,9 +13,11 @@
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
-import { puede, rolDesdeGrupos, type OrigenRol } from '@/lib/sgsi/permisos';
+import { puede, rolDesdeGrupos, nombreDelRol } from '@/lib/sgsi/permisos';
 import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
-import ShellSig from '@/app/components/sgsi/ShellSig';
+import SidebarTecnologia, {
+  type IdentidadTecnologia,
+} from '@/app/components/sig/SidebarTecnologia';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,66 +29,34 @@ export default async function TecnologiaLayout({ children }: { children: React.R
     return (
       <div className="flex min-h-screen flex-col bg-app">
         <EncabezadoSig />
-        <SinAcceso origen={rol.origen} />
+        <SinAcceso />
       </div>
     );
   }
 
+  // Barra propia, no la del SGSI. Envuelto en `ShellSig`, este módulo mostraba a la
+  // izquierda el menú de otro —inventario, matrices, controles— y las suyas en una fila de
+  // doce chips arriba. Las rutas son las mismas; lo que cambia es dónde se las encuentra.
+  const identidad: IdentidadTecnologia = {
+    usuario: session?.user?.name ?? session?.user?.email ?? 'Usuario',
+    cuenta: `CUANTICO\\${(session?.user?.email ?? 'usuario').split('@')[0]}`,
+    permisos: rol.grupos.length
+      ? `Grupo ${rol.grupos.join(', ')} · ${nombreDelRol(rol)}`
+      : 'Sin grupo del SIG en el Directorio.',
+  };
+
   return (
-    <ShellSig>
-      <div className="flex flex-1 flex-col">
-        <NavTecnologia />
-        {children}
+    <div className="flex min-h-screen flex-col bg-app">
+      <EncabezadoSig />
+      <div className="flex items-start">
+        <SidebarTecnologia identidad={identidad} />
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
-    </ShellSig>
+    </div>
   );
 }
 
-/// La navegación del módulo. Las pantallas que todavía no existen **se dibujan
-/// deshabilitadas con su motivo** en vez de omitirse: una sección que falta y no se ve es
-/// indistinguible de una que se decidió no construir.
-function NavTecnologia() {
-  const rutas: { etiqueta: string; href: string | null }[] = [
-    { etiqueta: 'Mapa tecnológico', href: '/tecnologia/mapa' },
-    { etiqueta: 'Grafo', href: '/tecnologia/grafo' },
-    { etiqueta: 'Niveles', href: '/tecnologia/niveles' },
-    { etiqueta: 'Ambientes', href: '/tecnologia/ambientes' },
-    { etiqueta: 'Productos y proyectos', href: '/tecnologia/productos' },
-    { etiqueta: 'Dependencias', href: '/tecnologia/dependencias' },
-    { etiqueta: 'Impacto', href: '/tecnologia/impacto' },
-    { etiqueta: 'Equipos', href: '/tecnologia/equipos' },
-    { etiqueta: 'Sistemas', href: '/tecnologia/sistemas' },
-    { etiqueta: 'Excepciones', href: '/tecnologia/excepciones' },
-    { etiqueta: 'Verificación', href: '/tecnologia/verificacion' },
-    { etiqueta: 'Datos personales', href: '/tecnologia/datos-personales' },
-  ];
-
-  return (
-    <nav className="flex flex-wrap items-center gap-1.5 border-b border-hairline px-8 py-2.5">
-      {rutas.map((r) =>
-        r.href === null ? (
-          <span
-            key={r.etiqueta}
-            title="Todavía no construida (REQ-SIG-06)"
-            className="cursor-not-allowed rounded-chip px-3 py-1.5 text-12 text-faint opacity-60"
-          >
-            {r.etiqueta}
-          </span>
-        ) : (
-          <Link
-            key={r.etiqueta}
-            href={r.href}
-            className="rounded-chip px-3 py-1.5 text-12 font-medium text-secondary hover:bg-subtle"
-          >
-            {r.etiqueta}
-          </Link>
-        ),
-      )}
-    </nav>
-  );
-}
-
-function SinAcceso({ origen }: { origen: OrigenRol }) {
+function SinAcceso() {
   return (
     <main className="px-8 pt-10 pb-14">
       <div
@@ -105,12 +75,9 @@ function SinAcceso({ origen }: { origen: OrigenRol }) {
           <span className="font-mono font-semibold">Líderes SIG</span> — acceso completo al
           sistema
         </p>
-        {origen !== 'directorio' && (
-          <p className="text-11_5 [text-wrap:pretty]" style={{ color: 'var(--hf-warn-text-soft)' }}>
-            Nota para quien administra: el token de esta sesión no trae el claim de grupos, así
-            que el rol vino del respaldo configurado y no del Directorio.
-          </p>
-        )}
+        {/* La nota sobre «el rol vino del respaldo configurado» se fue con el respaldo: ya
+            no hay otra procedencia posible. Quien quiera ver qué trae su token tiene
+            `/mi-sig/diagnostico`, que lo dice identificador por identificador. */}
         <Link
           href="/mi-sig"
           className="mt-1 w-fit rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"

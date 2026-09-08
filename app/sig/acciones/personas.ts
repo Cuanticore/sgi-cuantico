@@ -22,9 +22,25 @@ export interface ResultadoSincronizacion extends Resultado {
   inactivadas: number;
   reactivadas: number;
   ignoradas: number;
+  /// Colisiones de identidad que NO se aplicaron: un oid nuevo con un correo que ya es de
+  /// otra persona. Se listan enteras y no como un conteo porque el número no sirve para
+  /// nada: quien tiene que decidir necesita ver de quién a quién.
+  conflictos: {
+    nombre: string;
+    correo: string;
+    nombreExistente: string;
+    activaExistente: boolean;
+  }[];
 }
 
-const VACIO = { altas: 0, actualizadas: 0, inactivadas: 0, reactivadas: 0, ignoradas: 0 };
+const VACIO = {
+  altas: 0,
+  actualizadas: 0,
+  inactivadas: 0,
+  reactivadas: 0,
+  ignoradas: 0,
+  conflictos: [],
+};
 
 export async function sincronizarDirectorio(): Promise<ResultadoSincronizacion> {
   return ejecutar<ResultadoSincronizacion>(async () => {
@@ -123,17 +139,32 @@ export async function sincronizarDirectorio(): Promise<ResultadoSincronizacion> 
 
     revalidatePath('/sig/personas');
 
+    // El conflicto se nombra en el mensaje, no se esconde en un campo que la pantalla
+    // podría no leer: la corrida SÍ se aplicó, pero hay gente del Directorio que quedó
+    // afuera, y decir «sincronizado» a secas sería afirmar que no falta nadie.
+    const aviso =
+      plan.conflictos.length === 0
+        ? ''
+        : ` ${plan.conflictos.length} entrada(s) sin aplicar: el correo ya es de otra ` +
+          `persona. Ninguna se creó ni se modificó.`;
+
     return {
       ok: true,
       mensaje:
         `Directorio sincronizado: ${plan.altas.length} alta(s), ${plan.cambios.length} ` +
         `actualización(es), ${plan.inactivaciones.length} inactivación(es), ` +
-        `${plan.reactivaciones.length} reactivación(es).`,
+        `${plan.reactivaciones.length} reactivación(es).` + aviso,
       altas: plan.altas.length,
       actualizadas: plan.cambios.length,
       inactivadas: plan.inactivaciones.length,
       reactivadas: plan.reactivaciones.length,
       ignoradas: plan.ignoradas,
+      conflictos: plan.conflictos.map((c) => ({
+        nombre: c.nombre,
+        correo: c.correo,
+        nombreExistente: c.nombreExistente,
+        activaExistente: c.activaExistente,
+      })),
     };
   });
 }

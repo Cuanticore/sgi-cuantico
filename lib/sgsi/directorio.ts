@@ -22,6 +22,7 @@ import {
   type FalloGraph,
   type ResultadoGraph,
 } from '@/lib/sgsi/graph-fallo';
+import { esColaboradorDeLaOrganizacion, type UsuarioDeGraph } from '@/lib/sgsi/graph-usuario';
 
 export type { FalloGraph, ResultadoGraph };
 export { explicarFallo } from '@/lib/sgsi/graph-fallo';
@@ -156,32 +157,23 @@ export interface PersonaDirectorioCompleta {
 /// A diferencia de `leerDirectorio()`, acá no hay respaldo: el respaldo se arma con los
 /// autores de la bitácora, que no traen object id y no son el censo de la organización.
 /// Sincronizar contra una lista inventada es peor que no sincronizar.
+/// El censo del SIG. Quién entra lo decide `esColaboradorDeLaOrganizacion`, en
+/// `graph-usuario.ts`: `/users` trae el tenant entero, invitados de clientes incluidos.
 export async function leerDirectorioCompleto(): Promise<ResultadoGraph<PersonaDirectorioCompleta[]>> {
-  // `accountEnabled` distingue a quien sigue en la organización de quien tiene la cuenta
-  // bloqueada: una cuenta deshabilitada no debe recibir tareas.
-  const r = await consultarGraph<{
-    value?: {
-      id?: string;
-      displayName?: string;
-      userPrincipalName?: string;
-      accountEnabled?: boolean;
-    }[];
-  }>(
+  const r = await consultarGraph<{ value?: UsuarioDeGraph[] }>(
     'https://graph.microsoft.com/v1.0/users' +
-      '?$select=id,displayName,userPrincipalName,accountEnabled&$top=999&$orderby=displayName',
+      '?$select=id,displayName,userPrincipalName,accountEnabled,userType&$top=999&$orderby=displayName',
     '/users',
     PERMISO_USUARIOS,
   );
   if (!r.ok) return r;
   return {
     ok: true,
-    datos: (r.datos.value ?? [])
-      .filter((u) => u.id && u.displayName && u.userPrincipalName && u.accountEnabled !== false)
-      .map((u) => ({
-        oid: u.id as string,
-        nombre: u.displayName as string,
-        correo: u.userPrincipalName as string,
-      })),
+    datos: (r.datos.value ?? []).filter(esColaboradorDeLaOrganizacion).map((u) => ({
+      oid: u.id as string,
+      nombre: u.displayName as string,
+      correo: u.userPrincipalName as string,
+    })),
   };
 }
 

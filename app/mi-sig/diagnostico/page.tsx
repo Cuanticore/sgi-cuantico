@@ -14,7 +14,13 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
-import { GRUPOS, nombreDelRol, rolDesdeGrupos, type Permiso } from '@/lib/sgsi/permisos';
+import {
+  GRUPOS,
+  grupoDeIdentificador,
+  nombreDelRol,
+  rolDesdeGrupos,
+  type Permiso,
+} from '@/lib/sgsi/permisos';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,11 +60,14 @@ export default async function DiagnosticoPage() {
   const session = await getServerSession(authOptions);
   const crudos = session?.user?.grupos;
   const rol = rolDesdeGrupos(crudos);
-  const reconocidos = new Set<string>(rol.grupos);
+  /// Se pregunta por el valor CRUDO, con la misma función que usa la aplicación. Antes se
+  /// comparaba contra `rol.grupos`, que trae el nombre ya resuelto, así que todo object id
+  /// salía «ignorado» — incluido el que estaba otorgando el rol.
+  const otorga = (valor: string) => grupoDeIdentificador(valor) !== null;
 
   const sinReclamo = crudos === undefined;
   const reclamoVacio = Array.isArray(crudos) && crudos.length === 0;
-  const hayNoReconocidos = Array.isArray(crudos) && crudos.some((g) => !reconocidos.has(g));
+  const hayNoReconocidos = Array.isArray(crudos) && crudos.some((g) => !otorga(g));
 
   return (
     <div className="flex min-h-screen flex-col bg-app">
@@ -128,7 +137,7 @@ export default async function DiagnosticoPage() {
             <>
               <ul className="flex flex-col gap-1.5">
                 {crudos.map((g) => {
-                  const ok = reconocidos.has(g);
+                  const ok = otorga(g);
                   return (
                     <li
                       key={g}
