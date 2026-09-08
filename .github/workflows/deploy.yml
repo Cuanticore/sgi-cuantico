@@ -91,7 +91,11 @@ jobs:
 
           # El cache de construcción, acotado. Es lo que más crece: una capa nueva por
           # despliegue y ninguna se iba.
-          docker builder prune -f --keep-storage=5GB || true
+          # `--keep-storage` quedo deprecado y ahora se llama `--reserved-space`; el runner
+          # lo avisa en el log. Se pasan los dos para no depender de la version de Docker
+          # del host: la que no entienda una de las dos ignora esa invocacion y corre la otra.
+          docker builder prune -f --reserved-space=5GB 2>/dev/null ||
+            docker builder prune -f --keep-storage=5GB 2>/dev/null || true
 
           # Capas huérfanas: no las referencia ninguna imagen.
           docker image prune -f || true
@@ -107,9 +111,24 @@ jobs:
           minimo=8
           if [ "$libre" -lt "$minimo" ]; then
             echo "::error::Quedan ${libre}G libres en / y la imagen necesita al menos ${minimo}G. NO se construyó nada y el contenedor actual sigue sirviendo." >&2
-            echo "Qué ocupa, para revisar por ssh:" >&2
-            echo "  docker system df" >&2
-            echo "  du -sh /home/ubuntu/actions-runner/_diag /home/ubuntu/respaldos/sgi" >&2
+
+            # El diagnostico se EJECUTA, no se sugiere. La primera version imprimia los
+            # comandos a correr, y eso obliga a entrar por ssh para averiguar algo que el
+            # runner ya podia decir — estando parado en la maquina donde pasa.
+            #
+            # Hizo falta porque la poda de Docker reclamo 416 MB de 114 GB ocupados: el
+            # espacio NO estaba en las imagenes, y sin este bloque no habia forma de saber
+            # donde estaba sin pedirle a alguien que se conectara.
+            echo "── docker: qué ocupa"
+            docker system df || true
+            echo "── los diez directorios más grandes bajo / (un nivel)"
+            du -xhd1 / 2>/dev/null | sort -rh | head -12 || true
+            echo "── sospechosos habituales"
+            du -sh /var/lib/docker /home/ubuntu/actions-runner/_diag \
+              /home/ubuntu/respaldos/sgi /data/coolify /var/log 2>/dev/null || true
+            echo "── volúmenes de Docker (NO se podan acá: uno es la base de datos)"
+            docker volume ls || true
+
             echo "NUNCA uses docker system prune --volumes: ahí vive la base de datos." >&2
             exit 1
           fi
