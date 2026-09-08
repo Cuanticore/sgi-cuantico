@@ -375,8 +375,13 @@ function Celda({
               <span
                 className="min-w-0 flex-1 truncate text-left text-9_5 font-medium"
                 style={{ color: e.texto }}
+                title={m.titulo}
               >
-                {m.persona}
+                {/* La marca dice QUÉ vence, no quién. El aside ya nombra a la persona de
+                    cada asignación del día elegido, así que pintar acá el nombre gastaba la
+                    única línea de la celda en repetir un dato que estaba al lado, y la
+                    malla del mes no dejaba ver ni una actividad sin abrir un día. */}
+                {m.titulo}
               </span>
             </span>
           );

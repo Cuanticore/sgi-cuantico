@@ -9,8 +9,10 @@
 
 import {
   PROCESOS_DEL_MAPA,
+  agruparPorBanda,
   areaHomonima,
   cargosQueSonAreas,
+  contarIndicadores,
   resolverCargo,
 } from '../procesos';
 
@@ -176,5 +178,67 @@ describe('areaHomonima', () => {
 
   it('no rellena con la primera parecida', () => {
     expect(areaHomonima({ nombre: 'Gestión' }, AREAS)).toBeNull();
+  });
+});
+
+describe('agruparPorBanda', () => {
+  it('devuelve las tres bandas del mapa, en el orden del mapa', () => {
+    const bandas = agruparPorBanda(PROCESOS_DEL_MAPA);
+    expect(bandas.map((b) => b.tipo)).toEqual(['ESTRATEGICO', 'MISIONAL', 'APOYO']);
+    expect(bandas.map((b) => b.titulo)).toEqual([
+      'Procesos estratégicos',
+      'Procesos misionales',
+      'Procesos de apoyo',
+    ]);
+  });
+
+  it('reparte los nueve: uno estrategico, tres misionales, cinco de apoyo', () => {
+    const bandas = agruparPorBanda(PROCESOS_DEL_MAPA);
+    expect(bandas.map((b) => b.procesos.length)).toEqual([1, 3, 5]);
+  });
+
+  // Que el mapa tenga tres bandas es del MAPA, no de lo que este cargado. Una banda que
+  // desaparece cuando nadie la ocupa hace creer que el mapa tiene dos.
+  it('una banda sin procesos se devuelve vacia, no se omite', () => {
+    const soloApoyo = PROCESOS_DEL_MAPA.filter((p) => p.tipo === 'APOYO');
+    const bandas = agruparPorBanda(soloApoyo);
+    expect(bandas).toHaveLength(3);
+    expect(bandas[0].procesos).toEqual([]);
+    expect(bandas[1].procesos).toEqual([]);
+    expect(bandas[2].procesos).toHaveLength(5);
+  });
+
+  it('sin procesos siguen siendo tres bandas vacias', () => {
+    expect(agruparPorBanda([]).map((b) => b.procesos.length)).toEqual([0, 0, 0]);
+  });
+});
+
+describe('contarIndicadores', () => {
+  const INDICADORES = [
+    { proceso: 'Gestión Tecnológica' },
+    { proceso: 'Gestión Tecnológica' },
+    { proceso: 'Gestión Comercial' },
+  ];
+
+  it('cuenta los del proceso y no los de otro', () => {
+    expect(contarIndicadores('Gestión Tecnológica', INDICADORES)).toBe(2);
+    expect(contarIndicadores('Gestión Comercial', INDICADORES)).toBe(1);
+  });
+
+  // El Excel de SharePoint no escribe los acentos ni los espacios igual todas las veces.
+  it('empareja sin acentos y sin espacios de mas', () => {
+    expect(contarIndicadores('Gestion  Tecnologica', INDICADORES)).toBe(2);
+  });
+
+  // Cero es una respuesta: «este proceso no tiene indicadores».
+  it('un proceso sin indicadores cuenta cero', () => {
+    expect(contarIndicadores('Gestión Financiera', INDICADORES)).toBe(0);
+  });
+
+  // Y `null` es otra cosa: no se pudo preguntar. Devolver cero ahi afirmaria que el
+  // proceso no tiene ninguno, que es lo contrario de lo que se sabe.
+  it('sin fuente devuelve null, que NO es cero', () => {
+    expect(contarIndicadores('Gestión Tecnológica', null)).toBeNull();
+    expect(contarIndicadores('Gestión Tecnológica', [])).toBe(0);
   });
 });

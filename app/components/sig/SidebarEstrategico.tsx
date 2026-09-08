@@ -3,8 +3,8 @@
 // app/components/sig/SidebarEstrategico.tsx
 //
 // 244px, colapsable a 64px, mismo patrón que las otras sidebars. Las entradas del
-// shell del artboard Riesgos: Partes, Legal, Riesgos, Mapa de calor, Materializaciones,
-// DOFA, PESTEL y Parámetros, con el footer «Línea base».
+// shell del artboard Riesgos: Partes, Legal, Riesgos, Mapa estratégico, Materializaciones,
+// DOFA, PESTEL y Parámetros del modelo, con el footer «Línea base».
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -35,13 +35,18 @@ interface Entrada {
 
 const ENTRADAS: Entrada[] = [
   { etiqueta: 'Riesgos y oportunidades', abreviatura: 'RIE', href: '/estrategico/riesgos', contador: 'registros' },
-  { etiqueta: 'Mapa de calor', abreviatura: 'MAP', href: '/estrategico/mapa' },
+  // El lienzo de navegación la llama «Mapa estratégico». Es la misma ruta y la misma
+  // pantalla: «Mapa de calor» nombraba el gráfico, no lo que se va a ver ahí.
+  { etiqueta: 'Mapa estratégico', abreviatura: 'MAP', href: '/estrategico/mapa' },
   { etiqueta: 'Partes interesadas', abreviatura: 'PER', href: '/estrategico/partes', contador: 'partes' },
   { etiqueta: 'Requisitos legales', abreviatura: 'LEG', href: '/estrategico/legal', contador: 'requisitos' },
   { etiqueta: 'DOFA', abreviatura: 'DOF', href: '/estrategico/dofa' },
   { etiqueta: 'PESTEL', abreviatura: 'PES', href: '/estrategico/pestel' },
   { etiqueta: 'Materializaciones', abreviatura: 'MAT', href: '/estrategico/materializaciones', contador: 'materializaciones' },
-  { etiqueta: 'Parámetros', abreviatura: 'PAR', href: '/estrategico/parametros' },
+  // «Parámetros del modelo», como en el lienzo: hay parámetros en tres módulos y este
+  // menú no decía de cuáles hablaba. Son los del método de valoración, y tocarlos
+  // recalcula toda la matriz de arriba.
+  { etiqueta: 'Parámetros del modelo', abreviatura: 'PAR', href: '/estrategico/parametros' },
 ];
 
 export default function SidebarEstrategico({ contadores }: { contadores: ContadoresEstrategico }) {

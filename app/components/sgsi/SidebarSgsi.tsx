@@ -6,10 +6,11 @@
 // prototype's own markup rather than from the README's prose, because the two disagreed
 // and the markup is the design.
 //
-// THREE groups, not two, and Indicadores is one of the entries:
+// FOUR groups, and Indicadores is one of the entries:
 //
 //   SISTEMA INTEGRADO DE GESTIÓN   Indicadores · Resumen SGSI
 //   SGSI · SEGURIDAD DE LA INFORMACIÓN   Inventario · Matrices · Madurez · Planes
+//   OPERACIÓN                      Eventos · Verificaciones · Métricas · Solicitudes · Accesos
 //   CONFIGURACIÓN                  Parámetros · Amenazas y tipos · Metodología
 //
 // The active item is BLUE — brand/100 on brand/nav — not green. Navigation and filters
@@ -85,11 +86,21 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Matrices de riesgo', abreviatura: 'MTZ', href: '/sgsi/matrices' },
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
+    ],
+  },
+  {
+    // El lienzo de navegación las separa, y la razón es de lectura: «Activos y Riesgos» son
+    // el registro —lo que la organización tiene y lo que la amenaza—, y estas cinco son lo
+    // que pasa día a día. Apiladas en un solo grupo eran nueve entradas seguidas y el corte
+    // entre las dos cosas se perdía.
+    titulo: 'Operación',
+    tituloCorto: 'OPE',
+    items: [
       { etiqueta: 'Eventos e incidentes', abreviatura: 'EVT', href: '/sgsi/eventos' },
-      { etiqueta: 'Solicitudes', abreviatura: 'SOL', href: '/sgsi/solicitudes' },
-      { etiqueta: 'Accesos y perfiles', abreviatura: 'ACC', href: '/sgsi/accesos' },
       { etiqueta: 'Verificaciones', abreviatura: 'VRF', href: '/sgsi/verificaciones' },
       { etiqueta: 'Métricas del SGSI', abreviatura: 'MET', href: '/sgsi/metricas' },
+      { etiqueta: 'Solicitudes', abreviatura: 'SOL', href: '/sgsi/solicitudes' },
+      { etiqueta: 'Accesos y perfiles', abreviatura: 'ACC', href: '/sgsi/accesos' },
     ],
   },
   {

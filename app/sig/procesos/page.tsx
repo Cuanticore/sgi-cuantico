@@ -12,10 +12,12 @@
 // Ver `lib/sig/procesos.ts`, que explica los dos huecos con la evidencia de la base.
 
 import { prisma } from '@/lib/db';
+import { getIndicatorsData } from '@/app/lib/data';
 import {
   PROCESOS_DEL_MAPA,
   areaHomonima,
   cargosQueSonAreas,
+  contarIndicadores,
   resolverCargo,
 } from '@/lib/sig/procesos';
 import ProcesosClient from './Procesos.client';
@@ -23,7 +25,7 @@ import ProcesosClient from './Procesos.client';
 export const dynamic = 'force-dynamic';
 
 export default async function ProcesosPage() {
-  const [procesos, areas, cargos, programadas, requisitos, celdas] = await Promise.all([
+  const [procesos, areas, cargos, programadas, requisitos, celdas, indicadores] = await Promise.all([
     prisma.proceso.findMany({
       include: { area: { select: { nombre: true } }, cargo: { select: { nombre: true } } },
       orderBy: { codigo: 'asc' },
@@ -35,6 +37,13 @@ export default async function ProcesosPage() {
     prisma.auditoriaProgramada.findMany({ select: { procesoRef: true, procesoId: true } }),
     prisma.requisitoLegal.findMany({ select: { procesoEncargado: true, procesoId: true } }),
     prisma.celdaPlan.findMany({ select: { procesoRef: true, procesoId: true } }),
+    // Los indicadores no están en la base: vienen del Excel de SharePoint. Si la consulta
+    // falla, el conteo queda en `null` —«no se pudo saber»— y NO en cero, que diría que el
+    // proceso no tiene ninguno. `ShellSig` puede permitirse el cero porque ahí el número
+    // decora una entrada de menú; acá es el dato de la fila.
+    getIndicatorsData()
+      .then((d) => d.indicadores.map((i) => ({ proceso: i.proceso })))
+      .catch(() => null),
   ]);
 
   const norm = (s: string) =>
@@ -53,6 +62,7 @@ export default async function ProcesosPage() {
       tipo: p.tipo,
       cargoDelMapa: p.cargoDelMapa,
       ocupaHoy: p.ocupaHoy,
+      nota: p.nota ?? null,
       creado: enBase !== null,
       areaSugerida: area ? { id: area.id, nombre: area.nombre } : null,
       cargo: {
@@ -64,6 +74,7 @@ export default async function ProcesosPage() {
         programadas: cuenta(programadas.map((x) => ({ ref: x.procesoRef }))),
         requisitos: cuenta(requisitos.map((x) => ({ ref: x.procesoEncargado }))),
         celdas: cuenta(celdas.map((x) => ({ ref: x.procesoRef }))),
+        indicadores: contarIndicadores(p.nombre, indicadores),
       },
     };
   });

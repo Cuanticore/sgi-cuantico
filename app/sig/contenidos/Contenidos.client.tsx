@@ -38,6 +38,17 @@ export interface ItemFila {
   respuestas: number;
 }
 
+/// Una fila del historial. `titulo` es el texto CONGELADO de esa versión; no hay campo
+/// para la nota de «qué cambió», y la ficha lo dice en pantalla en vez de dejar el hueco.
+export interface VersionFila {
+  version: number;
+  titulo: string;
+  publicadaEn: string;
+  publicadaPor: string | null;
+  /// Cuántos cierres quedaron anclados a esta versión.
+  registros: number;
+}
+
 export interface ContenidoFila {
   id: number;
   codigo: string;
@@ -55,6 +66,7 @@ export interface ContenidoFila {
   exigeEvaluacion: boolean;
   notaMinima: number | null;
   items: ItemFila[];
+  versiones: VersionFila[];
   usos: { id: number; codigo: string; alcance: string; periodicidad: string }[];
 }
 
@@ -534,6 +546,40 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
           </div>
         )}
 
+        {/* La regla del 80 % está implementada en `lib/sig/cierre.ts` y se aplica al cerrar,
+            pero quien EDITA el contenido nunca la leía: subía la nota mínima sin saber que
+            con eso decide si una asignación reprobada queda abierta. */}
+        {tipo === 'CAPACITACION' && (
+          <div className="flex flex-col gap-2.5">
+            <Regla etiqueta="Evaluación de conocimiento · PRO-TAL-04 numeral 5.3" />
+            {exigeEvaluacion && notaMinima.trim() !== '' ? (
+              <p
+                className="rounded-tarjeta px-3 py-2.5 text-11_5 leading-relaxed [text-wrap:pretty]"
+                style={{
+                  background: 'var(--hf-warn-100)',
+                  color: 'var(--hf-warn-text)',
+                  border: '1px solid var(--hf-warn-border)',
+                }}
+              >
+                Quien no alcance el {notaMinima} %{' '}
+                <strong className="font-semibold">no cierra la asignación</strong>: se
+                refuerza la información y se repite la evaluación. El intento fallido queda
+                registrado con su nota; no se borra ni se sobrescribe.
+              </p>
+            ) : (
+              // Sin evaluación exigida —o sin mínimo declarado— no hay nada que reprobar y
+              // el cierre pasa. Decirlo evita que alguien suponga que el 80 % rige igual.
+              <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+                Sin evaluación exigida o sin nota mínima declarada no hay nada que reprobar:
+                la asistencia cierra la asignación. En cuanto se exija una nota, quien no la
+                alcance deja de cerrar y el intento fallido queda registrado igual.
+              </p>
+            )}
+          </div>
+        )}
+
+        <Historial contenido={contenido} />
+
         <div className="flex flex-col gap-2.5">
           <Regla etiqueta="Asignado por" />
           {contenido.usos.length === 0 ? (
@@ -562,6 +608,98 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/// El historial de versiones del lienzo.
+///
+/// **Decisión: no se agrega columna para la nota de «qué cambió».** `VersionContenido` no
+/// tiene ese campo y agregarlo con una migración habría dejado la nota vacía en todas las
+/// filas ya escritas —y una nota vacía se lee como «no cambió nada», que es exactamente la
+/// confusión entre «no sé» y «cero» que este repo no admite—. Se muestra entonces lo que el
+/// modelo SÍ congela: el título de esa versión, cuándo se publicó, quién la publicó y
+/// cuántos registros quedaron anclados a ella; y se dice en pantalla que la nota del cambio
+/// no se está guardando, para que el hueco no se lea como una versión sin cambios.
+function Historial({ contenido }: { contenido: ContenidoFila }) {
+  const versiones = contenido.versiones;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Regla
+        etiqueta="Historial de versiones"
+        cola={versiones.length === 1 ? '1 versión' : `${versiones.length} versiones`}
+      />
+
+      {versiones.length === 0 ? (
+        // Un contenido sin ninguna fila de versión no es uno «sin cambios»: es uno cuyo
+        // primer acuse no tendría contra qué verificarse. Se avisa con los tokens de
+        // faltante, no en gris.
+        <p
+          className="rounded-tarjeta px-3 py-2.5 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={{
+            background: 'var(--hf-warn-100)',
+            color: 'var(--hf-warn-text)',
+            border: '1px solid var(--hf-warn-border)',
+          }}
+        >
+          Este contenido no tiene ninguna versión registrada, y eso no es lo mismo que no
+          haber cambiado nunca: un acuse contra él no tendría texto congelado contra el cual
+          verificarse. Guardar una edición crea la fila que falta.
+        </p>
+      ) : (
+        versiones.map((v) => {
+          const vigente = v.version === contenido.version;
+          return (
+            <div
+              key={v.version}
+              className="flex items-start gap-3 rounded-tarjeta px-3 py-2.5"
+              style={{
+                background: vigente ? 'var(--hf-brand-100)' : 'var(--hf-bg-subtle)',
+                border: `1px solid ${vigente ? 'var(--hf-brand-border)' : 'var(--hf-border-field)'}`,
+              }}
+            >
+              <span
+                className="w-[26px] flex-none font-mono text-11 font-semibold"
+                style={{ color: vigente ? 'var(--hf-brand-nav)' : 'var(--hf-text-muted)' }}
+              >
+                v{v.version}
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-11_5 leading-snug text-secondary">{v.titulo}</span>
+                <span className="font-mono text-9 text-muted">
+                  {new Date(v.publicadaEn).toLocaleDateString('es-AR')}
+                  {v.publicadaPor !== null && ` · ${v.publicadaPor}`}
+                </span>
+              </span>
+              <span
+                className="flex-none font-mono text-10"
+                style={{ color: vigente ? 'var(--hf-brand-nav)' : 'var(--hf-text-muted)' }}
+              >
+                {v.registros} registro{v.registros === 1 ? '' : 's'}
+              </span>
+            </div>
+          );
+        })
+      )}
+
+      {versiones.length > 0 && (
+        <p className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
+          Cada fila muestra el título con el que se publicó esa versión, no una nota de qué
+          cambió: <strong className="font-semibold text-secondary">esa nota no se está
+          guardando</strong> —el modelo no tiene dónde—, así que un renglón sin descripción
+          del cambio significa que nadie la registró, no que la versión saliera igual a la
+          anterior.
+        </p>
+      )}
+
+      <p className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
+        Editar sube la versión y{' '}
+        <strong className="font-semibold text-secondary">no invalida nada</strong>: cada
+        registro conserva la versión que su autor realizó, y por eso sigue siendo
+        verificable. Volver a exigir la lectura es una acción aparte, que se decide al
+        publicar.
+      </p>
     </div>
   );
 }
@@ -770,13 +908,14 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
               La exige
             </label>
           </Campo>
-          <Campo etiqueta="Nota mínima">
+          <Campo etiqueta="Criterio de aprobación">
             <input
               value={notaMinima}
               onChange={(e) => setNotaMinima(e.target.value)}
               inputMode="decimal"
               disabled={!exigeEvaluacion}
               placeholder="80"
+              aria-label="Criterio de aprobación · nota mínima"
               className="entrada-campo font-mono disabled:opacity-50"
             />
           </Campo>
@@ -942,7 +1081,10 @@ function Extra({
           />
         </Campo>
         <div className="col-span-2">
-          <Campo etiqueta="Nota mínima">
+          {/* El lienzo lo llama «Criterio de aprobación» y lo muestra como «≥ 80 %». Es el
+              mismo dato que la app pedía como «Nota mínima»: se alinea el rótulo y se
+              conserva el campo, porque acá el criterio se decide, no sólo se lee. */}
+          <Campo etiqueta="Criterio de aprobación">
             <span className="flex items-center gap-2.5">
               <label className="flex items-center gap-2 text-12 text-secondary">
                 <input
@@ -952,14 +1094,29 @@ function Extra({
                 />
                 Exige evaluación
               </label>
+              <span className="font-mono text-12 text-muted">≥</span>
               <input
                 value={notaMinima}
                 onChange={(e) => setNotaMinima(e.target.value)}
                 inputMode="decimal"
                 disabled={!exigeEvaluacion}
-                aria-label="Nota mínima"
+                aria-label="Criterio de aprobación · nota mínima"
                 className="entrada-campo w-20 font-mono disabled:opacity-50"
               />
+              <span className="font-mono text-12 text-muted">%</span>
+            </span>
+          </Campo>
+        </div>
+
+        {/* «Aplica a» del lienzo. Es el mismo alcance que la rama de LECTURA ya deriva de
+            `usos`: quién recibe la capacitación no es un campo del contenido, sale de las
+            obligaciones que lo asignan. */}
+        <div className="col-span-2">
+          <Campo etiqueta="Aplica a">
+            <span className="entrada-campo">
+              {contenido.usos.length === 0
+                ? 'Sin asignar'
+                : contenido.usos.map((u) => u.alcance).join(' · ')}
             </span>
           </Campo>
         </div>

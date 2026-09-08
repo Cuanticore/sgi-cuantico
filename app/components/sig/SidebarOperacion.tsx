@@ -2,8 +2,8 @@
 
 // app/components/sig/SidebarOperacion.tsx
 //
-// 244px, colapsable a 64px, mismo patrón que SidebarSgsi pero con los grupos de
-// Operación: el lienzo dibuja cuatro entradas bajo «Operación» (OBL/CAL/TAR/CON) y
+// 244px, colapsable a 64px, mismo patrón que SidebarSgsi pero con los grupos de la pestaña
+// Actividades: el lienzo dibuja cuatro entradas bajo el primer grupo (OBL/CAL/TAR/CON) y
 // Personas bajo «Configuración» (sub), con el footer «Periodo» en vez de «Línea base».
 
 import Link from 'next/link';
@@ -41,8 +41,12 @@ interface Grupo {
 // CONFIGURACIÓN.
 const GRUPOS: Grupo[] = [
   {
-    titulo: 'Motor',
-    tituloCorto: 'MOT',
+    // «Actividades» y no «Motor»: la pestaña se renombró a Actividades el 02/09/2026 para
+    // sacar a «Operación» de encima de tres cosas distintas, y este grupo —el que agrupa
+    // justo las pantallas de esa pestaña— se quedó con un tercer nombre propio. Un grupo
+    // que se llama distinto de la pestaña que lo contiene obliga a traducir al hablar.
+    titulo: 'Actividades',
+    tituloCorto: 'ACT',
     items: [
       { etiqueta: 'Obligaciones', abreviatura: 'OBL', href: '/sig/obligaciones', contador: 'obligaciones' },
       { etiqueta: 'Calendario', abreviatura: 'CAL', href: '/sig/calendario' },

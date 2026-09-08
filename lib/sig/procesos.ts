@@ -66,19 +66,43 @@ export interface ProcesoDelMapa {
   cargoDelMapa: string;
   /// Quién lo ocupa hoy, según §3. Informativo: el dueño del proceso es el cargo.
   ocupaHoy: string;
+  /// Lo que hay que saber de ESTE proceso antes de tocarlo, cuando lo hay. Es opcional
+  /// porque la mayoría no tiene nada que advertir, y un texto de relleno por proceso
+  /// enseñaría a saltearse justamente los cinco que sí importan.
+  nota?: string;
 }
 
 /// Los nueve, del mapa. Es la fuente; si una pantalla muestra otros, la pantalla está mal.
 export const PROCESOS_DEL_MAPA: ProcesoDelMapa[] = [
   { codigo: 'EST', nombre: 'Gestión Estratégica', tipo: 'ESTRATEGICO', cargoDelMapa: 'Gerencia General', ocupaHoy: 'Daniel Medina' },
-  { codigo: 'COM', nombre: 'Gestión Comercial', tipo: 'MISIONAL', cargoDelMapa: 'Gerencia Comercial', ocupaHoy: 'Lina Medina' },
+  {
+    codigo: 'COM', nombre: 'Gestión Comercial', tipo: 'MISIONAL',
+    cargoDelMapa: 'Gerencia Comercial', ocupaHoy: 'Lina Medina',
+    nota: 'El mapa dice Gerencia Comercial; la relación de personal dice Director de Ventas. Es el mismo cargo con dos nombres, y hay que unificarlo antes de cargar: con el dueño convertido en cargo, un duplicado deja el proceso sin quien lo ocupe.',
+  },
   { codigo: 'PRO', nombre: 'Gestión de Proyectos', tipo: 'MISIONAL', cargoDelMapa: 'Gerencia de Operaciones', ocupaHoy: 'Yuliet Rojas' },
-  { codigo: 'SAC', nombre: 'Soporte y Servicio al Cliente', tipo: 'MISIONAL', cargoDelMapa: 'Gerencia de Operaciones', ocupaHoy: 'Yuliet Rojas' },
+  {
+    codigo: 'SAC', nombre: 'Soporte y Servicio al Cliente', tipo: 'MISIONAL',
+    cargoDelMapa: 'Gerencia de Operaciones', ocupaHoy: 'Yuliet Rojas',
+    nota: 'Es un proceso misional distinto de Gestión Tecnológica, que es de apoyo. Confundirlos fue el error de la primera versión de esta pantalla.',
+  },
   { codigo: 'TAL', nombre: 'Talento Humano', tipo: 'APOYO', cargoDelMapa: 'Líder Administrativo', ocupaHoy: 'Albeiro Medina' },
   { codigo: 'LCO', nombre: 'Gestión Legal y de Compras', tipo: 'APOYO', cargoDelMapa: 'Chief Legal Officer', ocupaHoy: 'Marcela Molina' },
-  { codigo: 'TEC', nombre: 'Gestión Tecnológica', tipo: 'APOYO', cargoDelMapa: 'Gerencia de Operaciones', ocupaHoy: 'Yuliet Rojas' },
-  { codigo: 'SIG', nombre: 'Sistema Integrado de Gestión', tipo: 'APOYO', cargoDelMapa: 'Líder del SIG', ocupaHoy: 'Katherine Quiroga' },
-  { codigo: 'FIN', nombre: 'Gestión Financiera', tipo: 'APOYO', cargoDelMapa: 'Líder Administrativo', ocupaHoy: 'Albeiro Medina' },
+  {
+    codigo: 'TEC', nombre: 'Gestión Tecnológica', tipo: 'APOYO',
+    cargoDelMapa: 'Gerencia de Operaciones', ocupaHoy: 'Yuliet Rojas',
+    nota: 'El proceso con más obligaciones de todo el sistema —dieciocho— y el que soporta el SGSI entero. Con PRO y SAC, la Gerencia de Operaciones responde por tres de los nueve.',
+  },
+  {
+    codigo: 'SIG', nombre: 'Sistema Integrado de Gestión', tipo: 'APOYO',
+    cargoDelMapa: 'Líder del SIG', ocupaHoy: 'Katherine Quiroga',
+    nota: 'Sin auditoría en el programa. Auditarse a sí mismo exige separación de funciones: lo audita alguien de otro proceso.',
+  },
+  {
+    codigo: 'FIN', nombre: 'Gestión Financiera', tipo: 'APOYO',
+    cargoDelMapa: 'Líder Administrativo', ocupaHoy: 'Albeiro Medina',
+    nota: 'El mismo cargo es dueño de Talento Humano y de Gestión Financiera. Es lo que con una sola entidad Área no se podía escribir.',
+  },
 ];
 
 export interface ResolucionCargo {
@@ -166,3 +190,50 @@ export const ETIQUETA_TIPO: Record<TipoProceso, string> = {
   MISIONAL: 'Misional',
   APOYO: 'Apoyo',
 };
+
+/// El nombre de la banda tal como la nombra el mapa. La columna «Tipo» decía lo mismo una
+/// vez por fila; como encabezado de banda se dice una vez y además ordena la lectura.
+export const TITULO_BANDA: Record<TipoProceso, string> = {
+  ESTRATEGICO: 'Procesos estratégicos',
+  MISIONAL: 'Procesos misionales',
+  APOYO: 'Procesos de apoyo',
+};
+
+/// El orden del mapa: estratégicos arriba, misionales al centro, apoyo abajo.
+export const ORDEN_BANDAS: TipoProceso[] = ['ESTRATEGICO', 'MISIONAL', 'APOYO'];
+
+export interface Banda<T> {
+  tipo: TipoProceso;
+  titulo: string;
+  procesos: T[];
+}
+
+/// Agrupa por banda SIN descartar ninguna: una banda vacía se devuelve vacía en vez de
+/// desaparecer. Que el mapa tenga tres bandas es del mapa, no de los datos cargados, y una
+/// banda que se esfuma cuando nadie la ocupa hace creer que el mapa tiene dos.
+export function agruparPorBanda<T extends { tipo: TipoProceso }>(
+  procesos: readonly T[],
+): Banda<T>[] {
+  return ORDEN_BANDAS.map((tipo) => ({
+    tipo,
+    titulo: TITULO_BANDA[tipo],
+    procesos: procesos.filter((p) => p.tipo === tipo),
+  }));
+}
+
+/// Cuántos indicadores referencian a este proceso.
+///
+/// Devuelve `null` cuando la lista es `null`, y eso NO es cero: los indicadores viven en
+/// SharePoint, no en la base, y una consulta que falló significa «no se pudo saber». Un
+/// cero ahí diría que el proceso no tiene indicadores —lo contrario de lo que se sabe— y es
+/// justo la clase de dato que después nadie vuelve a mirar.
+export function contarIndicadores(
+  nombreProceso: string,
+  indicadores: readonly { proceso: string }[] | null,
+): number | null {
+  if (indicadores === null) return null;
+  const norm = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const objetivo = norm(nombreProceso);
+  return indicadores.filter((i) => norm(i.proceso) === objetivo).length;
+}

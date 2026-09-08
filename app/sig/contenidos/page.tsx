@@ -35,6 +35,20 @@ export default async function ContenidosPage() {
         orderBy: { orden: 'asc' },
         include: { _count: { select: { respuestas: true } } },
       },
+      // `editarContenido` viene escribiendo el historial desde que existe el versionado y
+      // nadie lo veía: la fila se guardaba y la ficha no la pedía. El conteo de registros
+      // es lo que vuelve verificable un acuse viejo — dice cuánta gente cerró contra ESE
+      // texto, no contra el que se está editando ahora.
+      versiones: {
+        orderBy: { version: 'desc' },
+        select: {
+          version: true,
+          titulo: true,
+          publicadaEn: true,
+          publicadaPor: { select: { nombre: true } },
+          _count: { select: { registros: true } },
+        },
+      },
       obligaciones: {
         where: { activa: true },
         select: {
@@ -72,6 +86,15 @@ export default async function ContenidosPage() {
       obligatorio: i.obligatorio,
       permiteNoAplica: i.permiteNoAplica,
       respuestas: i._count.respuestas,
+    })),
+    versiones: c.versiones.map((v) => ({
+      version: v.version,
+      // El título congelado de esa versión. No es «qué cambió» —el modelo no guarda esa
+      // nota— pero sí es el texto exacto que leyó quien cerró contra ella.
+      titulo: v.titulo,
+      publicadaEn: v.publicadaEn.toISOString(),
+      publicadaPor: v.publicadaPor?.nombre ?? null,
+      registros: v._count.registros,
     })),
     usos: c.obligaciones.map((o) => ({
       id: o.id,

@@ -9,12 +9,18 @@
 //
 // Atenuar en vez de ocultar es deliberado: el número sigue siendo el que hay, y esconderlo
 // haría creer que la pantalla está rota.
+//
+// La atenuación se aplica INDICADOR POR INDICADOR, no a la banda entera. Los cuatro cruzan
+// módulos y sólo el cumplimiento del mes depende de `generar-asignaciones`: atenuar los
+// hallazgos abiertos porque el motor de tareas no corrió diría que ese número no es de
+// fiar cuando sí lo es, y sería el mismo error que la regla existe para evitar, al revés.
 
 import Link from 'next/link';
 import {
   ETIQUETA_ESTADO_TRABAJO,
   type EstadoTrabajo,
 } from '@/lib/sig/trabajos-catalogo';
+import type { Anomalia, TotalAnomalias } from '@/lib/sig/anomalias';
 
 const COLOR: Record<EstadoTrabajo, { fondo: string; texto: string; borde: string }> = {
   AL_DIA: { fondo: '#e6efe9', texto: '#0b5c44', borde: '#c9e3d8' },
@@ -22,6 +28,29 @@ const COLOR: Record<EstadoTrabajo, { fondo: string; texto: string; borde: string
   FALLIDO: { fondo: '#fdeeeb', texto: '#a52016', borde: '#f2cdc6' },
   NUNCA_CORRIO: { fondo: 'var(--hf-bg-subtle)', texto: 'var(--hf-text-muted)', borde: 'var(--hf-border-field)' },
 };
+
+/// El tono lo decide el servidor porque es una lectura del dato, no una decisión de estilo;
+/// acá sólo se traduce a la paleta. `NEUTRO` es «no se pudo medir», y por eso es gris y no
+/// verde: un indicador sin medir no es un indicador en buen estado.
+type Tono = 'BIEN' | 'ATENCION' | 'MAL' | 'NEUTRO';
+
+const TONO: Record<Tono, string> = {
+  BIEN: '#0b5c44',
+  ATENCION: '#b8791a',
+  MAL: '#a52016',
+  NEUTRO: 'var(--hf-text-muted)',
+};
+
+export interface Indicador {
+  etiqueta: string;
+  /// Ya formateado. «—» cuando no hay nada que medir: un 0 diría que se midió y dio cero.
+  valor: string;
+  nota: string;
+  tono: Tono;
+  /// Si su fuente son las asignaciones que abre `generar-asignaciones`. Sólo éstos se
+  /// atenúan cuando el motor no corrió.
+  dependeDelMotor: boolean;
+}
 
 export interface TrabajoFila {
   trabajo: string;
@@ -40,7 +69,9 @@ export default function EstadoClient({
   midiendo,
   culpables,
   trabajos,
-  cifras,
+  indicadores,
+  anomalias,
+  totalAnomalias,
   porArea,
   sinAreas,
 }: {
@@ -48,13 +79,16 @@ export default function EstadoClient({
   midiendo: boolean;
   culpables: string[];
   trabajos: TrabajoFila[];
-  cifras: { total: number; abiertas: number; vencidas: number; cumplimiento: number | null };
-  porArea: { id: number; nombre: string; total: number; porcentaje: number | null }[];
+  indicadores: Indicador[];
+  anomalias: Anomalia[];
+  totalAnomalias: TotalAnomalias;
+  porArea: { id: number; nombre: string; total: number; porcentaje: number | null; vencidas: number }[];
   sinAreas: boolean;
 }) {
-  // La atenuación de los indicadores. 0.45 y no 0: el número sigue siendo el que hay, y
-  // esconderlo haría creer que la pantalla está rota.
+  // La atenuación. 0.45 y no 0: el número sigue siendo el que hay, y esconderlo haría
+  // creer que la pantalla está rota.
   const opacidad = midiendo ? 1 : 0.45;
+  const atenuados = midiendo ? 0 : indicadores.filter((i) => i.dependeDelMotor).length;
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
@@ -91,7 +125,7 @@ export default function EstadoClient({
           >
             {midiendo
               ? 'Los trabajos que abren periodos corrieron. Los indicadores de abajo son de fiar.'
-              : `${culpables.join(', ')} no está corriendo. Los indicadores de abajo están atenuados a propósito: no son bajos porque la gente incumpla, son bajos porque los periodos no se abrieron. Esto va primero que cualquier porcentaje.`}
+              : `${culpables.join(', ')} no está corriendo. Lo que se mide sobre asignaciones está atenuado a propósito: no es bajo porque la gente incumpla, es bajo porque los periodos no se abrieron. Esto va primero que cualquier porcentaje.`}
           </span>
         </span>
         <span className="flex flex-none flex-wrap gap-2">
@@ -116,48 +150,21 @@ export default function EstadoClient({
         </span>
       </section>
 
-      {/* Banda 2 · los cuatro números, atenuados si el motor no corrió. */}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" style={{ opacity: opacidad }}>
-        {[
-          {
-            etiqueta: 'Asignaciones abiertas',
-            valor: String(cifras.abiertas),
-            nota: 'pendientes de cerrar',
-            color: 'var(--hf-brand-nav)',
-          },
-          {
-            etiqueta: 'Vencidas',
-            valor: String(cifras.vencidas),
-            nota: 'pasaron su fecha límite y siguen abiertas',
-            color: cifras.vencidas > 0 ? '#a52016' : '#0b5c44',
-          },
-          {
-            etiqueta: 'Cumplimiento',
-            // Sin asignaciones no hay porcentaje. Mostrar 0 % diría que nadie cumplió.
-            valor: cifras.cumplimiento === null ? '—' : `${cifras.cumplimiento} %`,
-            nota: cifras.cumplimiento === null ? 'no hay asignaciones que medir' : 'cerradas sobre el total',
-            color:
-              cifras.cumplimiento === null
-                ? 'var(--hf-text-muted)'
-                : cifras.cumplimiento >= 80
-                  ? '#0b5c44'
-                  : cifras.cumplimiento >= 50
-                    ? '#b8791a'
-                    : '#a52016',
-          },
-          {
-            etiqueta: 'Asignaciones en total',
-            valor: String(cifras.total),
-            nota: 'histórico completo',
-            color: 'var(--hf-text-secondary-soft)',
-          },
-        ].map((c) => (
+      {/* Banda 2 · los cuatro números del lienzo: cumplimiento del mes, hallazgos, riesgos
+          y programa de auditoría. Cruzan módulos a propósito — ver la cabecera de
+          `page.tsx`— y por eso sólo el primero se atenúa cuando el motor no corrió. */}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {indicadores.map((c) => (
           <span
             key={c.etiqueta}
             className="flex flex-col gap-1.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5"
+            style={{ opacity: c.dependeDelMotor ? opacidad : 1 }}
           >
             <span className="etiqueta-campo">{c.etiqueta}</span>
-            <span className="font-mono text-26 font-semibold leading-none tabular-nums" style={{ color: c.color }}>
+            <span
+              className="font-mono text-26 font-semibold leading-none tabular-nums"
+              style={{ color: TONO[c.tono] }}
+            >
               {c.valor}
             </span>
             <span className="text-10_5 leading-snug text-muted [text-wrap:pretty]">{c.nota}</span>
@@ -165,10 +172,11 @@ export default function EstadoClient({
         ))}
       </div>
 
-      {!midiendo && (
+      {!midiendo && atenuados > 0 && (
         <p className="mt-2 text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
-          Los cuatro números están atenuados, no ocultos: siguen siendo los que hay. Esconderlos
-          haría creer que la pantalla está rota.
+          {atenuados === 1
+            ? 'El indicador que se apoya en las asignaciones está atenuado, no oculto: sigue siendo el número que hay. Esconderlo haría creer que la pantalla está rota. Los otros tres no dependen del motor y se leen normalmente.'
+            : `Los ${atenuados} indicadores que se apoyan en las asignaciones están atenuados, no ocultos: siguen siendo los números que hay. Esconderlos haría creer que la pantalla está rota.`}
         </p>
       )}
 
@@ -203,6 +211,17 @@ export default function EstadoClient({
               <span className="w-[74px] flex-none text-right font-mono text-10_5 tabular-nums text-muted">
                 {p.porcentaje === null ? '—' : `${p.porcentaje} %`} · {p.total}
               </span>
+              {/* Las vencidas que siguen abiertas. No se descuentan del porcentaje ni
+                  desaparecen del conteo: siguen siendo exigibles. */}
+              <span
+                className="w-[62px] flex-none text-right font-mono text-9_5 tabular-nums"
+                style={{
+                  color:
+                    p.vencidas > 4 ? '#a52016' : p.vencidas > 0 ? '#8a4407' : 'var(--hf-text-faint)',
+                }}
+              >
+                {p.vencidas === 0 ? '—' : `${p.vencidas} venc.`}
+              </span>
             </span>
           ))}
           {porArea.length === 0 && (
@@ -214,8 +233,71 @@ export default function EstadoClient({
           )}
         </section>
 
-        <section className="flex w-full flex-none flex-col gap-2 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5 xl:w-[460px]">
-          <Rotulo texto="Trabajos programados" derecha={`${trabajos.length} declarados`} />
+        {/* Lo que nadie está mirando. Cada fila enlaza a donde se resuelve: un conteo sin
+            salida obliga a buscar a mano el módulo que lo produjo. */}
+        <section className="flex w-full flex-none flex-col gap-2 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5 xl:w-[424px]">
+          <Rotulo
+            texto="Lo que nadie está mirando"
+            derecha={
+              totalAnomalias.sinMedir === 0
+                ? `${totalAnomalias.total} en total`
+                : `${totalAnomalias.total} en total · ${totalAnomalias.sinMedir} sin medir`
+            }
+          />
+          <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Cruces entre módulos que no aparecen en ningún indicador porque no son de nadie.
+            Cada uno se calcula solo.
+          </p>
+          {anomalias.map((a) => {
+            // Tres estados y no dos. «Sin medir» no se pinta como cero: un cruce que no se
+            // pudo consultar en gris de «todo bien» es el defecto que esta lista existe
+            // para no cometer.
+            const sinMedir = a.cantidad === null;
+            const hay = a.cantidad !== null && a.cantidad > 0;
+            return (
+              <Link
+                key={a.clave}
+                href={a.ruta}
+                className="flex items-center gap-3 rounded-campo px-3 py-2.5 transition-colors hover:bg-subtle"
+                style={{
+                  background: hay ? '#fffbfa' : 'var(--hf-bg-subtle)',
+                  border: `1px solid ${hay ? '#f2cdc6' : 'var(--hf-border-field)'}`,
+                }}
+              >
+                <span
+                  className="w-[26px] flex-none font-mono text-15 font-semibold tabular-nums"
+                  style={{
+                    color: sinMedir
+                      ? 'var(--hf-text-faint)'
+                      : hay
+                        ? '#a52016'
+                        : 'var(--hf-text-muted)',
+                  }}
+                >
+                  {sinMedir ? '—' : String(a.cantidad)}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-11_5 leading-snug text-secondary [text-wrap:pretty]">
+                    {a.texto}
+                  </span>
+                  <span className="font-mono text-8_5 uppercase tracking-[0.06em] text-faint">
+                    {a.donde}
+                  </span>
+                  {a.porQueNo !== null && (
+                    <span className="text-10_5 leading-snug text-muted [text-wrap:pretty]">
+                      No se puede medir: {a.porQueNo}.
+                    </span>
+                  )}
+                </span>
+              </Link>
+            );
+          })}
+        </section>
+      </div>
+
+      <section className="mt-3.5 flex flex-col gap-2 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+        <Rotulo texto="Trabajos programados" derecha={`${trabajos.length} declarados`} />
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {trabajos.map((t) => {
             const c = COLOR[t.estado];
             return (
@@ -252,18 +334,18 @@ export default function EstadoClient({
               </div>
             );
           })}
-          <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
-            {/* Un trabajo declarado y nunca corrido es el que nadie nota que falta. */}
-            «Nunca corrió» no es «al día»: un trabajo declarado que jamás se ejecutó es
-            exactamente el que nadie nota que falta. La programación real vive en el crontab del
-            servidor —
-            <Link href="/sgsi/verificacion" className="font-medium text-accent underline">
-              verificación del motor
-            </Link>{' '}
-            comprueba lo demás.
-          </p>
-        </section>
-      </div>
+        </div>
+        <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+          {/* Un trabajo declarado y nunca corrido es el que nadie nota que falta. */}
+          «Nunca corrió» no es «al día»: un trabajo declarado que jamás se ejecutó es
+          exactamente el que nadie nota que falta. La programación real vive en el crontab del
+          servidor —
+          <Link href="/sgsi/verificacion" className="font-medium text-accent underline">
+            verificación del motor
+          </Link>{' '}
+          comprueba lo demás.
+        </p>
+      </section>
     </main>
   );
 }

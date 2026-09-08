@@ -56,6 +56,28 @@ export function estabaActivaEn(
   return dia(p.retiradoEn) >= dia(fecha);
 }
 
+/// C1 · `origen = MANUAL` es una anomalía de la vinculación, no una categoría válida: una
+/// persona activa sin cuenta del Directorio no puede recibir asignaciones ni firmar.
+///
+/// Se extrajo de `anomalias()` porque el tablero de «Estado del sistema» cuenta el mismo
+/// cruce (`lib/sig/anomalias.ts`). Dos copias de la regla es cómo las dos pantallas
+/// terminan dando números distintos del mismo hecho.
+export function activaSinCuenta(p: ColaboradorBase): boolean {
+  return estaActiva(p) && p.origen === 'MANUAL';
+}
+
+/// FOR-SIG-18 · salió sin acta de borrado seguro.
+///
+/// Sólo quien tiene FECHA de retiro. Alguien que desapareció del Directorio sin que nadie
+/// registrara su retiro es la otra anomalía, no ésta: acusarlo de no tener acta señalaría
+/// a Tecnología por un dato que Talento Humano no puso.
+export function salioSinActa(
+  p: ColaboradorBase,
+  conActaDeBorrado: ReadonlySet<number>,
+): boolean {
+  return p.retiradoEn !== null && !conActaDeBorrado.has(p.id);
+}
+
 export type ClaveAnomalia =
   | 'ACTIVA_SIN_CUENTA'
   | 'INACTIVA_CON_ACCESOS'
@@ -101,8 +123,7 @@ export function anomalias(datos: DatosDeAnomalias): Anomalia[] {
       etiqueta: 'Activas sin cuenta del Directorio',
       consecuencia: 'no pueden recibir asignaciones ni firmar',
       calculable: true,
-      // C1: `origen = MANUAL` es una anomalía de la vinculación, no una categoría válida.
-      personas: activas.filter((p) => p.origen === 'MANUAL').map((p) => p.id),
+      personas: datos.personas.filter(activaSinCuenta).map((p) => p.id),
     },
     {
       clave: 'INACTIVA_CON_ACCESOS',
@@ -119,11 +140,8 @@ export function anomalias(datos: DatosDeAnomalias): Anomalia[] {
       etiqueta: 'Salieron sin acta de borrado seguro',
       consecuencia: 'la desvinculación no está completa aunque ya no tengan cuenta',
       calculable: true,
-      // Sólo quien tiene FECHA de retiro. Alguien que desapareció del Directorio sin que
-      // nadie registrara su retiro es la otra anomalía, no ésta: acusarlo de no tener acta
-      // señalaría a Tecnología por un dato que Talento Humano no puso.
       personas: datos.personas
-        .filter((p) => p.retiradoEn !== null && !datos.conActaDeBorrado.has(p.id))
+        .filter((p) => salioSinActa(p, datos.conActaDeBorrado))
         .map((p) => p.id),
     },
     {
