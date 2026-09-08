@@ -14,6 +14,20 @@
 
 ---
 
+## Preparación
+
+La fase 1 tiene que estar aplicada y verde. Antes de empezar:
+
+```bash
+npx prisma generate
+npm test
+npx tsc --noEmit -p tsconfig.json
+```
+
+**Estado verde del repositorio antes de la fase 1**, para que sepas contra qué comparás: `npm test` 49 suites y 911 pruebas, `tsc` 0 errores, `lint` 0 errores y 5 advertencias preexistentes. La fase 1 suma sus propias pruebas a ese total. Si `tsc` te reporta errores del tipo «Property 'intentoScorm' does not exist on type 'PrismaClient'», el cliente quedó sin regenerar después de la migración: corré `npx prisma generate`.
+
+---
+
 ## Estructura de archivos
 
 | Archivo | Responsabilidad |

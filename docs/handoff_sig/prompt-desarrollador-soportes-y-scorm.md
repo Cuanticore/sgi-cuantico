@@ -27,6 +27,8 @@ Los planes traen el código completo de cada paso, la prueba que tiene que falla
 - **Las decisiones se prueban; el cableado no.** Todo lo que decide algo —un nombre, un umbral, un código de error, una política de reintentos— vive en un módulo puro de `lib/sig/` con su prueba en `__tests__`. Lo que toca Prisma o la red no lleva prueba unitaria: se verifica corriendo. Mismo criterio que `trabajos-catalogo.ts` frente a `trabajos.ts`.
 - **`npm test` con jest.** Nada de otro corredor.
 - **`npx tsc --noEmit -p tsconfig.json` no es opcional.** `next.config.js` tiene `typescript.ignoreBuildErrors: true`, así que el build **no** te avisa de un error de tipos.
+- **Corré `npx prisma generate` antes de la primera comprobación**, y otra vez después de cada migración. Con el cliente desactualizado, `tsc` reporta ~25 errores del tipo «Property 'hallazgo' does not exist on type 'PrismaClient'» en archivos que nadie tocó: no están rotos, es el cliente. Perseguir eso el primer día es la pérdida de tiempo más fácil de evitar de todo el paquete.
+- **El estado verde del repositorio, medido el 08/09/2026:** `npm test` → 49 suites y **911 pruebas** en verde; `tsc --noEmit` → **0 errores**; `npm run lint` → **0 errores y 5 advertencias** preexistentes. Si tu primera corrida no da esto, es entorno, no plan.
 - **Migraciones con `npx prisma migrate dev --name <nombre>`**, base local con `npm run db:up`.
 - **La bitácora va en la misma transacción** que el hecho que registra (invariante 7).
 - **Lo derivable se calcula, no se almacena** (invariante 1). Las columnas derivadas que sí aparecen en los planes —`completionStatus`, `estado` de una publicación— están ahí porque son la consulta de un tablero o la cola de un trabajo, y el plan lo dice donde toca.

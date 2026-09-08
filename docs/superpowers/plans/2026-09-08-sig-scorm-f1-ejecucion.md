@@ -14,6 +14,30 @@
 
 ---
 
+## Preparación · antes de la Task 1
+
+```bash
+npm install
+npx prisma generate      # ← NO es opcional, ver abajo
+npm test
+npx tsc --noEmit -p tsconfig.json
+npm run lint
+```
+
+**`npx prisma generate` primero, o vas a perseguir fantasmas.** Con el cliente de Prisma desactualizado, `tsc` reporta ~25 errores del tipo «Property 'hallazgo' does not exist on type 'PrismaClient'» en archivos que nadie tocó. Después de generar, desaparecen todos.
+
+**Estado verde del repositorio, medido el 08/09/2026:**
+
+| Comando | Resultado esperado |
+|---|---|
+| `npm test` | **49 suites, 911 pruebas, todas pasan** (~57 s) |
+| `npx tsc --noEmit -p tsconfig.json` | **0 errores** |
+| `npm run lint` | **0 errores, 5 advertencias** — preexistentes, no son tuyas |
+
+Cuando un paso diga «sin errores» o «verde», es contra este baseline. Y repetí `npx prisma generate` después de **cada** migración: los modelos nuevos (`PaqueteScorm`, `IntentoScorm`) no existen para TypeScript hasta que el cliente se regenera — `prisma migrate dev` lo hace por vos, pero si aplicás una migración a mano, no.
+
+---
+
 ## Estructura de archivos
 
 | Archivo | Responsabilidad |

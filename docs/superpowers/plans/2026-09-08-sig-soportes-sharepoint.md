@@ -12,6 +12,30 @@
 
 ---
 
+## Preparación · antes de la Task 1
+
+```bash
+npm install
+npx prisma generate      # ← NO es opcional, ver abajo
+npm test
+npx tsc --noEmit -p tsconfig.json
+npm run lint
+```
+
+**`npx prisma generate` primero, o vas a perseguir fantasmas.** Con el cliente de Prisma desactualizado, `tsc` reporta ~25 errores del tipo «Property 'hallazgo' does not exist on type 'PrismaClient'» en archivos que nadie tocó. No están rotos: el cliente generado no tiene los modelos que el esquema sí tiene. Después de generar, desaparecen todos.
+
+**Este es el estado verde del repositorio, medido el 08/09/2026.** Si tu primera corrida no da esto, el problema es de entorno y no del plan:
+
+| Comando | Resultado esperado |
+|---|---|
+| `npm test` | **49 suites, 911 pruebas, todas pasan** (~57 s) |
+| `npx tsc --noEmit -p tsconfig.json` | **0 errores** |
+| `npm run lint` | **0 errores, 5 advertencias** — las cinco son preexistentes y no son tuyas |
+
+Cuando un paso del plan diga «sin errores» o «lint limpio», es contra este baseline: 0 errores, y las 5 advertencias de siempre.
+
+---
+
 ## Estructura de archivos
 
 | Archivo | Responsabilidad |
