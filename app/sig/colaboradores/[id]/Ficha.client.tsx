@@ -17,7 +17,13 @@
 // habilitados desde el principio y el orden es de lectura.
 
 import { useState } from 'react';
-import { ETIQUETA_GRUPO, OBLIGACIONES_SUBSISTENTES, type GrupoPaso } from '@/lib/sig/ciclos';
+import { alternarPaso } from '@/app/sig/acciones/ciclos';
+import {
+  ETIQUETA_GRUPO,
+  OBLIGACIONES_SUBSISTENTES,
+  type EstadoRevocacion,
+  type GrupoPaso,
+} from '@/lib/sig/ciclos';
 
 type Vista = 'ficha' | 'vinculacion' | 'desvinculacion';
 
@@ -69,7 +75,9 @@ export default function FichaClient({
   actas,
   vinculacion,
   desvinculacion,
+  personaId,
   pasos,
+  avisoRevocacion,
   actasBorrado,
   registros,
 }: {
@@ -87,11 +95,44 @@ export default function FichaClient({
   actas: { codigo: string; contenido: string; version: number; aceptadoEn: string; huella: string }[];
   vinculacion: ProgresoFila[];
   desvinculacion: ProgresoFila[];
-  pasos: { id: number; ciclo: string; grupo: GrupoPaso; codigo: string; texto: string; fuente: string | null; hecho: boolean }[];
+  personaId: number;
+  pasos: {
+    id: number;
+    ciclo: string;
+    grupo: GrupoPaso;
+    codigo: string;
+    texto: string;
+    descripcion: string | null;
+    plazo: string | null;
+    fuente: string | null;
+    hecho: boolean;
+    /// Quién lo dio por cumplido y cuándo. `null` mientras está pendiente.
+    cumplimiento: { fecha: string; por: string | null; nota: string | null } | null;
+  }[];
+  /// Calculado en el servidor: depende de `hoy`, y un `new Date()` en el navegador cambia
+  /// el marcado entre el render y la hidratación.
+  avisoRevocacion: EstadoRevocacion | null;
   actasBorrado: { fecha: string; metodo: string; activos: string[] }[];
   registros: { id: number; codigo: string; titulo: string; tipo: string; periodo: string; fechaLimite: string; cerrada: boolean }[];
 }) {
   const [vista, setVista] = useState<Vista>('ficha');
+  /// El paso que se está desmarcando, con su motivo. Marcar es un clic; DESMARCAR pide
+  /// razón, porque afirma que un control de seguridad NO se cumplió y borra una constancia.
+  const [desmarcando, setDesmarcando] = useState<number | null>(null);
+  const [motivoPaso, setMotivoPaso] = useState('');
+  const [pasoEnCurso, setPasoEnCurso] = useState<number | null>(null);
+  const [avisoPaso, setAvisoPaso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function marcar(pasoId: number, motivo?: string) {
+    setPasoEnCurso(pasoId);
+    const r = await alternarPaso(personaId, pasoId, motivo);
+    setPasoEnCurso(null);
+    setAvisoPaso({ ok: r.ok, texto: r.mensaje });
+    if (r.ok) {
+      setDesmarcando(null);
+      setMotivoPaso('');
+    }
+  }
 
   const vigentes = accesos.filter((a) => a.vigente);
   const sinSustento = vigentes.filter((a) => a.sinSustento);
@@ -362,6 +403,19 @@ export default function FichaClient({
             )}
           </p>
 
+          {avisoPaso && (
+            <p
+              className="rounded-campo px-3 py-2 text-12"
+              style={
+                avisoPaso.ok
+                  ? { background: 'var(--hf-row-verde)', color: 'var(--hf-accent-700)' }
+                  : { background: '#fdeeeb', color: '#a52016' }
+              }
+            >
+              {avisoPaso.texto}
+            </p>
+          )}
+
           {(vista === 'vinculacion' ? vinculacion : desvinculacion).map((g) => (
             <section key={g.grupo} className="rounded-tarjeta border border-border-field bg-surface p-4">
               <span className="flex items-center gap-2.5">
@@ -385,22 +439,118 @@ export default function FichaClient({
                   )
                   .map((p) => (
                     <div key={p.id} className="flex items-start gap-2.5 border-t border-hairline py-2 first:border-t-0">
-                      <span
-                        className="mt-0.5 flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full font-mono text-9 font-bold"
+                      {/* Era un círculo decorativo. Ahora es EL control: los pasos estaban
+                          sembrados, el módulo puro los resolvía y la ficha los dibujaba,
+                          pero no existía forma de marcarlos —`pasoDeColaborador` no
+                          aparecía en un solo archivo y la tabla tenía cero filas—, así que
+                          el ingreso de un colaborador no se podía registrar. */}
+                      <button
+                        type="button"
+                        disabled={pasoEnCurso === p.id}
+                        onClick={() => {
+                          setAvisoPaso(null);
+                          if (p.hecho) {
+                            setDesmarcando(desmarcando === p.id ? null : p.id);
+                            setMotivoPaso('');
+                          } else {
+                            void marcar(p.id);
+                          }
+                        }}
+                        aria-pressed={p.hecho}
+                        aria-label={
+                          p.hecho ? `Desmarcar ${p.codigo}` : `Marcar ${p.codigo} como cumplido`
+                        }
+                        title={
+                          p.hecho
+                            ? 'Devolver a pendiente · exige motivo'
+                            : 'Marcar como cumplido'
+                        }
+                        className="mt-0.5 flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full font-mono text-9 font-bold transition-opacity hover:opacity-75 disabled:opacity-40"
                         style={
                           p.hecho
                             ? { background: 'var(--hf-accent-500)', color: '#ffffff' }
-                            : { background: 'var(--hf-bg-subtle)', color: 'var(--hf-text-muted)' }
+                            : {
+                                background: 'var(--hf-bg-subtle)',
+                                color: 'var(--hf-text-muted)',
+                                border: '1px solid var(--hf-border-field)',
+                              }
                         }
                       >
-                        {p.hecho ? '✓' : ''}
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className={`text-12 ${p.hecho ? 'text-muted' : 'text-primary'}`}>
-                          {p.texto}
+                        {pasoEnCurso === p.id ? '·' : p.hecho ? '✓' : ''}
+                      </button>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="flex flex-wrap items-baseline gap-2">
+                          <span className={`text-12 ${p.hecho ? 'text-muted' : 'text-primary'}`}>
+                            {p.texto}
+                          </span>
+                          {/* El plazo del procedimiento, no una cuenta de días: PRO-TAL-03
+                              fija hitos relativos entre sí. */}
+                          {p.plazo !== null && (
+                            <span
+                              className="flex-none rounded-[4px] px-1.5 py-0.5 font-mono text-8_5 font-semibold uppercase"
+                              style={{ background: 'var(--hf-bg-subtle)', color: 'var(--hf-text-muted)' }}
+                            >
+                              {p.plazo}
+                            </span>
+                          )}
                         </span>
+                        {/* Qué hay que hacer. Un paso sin su descripción es una casilla que
+                            se marca por costumbre. */}
+                        {p.descripcion !== null && (
+                          <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                            {p.descripcion}
+                          </span>
+                        )}
                         {p.fuente !== null && (
                           <span className="font-mono text-9_5 text-faint">{p.fuente}</span>
+                        )}
+
+                        {/* La constancia: quién y cuándo. Un paso marcado sin autor no dice
+                            más que «alguien tocó una casilla», y es el primer dato que una
+                            auditoría pide. */}
+                        {p.cumplimiento !== null && (
+                          <span className="font-mono text-9_5 text-muted">
+                            {p.cumplimiento.fecha}
+                            {p.cumplimiento.por === null
+                              ? ' · sin autor registrado'
+                              : ` · ${p.cumplimiento.por}`}
+                            {p.cumplimiento.nota === null ? '' : ` · ${p.cumplimiento.nota}`}
+                          </span>
+                        )}
+
+                        {desmarcando === p.id && (
+                          <span className="mt-1 flex flex-col gap-1">
+                            <label className="text-10_5 leading-snug text-muted [text-wrap:pretty]">
+                              Devolver a pendiente afirma que este paso NO se cumplió. ¿Por qué?
+                            </label>
+                            <input
+                              value={motivoPaso}
+                              onChange={(e) => setMotivoPaso(e.target.value)}
+                              placeholder="El motivo queda en la bitácora"
+                              className="w-full rounded-campo border border-border-field bg-surface px-2.5 py-1.5 text-11_5 text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+                            />
+                            <span className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={pasoEnCurso === p.id || motivoPaso.trim().length < 10}
+                                onClick={() => void marcar(p.id, motivoPaso)}
+                                className="rounded-campo px-2.5 py-1 text-11 font-semibold text-white disabled:opacity-50"
+                                style={{ background: '#a52016' }}
+                              >
+                                {pasoEnCurso === p.id ? 'Guardando…' : 'Desmarcar'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDesmarcando(null);
+                                  setMotivoPaso('');
+                                }}
+                                className="text-11 text-muted hover:underline"
+                              >
+                                Cancelar
+                              </button>
+                            </span>
+                          </span>
                         )}
                       </span>
                     </div>
@@ -411,6 +561,30 @@ export default function FichaClient({
 
           {vista === 'desvinculacion' && (
             <>
+              {avisoRevocacion !== null && (
+                <section
+                  className="rounded-tarjeta p-4"
+                  style={
+                    avisoRevocacion.alDia
+                      ? { background: '#f7fbf9', border: '1px solid #c9e3d8' }
+                      : { background: '#fffbfa', border: '1px solid #f2cdc6' }
+                  }
+                >
+                  <span
+                    className="font-mono text-9 font-semibold uppercase tracking-[0.07em]"
+                    style={{ color: avisoRevocacion.alDia ? '#0b5c44' : '#a52016' }}
+                  >
+                    Revocación de accesos
+                  </span>
+                  <p
+                    className="mt-1.5 text-11_5 leading-relaxed [text-wrap:pretty]"
+                    style={{ color: avisoRevocacion.alDia ? '#0b5c44' : '#a52016' }}
+                  >
+                    {avisoRevocacion.texto}
+                  </p>
+                </section>
+              )}
+
               {vigentes.length > 0 && (
                 <section
                   className="rounded-tarjeta p-4"

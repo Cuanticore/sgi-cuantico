@@ -16,7 +16,12 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { accesosALaFecha, accesosSinSustento, type AccesoConVigencia } from '@/lib/sig/accesos';
 import { estaActiva } from '@/lib/sig/colaboradores';
-import { progresoDelCiclo, type Paso } from '@/lib/sig/ciclos';
+import {
+  estadoDeRevocacion,
+  progresoDelCiclo,
+  PASO_REVOCACION,
+  type Paso,
+} from '@/lib/sig/ciclos';
 import { puertaDeAccesos } from '@/lib/sig/colaboradores';
 import FichaClient from './Ficha.client';
 
@@ -59,7 +64,16 @@ export default async function FichaColaboradorPage({
           select: { id: true, codigo: true, nombre: true },
           orderBy: { codigo: 'asc' },
         },
-        pasosCompletados: { select: { pasoId: true, completadoEn: true } },
+        pasosCompletados: {
+          select: {
+            pasoId: true,
+            completadoEn: true,
+            nota: true,
+            // Quién lo dio por cumplido. Es el primer dato que una auditoría pide, y sin él
+            // la constancia no dice más que «alguien tocó una casilla».
+            completadoPor: { select: { nombre: true } },
+          },
+        },
         asignaciones: {
           take: 8,
           orderBy: { fechaLimite: 'desc' },
@@ -127,6 +141,16 @@ export default async function FichaColaboradorPage({
   const sinSustentoIds = new Set(accesosSinSustento(accesosBase, hoy).map((a) => a.id));
 
   const completados = new Set(persona.pasosCompletados.map((x) => x.pasoId));
+  const cumplimientoDePaso = new Map(
+    persona.pasosCompletados.map((x) => [
+      x.pasoId,
+      {
+        fecha: x.completadoEn.toISOString().slice(0, 10),
+        por: x.completadoPor?.nombre ?? null,
+        nota: x.nota,
+      },
+    ]),
+  );
   const esNomina = persona.tipoContrato?.esNomina ?? false;
   const pasosTipados: Paso[] = pasos.map((x) => ({
     id: x.id,
@@ -135,6 +159,8 @@ export default async function FichaColaboradorPage({
     aplicaA: x.aplicaA,
     codigo: x.codigo,
     texto: x.texto,
+    descripcion: x.descripcion,
+    plazo: x.plazo,
     fuente: x.fuente,
     orden: x.orden,
   }));
@@ -251,7 +277,19 @@ export default async function FichaColaboradorPage({
       }))}
       vinculacion={progresoDelCiclo(pasosTipados, completados, 'VINCULACION', esNomina)}
       desvinculacion={progresoDelCiclo(pasosTipados, completados, 'DESVINCULACION', esNomina)}
-      pasos={pasosTipados.map((p) => ({ ...p, hecho: completados.has(p.id) }))}
+      // El aviso se calcula ACA y no en el cliente: depende de `hoy`, y un `new Date()` en el
+      // navegador cambia el marcado entre el servidor y la hidratacion.
+      avisoRevocacion={estadoDeRevocacion(
+        persona.retiradoEn,
+        pasosTipados.some((x) => x.codigo === PASO_REVOCACION && completados.has(x.id)),
+        hoy,
+      )}
+      personaId={persona.id}
+      pasos={pasosTipados.map((p) => ({
+        ...p,
+        hecho: completados.has(p.id),
+        cumplimiento: cumplimientoDePaso.get(p.id) ?? null,
+      }))}
       actasBorrado={persona.actasBorrado.map((x) => ({
         fecha: x.fecha.toISOString().slice(0, 10),
         metodo: x.metodo.nombre,

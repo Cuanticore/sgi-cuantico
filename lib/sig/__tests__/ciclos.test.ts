@@ -16,6 +16,7 @@ import {
   OBLIGACIONES_SUBSISTENTES,
   pasosAplicables,
   progresoDelCiclo,
+  estadoDeRevocacion,
   type Paso,
 } from '../ciclos';
 
@@ -25,7 +26,18 @@ const p = (
   grupo: Paso['grupo'],
   aplicaA: Paso['aplicaA'],
   orden: number,
-): Paso => ({ id, ciclo, grupo, aplicaA, codigo: `P${id}`, texto: `Paso ${id}`, fuente: null, orden });
+): Paso => ({
+  id,
+  ciclo,
+  grupo,
+  aplicaA,
+  codigo: `P${id}`,
+  texto: `Paso ${id}`,
+  descripcion: null,
+  plazo: null,
+  fuente: null,
+  orden,
+});
 
 /// Siete de seguridad para todos, cuatro administrativos de nomina y tres de contratista.
 const PASOS: Paso[] = [
@@ -155,5 +167,68 @@ describe('OBLIGACIONES_SUBSISTENTES · C7 y criterio 8', () => {
       expect(o.vigencia.length).toBeGreaterThan(3);
       expect(o.fuente.length).toBeGreaterThan(3);
     }
+  });
+});
+
+// ─── El aviso de la revocación ─────────────────────────────────────────────────────────
+//
+// PRO-TAL-03 exige revocar los accesos EL MISMO DÍA de la terminación, sin esperar a la
+// liquidación ni al paz y salvo. Es la única regla del trámite con un plazo contado, y la
+// única cuyo incumplimiento no deja rastro: la cuenta sigue funcionando y nadie lo nota.
+//
+// Lo que se prueba acá no es la redacción: es que el día de la terminación NO se acuse de
+// incumplimiento, que a partir del siguiente SÍ, y que el conteo no se rompa cruzando un
+// fin de mes — el defecto que ya apareció cuatro veces en este repositorio.
+describe('estadoDeRevocacion', () => {
+  const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+
+  it('sin fecha de retiro no hay aviso: no hay plazo que contar', () => {
+    expect(estadoDeRevocacion(null, false, d('2026-09-10'))).toBeNull();
+  });
+
+  it('revocada: dice que está al día', () => {
+    const e = estadoDeRevocacion(d('2026-09-01'), true, d('2026-09-10'));
+    expect(e?.alDia).toBe(true);
+    expect(e?.texto).toContain('ya están revocados');
+  });
+
+  // El procedimiento pide «el mismo día», no «antes». Acusar de incumplimiento el propio
+  // día de la terminación es acusar de algo que todavía no ocurrió.
+  it('el día de la terminación todavía no es incumplimiento', () => {
+    const e = estadoDeRevocacion(d('2026-09-10'), false, d('2026-09-10'));
+    expect(e?.alDia).toBe(false);
+    expect(e?.dias).toBe(0);
+    expect(e?.texto).toContain('La terminación es hoy');
+    expect(e?.texto).not.toContain('Han pasado');
+  });
+
+  it('al día siguiente sí, y en singular', () => {
+    const e = estadoDeRevocacion(d('2026-09-10'), false, d('2026-09-11'));
+    expect(e?.dias).toBe(1);
+    expect(e?.texto).toContain('Pasó 1 día');
+  });
+
+  it('varios días, en plural', () => {
+    const e = estadoDeRevocacion(d('2026-09-10'), false, d('2026-09-15'));
+    expect(e?.dias).toBe(5);
+    expect(e?.texto).toContain('Han pasado 5 días');
+  });
+
+  // La resta empaquetada `YYYYMMDD` daría 91 entre el 31 de agosto y el 1 de septiembre.
+  // Ese defecto ya costó cuatro incidentes distintos en este repositorio; acá queda fijado.
+  it.each([
+    ['de agosto a septiembre', '2026-08-31', '2026-09-01'],
+    ['de febrero a marzo', '2026-02-28', '2026-03-01'],
+    ['de diciembre a enero', '2026-12-31', '2027-01-01'],
+  ])('cruzando el fin de mes %s cuenta 1 día, no 70', (_nombre, retiro, hoy) => {
+    expect(estadoDeRevocacion(d(retiro), false, d(hoy))?.dias).toBe(1);
+  });
+
+  // Una terminación futura no es un incumplimiento: los días salen negativos y el aviso
+  // usa el texto del día de la terminación, no el de «han pasado N días».
+  it('terminación futura no acusa nada', () => {
+    const e = estadoDeRevocacion(d('2026-09-20'), false, d('2026-09-10'));
+    expect(e?.dias).toBeLessThan(0);
+    expect(e?.texto).not.toContain('Han pasado');
   });
 });

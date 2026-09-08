@@ -1251,22 +1251,22 @@ model ContenidoSig {
 
 /// Ítems de un contenido VERIFICACION. La primitiva que el módulo C reutilizará.
 model ItemVerificacion {
-  id              Int     @id @default(autoincrement())
-  contenidoId     Int     @map("contenido_id")
-  orden           Int
-  texto           String
-  obligatorio     Boolean @default(true)
-  permiteNoAplica Boolean @default(true) @map("permite_no_aplica")
+  id                Int     @id @default(autoincrement())
+  contenidoId       Int     @map("contenido_id")
+  orden             Int
+  texto             String
+  obligatorio       Boolean @default(true)
+  permiteNoAplica   Boolean @default(true) @map("permite_no_aplica")
   /// REQ-SIG-08 · lo unico que los 73 items de PTR-TEC-03 necesitan agregar. **No crean
   /// tablas nuevas**: el catalogo es un `ContenidoSig` de tipo VERIFICACION y el resultado
   /// por item es la `RespuestaItem` que ya existe. Construir un segundo motor de listas
   /// seria el error mas caro del paquete.
-  puerta            Puerta?  @map("puerta")
-  controlAnexoA     String?  @map("control_anexo_a")
-  evidenciaEsperada String?  @map("evidencia_esperada")
+  puerta            Puerta? @map("puerta")
+  controlAnexoA     String? @map("control_anexo_a")
+  evidenciaEsperada String? @map("evidencia_esperada")
   /// G10 · `CONTRATADO` marca los que SE SUMAN cuando el desarrollo es contratado. Ninguno
   /// se resta: cambia quien ejecuta, no el nivel de exigencia.
-  aplicaA           String   @default("AMBOS") @map("aplica_a")
+  aplicaA           String  @default("AMBOS") @map("aplica_a")
 
   contenido  ContenidoSig    @relation(fields: [contenidoId], references: [id])
   respuestas RespuestaItem[]
@@ -1356,14 +1356,14 @@ model Asignacion {
   activoId      Int?             @map("activo_id")
   creadaEn      DateTime         @default(now()) @map("creada_en")
 
-  obligacion        Obligacion?         @relation(fields: [obligacionId], references: [id])
-  contenido         ContenidoSig?       @relation(fields: [contenidoId], references: [id])
-  persona           Persona             @relation("AsignacionPersona", fields: [personaId], references: [id])
-  cerradaPorPersona Persona?            @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
+  obligacion        Obligacion?            @relation(fields: [obligacionId], references: [id])
+  contenido         ContenidoSig?          @relation(fields: [contenidoId], references: [id])
+  persona           Persona                @relation("AsignacionPersona", fields: [personaId], references: [id])
+  cerradaPorPersona Persona?               @relation("AsignacionCerradaPor", fields: [cerradaPor], references: [id])
   registros         RegistroRealizado[]
   ejecucion         EjecucionVerificacion?
-  medicionesAlerta  MedicionMetrica[]   @relation("MedicionAsignacion")
-  activo            Activo?             @relation("AsignacionActivo", fields: [activoId], references: [id])
+  medicionesAlerta  MedicionMetrica[]      @relation("MedicionAsignacion")
+  activo            Activo?                @relation("AsignacionActivo", fields: [activoId], references: [id])
   hallazgos         HallazgoAccion[]
 
   /// T1 · la idempotencia que permite que el cron reintente sin miedo.
@@ -1583,10 +1583,10 @@ model Hallazgo {
   acciones          HallazgoAccion[]
   verificaciones    VerificacionEficaciaHallazgo[]
   materializaciones MaterializacionRiesgo[]
+  ejecuciones       EjecucionVerificacion[]        @relation("HallazgoDeVerificacion")
 
   @@index([areaId, fechaDeteccion])
   @@map("hallazgo")
-  ejecuciones EjecucionVerificacion[] @relation("HallazgoDeVerificacion")
 }
 
 /// La corrección inmediata: contiene el efecto, no cierra el hallazgo.
@@ -2748,17 +2748,27 @@ enum AplicaA {
 /// siete pasos de seguridad.** Lo garantiza el esquema: los de `SEGURIDAD` se cargan con
 /// `aplicaA = TODOS`, y el filtro por tipo sólo puede recortar los `ADMINISTRATIVO`.
 model PasoCiclo {
-  id      Int              @id @default(autoincrement())
-  ciclo   CicloColaborador
-  grupo   GrupoPaso
-  aplicaA AplicaA          @default(TODOS) @map("aplica_a")
-  codigo  String           @unique
-  texto   String
+  id          Int              @id @default(autoincrement())
+  ciclo       CicloColaborador
+  grupo       GrupoPaso
+  aplicaA     AplicaA          @default(TODOS) @map("aplica_a")
+  codigo      String           @unique
+  texto       String
   /// La fuente documental que lo exige. No es adorno: es la respuesta a «¿por qué este
   /// paso?» y lo que permite quitarlo cuando el procedimiento cambie.
-  fuente  String?
-  orden   Int              @default(0)
-  activo  Boolean          @default(true)
+  fuente      String?
+  /// QUE hay que hacer, en una linea. `texto` nombra el paso; esto dice en que consiste.
+  /// Sin esto la pantalla mostraba «Revocacion de accesos» y nada mas, y quien nunca
+  /// ejecuto el procedimiento no tiene como saber que incluye revocar sesiones activas y
+  /// retirar del gestor de contrasenas.
+  descripcion String?
+  /// CUANDO, en palabras del procedimiento: «El mismo dia», «Tras la devolucion», «Antes
+  /// de liquidar». Es texto y no una cantidad de dias a proposito: el procedimiento fija
+  /// hitos relativos entre si, no plazos contados, y convertirlos a numeros seria
+  /// inventar una precision que PRO-TAL-03 no da.
+  plazo       String?
+  orden       Int              @default(0)
+  activo      Boolean          @default(true)
 
   completados PasoDeColaborador[]
 
@@ -3312,53 +3322,53 @@ enum RolTratamiento {
 /// usa probabilidad x impacto 1-5, que no es MAGERIT ni ISO 31000: seria una tercera escala.
 /// El hueco es deliberado y va al comite.
 model Sistema {
-  id            Int         @id @default(autoincrement())
+  id                   Int             @id @default(autoincrement())
   /// `SIS-001`. Inmutable.
-  codigo        String      @unique
-  nombre        String
-  descripcion   String?
-  tipo          String
-  productoId    Int?        @map("producto_id")
+  codigo               String          @unique
+  nombre               String
+  descripcion          String?
+  tipo                 String
+  productoId           Int?            @map("producto_id")
   /// Sin llave foranea todavia: `Proyecto` no existe como entidad (punto 4 de lo que queda
   /// por decidir). Nace opcional y la llave se agrega cuando la tabla exista.
-  proyectoId    Int?        @map("proyecto_id")
-  clienteRef    String?     @map("cliente_ref")
+  proyectoId           Int?            @map("proyecto_id")
+  clienteRef           String?         @map("cliente_ref")
   /// Contra la escala del SGSI, la misma con la que se valora todo lo demas.
-  criticidad    Int?
-  clasificacionId Int?      @map("clasificacion_id")
-  trataDatosPersonales Boolean @default(false) @map("trata_datos_personales")
-  rolTratamiento RolTratamiento? @map("rol_tratamiento")
+  criticidad           Int?
+  clasificacionId      Int?            @map("clasificacion_id")
+  trataDatosPersonales Boolean         @default(false) @map("trata_datos_personales")
+  rolTratamiento       RolTratamiento? @map("rol_tratamiento")
   /// **No son decorativos**: son el insumo del BIA anual que exige el sistema de
   /// continuidad, y hoy no existen en ninguna otra parte. En minutos.
-  rtoObjetivo   Int?        @map("rto_objetivo")
-  rpoObjetivo   Int?        @map("rpo_objetivo")
-  propietarioId Int?        @map("propietario_id")
-  responsableTecnicoId Int? @map("responsable_tecnico_id")
+  rtoObjetivo          Int?            @map("rto_objetivo")
+  rpoObjetivo          Int?            @map("rpo_objetivo")
+  propietarioId        Int?            @map("propietario_id")
+  responsableTecnicoId Int?            @map("responsable_tecnico_id")
   /// El item 50 exige que el sistema quede en el inventario de activos.
-  activoId      Int?        @map("activo_id")
+  activoId             Int?            @map("activo_id")
   /// G10 · las mismas puertas aplican al desarrollo contratado. Cambia quien ejecuta y que
   /// la evidencia se exige por contrato, no el nivel de exigencia: los items marcados
   /// CONTRATADO se SUMAN, ninguno se resta.
-  contratado    Boolean     @default(false)
-  faseActual    FaseSistema @default(F0) @map("fase_actual")
-  abiertaEn     DateTime?   @map("abierta_en")
+  contratado           Boolean         @default(false)
+  faseActual           FaseSistema     @default(F0) @map("fase_actual")
+  abiertaEn            DateTime?       @map("abierta_en")
   /// G11 · cerrar la hoja de vida exige P6 registrada.
-  cerradaEn     DateTime?   @map("cerrada_en")
-  activo        Boolean     @default(true)
-  creadoEn      DateTime    @default(now()) @map("creado_en")
+  cerradaEn            DateTime?       @map("cerrada_en")
+  activo               Boolean         @default(true)
+  creadoEn             DateTime        @default(now()) @map("creado_en")
 
   producto           Producto? @relation(fields: [productoId], references: [id])
   propietario        Persona?  @relation("SistemaPropietario", fields: [propietarioId], references: [id])
   responsableTecnico Persona?  @relation("SistemaResponsableTecnico", fields: [responsableTecnicoId], references: [id])
   activoInventario   Activo?   @relation("SistemaActivo", fields: [activoId], references: [id])
 
-  puertas       PuertaSistema[]
-  excepciones   ExcepcionSeguridad[]
-  requisitos    RequisitoSeguridad[]
-  pruebas       PruebaSeguridad[]
-  tratamientos  TratamientoDatosPersonales[]
-  liberaciones  Liberacion[]
-  componentes   ComponenteTercero[]
+  puertas      PuertaSistema[]
+  excepciones  ExcepcionSeguridad[]
+  requisitos   RequisitoSeguridad[]
+  pruebas      PruebaSeguridad[]
+  tratamientos TratamientoDatosPersonales[]
+  liberaciones Liberacion[]
+  componentes  ComponenteTercero[]
 
   @@map("sistema")
 }
@@ -3401,10 +3411,10 @@ model PuertaSistema {
   excepcionId     Int?            @map("excepcion_id")
   observacion     String?
 
-  sistema      Sistema             @relation(fields: [sistemaId], references: [id])
-  verificadoPor Persona?           @relation("PuertaVerifica", fields: [verificadoPorId], references: [id])
-  autoriza     Persona?            @relation("PuertaAutoriza", fields: [autorizaId], references: [id])
-  excepcion    ExcepcionSeguridad? @relation(fields: [excepcionId], references: [id])
+  sistema       Sistema             @relation(fields: [sistemaId], references: [id])
+  verificadoPor Persona?            @relation("PuertaVerifica", fields: [verificadoPorId], references: [id])
+  autoriza      Persona?            @relation("PuertaAutoriza", fields: [autorizaId], references: [id])
+  excepcion     ExcepcionSeguridad? @relation(fields: [excepcionId], references: [id])
 
   @@unique([sistemaId, puerta])
   @@map("puerta_sistema")
@@ -3419,21 +3429,21 @@ model PuertaSistema {
 /// fecha de cierre es una exencion permanente disfrazada.** Una vencida y sin cerrar es un
 /// hallazgo automatico.
 model ExcepcionSeguridad {
-  id              Int      @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   /// `EXC-2026-007`.
-  codigo          String   @unique
-  sistemaId       Int      @map("sistema_id")
-  puerta          Puerta?
-  justificacion   String
-  evaluacionRiesgo String  @map("evaluacion_riesgo")
+  codigo           String    @unique
+  sistemaId        Int       @map("sistema_id")
+  puerta           Puerta?
+  justificacion    String
+  evaluacionRiesgo String    @map("evaluacion_riesgo")
   /// El Responsable de Seguridad de la Informacion.
-  aprobadaPorId   Int?     @map("aprobada_por_id")
-  fechaAprobacion DateTime @map("fecha_aprobacion") @db.Date
+  aprobadaPorId    Int?      @map("aprobada_por_id")
+  fechaAprobacion  DateTime  @map("fecha_aprobacion") @db.Date
   /// OBLIGATORIA. No es opcional a proposito.
-  fechaCierre     DateTime @map("fecha_cierre") @db.Date
-  cerradaEn       DateTime? @map("cerrada_en")
-  cerradaPorId    Int?     @map("cerrada_por_id")
-  notaCierre      String?  @map("nota_cierre")
+  fechaCierre      DateTime  @map("fecha_cierre") @db.Date
+  cerradaEn        DateTime? @map("cerrada_en")
+  cerradaPorId     Int?      @map("cerrada_por_id")
+  notaCierre       String?   @map("nota_cierre")
 
   sistema     Sistema  @relation(fields: [sistemaId], references: [id])
   aprobadaPor Persona? @relation("ExcepcionAprueba", fields: [aprobadaPorId], references: [id])
@@ -3445,16 +3455,16 @@ model ExcepcionSeguridad {
 }
 
 model RequisitoSeguridad {
-  id            Int     @id @default(autoincrement())
-  sistemaId     Int     @map("sistema_id")
-  codigo        String
-  categoria     String
-  texto         String
-  origen        String?
-  prioridad     String?
-  estado        String  @default("PROPUESTO")
-  verificadoEnId Int?   @map("verificado_en_id")
-  observacion   String?
+  id             Int     @id @default(autoincrement())
+  sistemaId      Int     @map("sistema_id")
+  codigo         String
+  categoria      String
+  texto          String
+  origen         String?
+  prioridad      String?
+  estado         String  @default("PROPUESTO")
+  verificadoEnId Int?    @map("verificado_en_id")
+  observacion    String?
 
   sistema      Sistema          @relation(fields: [sistemaId], references: [id])
   verificadoEn PruebaSeguridad? @relation(fields: [verificadoEnId], references: [id])
@@ -3467,21 +3477,21 @@ model RequisitoSeguridad {
 /// contra los criterios de aceptacion y la excepcion, si la hay (G6). La severidad que
 /// bloquea es un parametro, no un numero en el codigo.
 model PruebaSeguridad {
-  id             Int      @id @default(autoincrement())
-  sistemaId      Int      @map("sistema_id")
-  codigo         String
-  tipo           String
-  versionProbada String?  @map("version_probada")
-  fecha          DateTime @db.Date
-  ejecutorId     Int?     @map("ejecutor_id")
+  id              Int      @id @default(autoincrement())
+  sistemaId       Int      @map("sistema_id")
+  codigo          String
+  tipo            String
+  versionProbada  String?  @map("version_probada")
+  fecha           DateTime @db.Date
+  ejecutorId      Int?     @map("ejecutor_id")
   /// Cuando la corre un tercero que no entra a la aplicacion.
-  ejecutorExterno String? @map("ejecutor_externo")
-  criticos       Int      @default(0)
-  altos          Int      @default(0)
-  medios         Int      @default(0)
-  bajos          Int      @default(0)
-  evidenciaId    Int?     @map("evidencia_id")
-  observacion    String?
+  ejecutorExterno String?  @map("ejecutor_externo")
+  criticos        Int      @default(0)
+  altos           Int      @default(0)
+  medios          Int      @default(0)
+  bajos           Int      @default(0)
+  evidenciaId     Int?     @map("evidencia_id")
+  observacion     String?
 
   sistema  Sistema  @relation(fields: [sistemaId], references: [id])
   ejecutor Persona? @relation("PruebaEjecutor", fields: [ejecutorId], references: [id])
@@ -3495,20 +3505,20 @@ model PruebaSeguridad {
 /// Ley 1581 de 2012. **Es el bloque con mayor exposicion legal del paquete** y hoy no existe
 /// en ninguna parte del sistema.
 model TratamientoDatosPersonales {
-  id                        Int      @id @default(autoincrement())
-  sistemaId                 Int      @map("sistema_id")
-  categoria                 String
-  sensibles                 Boolean  @default(false)
-  finalidad                 String
-  baseLegitimacion          String   @map("base_legitimacion")
-  titulares                 String?
-  volumen                   String?
-  ubicacionAlmacenamiento   String?  @map("ubicacion_almacenamiento")
+  id                         Int     @id @default(autoincrement())
+  sistemaId                  Int     @map("sistema_id")
+  categoria                  String
+  sensibles                  Boolean @default(false)
+  finalidad                  String
+  baseLegitimacion           String  @map("base_legitimacion")
+  titulares                  String?
+  volumen                    String?
+  ubicacionAlmacenamiento    String? @map("ubicacion_almacenamiento")
   transferenciaInternacional Boolean @default(false) @map("transferencia_internacional")
-  paisDestino               String?  @map("pais_destino")
-  garantiaAplicada          String?  @map("garantia_aplicada")
-  retencion                 String?
-  responsableId             Int?     @map("responsable_id")
+  paisDestino                String? @map("pais_destino")
+  garantiaAplicada           String? @map("garantia_aplicada")
+  retencion                  String?
+  responsableId              Int?    @map("responsable_id")
 
   sistema     Sistema  @relation(fields: [sistemaId], references: [id])
   responsable Persona? @relation("TratamientoResponsable", fields: [responsableId], references: [id])
@@ -3533,10 +3543,10 @@ model Liberacion {
   resultado     String?
   observacion   String?
 
-  sistema    Sistema    @relation(fields: [sistemaId], references: [id])
-  solicitud  Solicitud? @relation(fields: [solicitudId], references: [id])
-  autoriza   Persona?   @relation("LiberacionAutoriza", fields: [autorizaId], references: [id])
-  ejecuta    Persona?   @relation("LiberacionEjecuta", fields: [ejecutaId], references: [id])
+  sistema   Sistema    @relation(fields: [sistemaId], references: [id])
+  solicitud Solicitud? @relation(fields: [solicitudId], references: [id])
+  autoriza  Persona?   @relation("LiberacionAutoriza", fields: [autorizaId], references: [id])
+  ejecuta   Persona?   @relation("LiberacionEjecuta", fields: [ejecutaId], references: [id])
 
   @@unique([sistemaId, version])
   @@map("liberacion")
@@ -3545,18 +3555,18 @@ model Liberacion {
 /// El SBOM. La parte de «proveedor» ya la resolvio D4; lo nuevo es el COMPONENTE con su
 /// licencia, que el item 23 exige revisar por compatibilidad.
 model ComponenteTercero {
-  id                       Int      @id @default(autoincrement())
-  sistemaId                Int      @map("sistema_id")
-  organizacionId           Int?     @map("organizacion_id")
-  nombre                   String
-  tipo                     String?
-  funcion                  String?
-  criticidad               String?
-  licencia                 String?
-  version                  String?
-  ultimaEvaluacion         DateTime? @map("ultima_evaluacion") @db.Date
-  vulnerabilidadesConocidas String?  @map("vulnerabilidades_conocidas")
-  estado                   String   @default("VIGENTE")
+  id                        Int       @id @default(autoincrement())
+  sistemaId                 Int       @map("sistema_id")
+  organizacionId            Int?      @map("organizacion_id")
+  nombre                    String
+  tipo                      String?
+  funcion                   String?
+  criticidad                String?
+  licencia                  String?
+  version                   String?
+  ultimaEvaluacion          DateTime? @map("ultima_evaluacion") @db.Date
+  vulnerabilidadesConocidas String?   @map("vulnerabilidades_conocidas")
+  estado                    String    @default("VIGENTE")
 
   sistema Sistema @relation(fields: [sistemaId], references: [id])
 

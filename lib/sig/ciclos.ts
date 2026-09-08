@@ -14,6 +14,8 @@
 // y salvo». Si la pantalla encadena los pasos en orden, está contradiciendo el
 // procedimiento — así que acá no hay prerrequisitos, y hay una prueba que lo fija.
 
+import { diasHasta } from './cierre';
+
 export type CicloColaborador = 'VINCULACION' | 'DESVINCULACION';
 export type GrupoPaso = 'SEGURIDAD' | 'ADMINISTRATIVO';
 export type AplicaA = 'TODOS' | 'NOMINA' | 'CONTRATISTA';
@@ -25,8 +27,79 @@ export interface Paso {
   aplicaA: AplicaA;
   codigo: string;
   texto: string;
+  /// Qué hay que hacer. `texto` nombra el paso; esto dice en qué consiste.
+  descripcion: string | null;
+  /// Cuándo, en palabras del procedimiento: «El mismo día», «Tras la devolución».
+  plazo: string | null;
   fuente: string | null;
   orden: number;
+}
+
+/// El código del paso de revocación. Está acá y no repartido por las pantallas porque es la
+/// ÚNICA regla de la desvinculación con un plazo contado, y la que se incumple en silencio.
+export const PASO_REVOCACION = 'DES-SEG-1';
+
+export interface EstadoRevocacion {
+  /// La revocación ya está registrada.
+  alDia: boolean;
+  /// Días completos desde la terminación. Negativo si la terminación es futura.
+  dias: number;
+  texto: string;
+}
+
+/// El aviso de la desvinculación, que dice el caso incómodo en vez de disimularlo.
+///
+/// **PRO-TAL-03 exige revocar los accesos el mismo día de la terminación, sin esperar a la
+/// liquidación ni al paz y salvo.** Es la única regla del trámite con un plazo contado, y
+/// la única cuyo incumplimiento no deja rastro: la cuenta simplemente sigue funcionando.
+/// Una pantalla que muestre seis casillas iguales trata «faltan los accesos» y «falta el
+/// paz y salvo» como el mismo pendiente, y no lo son.
+///
+/// Devuelve `null` sin fecha de retiro: sin terminación no hay plazo que contar, y un
+/// aviso que aparece cuando no corresponde enseña a ignorar los avisos.
+///
+/// Los días salen de `diasHasta`, la única resta de fechas del dominio. Restar la fecha
+/// empaquetada daría 70 días entre el 31 de enero y el 1 de febrero — ver `lib/sig/fechas.ts`.
+export function estadoDeRevocacion(
+  retiradoEn: Date | null,
+  revocacionHecha: boolean,
+  hoy: Date,
+): EstadoRevocacion | null {
+  if (retiradoEn === null) return null;
+
+  const dias = diasHasta(hoy, retiradoEn);
+
+  if (revocacionHecha) {
+    return {
+      alDia: true,
+      dias,
+      texto:
+        'Los accesos ya están revocados. La desvinculación puede continuar con el resto ' +
+        'del trámite a su propio ritmo.',
+    };
+  }
+
+  // El día de la terminación todavía está en plazo: el procedimiento pide «el mismo día»,
+  // no «antes». Decir «han pasado 0 días» el primer día sería acusar de un incumplimiento
+  // que aún no ocurrió.
+  if (dias <= 0) {
+    return {
+      alDia: false,
+      dias,
+      texto:
+        'La terminación es hoy y los accesos siguen vigentes. El procedimiento exige ' +
+        'revocarlos el mismo día, sin esperar a la liquidación ni al paz y salvo.',
+    };
+  }
+
+  return {
+    alDia: false,
+    dias,
+    texto:
+      `${dias === 1 ? 'Pasó 1 día' : `Han pasado ${dias} días`} desde la terminación y los ` +
+      'accesos siguen vigentes. El procedimiento exige revocarlos el mismo día, sin esperar ' +
+      'a la liquidación ni al paz y salvo.',
+  };
 }
 
 /// Los pasos que aplican a una persona según su tipo de vinculación.
