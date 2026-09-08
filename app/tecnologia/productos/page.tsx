@@ -5,13 +5,15 @@
 // y preguntar «¿en qué fase está MINTRACE?» no tiene respuesta: la tienen sus sistemas,
 // cada uno en la suya.
 //
-// **Lo que esta pantalla NO puede mostrar todavía**: las seis puertas de control de
-// PRO-TEC-04 que el lienzo dibuja. Viven en el SISTEMA, y `Sistema` es una entidad de
-// REQ-SIG-08 que no existe. Inventarla acá crearía el segundo lugar donde se define lo
-// mismo, así que el panel se dibuja vacío con su motivo.
+// **Dónde están las seis puertas.** El lienzo las dibuja acá, pero pertenecen al SISTEMA:
+// REQ-SIG-08 las definió, y la hoja de vida completa —fases, puertas, requisitos, pruebas,
+// componentes y liberaciones— vive en `/tecnologia/sistemas`. Esta pantalla lista los
+// sistemas del producto con su fase y sus puertas, y lleva a la hoja de vida del que se
+// elija. Redibujarla acá crearía el segundo lugar donde se define lo mismo.
 
 import { prisma } from '@/lib/db';
 import { faltantesDePlantilla, resumenDeFaltantes, type EsperadoDePlantilla } from '@/lib/sig/niveles';
+import { resumirPuertas, type Puerta, type ResultadoPuerta } from '@/lib/sig/desarrollo';
 import ProductosClient from './Productos.client';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +25,7 @@ export default async function ProductosPage({
 }) {
   const { p } = await searchParams;
 
-  const [productos, niveles, activos, plantilla, personas] = await Promise.all([
+  const [productos, niveles, activos, plantilla, personas, sistemas] = await Promise.all([
     prisma.producto.findMany({
       where: { activo: true },
       include: {
@@ -44,6 +46,21 @@ export default async function ProductosPage({
       where: { activa: true },
       select: { id: true, nombre: true },
       orderBy: { nombre: 'asc' },
+    }),
+    // D14 · el producto agrupa sistemas. La hoja de vida es de cada uno, así que de acá
+    // sólo sale lo que la lista necesita para que alguien elija cuál abrir.
+    prisma.sistema.findMany({
+      where: { activo: true, productoId: { not: null } },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        productoId: true,
+        faseActual: true,
+        cerradaEn: true,
+        puertas: { select: { puerta: true, resultado: true } },
+      },
+      orderBy: { codigo: 'asc' },
     }),
   ]);
 
@@ -112,6 +129,21 @@ export default async function ProductosPage({
       resumen={resumenDeFaltantes(faltantes)}
       // Sólo los niveles de grado 1 de clase PRODUCTOS o PROYECTOS pueden encabezar un
       // producto, y sólo si no lo encabezan ya.
+      sistemas={sistemas
+        .filter((x) => elegido !== null && x.productoId === elegido.id)
+        .map((x) => ({
+          id: x.id,
+          codigo: x.codigo,
+          nombre: x.nombre,
+          fase: x.faseActual,
+          cerrada: x.cerradaEn !== null,
+          puertas: resumirPuertas(
+            x.puertas.map((p) => ({
+              puerta: p.puerta as Puerta,
+              resultado: p.resultado as ResultadoPuerta,
+            })),
+          ),
+        }))}
       raicesDisponibles={niveles
         .filter(
           (n) =>

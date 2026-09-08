@@ -5,16 +5,27 @@
 // **La plantilla no bloquea: señala.** Un producto incompleto se puede guardar; lo que no
 // se puede es que nadie lo sepa. Ése es el aporte entero de esta pantalla hoy.
 //
-// El lienzo dibuja además las seis puertas de control de PRO-TEC-04. Ese panel se dibuja
-// vacío y con su motivo: las puertas son del SISTEMA, y `Sistema` es una entidad de
-// REQ-SIG-08 que todavía no existe. Definirla acá crearía el segundo lugar donde se
-// especifica lo mismo.
+// Las seis puertas de PRO-TEC-04 que el lienzo dibuja son del SISTEMA, no del producto.
+// «Sistemas del producto» lista los desplegables que lo componen —código, puertas y fase—
+// y cada uno lleva a su hoja de vida en `/tecnologia/sistemas`, que es donde se registra
+// el resultado de cada puerta. Redibujarla acá sería el segundo lugar donde se especifica
+// lo mismo.
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { crearProducto } from '@/app/sig/acciones/niveles';
 import { ETIQUETA_CLASE, type ClaseNivel, type Faltante } from '@/lib/sig/niveles';
+import { etiquetaDeFase, type EstadoPuertas } from '@/lib/sig/desarrollo';
+
+export interface SistemaDelProducto {
+  id: number;
+  codigo: string;
+  nombre: string;
+  fase: string;
+  cerrada: boolean;
+  puertas: EstadoPuertas;
+}
 
 export interface ProductoFila {
   id: number;
@@ -34,6 +45,7 @@ export default function ProductosClient({
   presentes,
   faltantes,
   resumen,
+  sistemas,
   raicesDisponibles,
   personas,
 }: {
@@ -44,6 +56,7 @@ export default function ProductosClient({
   presentes: Record<string, string[]>;
   faltantes: Faltante[];
   resumen: string;
+  sistemas: SistemaDelProducto[];
   raicesDisponibles: { id: number; nombre: string; clase: ClaseNivel | null }[];
   personas: { id: number; nombre: string }[];
 }) {
@@ -147,7 +160,14 @@ export default function ProductosClient({
                 <strong className="font-semibold">Las seis puertas viven en el sistema, no en el producto.</strong>{' '}
                 La hoja de vida —fases, puertas, requisitos, pruebas, componentes y liberaciones—
                 pertenece a cada sistema desplegable. Se abre en{' '}
-                <Link href="/tecnologia/sistemas" className="font-semibold text-accent underline">
+                <Link
+                  href={
+                    sistemas.length === 1
+                      ? `/tecnologia/sistemas?s=${sistemas[0].codigo}`
+                      : '/tecnologia/sistemas'
+                  }
+                  className="font-semibold text-accent underline"
+                >
                   Hoja de vida del sistema
                 </Link>
                 , y ahí se registra el resultado de cada puerta con quién verificó y quién
@@ -173,6 +193,49 @@ export default function ProductosClient({
           </section>
 
           <aside className="flex w-full flex-none flex-col gap-3.5 xl:w-[372px]">
+            <section className="flex flex-col gap-2 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+              <Rotulo texto="Sistemas del producto" derecha={String(sistemas.length)} />
+              {sistemas.length === 0 ? (
+                <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                  Este producto no tiene sistemas registrados. Un producto sin desplegables no
+                  tiene puertas que verificar: se registran en{' '}
+                  <Link href="/tecnologia/sistemas" className="font-semibold text-accent underline">
+                    Hoja de vida del sistema
+                  </Link>
+                  .
+                </p>
+              ) : (
+                sistemas.map((x) => (
+                  <Link
+                    key={x.id}
+                    href={`/tecnologia/sistemas?s=${x.codigo}`}
+                    className="flex flex-col gap-1 rounded-campo border border-border-field px-3 py-2"
+                  >
+                    <span className="flex w-full items-center gap-2">
+                      <span className="flex-none font-mono text-9_5 font-semibold text-accent">
+                        {x.codigo}
+                      </span>
+                      <span
+                        className="ml-auto flex-none font-mono text-9 font-semibold"
+                        style={{ color: x.puertas.noSuperadas > 0 ? '#a52016' : '#0b5c44' }}
+                      >
+                        {x.puertas.resumen}
+                      </span>
+                    </span>
+                    <span className="w-full truncate text-11_5 text-primary">{x.nombre}</span>
+                    <span className="font-mono text-8_5 text-muted">
+                      {x.cerrada ? 'Hoja de vida cerrada' : etiquetaDeFase(x.fase)}
+                    </span>
+                  </Link>
+                ))
+              )}
+              {/* Por qué la hoja de vida no está en esta pantalla, dicho donde se pregunta. */}
+              <span className="mt-0.5 text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+                La hoja de vida es del sistema, no del producto. El producto agrupa; las
+                puertas, los requisitos y las pruebas pertenecen a cada sistema desplegable.
+              </span>
+            </section>
+
             <section className="flex flex-col gap-2 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
               {/* Esta lista son los PRODUCTOS, no los sistemas de uno. El lienzo tiene un
                   panel «Sistemas del producto» que es otra cosa —los desplegables que

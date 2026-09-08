@@ -160,7 +160,28 @@ export interface DatosMensual {
   /// mira hacia atrás, y esta lista es lo único accionable del correo — sin ella el líder
   /// se enteraba del mes que viene cuando ya iba tarde.
   proximoMes: { fecha: Date; titulo: string; personas: number }[];
+  /// El cierre del mes anterior, para la comparación que el lienzo pide con todas las
+  /// letras: **una frase, no un gráfico**. `null` cuando no hay con qué comparar.
+  ///
+  /// Se dice el número y la dirección, y NO el motivo. El lienzo ilustra la frase con «la
+  /// caída viene de dos lecturas que nadie acusó», que es un análisis que nadie calculó:
+  /// ponerlo sería que el correo afirme una causa que no midió.
+  mesAnterior: { anio: number; mes: number; porciento: number } | null;
   urlOperacion: string;
+}
+
+/// La frase de comparación. Devuelve cadena vacía cuando no hay nada honesto que decir.
+export function frenteAlMesAnterior(
+  actual: number | null,
+  anterior: { mes: number; porciento: number } | null,
+): string {
+  if (actual === null || anterior === null) return '';
+  const nombre = MESES[anterior.mes];
+  const delta = actual - anterior.porciento;
+  const cierre = `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} cerró en ${anterior.porciento} %.`;
+  if (delta === 0) return `${cierre} El mes se sostuvo igual.`;
+  const puntos = Math.abs(delta);
+  return `${cierre} ${delta > 0 ? 'Subió' : 'Bajó'} ${puntos} ${puntos === 1 ? 'punto' : 'puntos'}.`;
 }
 
 export function correoMensualHtml(d: DatosMensual): string {
@@ -192,6 +213,14 @@ export function correoMensualHtml(d: DatosMensual): string {
         <div style="font:400 12px/1.5 ${FUENTE};color:#6b7570">
           ${c.realizadasATiempo} de ${c.asignadas} realizadas a tiempo
         </div>
+        ${
+          frenteAlMesAnterior(c.porciento, d.mesAnterior) === ''
+            ? ''
+            : `<div style="font:400 12px/1.5 ${FUENTE};color:#6b7570;margin-top:2px">${frenteAlMesAnterior(
+                c.porciento,
+                d.mesAnterior,
+              )}</div>`
+        }
         ${barraApilada(segmentos, c.asignadas)}
       </td></tr>
     </table>

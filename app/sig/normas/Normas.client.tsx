@@ -7,6 +7,7 @@
 // de la cobertura y por eso exige motivo.
 
 import { useMemo, useState } from 'react';
+import { alternarAuditable } from '@/app/sig/acciones/normas';
 import CargarNorma from './CargarNorma.client';
 
 export interface NormaFila {
@@ -34,6 +35,25 @@ export default function NormasClient({
   totalAuditorias: number;
 }) {
   const [normaId, setNormaId] = useState<number | null>(filas[0]?.id ?? null);
+  /// El numeral que se está cambiando y el motivo que se escribe. Uno a la vez: cambiar
+  /// varios de una tanda con un solo motivo escondería cuál se apagó por qué razón.
+  const [editando, setEditando] = useState<number | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function alternar(id: number) {
+    setEnviando(true);
+    const r = await alternarAuditable(id, motivo);
+    setEnviando(false);
+    setAviso({ ok: r.ok, texto: r.mensaje });
+    // Sólo se cierra si funcionó: si el motivo era corto, lo escrito se queda para
+    // completarlo, no se pierde.
+    if (r.ok) {
+      setEditando(null);
+      setMotivo('');
+    }
+  }
   const norma = filas.find((f) => f.id === normaId) ?? filas[0];
 
   const cifras = useMemo(() => {
@@ -46,6 +66,19 @@ export default function NormasClient({
 
   return (
     <main className="flex-1 px-8 pt-7 pb-14">
+      {aviso && (
+        <p
+          className="mb-3 rounded-campo px-3 py-2 text-12"
+          style={
+            aviso.ok
+              ? { background: 'var(--hf-row-verde)', color: 'var(--hf-accent-700)' }
+              : { background: '#fdeeeb', color: '#a52016' }
+          }
+        >
+          {aviso.texto}
+        </p>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="titulo-pagina">Normas y requisitos</h1>
         <div className="flex items-center gap-2">
@@ -65,10 +98,10 @@ export default function NormasClient({
       </div>
 
       <section className="mt-5 grid grid-cols-4 gap-4">
-        <Cifra cifra={cifras.cargados} etiqueta="Numerales cargados" color="#12437f" />
-        <Cifra cifra={cifras.auditables} etiqueta="Auditables" color="#0b5c44" />
-        <Cifra cifra={cifras.auditados} etiqueta="Auditados alguna vez" color="#8a4407" />
-        <Cifra cifra={cifras.nunca} etiqueta="Nunca auditados" color="#a52016" />
+        <Cifra cifra={cifras.cargados} etiqueta="Numerales cargados" nota="en el catálogo" color="#12437f" />
+        <Cifra cifra={cifras.auditables} etiqueta="Auditables" nota="cuentan para la cobertura" color="#0b5c44" />
+        <Cifra cifra={cifras.auditados} etiqueta="Auditados alguna vez" nota="con al menos una nota" color="#8a4407" />
+        <Cifra cifra={cifras.nunca} etiqueta="Nunca auditados" nota="resaltados en la tabla" color="#a52016" />
       </section>
 
       <div className="mt-5 overflow-hidden rounded-tarjeta border border-border-field bg-surface">
@@ -93,8 +126,20 @@ export default function NormasClient({
                 <td className="px-4 py-3 font-mono text-11 text-muted">{r.numeral}</td>
                 <td className="px-4 py-3 text-primary">{r.titulo}</td>
                 <td className="px-4 py-3">
-                  <span
-                    className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditando(editando === r.id ? null : r.id);
+                      setMotivo('');
+                      setAviso(null);
+                    }}
+                    aria-expanded={editando === r.id}
+                    title={
+                      r.auditable
+                        ? 'Sacarlo de la cobertura. Exige motivo.'
+                        : 'Devolverlo a la cobertura. Exige motivo.'
+                    }
+                    className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold transition-opacity hover:opacity-80"
                     style={
                       r.auditable
                         ? { background: '#e6efe9', color: '#0b5c44' }
@@ -102,7 +147,47 @@ export default function NormasClient({
                     }
                   >
                     {r.auditable ? 'Auditable' : 'No auditable'}
-                  </span>
+                  </button>
+
+                  {editando === r.id && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {/* El motivo no es trámite: `auditable` es el denominador de la
+                          cobertura, y apagar los numerales que nadie auditó llevaría el
+                          indicador al 100 % sin auditar nada más. */}
+                      <label className="text-10_5 leading-snug text-muted [text-wrap:pretty]">
+                        {r.auditable
+                          ? 'Sale de la cobertura. ¿Por qué no aplica?'
+                          : 'Vuelve a la cobertura. ¿Por qué aplica ahora?'}
+                      </label>
+                      <input
+                        value={motivo}
+                        onChange={(e) => setMotivo(e.target.value)}
+                        placeholder="El motivo queda en la bitácora"
+                        className="entrada-campo w-full text-11_5"
+                      />
+                      <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={enviando || motivo.trim().length < 10}
+                          onClick={() => alternar(r.id)}
+                          className="rounded-campo px-2.5 py-1 text-11 font-semibold text-white disabled:opacity-50"
+                          style={{ background: 'var(--hf-brand-nav)' }}
+                        >
+                          {enviando ? 'Guardando…' : 'Confirmar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditando(null);
+                            setMotivo('');
+                          }}
+                          className="text-11 text-muted hover:underline"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2">
@@ -162,13 +247,27 @@ export default function NormasClient({
   );
 }
 
-function Cifra({ cifra, etiqueta, color }: { cifra: number; etiqueta: string; color: string }) {
+/// La NOTA no es adorno. «cuentan para la cobertura» debajo de «Auditables» es lo que hace
+/// visible el abuso posible: apagar numerales sube el porcentaje sin auditar nada, y la
+/// diferencia contra «Numerales cargados» queda a la vista de quien lea la cifra.
+function Cifra({
+  cifra,
+  etiqueta,
+  nota,
+  color,
+}: {
+  cifra: number;
+  etiqueta: string;
+  nota: string;
+  color: string;
+}) {
   return (
     <div className="flex flex-col gap-1 rounded-tarjeta bg-surface px-5 py-4" style={{ borderTop: `2px solid ${color}` }}>
       <span className="font-mono text-22 font-semibold tabular-nums" style={{ color }}>
         {cifra}
       </span>
       <span className="text-12 text-muted">{etiqueta}</span>
+      <span className="text-10_5 leading-snug text-faint">{nota}</span>
     </div>
   );
 }

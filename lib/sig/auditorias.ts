@@ -85,3 +85,47 @@ export function listarFaltantes(faltantes: readonly string[], tope = 6): string 
 export function promueveHallazgo(tipo: string): boolean {
   return tipo === 'NC' || tipo === 'OM';
 }
+// ─── Los capítulos de la norma ─────────────────────────────────────────────────────────
+
+/// El nombre de cada capítulo de la **estructura de alto nivel (Anexo SL)**.
+///
+/// No es la tabla de contenidos de ISO 9001: es la estructura ARMONIZADA que comparten
+/// todas las normas de sistemas de gestión —9001, 14001, 45001, 27001, 22301—, y por eso
+/// un solo mapa sirve para el catálogo entero en vez de uno por norma.
+///
+/// Empieza en el 4 a propósito. Los capítulos 1 a 3 son objeto y campo de aplicación,
+/// referencias normativas y términos: no contienen requisitos auditables, así que si
+/// aparecieran en la malla serían filas que nadie puede marcar.
+const NOMBRE_CAPITULO: Record<string, string> = {
+  '4': 'Contexto',
+  '5': 'Liderazgo',
+  '6': 'Planificación',
+  '7': 'Apoyo',
+  '8': 'Operación',
+  '9': 'Evaluación',
+  '10': 'Mejora',
+};
+
+/// Las normas cuyo capitulado sigue el Anexo SL. Se comprueba contra el código Y el nombre
+/// porque el catálogo se importa desde Excel y nadie garantiza cómo viene escrito.
+/// Frontera de DIGITO y no de palabra: `\b` no separa la O del 9, asi que `ISO9001`
+/// —sin espacio, que es como suele venir del Excel— no coincidia. Las miras alrededor
+/// evitan ademas que `9001` acierte dentro de `29001`.
+const ANEXO_SL = /(?<![0-9])(9001|14001|45001|27001|22301|37001|50001)(?![0-9])/;
+
+/// El nombre del capítulo, o `null` si no se puede afirmar.
+///
+/// **`null` no es un hueco: es la respuesta correcta** cuando la norma no sigue el Anexo SL.
+/// El catálogo se importa desde Excel y puede traer un decreto o una resolución, donde el
+/// capítulo 8 no es «Operación» ni nada parecido. Inventarle un nombre a la estructura de
+/// otro documento sería peor que mostrar el número: el número al menos no miente.
+export function nombreDeCapitulo(norma: { codigo: string; nombre: string }, capitulo: string): string | null {
+  if (!ANEXO_SL.test(norma.codigo) && !ANEXO_SL.test(norma.nombre)) return null;
+  return NOMBRE_CAPITULO[capitulo] ?? null;
+}
+
+/// El rótulo completo del capítulo: «8 · Operación», o «8» cuando no hay nombre que dar.
+export function rotuloDeCapitulo(norma: { codigo: string; nombre: string }, capitulo: string): string {
+  const nombre = nombreDeCapitulo(norma, capitulo);
+  return nombre === null ? capitulo : `${capitulo} · ${nombre}`;
+}

@@ -16,6 +16,7 @@ import { cerrarHojaDeVida, crearSistema, registrarPuerta } from '@/app/sig/accio
 import {
   ETIQUETA_PUERTA,
   ETIQUETA_RESULTADO_PUERTA,
+  etiquetaDeFase,
   PUERTAS,
   type EstadoPuertas,
   type Puerta,
@@ -209,7 +210,10 @@ export default function SistemasClient({
                         PII
                       </span>
                     )}
-                    <span className="ml-auto rounded-[3px] bg-subtle px-1.5 py-0.5 font-mono text-7_5 font-semibold uppercase text-muted">
+                    <span
+                      className="ml-auto rounded-[3px] bg-subtle px-1.5 py-0.5 font-mono text-7_5 font-semibold uppercase text-muted"
+                      title={x.cerrada ? 'Hoja de vida cerrada' : etiquetaDeFase(x.fase)}
+                    >
                       {x.cerrada ? 'cerrada' : x.fase}
                     </span>
                   </span>
@@ -369,7 +373,7 @@ function Identidad({ f, setAviso }: { f: FichaSistema; setAviso: (a: { ok: boole
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { etiqueta: 'Tipo', valor: f.tipo },
-          { etiqueta: 'Fase actual', valor: f.cerrada ? 'cerrada' : f.fase },
+          { etiqueta: 'Fase actual', valor: f.cerrada ? 'cerrada' : etiquetaDeFase(f.fase) },
           { etiqueta: 'Producto', valor: f.producto ?? 'sin producto' },
           { etiqueta: 'Cliente o proceso', valor: f.clienteRef ?? '—' },
           { etiqueta: 'Propietario', valor: f.propietario ?? 'sin registrar' },

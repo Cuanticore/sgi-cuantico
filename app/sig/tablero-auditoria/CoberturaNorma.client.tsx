@@ -13,6 +13,7 @@
 // se guarda, porque ya está en el numeral y un campo aparte podría contradecirlo.
 
 import { useMemo, useState } from 'react';
+import { nombreDeCapitulo } from '@/lib/sig/auditorias';
 
 export interface NormaCobertura {
   id: number;
@@ -117,6 +118,17 @@ export default function CoberturaNorma({ normas }: { normas: NormaCobertura[] })
                 >
                   capítulo {capitulo}
                 </span>
+                {/* El nombre del capítulo, cuando la norma sigue el Anexo SL. «8» no le
+                    dice nada a quien no se sabe la estructura de memoria, y esa persona es
+                    justo la que abre el tablero para entender dónde está el hueco. */}
+                {nombreDeCapitulo(norma, capitulo) !== null && (
+                  <span
+                    className="text-10 leading-tight"
+                    style={{ color: entero ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary-soft)' }}
+                  >
+                    {nombreDeCapitulo(norma, capitulo)}
+                  </span>
+                )}
                 <span
                   className="font-mono text-9_5"
                   style={{ color: entero ? 'var(--hf-danger-text)' : 'var(--hf-text-muted)' }}

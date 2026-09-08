@@ -145,12 +145,24 @@ describe('alcance ACTIVO', () => {
 });
 
 describe('alcance NIVEL_ACTIVO', () => {
-  // Declarado en el enum y sin resolver a proposito: `NivelActivo` es de REQ-SIG-06 y no
-  // existe. Devolver lista vacia se veria igual que «ya estaba todo generado».
-  it('se rechaza nombrando la dependencia que falta', () => {
+  // Declarado en el enum y sin resolver todavia. Lo que importa —y lo que esta prueba
+  // fija— es que se RECHACE CON MOTIVO en vez de devolver una lista vacia: vacio se veria
+  // igual que «ya estaba todo generado», y una obligacion que no genera nada sin decir por
+  // que es la que nadie descubre hasta la auditoria.
+  //
+  // La version anterior exigia que el motivo contuviera «REQ-SIG-06», que era la causa el
+  // dia que se escribio: la jerarquia de niveles no existia. Ya existe —`Activo.nivelId`,
+  // sembrada, y `/tecnologia/mapa` la recorre— y lo que falta ahora es decidir la
+  // semantica: si el alcance toca solo el nivel exacto o tambien sus descendientes.
+  //
+  // Fijar la PROSA del motivo hacia que la prueba defendiera una afirmacion que dejo de
+  // ser cierta. Se fija el hecho.
+  it('se rechaza con motivo, no con una lista vacia en silencio', () => {
     const r = plan({ ...anual, alcance: 'NIVEL_ACTIVO', alcanceNivelActivoId: 1 });
     expect(r.crear).toEqual([]);
-    expect(r.rechazadas[0].motivo).toContain('REQ-SIG-06');
+    expect(r.rechazadas).toHaveLength(1);
+    expect(r.rechazadas[0].motivo.trim()).not.toBe('');
+    expect(r.rechazadas[0].motivo).toContain('nivel de activo');
   });
 });
 

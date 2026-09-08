@@ -10,6 +10,8 @@ import {
   listarFaltantes,
   promueveHallazgo,
   vencidoEntrega,
+  nombreDeCapitulo,
+  rotuloDeCapitulo,
 } from '../auditorias';
 
 describe('estadoAuditoria', () => {
@@ -126,5 +128,67 @@ describe('listarFaltantes', () => {
 
   it('ninguno no deja texto colgando', () => {
     expect(listarFaltantes([])).toBe('');
+  });
+});
+
+// ─── El nombre del capítulo ────────────────────────────────────────────────────────────
+//
+// El tablero mostraba «capítulo 8» y nada más. «8» no le dice nada a quien no se sabe la
+// estructura de memoria, y esa persona es justo la que abre el tablero para entender dónde
+// está el hueco de cobertura.
+//
+// Lo que se prueba acá NO es la tabla de nombres: es que el módulo se calle cuando no puede
+// afirmar. El catálogo se importa desde Excel y puede traer un decreto, donde el capítulo 8
+// no es «Operación» ni nada parecido.
+describe('nombreDeCapitulo', () => {
+  const ISO9001 = { codigo: 'ISO9001', nombre: 'Sistemas de gestión de la calidad' };
+
+  it('nombra los capítulos de una norma con Anexo SL', () => {
+    expect(nombreDeCapitulo(ISO9001, '4')).toBe('Contexto');
+    expect(nombreDeCapitulo(ISO9001, '8')).toBe('Operación');
+    expect(nombreDeCapitulo(ISO9001, '10')).toBe('Mejora');
+  });
+
+  // La estructura de alto nivel es la MISMA en todas las normas de sistemas de gestión.
+  // Por eso hay un mapa y no uno por norma.
+  it.each([
+    ['ISO 27001', 'ISO 27001', 'Seguridad de la información'],
+    ['ISO 45001', 'ISO45001', 'Seguridad y salud en el trabajo'],
+    ['ISO 14001', 'X-14001', 'Gestión ambiental'],
+  ])('%s también sigue el Anexo SL', (_n, codigo, nombre) => {
+    expect(nombreDeCapitulo({ codigo, nombre }, '8')).toBe('Operación');
+  });
+
+  // Reconoce la norma por el nombre cuando el código viene con otra convención: el catálogo
+  // se importa desde Excel y nadie garantiza cómo lo escribieron.
+  it('reconoce la norma por el nombre si el código no la delata', () => {
+    expect(nombreDeCapitulo({ codigo: 'N-001', nombre: 'ISO 9001:2015' }, '5')).toBe('Liderazgo');
+  });
+
+  // Éste es el caso que importa: callarse vale más que inventar.
+  it('una norma ajena al Anexo SL no recibe nombres inventados', () => {
+    const decreto = { codigo: 'DEC-1072', nombre: 'Decreto Único Reglamentario del Sector Trabajo' };
+    expect(nombreDeCapitulo(decreto, '8')).toBeNull();
+  });
+
+  // Los capítulos 1 a 3 son objeto, referencias y términos: no traen requisitos auditables.
+  it('los capítulos sin requisitos auditables no tienen nombre', () => {
+    expect(nombreDeCapitulo(ISO9001, '1')).toBeNull();
+    expect(nombreDeCapitulo(ISO9001, '3')).toBeNull();
+  });
+
+  it('un capítulo desconocido tampoco', () => {
+    expect(nombreDeCapitulo(ISO9001, '99')).toBeNull();
+  });
+});
+
+describe('rotuloDeCapitulo', () => {
+  it('junta número y nombre cuando lo hay', () => {
+    expect(rotuloDeCapitulo({ codigo: 'ISO9001', nombre: 'Calidad' }, '8')).toBe('8 · Operación');
+  });
+
+  // Sin nombre devuelve el número pelado: el número al menos no miente.
+  it('sin nombre devuelve el número solo', () => {
+    expect(rotuloDeCapitulo({ codigo: 'DEC-1072', nombre: 'Decreto' }, '8')).toBe('8');
   });
 });

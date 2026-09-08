@@ -11,7 +11,7 @@ import MapaClient from './Mapa.client';
 export const dynamic = 'force-dynamic';
 
 export default async function MapaPage() {
-  const [riesgos, niveles] = await Promise.all([
+  const [riesgos, niveles, escalaProbabilidad, escalaImpacto] = await Promise.all([
     prisma.riesgoOrganizacional.findMany({
       where: { activo: true },
       include: {
@@ -22,6 +22,10 @@ export default async function MapaPage() {
       },
     }),
     prisma.nivelRiesgo.findMany({ orderBy: { minimo: 'asc' } }),
+    // Los NOMBRES de los dos ejes. Estaban en la base desde el primer día y la pantalla
+    // dibujaba «5», «4», «3»: quien no se sabe la escala de memoria no puede leer el mapa.
+    prisma.escalaProbabilidad.findMany({ select: { valor: true, etiqueta: true } }),
+    prisma.escalaImpactoRiesgo.findMany({ select: { valor: true, etiqueta: true } }),
   ]);
 
   // La casilla del mapa: la malla es de enteros del 1 al 5, y el residual sale fraccionario
@@ -88,6 +92,8 @@ export default async function MapaPage() {
       inherente={inherente}
       residual={residual}
       niveles={niveles.map((n) => ({ minimo: n.minimo, etiqueta: n.etiqueta, color: n.color }))}
+      escalaProbabilidad={escalaProbabilidad}
+      escalaImpacto={escalaImpacto}
       total={riesgos.length}
       detalle={detalle}
     />

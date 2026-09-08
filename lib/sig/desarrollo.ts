@@ -16,6 +16,33 @@ export type Severidad = 'CRITICOS' | 'ALTOS' | 'MEDIOS' | 'BAJOS';
 
 export const PUERTAS: Puerta[] = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 
+export type Fase = 'F0' | 'F1' | 'F2' | 'F3' | 'F4' | 'F5' | 'F6' | 'F7';
+
+export const FASES: Fase[] = ['F0', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7'];
+
+/// El nombre de cada fase, que hasta acá no existía en ninguna parte: las pantallas
+/// mostraban el código crudo del enum. «F4» no le dice nada a quien no se sabe PRO-TEC-04
+/// de memoria, y esa persona es justamente la que abre la hoja de vida para entenderla.
+///
+/// F3 y F6 no tienen puerta —llevan controles continuos, no un punto de corte—, pero sí son
+/// fases: un sistema vive en F6 casi toda su vida útil.
+export const ETIQUETA_FASE: Record<Fase, string> = {
+  F0: 'F0 · Concepción',
+  F1: 'F1 · Requisitos',
+  F2: 'F2 · Diseño y arquitectura',
+  F3: 'F3 · Construcción',
+  F4: 'F4 · Verificación',
+  F5: 'F5 · Despliegue',
+  F6: 'F6 · Operación',
+  F7: 'F7 · Retiro',
+};
+
+/// Una fase que no reconocemos se muestra tal cual llegó. Inventarle un nombre a un código
+/// que el enum todavía no tiene sería peor que mostrar el código.
+export function etiquetaDeFase(fase: string): string {
+  return ETIQUETA_FASE[fase as Fase] ?? fase;
+}
+
 /// De más grave a menos. El orden importa: «bloquea desde ALTOS» significa altos Y críticos.
 const ORDEN_SEVERIDAD: Severidad[] = ['CRITICOS', 'ALTOS', 'MEDIOS', 'BAJOS'];
 

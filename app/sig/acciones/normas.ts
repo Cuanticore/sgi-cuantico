@@ -14,6 +14,7 @@
 // el título de uno ya auditado reescribe lo que esas notas señalan. Eso no se hace sin que
 // alguien lo vea antes.
 
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta } from '@/lib/sgsi/bitacora';
 import {
@@ -208,6 +209,64 @@ export async function importarNormaExcel(datos: FormData): Promise<ResultadoImpo
         (sobran > 0 ? ` Quedaron ${sobran} fila(s) con errores sin importar.` : ''),
       agregados,
       actualizados,
+    };
+  });
+}
+
+/// Marcar un numeral como no auditable, o devolverlo a la cobertura.
+///
+/// **Exige motivo, y no es burocracia.** `auditable` es el DENOMINADOR de la cobertura de la
+/// norma: apagar los numerales que nadie auditó llevaría el indicador al 100 % sin haber
+/// auditado nada más. La pantalla ya deja el abuso a la vista —«Numerales cargados» al lado
+/// de «Auditables», y la diferencia se lee de un golpe—, pero quien lo hace tiene que dejar
+/// dicho por qué, y eso vive en la bitácora, no en la memoria de nadie.
+///
+/// No hay una acción para «apagar» y otra para «encender»: es el mismo hecho leído en dos
+/// sentidos, y partirlo en dos daría dos lugares donde escribir la misma regla.
+export async function alternarAuditable(requisitoId: number, motivo: string): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('sgsi:escribir');
+
+    const requisito = await prisma.requisitoNorma.findUnique({
+      where: { id: requisitoId },
+      include: { norma: { select: { codigo: true } } },
+    });
+    if (!requisito) return { ok: false, mensaje: 'El numeral no existe.' };
+    exigirId(requisito.id, 'el numeral');
+
+    const razon = motivo.trim();
+    if (razon.length < 10) {
+      return {
+        ok: false,
+        mensaje:
+          'Decí por qué cambia: `auditable` es el denominador de la cobertura, y el ' +
+          'porcentaje se relee contra el nuevo.',
+      };
+    }
+
+    const nuevo = !requisito.auditable;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.requisitoNorma.update({ where: { id: requisito.id }, data: { auditable: nuevo } });
+      await registrar(tx, autor, [
+        {
+          tabla: 'requisito_norma',
+          registroId: `${requisito.norma.codigo} ${requisito.numeral}`,
+          campo: 'auditable',
+          anterior: requisito.auditable ? 'Auditable' : 'No auditable',
+          nuevo: nuevo ? 'Auditable' : 'No auditable',
+          motivo: razon,
+        },
+      ]);
+    });
+
+    revalidatePath('/sig/normas');
+    // El tablero lee la misma cobertura: sin esto seguiría mostrando el denominador viejo.
+    revalidatePath('/sig/tablero-auditoria');
+
+    return {
+      ok: true,
+      mensaje: `${requisito.numeral} quedó ${nuevo ? 'auditable' : 'fuera de la cobertura'}.`,
     };
   });
 }

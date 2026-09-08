@@ -199,7 +199,35 @@ export async function enviarNotificacionesComo(autor: string): Promise<Resultado
       // El mensual del líder del SIG (todas las áreas) se envía a la dirección del
       // entorno: el grupo del Directorio no es un correo (decisión declarada).
       const liderSigCorreo = process.env.SGI_CORREO_LIDER_SIG ?? '';
-      const plan = planificarMensuales(filasMensuales, areasConLider, liderSigCorreo, mesCerrado);
+      // El mes anterior sale del MISMO arreglo ya en memoria: la consulta de arriba no
+      // tiene filtro de fecha, asi que comparar no cuesta una consulta mas.
+      const previoAlCerrado = new Date(Date.UTC(mesCerrado.anio, mesCerrado.mes - 1, 1));
+      const filasMesAnterior = asignaciones
+        .filter(
+          (a) =>
+            a.fechaLimite.getUTCFullYear() === previoAlCerrado.getUTCFullYear() &&
+            a.fechaLimite.getUTCMonth() === previoAlCerrado.getUTCMonth(),
+        )
+        .map((a) => ({
+          id: a.id,
+          tipo: (a.contenido ?? a.obligacion?.contenido)?.tipo ?? 'TAREA',
+          codigo: (a.contenido ?? a.obligacion?.contenido)?.codigo ?? '—',
+          titulo: (a.contenido ?? a.obligacion?.contenido)?.titulo ?? a.titulo ?? 'Puntual',
+          fechaLimite: a.fechaLimite,
+          estado: a.estado,
+          correo: correoDe(a.personaId),
+          obligacionTitulo: a.obligacion?.contenido.titulo ?? null,
+          areaId: areaDe.get(a.personaId) ?? null,
+          fechaCierre: a.fechaCierre,
+          cerradaPor: a.cerradaPor,
+        }));
+      const plan = planificarMensuales(
+        filasMensuales,
+        areasConLider,
+        liderSigCorreo,
+        mesCerrado,
+        filasMesAnterior,
+      );
       const periodo = `${mesCerrado.anio}-${String(mesCerrado.mes + 1).padStart(2, '0')}`;
       for (const [correo, r] of plan) {
         if (!correo) continue;
@@ -219,6 +247,7 @@ export async function enviarNotificacionesComo(autor: string): Promise<Resultado
             areaNombre: r.areaNombre,
             mes: r.mes,
             cumplimiento: r.cumplimiento,
+            mesAnterior: r.mesAnterior,
             deuda: r.deuda,
             peorCumplimiento: r.peorCumplimiento,
             cierresAdministrativos: r.cierresAdministrativos,

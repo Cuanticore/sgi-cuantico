@@ -14,15 +14,24 @@
 
 import { periodosHasta } from './periodos';
 import type { Periodicidad } from '@prisma/client';
-import type { Anclaje } from './generacion';
+import type { AlcanceObligacion } from '@prisma/client';
 
-export type AlcanceObligacion =
-  | 'PERSONA'
-  | 'CARGO'
-  | 'AREA'
-  | 'TODOS'
-  | 'ACTIVO'
-  | 'TIPO_ACTIVO';
+/// El predicado del alcance por activo se IMPORTA. Vivía escrito tres veces —acá, en
+/// `generacion.ts` y en línea dentro de `NuevaObligacion.tsx`— y a dos de las tres les
+/// faltaba `NIVEL_ACTIVO`. La copia de `generacion.ts` es la que estaba completa, y ahora
+/// es la única.
+import { esAlcancePorActivo, type Anclaje } from './generacion';
+
+/// El alcance sale del ENUM de Prisma, no de una union escrita a mano.
+///
+/// Este modulo declaraba su propia union con seis valores mientras el enum tenia siete: le
+/// faltaba `NIVEL_ACTIVO`. Y como el tipo era propio, **el compilador nunca aviso**: los
+/// `switch` de acá se veian exhaustivos contra una lista incompleta, asi que la prevision
+/// devolvia cero para ese alcance en silencio mientras el generador si lo conocia.
+///
+/// Importado del enum, agregar un valor al esquema rompe la compilacion acá — que es
+/// exactamente lo que uno quiere de un tipo.
+export type { AlcanceObligacion };
 
 /// Un activo vigente con su tipo y su propietario (que es un CARGO, no una persona). Es lo
 /// que la previsión necesita para contar el alcance por activo (D3).
@@ -107,6 +116,7 @@ export function personasAlcanzadas(
     // dirigida al cargo que lo posee. `activosAlcanzados` hace esa cuenta.
     case 'ACTIVO':
     case 'TIPO_ACTIVO':
+    case 'NIVEL_ACTIVO':
       return [];
   }
 }
@@ -128,9 +138,7 @@ export function activosAlcanzados(
   }
 }
 
-function esPorActivo(alcance: AlcanceObligacion): boolean {
-  return alcance === 'ACTIVO' || alcance === 'TIPO_ACTIVO';
-}
+
 
 export function preverGeneracion(
   entrada: EntradaPrevision,
@@ -182,7 +190,7 @@ export function preverGeneracion(
   // por activo vigente». Un activo cuyo cargo propietario lo ocupan dos personas produce
   // dos, igual que el alcance por cargo.
   const cargosOcupados = new Set(censo.filter((p) => p.activa).map((p) => p.cargoId));
-  const asignacionesPorPeriodo = esPorActivo(entrada.alcance)
+  const asignacionesPorPeriodo = esAlcancePorActivo(entrada.alcance)
     ? activosDelAlcance.reduce((total, a) => {
         if (a.propietarioId === null || !cargosOcupados.has(a.propietarioId)) return total + 1;
         return (
@@ -211,13 +219,13 @@ export function preverGeneracion(
     .slice(0, 4)
     .map((p) => p.fechaLimite.toISOString().slice(0, 10));
 
-  if (!esPorActivo(entrada.alcance) && alcanzadas.length === 0) {
+  if (!esAlcancePorActivo(entrada.alcance) && alcanzadas.length === 0) {
     avisos.push(
       'el alcance no resuelve a ninguna persona activa: la obligación se crea y no genera nada ' +
         'hasta que alguien entre en ese alcance',
     );
   }
-  if (esPorActivo(entrada.alcance) && activosDelAlcance.length === 0) {
+  if (esAlcancePorActivo(entrada.alcance) && activosDelAlcance.length === 0) {
     avisos.push(
       'el alcance no resuelve a ningún activo vigente: la obligación se crea y no genera nada ' +
         'hasta que entre uno',

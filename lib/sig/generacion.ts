@@ -153,14 +153,20 @@ function resolverAlcance(
       return soloPersonas(activas);
 
     case 'NIVEL_ACTIVO':
-      // Declarado en el enum y sin resolver a propósito: `NivelActivo` es de REQ-SIG-06 y
-      // todavía no existe. Se RECHAZA con motivo en vez de devolver una lista vacía, que
-      // se vería igual que «ya estaba todo generado».
+      // Declarado en el enum y sin resolver todavía. **El motivo cambió y el mensaje estaba
+      // viejo**: decía que `NivelActivo` «todavía no existe», y existe desde REQ-SIG-06 —
+      // `Activo.nivelId` apunta a la jerarquía, está sembrada y `/tecnologia/mapa` la
+      // recorre. Lo que falta es DECIDIR la semántica: si un alcance por nivel toca sólo
+      // los activos de ese nivel exacto o también los de sus descendientes. Los tres grados
+      // forman un árbol, y las dos lecturas dan conteos muy distintos.
+      //
+      // Se RECHAZA con motivo en vez de devolver una lista vacía, que se vería igual que
+      // «ya estaba todo generado».
       return {
         destinatarios: [],
         rechazo:
-          'el alcance por nivel de activo necesita la jerarquía `NivelActivo` (REQ-SIG-06), ' +
-          'que todavía no existe',
+          'el alcance por nivel de activo no está resuelto: falta decidir si toca sólo el ' +
+          'nivel exacto o también sus descendientes',
       };
 
     case 'ACTIVO':

@@ -25,9 +25,16 @@ import {
   preverGeneracion,
   type ActivoDelInventario,
   type PersonaDelCenso,
+  type AlcanceObligacion,
 } from '@/lib/sig/prevision';
+import { esAlcancePorActivo } from '@/lib/sig/generacion';
 
-type Alcance = 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS' | 'ACTIVO' | 'TIPO_ACTIVO';
+/// Los alcances que esta pantalla puede OFRECER, derivados del enum con la exclusion
+/// escrita. Era una union a mano con los mismos seis valores, y por eso `NIVEL_ACTIVO`
+/// nunca se noto que faltaba. Excluido a proposito: la resolucion de ese alcance no esta
+/// decidida —ver el rechazo en `resolverAlcance`—, y ofrecerlo crearia obligaciones que no
+/// generan nada.
+type Alcance = Exclude<AlcanceObligacion, 'NIVEL_ACTIVO'>;
 type Periodicidad = 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
 
 export interface CatalogosObligacion {
@@ -89,7 +96,9 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
   // La previsión se recalcula con cada tecla, como el panel de riesgos: el punto es ver el
   // efecto de la decisión mientras se toma, no después de guardarla.
   // Los dos alcances por activo cambian la unidad de la prevision y el texto de la ayuda.
-  const porActivo = alcance === 'ACTIVO' || alcance === 'TIPO_ACTIVO';
+  // Cuarta copia del mismo predicado, ahora importada. A esta le faltaba `NIVEL_ACTIVO`
+  // igual que a la de `prevision.ts`.
+  const porActivo = esAlcancePorActivo(alcance);
 
   const prevision = useMemo(
     () =>

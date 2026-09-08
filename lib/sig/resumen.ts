@@ -134,21 +134,57 @@ export interface ResumenMensual {
   deuda: { cantidad: number; masAntiguaDias: number | null };
   peorCumplimiento: { codigo: string; titulo: string; porciento: number | null }[];
   cierresAdministrativos: number;
+  /// El cierre del mes ANTERIOR, para la comparacion de una frase que pide el lienzo.
+  /// `null` cuando ese mes no tiene nada medible: «no se puede comparar» y «cerro en 0 %»
+  /// no son lo mismo.
+  mesAnterior: { anio: number; mes: number; porciento: number } | null;
 }
 
 /// El mensual (decisión 3): líderes de proceso por su área, y el líder del SIG con
 /// todas. `asignaciones` trae solo las del mes que cerró, con el área de la persona
 /// y su obligación resuelta; el cumplimiento, la deuda y los cierres administrativos
 /// se calculan con las mismas reglas que la barra de Obligaciones (nunca contradicen).
+/// El mes anterior al cerrado. Se calcula con `Date.UTC` y no restándole 1 al número de
+/// mes: en enero eso daría −1, que es el defecto que ya dejó al resumen de diciembre —el que
+/// cierra el año— sin salir nunca.
+function mesPrevio(mes: { anio: number; mes: number }): { anio: number; mes: number } {
+  const d = new Date(Date.UTC(mes.anio, mes.mes - 1, 1));
+  return { anio: d.getUTCFullYear(), mes: d.getUTCMonth() };
+}
+
 export function planificarMensuales(
   asignaciones: readonly TareaMensual[],
   areas: readonly AreaMensual[],
   liderSigCorreo: string,
   mesCerrado: { anio: number; mes: number },
+  /// Las del mes ANTERIOR, para la única comparación que el lienzo pide: una frase, no un
+  /// gráfico. Sin ellas el resumen sigue saliendo — la comparación queda en `null` y la
+  /// frase no se dibuja. Es opcional a propósito: un correo sin comparación es útil, y uno
+  /// que no sale porque faltó un dato accesorio no le sirve a nadie.
+  asignacionesMesAnterior: readonly TareaMensual[] = [],
 ): Map<string, ResumenMensual> {
   const resultado = new Map<string, ResumenMensual>();
+  const anterior = mesPrevio(mesCerrado);
 
-  const resumenDe = (nombre: string, filas: readonly TareaMensual[]): ResumenMensual => {
+  const porcientoDe = (filas: readonly TareaMensual[]): number | null => {
+    if (filas.length === 0) return null;
+    return cumplimientoDePeriodo(
+      filas.map((a) => ({
+        id: a.id,
+        estado: a.estado as AsignacionIndicador['estado'],
+        fechaLimite: a.fechaLimite,
+        fechaCierre: a.fechaCierre,
+        personaId: 0,
+        cerradaPor: a.cerradaPor,
+      })),
+    ).porciento;
+  };
+
+  const resumenDe = (
+    nombre: string,
+    filas: readonly TareaMensual[],
+    filasAnteriores: readonly TareaMensual[],
+  ): ResumenMensual => {
     const indicadores: AsignacionIndicador[] = filas.map((a) => ({
       id: a.id,
       estado: a.estado as AsignacionIndicador['estado'],
@@ -178,6 +214,7 @@ export function planificarMensuales(
       }))
       .sort((x, y) => (x.porciento ?? 0) - (y.porciento ?? 0))
       .slice(0, 3);
+    const porcientoAnterior = porcientoDe(filasAnteriores);
     return {
       areaNombre: nombre,
       mes: mesCerrado,
@@ -185,11 +222,15 @@ export function planificarMensuales(
       deuda,
       peorCumplimiento: peor,
       cierresAdministrativos: cierres,
+      // Sin mes anterior medible no hay comparación. `null` y no cero: «no se puede
+      // comparar» y «cerró en 0 %» son dos cosas distintas, y confundirlas es cómo un
+      // correo termina anunciando una caída que nunca ocurrió.
+      mesAnterior: porcientoAnterior === null ? null : { ...anterior, porciento: porcientoAnterior },
     };
   };
 
   if (liderSigCorreo) {
-    resultado.set(liderSigCorreo, resumenDe('Todas las áreas', asignaciones));
+    resultado.set(liderSigCorreo, resumenDe('Todas las áreas', asignaciones, asignacionesMesAnterior));
   }
 
   for (const area of areas) {
@@ -204,6 +245,9 @@ export function planificarMensuales(
       resumenDe(
         area.nombre,
         asignaciones.filter((a) => a.areaId === area.id),
+        // El mes anterior tambien acotado al area: comparar el area contra la organizacion
+        // entera seria la misma fuga que el filtro de arriba vino a cerrar.
+        asignacionesMesAnterior.filter((a) => a.areaId === area.id),
       ),
     );
   }
@@ -214,8 +258,4 @@ export function planificarMensuales(
 /// La fecha de cierre del mes (último día), para calcular la deuda contra el mes.
 function mesCierre(mes: { anio: number; mes: number }): Date {
   return new Date(Date.UTC(mes.anio, mes.mes + 1, 0));
-}
-
-function diaDe(fecha: Date): number {
-  return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }

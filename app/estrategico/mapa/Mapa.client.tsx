@@ -43,6 +43,16 @@ const COLOR_CASILLA: Record<string, { bg: string; fg: string }> = {
 const FILAS = [5, 4, 3, 2, 1];
 const COLUMNAS = [1, 2, 3, 4, 5];
 
+/// El rótulo de un eje: «Muy alta (5)». El número se queda porque el mapa se lee también
+/// como una matriz —«P 4 × I 5 = 20»— y quitarlo obligaría a contar filas para ubicarse.
+///
+/// Un valor que el catálogo no tiene se muestra como número solo. No se aproxima: en una
+/// escala de riesgo, nombrar de más es peor que no nombrar.
+function rotuloDeEje(escala: readonly { valor: number; etiqueta: string }[], valor: number): string {
+  const nivel = escala.find((e) => e.valor === valor);
+  return nivel === undefined ? String(valor) : `${nivel.etiqueta} (${valor})`;
+}
+
 /// Un decimal, y sin el `.0` cuando es entero: «1,2» y «3», no «1.20» y «3.00».
 function cifra(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
@@ -52,12 +62,19 @@ export default function MapaClient({
   inherente,
   residual,
   niveles,
+  escalaProbabilidad,
+  escalaImpacto,
   total,
   detalle,
 }: {
   inherente: Celdas;
   residual: Celdas;
   niveles: { minimo: number; etiqueta: string; color: string }[];
+  /// Los nombres de los dos ejes, del catálogo. Vienen de `escala_probabilidad` y
+  /// `escala_impacto_riesgo`: la escala es la metodología de la organización, no una
+  /// constante del código, y renombrar un nivel ahí lo cambia en el mapa.
+  escalaProbabilidad: { valor: number; etiqueta: string }[];
+  escalaImpacto: { valor: number; etiqueta: string }[];
   total: number;
   detalle: RiesgoDetalle[];
 }) {
@@ -148,8 +165,11 @@ export default function MapaClient({
             <div className="flex flex-1 flex-col gap-1.5">
               {FILAS.map((p) => (
                 <div key={p} className="flex flex-1 gap-1.5">
-                  <span className="flex w-[74px] flex-none items-center justify-end pr-1 font-mono text-9_5 text-muted">
-                    {p}
+                  <span
+                    className="flex w-[112px] flex-none items-center justify-end pr-1 text-right text-9_5 leading-tight text-muted"
+                    title={`Probabilidad ${rotuloDeEje(escalaProbabilidad, p)}`}
+                  >
+                    {rotuloDeEje(escalaProbabilidad, p)}
                   </span>
                   {COLUMNAS.map((i) => {
                     const clave = `${p}-${i}`;
@@ -190,10 +210,14 @@ export default function MapaClient({
               ))}
 
               <div className="mt-0.5 flex gap-1.5">
-                <span className="w-[74px] flex-none" />
+                <span className="w-[112px] flex-none" />
                 {COLUMNAS.map((i) => (
-                  <span key={i} className="flex-1 text-center font-mono text-9_5 text-muted">
-                    {i}
+                  <span
+                    key={i}
+                    className="flex-1 text-center text-9_5 leading-tight text-muted"
+                    title={`Impacto ${rotuloDeEje(escalaImpacto, i)}`}
+                  >
+                    {rotuloDeEje(escalaImpacto, i)}
                   </span>
                 ))}
               </div>
@@ -229,8 +253,11 @@ export default function MapaClient({
             </>
           ) : (
             <>
+              {/* Con nombre y no con numero: quien abre el panel quiere leer la casilla,
+                  no traducirla. El numero sigue en la linea de abajo, que es la aritmetica. */}
               <span className="text-14_5 font-semibold text-primary">
-                Probabilidad {sp} · impacto {si}
+                Probabilidad {rotuloDeEje(escalaProbabilidad, sp)} · impacto{' '}
+                {rotuloDeEje(escalaImpacto, si)}
               </span>
               <span className="flex items-center gap-2">
                 <span
@@ -243,7 +270,7 @@ export default function MapaClient({
                   {nivel?.etiqueta}
                 </span>
                 <span className="font-mono text-11_5 text-muted">
-                  {sp} × {si} = {valor} · {seleccionados.length} registro(s)
+                  P {sp} × I {si} = {valor} · {seleccionados.length} registro(s)
                 </span>
               </span>
             </>

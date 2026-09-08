@@ -13,6 +13,7 @@ import {
   primerNombre,
   textoDePlazo,
   type LineaCorreo,
+  frenteAlMesAnterior,
 } from '../correos';
 
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
@@ -47,6 +48,7 @@ const MENSUAL = {
     { fecha: d('2026-09-05'), titulo: 'Conciliación bancaria de agosto', personas: 1 },
     { fecha: d('2026-09-15'), titulo: 'Inducción y reinducción del SGC', personas: 34 },
   ],
+  mesAnterior: null,
   urlOperacion: 'https://sig.cuantico.com/sig/obligaciones',
 };
 
@@ -271,5 +273,67 @@ describe('correoMensualHtml · lo que vence el mes siguiente', () => {
   it('sin nada el mes que viene no dibuja la seccion', () => {
     const h = correoMensualHtml({ ...MENSUAL, proximoMes: [] });
     expect(h).not.toContain('Vence en');
+  });
+});
+
+// ─── La comparación con el mes anterior ────────────────────────────────────────────────
+//
+// El lienzo la pide con todas las letras y anota por qué: «es una frase, no un gráfico».
+// Lo que se prueba acá es que la frase no afirme de más. Un correo que anuncia una caída
+// que no ocurrió —o que dice «cerró en 0 %» cuando el mes anterior no tenía nada medible—
+// destruye la confianza en todos los demás números del mismo correo.
+describe('frenteAlMesAnterior', () => {
+  it('sin mes anterior no dice nada', () => {
+    expect(frenteAlMesAnterior(82, null)).toBe('');
+  });
+
+  // `null` es «no se puede medir», no «cero». Tratarlos igual convertiría un mes sin datos
+  // en una caída de 82 puntos.
+  it('sin porcentaje actual tampoco: no hay con qué comparar', () => {
+    expect(frenteAlMesAnterior(null, { mes: 6, porciento: 94 })).toBe('');
+  });
+
+  it('la caída dice cuánto bajó, en puntos', () => {
+    const f = frenteAlMesAnterior(82, { mes: 6, porciento: 94 });
+    expect(f).toContain('Julio cerró en 94 %.');
+    expect(f).toContain('Bajó 12 puntos.');
+  });
+
+  it('la subida se dice igual de claro', () => {
+    expect(frenteAlMesAnterior(94, { mes: 6, porciento: 82 })).toContain('Subió 12 puntos.');
+  });
+
+  it('un solo punto va en singular', () => {
+    expect(frenteAlMesAnterior(83, { mes: 6, porciento: 82 })).toContain('Subió 1 punto.');
+  });
+
+  it('sin cambio no inventa una tendencia', () => {
+    const f = frenteAlMesAnterior(82, { mes: 6, porciento: 82 });
+    expect(f).toContain('El mes se sostuvo igual.');
+    expect(f).not.toContain('Subió');
+    expect(f).not.toContain('Bajó');
+  });
+
+  // El correo NO explica la causa. El lienzo ilustra la frase con «la caída viene de dos
+  // lecturas que nadie acusó», y eso es un análisis que nadie calculó: ponerlo sería que el
+  // correo afirme una causa que no midió.
+  it('no inventa el motivo de la variación', () => {
+    const f = frenteAlMesAnterior(82, { mes: 6, porciento: 94 });
+    expect(f).not.toMatch(/viene de|se debe a|porque/i);
+  });
+});
+
+describe('correoMensualHtml · la comparación en el cuerpo', () => {
+  it('sin mes anterior no dibuja la línea', () => {
+    const h = correoMensualHtml({ ...MENSUAL, mesAnterior: null });
+    expect(h).not.toContain('cerró en');
+  });
+
+  it('con mes anterior la dibuja junto al cumplimiento', () => {
+    const h = correoMensualHtml({
+      ...MENSUAL,
+      mesAnterior: { anio: 2026, mes: 6, porciento: 94 },
+    });
+    expect(h).toContain('Julio cerró en 94 %.');
   });
 });
