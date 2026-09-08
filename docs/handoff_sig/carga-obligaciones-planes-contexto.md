@@ -3,12 +3,13 @@
 | Campo | Contenido |
 |---|---|
 | **Código** | REQ-SIG-17 · carga inicial del SIG |
-| **Versión** | 1.0 |
+| **Versión** | 1.1 — primera carga de prueba |
 | **Fecha** | 2026-09-08 |
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Fuentes funcionales** | `1. Cronograma SGC.xlsx` · `FOR-CAL-03 Formato Control de planes de Acción.xlsx` · `Consolidado estado planes de acción.xlsx` · `Aprobación PESTEL.docx` |
-| **Estado** | D-1 y D-2 **cerradas por defecto** (§9) · D-3 a D-7 **abiertas** · listo para ejecutar el bloque A |
+| **Libro de carga** | **`docs/handoff_sig/carga-obligaciones-v1.xlsx`** — las 22 filas de contenido y las 27 de obligación, ya derivadas y revisables (§4.7) |
+| **Estado** | Bloque A **listo para ejecutar**. D-1 y D-2 cerradas · D-3 a D-6 con **valor provisional aplicado** para la carga de prueba · D-7 abierta (§9) |
 
 ---
 
@@ -143,7 +144,8 @@ El hueco de abril de 2026 en las nueve filas de indicadores **no es una excepci�
 |---:|---|
 | **22** | `ContenidoSig` — 30 actividades menos las 8 que absorbe el contenido de indicadores |
 | **27** | `Obligacion` — 30 menos las 3 sin periodicidad derivable (G-8) |
-| **25** | de esas 27, las que entran en la primera corrida: las filas 26 y 31 esperan a **D-3** |
+
+Las 27 entran en la primera corrida. Las filas 26 y 31 —la malla irregular y la bimestral— entran con el valor provisional de **D-3**, no bloqueadas: la carga es de prueba y una obligación con periodicidad discutible enseña más que una obligación ausente.
 
 `ContenidoSig`:
 
@@ -214,6 +216,25 @@ Las tres personas se conocen por el acta del 22/04/2026: **Daniel Medina** (CEO)
 | **G-6** | `Periodicidad` no tiene `BIMESTRAL` y el Comité de Calidad lo es (AGO, OCT / FEB, ABR, JUN) | **Bloquea la fila 31** hasta D-3 |
 | **G-7** | La fila 26 marca dos rachas de meses consecutivos (OCT–NOV 2025, ABR–JUN 2026): no hay periodo | **Bloquea la fila 26** hasta D-3 |
 | **G-8** | Las filas 23, 24 y 30 no tienen ninguna marca de planeado | Se cargan como `ContenidoSig` sin `Obligacion`. Son contenido real; lo que falta es la frecuencia |
+
+### 4.7 El libro de carga
+
+Todo lo anterior está resuelto fila por fila en **`docs/handoff_sig/carga-obligaciones-v1.xlsx`**. El importador lee de ahí; este documento explica por qué cada celda dice lo que dice.
+
+| Hoja | Filas | Contenido |
+|---|---:|---|
+| `Leeme` | — | Qué revisar, en qué orden, y las cifras que deben cuadrar |
+| `Contenidos` | 22 | Una fila por `ContenidoSig`, con su clave, tipo, título, descripción textual y documento remapeado |
+| `Obligaciones` | 27 | Una fila por `Obligacion`, con alcance, destino, periodicidad, plazos y responsable |
+| `Cargos` | 7 | El mapeo etiqueta→`CargoResponsable`, con los dos que hay que crear |
+| `Areas` | 9 | Proceso del cronograma → prefijo y nombre de `Area` |
+| `Sin obligacion` | 3 | Las tres actividades que entran como contenido y no generan obligación, con el motivo |
+| `Decisiones` | 7 | D-1 a D-7 con el valor aplicado en esta carga |
+| `Fuente` | 30 | Las 30 actividades **leídas del cronograma**, con su malla de planeado y ejecutado |
+
+Dos cosas sobre cómo leerlo. La columna `CLAVE` (`C01`…`C22`, `O01`…`O27`) **no es el código del contenido**: existe solo para enlazar las hojas durante la carga, porque `ContenidoSig.codigo` lo emite el contador atómico. Y la hoja `Fuente` no se retipeó: se extrae del cronograma en cada regeneración, así que si alguien actualiza el libro original, la comparación entre lo que dice la fuente y lo que se derivó sigue siendo válida.
+
+**Lo primero que hay que revisar son `PLAZO_DIAS` y `DIAS_AVISO`.** Son las dos únicas columnas del libro que no salen de ningún dato: son la regla de D-6, razonada a partir de la periodicidad. Todo lo demás es rastreable a una celda del cronograma.
 
 ---
 
@@ -294,9 +315,10 @@ Es el resultado correcto, no un fracaso: la cabecera con su acta es lo que un au
 
 ```
  0  Sincronizar Directorio (Graph)        precondición dura · sin Persona no hay nada
- 1  CargoResponsable · alta               «Profesional de Calidad y Procesos» (D-4)
- 2  ContenidoSig  (22)  + VersionContenido (22)
- 3  Obligacion    (27)                    ← 25 limpias, 2 esperan D-3
+ 1  CargoResponsable · 2 altas            «Profesional de Calidad y Procesos» (D-4)
+                                          «Líder de proceso» (D-5)
+ 2  ContenidoSig  (22)  + VersionContenido (22)     hoja «Contenidos»
+ 3  Obligacion    (27)                              hoja «Obligaciones»
  4  AnalisisContexto (2)                  independiente de 1–3, puede ir en paralelo
  5  Generar asignaciones                  idempotente · al final · siempre
 ```
@@ -310,8 +332,8 @@ El bloque B **no tiene paso**: entra cuando D-7 se cierre.
 ## 8 · Criterios de aceptación
 
 1. `select count(*) from contenido_sig` → **22**. Ninguno con `titulo` vacío; los 22 con `procedimientoOrigen` no nulo citando `FOR-CAL-11` y su numeral.
-2. `select count(*) from obligacion where activa` → **25** (27 menos las dos de D-3).
-3. **Reparto por periodicidad:** 14 MENSUAL · 8 ANUAL · 2 TRIMESTRAL · 1 SEMESTRAL. Cualquier otra cifra es un error de derivación, no una interpretación.
+2. `select count(*) from obligacion where activa` → **27**.
+3. **Reparto por periodicidad:** 14 MENSUAL · 8 ANUAL · 4 TRIMESTRAL · 1 SEMESTRAL. Cualquier otra cifra es un error de derivación, no una interpretación. (De las 4 trimestrales, dos son el valor provisional de D-3: la irregular de la fila 26 y la bimestral de la 31.)
 4. **Las nueve de indicadores comparten `contenidoId`** y tienen nueve `alcanceAreaId` distintos: EST, COM, PRY, SAC, TAL, LEG, TEC, **SIG** y FIN. Ojo con dos: el cronograma dice «Proceso de Gestión de Calidad» y el área es `SIG` (Sistema Integrado de Gestión); dice «Proceso de Gestión de Proyectos» y el prefijo del área es `PRY`, no `PRO`.
 5. `select count(*) from obligacion where fecha_inicio < '2026-09-01'` → **0**. Es el criterio que impide estrenar el sistema con deuda.
 6. Cada `Obligacion` respeta las guardas de `crearObligacion`: contenido existente, `responsableSeguimientoId` resuelto, `plazoDias > 0`, `diasAviso >= 0`, y **exactamente un destino** de alcance.
@@ -329,12 +351,14 @@ El bloque B **no tiene paso**: entra cuando D-7 se cierre.
 - **D-1 · alcance.** REQ-SIG-17 cubre los tres bloques nombrados y **no** las otras nueve fuentes, que quedan en §10. Un requerimiento que cubriera las doce quedaría bloqueado por decisiones ajenas a él (§10).
 - **D-2 · retroactividad.** Las 27 obligaciones nacen con `fechaInicio = 2026-09-01`. El cronograma va de AGO-2025 a JUL-2026 y hoy es 2026-09-08: **la fuente está vencida y sus periodos ya pasaron.** Cargar la fecha real generaría trece meses de asignaciones vencidas que nadie incumplió, y sembrar el histórico con su ejecución exigiría insertar `Asignacion` y `RegistroRealizado` a mano, que es justo lo que el diseño reserva al sistema. El histórico queda como contexto de este documento; los datos arrancan limpios.
 
-**Abiertas** — cada una bloquea algo concreto.
+**Con valor provisional aplicado** — la carga es de prueba: estas cuatro se resolvieron con el valor menos dañino para no dejar el bloque A esperando. Están en la hoja `Decisiones` del libro y se refinan después de ver el sistema andando.
 
-- **D-3 · `BIMESTRAL`.** ¿Se agrega al enum `Periodicidad`? Bloquea la fila 31 (Comité de Calidad). Alternativa sin migración: cargarla `TRIMESTRAL` y aceptar que el sistema pida cuatro comités al año donde la organización planeó seis. La fila 26 depende de la misma decisión por otra razón (G-7): no tiene periodo, y hay que elegir entre TRIMESTRAL, dejarla sin obligación, o partirla.
-- **D-4 · tabla de cargos.** Confirmar el mapeo de §4.5 y autorizar el alta de «Profesional de Calidad y Procesos» en `CargoResponsable`.
-- **D-5 · «Líderes de Proceso».** Aparece en las filas 44, 46 y 48 y no es un cargo, es un conjunto. ¿`alcance = AREA` replicado por las nueve áreas —27 asignaciones más por periodo—, o `CARGO` sobre un cargo nuevo «Líder de proceso»?
-- **D-6 · plazos.** Confirmar la tabla de `plazoDias`/`diasAviso` de §4.5. Es una invención razonada, no un dato: la fuente no habla de plazos.
+- **D-3 · `BIMESTRAL`.** No se agrega al enum. Las filas 31 (Comité de Calidad, bimestral real) y 26 (malla irregular) se cargan **`TRIMESTRAL`**. **Consecuencia que hay que mirar en la prueba:** el sistema va a pedir cuatro comités al año donde la organización planeó seis. Si en el tablero se ve mal, la alternativa es la migración del enum.
+- **D-4 · cargo «Profesional de Calidad y Procesos».** **Se crea** en `CargoResponsable`. No es opcional ni provisional en el fondo: sin él las filas 27 y 29 no tienen alcance y **ninguna de las 27 obligaciones tiene responsable de seguimiento**, que es campo obligatorio.
+- **D-5 · «Líderes de Proceso».** Se crea el cargo **«Líder de proceso»** y las filas 44, 46 y 48 van con `alcance = CARGO`. La alternativa —`AREA` replicado por las nueve— queda descartada para la prueba porque suma 27 asignaciones más por periodo y ensucia el primer tablero.
+- **D-6 · plazos.** Se aplica la tabla de §4.5. **Es lo primero que hay que revisar del libro**: es la única regla que no sale de ningún dato.
+
+**Abierta.**
 - **D-7 · bloque B.** Con `fechaDeteccion` ausente en las 46 filas, hay tres caminos: **(a)** el líder del SIG completa fecha, requisito y evidencia objetiva en el Excel y se carga después; **(b)** se cargan solo los 102 hallazgos abiertos de 2026 usando la fecha del informe de auditoría de origen como `fechaDeteccion` aproximada, con el aviso de que es aproximada; **(c)** no se carga histórico y el tablero de mejora arranca vacío. La opción (c) es la única que no mete un dato inventado en un registro que un auditor va a leer.
 
 ---
@@ -360,6 +384,7 @@ El bloque B **no tiene paso**: entra cuando D-7 se cierre.
 
 ## 11 · Resumen para el desarrollador
 
+- **Cargá desde `docs/handoff_sig/carga-obligaciones-v1.xlsx`**, no desde el cronograma. La derivación ya está hecha y revisada; el cronograma es la trazabilidad (hoja `Fuente`).
 - **Una fuente manda para las obligaciones:** `03. Manuales/1. Cronograma SIG/1. Cronograma SGC.xlsx`. Las políticas dicen «periódicamente» y eso no llena un enum (§3).
 - **Sincronizá el Directorio primero.** `responsableSeguimientoId` es FK obligatoria a `Persona` y `Persona` no está cargada.
 - **22 contenidos, 27 obligaciones, 2 análisis de contexto, 0 entradas, 0 hallazgos.** Esos son los números; si te salen otros, revisá §4.3 antes de ajustar el importador.
