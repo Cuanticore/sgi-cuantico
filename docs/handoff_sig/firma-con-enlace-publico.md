@@ -2,7 +2,7 @@
 
 | Campo | Contenido |
 |---|---|
-| **Código** | REQ-SIG-16 · firma con enlace único al correo personal |
+| **Código** | REQ-SIG-19 · firma con enlace único al correo personal |
 | **Versión** | 1.0 |
 | **Fecha** | 2026-09-08 |
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
@@ -282,7 +282,7 @@ Esto no lo decide el desarrollo. Lo que el desarrollo tiene que garantizar es qu
 ## 10 · Variables de entorno
 
 ```
-# ─── Firma por enlace público (REQ-SIG-16) ────────────────────────────────────
+# ─── Firma por enlace público (REQ-SIG-19) ────────────────────────────────────
 # Días de validez del enlace de firma. Sin ella, 7.
 FIRMA_ENLACE_DIAS=7
 # La base del enlace es PUBLIC_URL, que ya existe. Si PUBLIC_URL no está definida el
