@@ -8,7 +8,7 @@
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Extiende** | REQ-SIG-02 (leer/aceptar/firmar) · `docs/handoff_a/lectura-aceptacion-firma.md` |
-| **Estado** | Decisiones D-1 a D-4 tomadas por defecto (§10). D-4 requiere confirmación del líder del SIG antes de desplegar a producción. |
+| **Estado** | Decisiones D-1 a D-4 **cerradas** (§10) · listo para ejecutar. D-4 confirmada el 08/09/2026: la carpeta queda como está y el acceso lo controla la aplicación. |
 
 ---
 
@@ -210,7 +210,8 @@ Verificar además cuál es el permiso de lectura ya concedido: si es `Files.Read
 
 **P11 · el estado de publicación es visible en la aplicación.** Tres lugares, ninguno nuevo:
 
-- **Ficha del colaborador** (`app/sig/colaboradores/[id]/page.tsx`, donde ya se listan las actas con su huella): junto a cada acta, el enlace a SharePoint (`webUrl`) o la frase de por qué no está publicada.
+- **Ficha del colaborador** (`app/sig/colaboradores/[id]/page.tsx`, donde ya se listan las actas con su huella): junto a cada acta, el enlace a SharePoint (`webUrl`) o la frase de por qué no está publicada. Es la pantalla de los responsables, que son quienes tienen acceso a la carpeta (D-4/P12).
+- **`/mi-sig/historial`**, donde la persona ve sus propios cierres: **la ruta de la aplicación**, no el `webUrl` — el colaborador no tiene permiso sobre la carpeta y ese enlace le daría «acceso denegado» (P12).
 - **`/mi-sig/diagnostico`**: cuántos soportes están pendientes y cuántos bloqueados, con la causa. Es la pantalla que ya existe para responder «por qué no funciona lo de Graph».
 - **`/sig/estado`**: los bloqueados cuentan como anomalía. Un soporte que la aplicación cree publicado y no está es peor que uno que nunca se intentó, porque nadie lo va a buscar.
 
@@ -229,9 +230,14 @@ Verificar además cuál es el permiso de lectura ya concedido: si es `Files.Read
 
 **D-3 · La carpeta se llama como la parte local del correo corporativo** (§4).
 
-**D-4 · Los permisos de la carpeta `2. Soportes SIG` los define el líder del SIG antes de desplegar. Requiere confirmación explícita.**
-*Por qué es una decisión y no un detalle:* el acta contiene **nombre, número de documento de identidad, cargo, dirección IP y agente del navegador** de quien firmó. Si `2. Soportes SIG` hereda los permisos de la biblioteca del SIG, **todo el que hoy lee esa biblioteca podrá leer la cédula y la IP de todos los colaboradores**. Eso es tratamiento de datos personales (Ley 1581) y un asunto de clasificación de la información (A.5.12), no una preferencia de carpetas.
-*Las dos salidas:* romper la herencia y restringir la carpeta al grupo del SIG, o aceptar por escrito el alcance actual. **El desarrollo no elige esto**; lo implementa quien administra SharePoint. Lo que sí exige el requerimiento es que la decisión esté tomada y registrada antes del primer despliegue a producción.
+**D-4 · Los permisos de la carpeta se mantienen como están: `2. Soportes SIG` ya está restringida a los responsables. Los colaboradores llegan a su soporte por la aplicación, no por permiso de SharePoint.** Decidido por el líder del SIG el 08/09/2026.
+
+*Por qué esto cierra el asunto:* el acta contiene **nombre, número de documento, cargo, dirección IP y agente del navegador** de quien firmó. Con la carpeta restringida a los responsables, ese conjunto de datos solo lo lee quien ya debe leerlo, y no hace falta romper la herencia ni administrar permisos por carpeta de persona.
+
+*La consecuencia que el desarrollo tiene que respetar, y es la parte que importa:* la credencial del publicador es un **permiso de aplicación**. Escribe y lee **sin mirar** los permisos de SharePoint de nadie. Eso es lo que hace que el esquema funcione —el colaborador no necesita acceso a la biblioteca para que su acta quede archivada— y a la vez traslada **todo** el control de acceso a la aplicación:
+
+- **P12 · el enlace a SharePoint solo se le muestra a quien puede abrirlo.** En la ficha del colaborador (`/sig/colaboradores/[id]`), que ya exige rol de responsable, se muestra el `webUrl`. En `/mi-sig` y `/mi-sig/historial`, donde la persona ve sus propios soportes, se muestra **la ruta de la aplicación** (`/api/sig/acta`), nunca el `webUrl`. Un enlace que lleva a «acceso denegado» hace que la herramienta parezca rota y genera un ticket por cada acta.
+- **P13 · la aplicación es el único control de acceso al contenido del soporte.** `app/api/sig/acta/route.ts` ya acota por la sesión; ninguna ruta nueva puede entregar bytes de un soporte por su `driveItemId` ni por su `PublicacionSoporte.id` sin verificar que quien pide es su titular o un responsable. Con permiso de aplicación de por medio, un `id` adivinable sería acceso a la cédula de cualquiera.
 
 ---
 
@@ -261,6 +267,8 @@ Se agregan a `.env.example` con este comentario. Reutiliza `SHAREPOINT_TENANT_ID
 | 6 | El renombre de carpeta no crea una segunda | Renombrar la carpeta a mano en SharePoint, publicar otra acta: cae en la misma carpeta (P2/P4) |
 | 7 | El 403 se ve y no se esconde | Quitar el rol `write` del sitio, correr el trabajo: fila `BLOQUEADO` con la frase de `explicarFallo` y el nombre del permiso |
 | 8 | El permiso concedido es el mínimo | Captura del registro de la aplicación en Azure: `Sites.Selected` con rol `write` **solo** sobre el sitio `Cuantico` |
+| 9 | **Nadie ve un enlace que no puede abrir** | Con una cuenta de colaborador sin acceso a la biblioteca: `/mi-sig/historial` entrega el acta por la ruta de la aplicación y **no** muestra ningún `webUrl` (P12) |
+| 10 | El soporte no se entrega por un `id` adivinable | Pedir el acta de otra persona por su `PublicacionSoporte.id` y por su `driveItemId`: rechazado en los dos casos (P13) |
 
 ---
 
@@ -271,4 +279,4 @@ Se agregan a `.env.example` con este comentario. Reutiliza `SHAREPOINT_TENANT_ID
 - **No lee de SharePoint hacia la aplicación.** Un archivo que alguien deje a mano en la carpeta de una persona no se importa ni se registra: no tiene acta, ni huella, ni trazabilidad, y tratarlo como soporte del SIG sería inventar evidencia.
 - **No borra de SharePoint.** La baja lógica de una evidencia (`activo=false`) deja el archivo publicado y anota la baja en `PublicacionSoporte`. Borrar el soporte de una auditoría de certificación es exactamente el artefacto que la auditoría busca.
 - **No pre-crea carpetas** para el censo completo (P3).
-- **No define los permisos de la carpeta.** Eso es D-4 y lo decide el líder del SIG.
+- **No toca los permisos de la carpeta ni concede acceso a los colaboradores.** La carpeta queda restringida a los responsables y la aplicación es la que da acceso a cada persona a su propio soporte (D-4).
