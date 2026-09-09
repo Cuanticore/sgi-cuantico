@@ -3249,11 +3249,19 @@ model Despliegue {
   activo         Activo? @relation("DespliegueActivo", fields: [activoId], references: [id])
   servidorActivo Activo? @relation("DespliegueServidor", fields: [servidorId], references: [id])
 
-  /// E6 · la importacion es IDEMPOTENTE por `repoGithub + ambiente + servidor`: reimportar
-  /// la exportacion actualiza, no duplica. `NULLS NOT DISTINCT` se agrega en el SQL de la
-  /// migracion —Prisma no lo sabe expresar—, y sin eso dos filas con el mismo repo y
-  /// servidor nulo se duplicarian en cada importacion.
-  @@unique([repoGithub, ambiente, servidor])
+  /// E6 · la importacion es IDEMPOTENTE por `repoGithub + ambiente + servidor + componente`:
+  /// reimportar la exportacion actualiza, no duplica. `NULLS NOT DISTINCT` se agrega en el
+  /// SQL de la migracion —Prisma no lo sabe expresar—, y sin eso dos filas con el mismo repo
+  /// y servidor nulo se duplicarian en cada importacion.
+  ///
+  /// **`componente` entro a la clave con el Consolidado V19 (REQ-SIG-12).** Sin el, las 129
+  /// filas del Detalle de ambiente colapsaban a 107 y se perdian 22: quince servicios del
+  /// mismo servidor comparten `repo_github` «-» y ambiente «produccion» —Coolify, Plane,
+  /// n8n, Superset, Keycloak, Grafana, GlitchTip…— y un mismo repo despliega API, worker y
+  /// beat en el mismo ambiente y servidor. El componente es lo unico que los separa, y
+  /// separarlos es justo lo que la clave tiene que hacer: son despliegues distintos, no la
+  /// misma fila importada dos veces.
+  @@unique([repoGithub, ambiente, servidor, componente])
   @@index([activoId])
   @@map("despliegue")
 }
