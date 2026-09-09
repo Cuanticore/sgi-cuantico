@@ -7,6 +7,8 @@
 //
 // No 'server-only' guard: the popup is a client component and shows these headers.
 
+import type { ParteConsolidado } from './consolidado';
+
 export interface ColumnaPlantilla {
   clave: string;
   encabezado: string;
@@ -73,6 +75,13 @@ export interface Analisis {
   filas: FilaLeida[];
   validas: number;
   conErrores: number;
+  /// Sólo cuando el archivo es el Consolidado de Activos V19 (REQ-SIG-12).
+  ///
+  /// Va aparte de `filas` porque el consolidado no es UNA hoja: son cuatro, y cada una tiene
+  /// su conteo, sus rechazos y sus avisos. Aplanarlo todo en la lista de filas obligaría a
+  /// leer cada mensaje para saber de qué hoja habla, que es justo lo que el parte tiene que
+  /// responder de un vistazo.
+  consolidado?: ParteConsolidado;
 }
 
 /// Maximum upload size. Far above any plausible inventory, far below anything that would
