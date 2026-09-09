@@ -27,6 +27,10 @@ import {
   type FilaLeida,
 } from '@/lib/sgsi/plantilla';
 import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
+import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
+import { encabezadoDeMatriz, hojasDelLibro } from '@/lib/sgsi/consolidado-libro';
+import { escribirPlan, planificarCarga, type PlanDeCarga } from '@/lib/sgsi/consolidado-carga';
+import type { CatalogosConsolidado } from '@/lib/sgsi/consolidado-lectura';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
 
 /// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
@@ -93,12 +97,11 @@ async function catalogos(): Promise<Catalogos> {
   };
 }
 
-/// Open the upload and reduce it to a matrix of cell text in template column order.
-/// Two formats accepted:
-///   1. Nuestra plantilla (hoja «Activos», encabezado fila 1, 17 columnas).
-///   2. El formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado en la
-///      fila 7 con B..U, títulos arriba) — se alinea columna por columna.
-async function abrir(datos: FormData): Promise<string[][]> {
+/// Abre el archivo subido como workbook, o falla con algo que la persona pueda accionar.
+///
+/// Separado de `abrir` porque el Consolidado V19 necesita CUATRO hojas y no una matriz en
+/// orden de plantilla: el libro entero se lee una vez y cada camino toma lo suyo.
+async function abrirWorkbook(datos: FormData): Promise<ExcelJS.Workbook> {
   const archivo = datos.get('archivo');
   if (!(archivo instanceof File) || archivo.size === 0) {
     throw new PlantillaError('Elegí el archivo de la plantilla.');
@@ -108,21 +111,28 @@ async function abrir(datos: FormData): Promise<string[][]> {
       `El archivo pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB y el tope es 8 MB. ¿Es la plantilla correcta?`,
     );
   }
-
-  let hoja;
-  let wb: ExcelJS.Workbook | null = null;
   try {
     const ExcelJS = (await import('exceljs')).default;
-    wb = new ExcelJS.Workbook();
+    const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await archivo.arrayBuffer());
-    hoja = wb.getWorksheet('Activos') ?? wb.worksheets[0];
+    return wb;
   } catch (error) {
     throw new PlantillaError(
       'No pude abrir el archivo como Excel. Guardalo en formato .xlsx desde la plantilla y volvé a intentar. ' +
         (error instanceof Error ? `(${error.message})` : ''),
     );
   }
-  if (!hoja || !wb) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
+}
+
+/// Reduce el archivo a una matriz de texto en orden de columnas de la plantilla.
+/// Dos formatos aceptados:
+///   1. Nuestra plantilla (hoja «Activos», encabezado fila 1, 17 columnas).
+///   2. El formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado en la
+///      fila 7 con B..U, títulos arriba) — se alinea columna por columna.
+async function abrir(datos: FormData): Promise<string[][]> {
+  const wb = await abrirWorkbook(datos);
+  const hoja = wb.getWorksheet('Activos') ?? wb.worksheets[0];
+  if (!hoja) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
 
   const texto = (v: unknown): string => {
     if (v === null || v === undefined) return '';
@@ -213,11 +223,195 @@ async function leer(datos: FormData): Promise<{ filas: FilaLeida[]; resueltas: F
   return lectura;
 }
 
+// ─── El Consolidado de Activos V19 (REQ-SIG-12) ────────────────────────────────────────
+//
+// **Este camino se decide ANTES que el histórico, y ahí está todo el asunto.** V19 cumple
+// `esFormatoLegacy` —trae «Código», «Proceso o Área», «Custodio» y «Valor en
+// Disponibilidad»— así que sin esta bifurcación entraría por el lector viejo, que mapea el
+// código del libro a `codigoHeredado` y emite uno nuevo desde `ContadorCodigo`. Con eso, los
+// 297 activos entran renombrados y las 40 dependencias, los 129 despliegues y las 720
+// aristas del grafo quedan apuntando a la nada. En silencio.
+
+/// Los catálogos que el consolidado necesita, que son los del importador más el `prefijo`
+/// del área y la `abreviatura` del tipo: `ContadorCodigo` se indexa por (área, tipo), y la
+/// serie del código viene como texto (§5.7).
+async function catalogosDelConsolidado(): Promise<CatalogosConsolidado> {
+  const [tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala] =
+    await Promise.all([
+      prisma.tipoMagerit.findMany({
+        where: { activo: true },
+        select: { id: true, codigo: true, abreviatura: true },
+      }),
+      prisma.subtipoMagerit.findMany({
+        where: { activo: true },
+        select: { id: true, tipoId: true, codigo: true },
+      }),
+      prisma.area.findMany({
+        where: { activa: true },
+        select: { id: true, nombre: true, prefijo: true },
+      }),
+      // Los cargos retirados entran a propósito, igual que en el camino histórico: un valor
+      // que la organización sacó del desplegable sigue explicando los registros vigentes.
+      prisma.cargoResponsable.findMany({ select: { id: true, nombre: true } }),
+      prisma.ubicacion.findMany({ select: { id: true, nombre: true } }),
+      prisma.entorno.findMany({ select: { id: true, nombre: true } }),
+      prisma.proveedor.findMany({ select: { id: true, nombre: true } }),
+      prisma.escalaValor.findMany({
+        orderBy: { orden: 'asc' },
+        select: { valor: true, etiqueta: true },
+      }),
+    ]);
+  return { tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala };
+}
+
+/// El plan del consolidado, o `null` si este libro no es el consolidado.
+///
+/// Un `CONSOLIDADO_INCOMPLETO` **no cae al camino histórico**: falla. Un archivo que trae
+/// las hojas del consolidado se armó para ser el consolidado, y para ese archivo el otro
+/// camino es el destructivo — le reescribiría los códigos. La respuesta correcta a «le falta
+/// la columna Nivel 3» es decirlo, no elegir el camino que rompe.
+async function planDelConsolidado(
+  wb: ExcelJS.Workbook,
+): Promise<{ plan: PlanDeCarga; catalogos: CatalogosConsolidado } | null> {
+  const diagnostico = diagnosticoDeFormato(
+    encabezadoDeMatriz(wb),
+    wb.worksheets.map((w) => w.name),
+  );
+  if (diagnostico.formato === 'HISTORICO') return null;
+  if (diagnostico.formato === 'CONSOLIDADO_INCOMPLETO') {
+    throw new PlantillaError(
+      'Este archivo parece el Consolidado de Activos pero le falta ' +
+        `${diagnostico.faltantes.join(', ')}. No lo cargo como formato histórico porque eso le ` +
+        'reescribiría los códigos y rompería las dependencias, los despliegues y el grafo.',
+    );
+  }
+
+  const hojas = hojasDelLibro(wb);
+  if (!hojas) {
+    throw new PlantillaError(
+      'El Consolidado necesita las hojas «Matriz de Activos», «Dependencias» y «Detalle de ambiente».',
+    );
+  }
+  const catalogos = await catalogosDelConsolidado();
+  return { plan: planificarCarga(hojas, catalogos), catalogos };
+}
+
+/// El parte del consolidado, traducido a las `filas` que la pantalla ya sabe dibujar.
+///
+/// Una línea por cada fila con algo que decir, con su hoja adelante: la tabla de la revisión
+/// muestra hoja, referencia y motivo sin que la pantalla tenga que aprender cuatro formas
+/// distintas de fila.
+function filasDelParte(plan: PlanDeCarga): FilaLeida[] {
+  const filas: FilaLeida[] = [];
+  for (const b of plan.bloques) {
+    for (const r of b.rechazadas) {
+      filas.push({
+        fila: r.fila,
+        lectura: { hoja: b.hoja, bloque: b.titulo, referencia: r.referencia },
+        errores: [r.mensaje],
+      });
+    }
+    for (const a of b.avisos) {
+      filas.push({
+        fila: a.fila,
+        lectura: { hoja: b.hoja, bloque: b.titulo, referencia: a.referencia, aviso: a.mensaje },
+        errores: [],
+      });
+    }
+  }
+  return filas;
+}
+
+/// Cuenta lo que la carga va a borrar, para decirlo ANTES de pedir confirmación.
+///
+/// `riesgosConDecision` se cuenta aparte del total a propósito: los derivados los regenera
+/// `generarRiesgos` sin esfuerzo, pero un tratamiento, un estado, un responsable, una
+/// observación, una justificación o una exclusión manual son trabajo humano del SGSI y no
+/// vuelven de ningún cálculo.
+async function contarLoQueSeBorra(): Promise<Sustitucion> {
+  const [
+    activos,
+    valoraciones,
+    riesgos,
+    riesgosConDecision,
+    dependencias,
+    despliegues,
+    actasBorrado,
+    activosAfectados,
+    asignaciones,
+  ] = await Promise.all([
+    prisma.activo.count(),
+    prisma.activoValor.count(),
+    prisma.riesgo.count(),
+    prisma.riesgo.count({
+      where: {
+        OR: [
+          { tratamientoId: { not: null } },
+          { estadoId: { not: null } },
+          { responsableId: { not: null } },
+          { observacion: { not: null } },
+          { justificacion: { not: null } },
+          { excluidoManual: true },
+        ],
+      },
+    }),
+    prisma.dependenciaActivo.count(),
+    prisma.despliegue.count(),
+    prisma.actaBorradoActivo.count(),
+    prisma.activoAfectado.count(),
+    prisma.asignacion.count({ where: { activoId: { not: null } } }),
+  ]);
+  return {
+    activos,
+    valoraciones,
+    riesgos,
+    riesgosConDecision,
+    dependencias,
+    despliegues,
+    actasBorrado,
+    activosAfectados,
+    asignaciones,
+  };
+}
+
+function resumenDelPlan(plan: PlanDeCarga): string {
+  const conPadre = plan.despliegues.filter((d) => d.activoCodigo !== null).length;
+  return (
+    `Consolidado de Activos V19: ${plan.activos.length} activos, ` +
+    `${plan.niveles.length} niveles en 3 grados, ${plan.aristas.length} dependencias y ` +
+    `${plan.despliegues.length} despliegues (${conPadre} con activo padre, ` +
+    `${plan.despliegues.length - conPadre} pendientes de asociar).`
+  );
+}
+
 /// Dry run: reads the file, validates it and writes nothing.
 export async function analizarPlantilla(datos: FormData): Promise<Analisis> {
   const vacio: Analisis = { ok: false, mensaje: '', filas: [], validas: 0, conErrores: 0 };
   try {
     await autorConPermiso('sgsi:escribir');
+
+    const wb = await abrirWorkbook(datos);
+    const consolidado = await planDelConsolidado(wb);
+    if (consolidado) {
+      const { plan } = consolidado;
+      const filas = filasDelParte(plan);
+      const rechazadas = plan.bloques.reduce((n, b) => n + b.rechazadas.length, 0);
+      const sustitucion = await contarLoQueSeBorra();
+      return {
+        ok: true,
+        mensaje: `${resumenDelPlan(plan)} SUSTITUYE al inventario actual: se borran ${sustitucion.activos} activos y todo lo que cuelga de ellos.`,
+        filas,
+        validas: plan.activos.length,
+        conErrores: rechazadas,
+        consolidado: {
+          bloques: plan.bloques,
+          criterios: [],
+          seriesSinContador: plan.seriesSinContador,
+          sustitucion,
+        },
+      };
+    }
+
     const { filas, resueltas } = await leer(datos);
     const conErrores = filas.length - resueltas.length;
 
@@ -241,10 +435,101 @@ export async function analizarPlantilla(datos: FormData): Promise<Analisis> {
   }
 }
 
+/// Escribe el Consolidado V19 en el orden del §5, en una transacción, y regenera los riesgos.
+async function cargarConsolidadoV19(plan: PlanDeCarga, autor: string): Promise<Resultado> {
+  if (plan.activos.length === 0) {
+    return {
+      ok: false,
+      mensaje: 'Ninguna fila de la Matriz de Activos pasó la validación, así que no importé nada.',
+    };
+  }
+
+  const [dimensiones, escala] = await Promise.all([
+    prisma.dimension.findMany({ select: { codigo: true, id: true } }),
+    prisma.escalaValor.findMany({ select: { valor: true, id: true } }),
+  ]);
+  const porCodigoDim = new Map(dimensiones.map((d) => [d.codigo, d.id]));
+  const porValor = new Map(escala.map((e) => [e.valor, e.id]));
+
+  await prisma.$transaction(
+    async (tx) => {
+      await escribirPlan(tx, plan, porCodigoDim, porValor);
+      // Una sola entrada de bitácora y no 297: el hecho auditable es la carga del libro, no
+      // cada fila. Con una por activo, la bitácora de ese día no dejaría ver nada más.
+      await registrarAlta(tx, autor, 'activo', `consolidado V19 · ${plan.activos.length} activos`);
+    },
+    {
+      // El bucle hace dos consultas por activo más los niveles, así que 297 filas son
+      // ~700 viajes. Los 5 s por omisión de Prisma abortarían una carga perfectamente
+      // válida por reloj y lo reportarían como un problema de los datos.
+      maxWait: 15_000,
+      timeout: 180_000,
+    },
+  );
+
+  // DE ACÁ EN ADELANTE EL INVENTARIO ESTÁ COMPROMETIDO. Lo que falle abajo es un fallo al
+  // TERMINAR, nunca al guardar, y no se puede reportar como tal: a quien le dicen «no se
+  // pudo importar» lo obvio es volver a importar, y esta carga borra el inventario primero.
+  const cabecera = resumenDelPlan(plan);
+
+  let riesgos = 0;
+  let cola = '';
+  try {
+    // §5.8 · sólo sobre activos. Un despliegue no es un activo y no genera riesgos (E5).
+    const diagnostico = await generarRiesgos(prisma);
+    riesgos = diagnostico.riesgosGenerados;
+    cola =
+      ` El análisis quedó con ${diagnostico.riesgosGenerados} riesgos vigentes sobre ` +
+      `${diagnostico.activosEnAnalisis} activos que alcanzan el umbral.`;
+  } catch (error) {
+    console.error('[sgsi] el consolidado se cargó pero falló la generación de riesgos', error);
+    cola =
+      ' PERO no se pudo recalcular el conjunto de riesgos: ' +
+      `${error instanceof Error ? error.message : 'error desconocido'}. ` +
+      'El inventario YA está guardado — no vuelvas a importar el archivo.';
+  }
+  void riesgos;
+
+  try {
+    for (const ruta of [
+      '/',
+      '/sgsi',
+      '/sgsi/inventario',
+      '/sgsi/matrices',
+      '/sgsi/planes',
+      '/tecnologia/grafo',
+      '/tecnologia/mapa',
+      '/tecnologia/dependencias',
+    ]) {
+      revalidatePath(ruta);
+    }
+  } catch (error) {
+    console.error('[sgsi] el consolidado se cargó pero falló revalidatePath', error);
+  }
+
+  const sinContador =
+    plan.seriesSinContador.length === 0
+      ? ''
+      : ` ${plan.seriesSinContador.length} series del libro no tienen par (área, tipo) en los ` +
+        'catálogos y no se les pudo sembrar contador; la app tampoco puede emitir esos códigos, ' +
+        'así que no hay riesgo de repetirlos.';
+
+  return { ok: true, mensaje: cabecera + cola + sinContador, cambios: plan.activos.length };
+}
+
 /// Writes the rows that validate, in one transaction, and regenerates the risk set.
 export async function importarPlantilla(datos: FormData): Promise<Resultado> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('sgsi:escribir');
+
+    try {
+      const wb = await abrirWorkbook(datos);
+      const consolidado = await planDelConsolidado(wb);
+      if (consolidado) return await cargarConsolidadoV19(consolidado.plan, autor);
+    } catch (error) {
+      if (error instanceof PlantillaError) return { ok: false, mensaje: error.message };
+      throw error;
+    }
 
     let lectura;
     try {

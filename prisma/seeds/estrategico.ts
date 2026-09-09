@@ -2,6 +2,17 @@
 //
 // Catálogos del módulo D según MAN-CAL-01. Idempotente: se puede correr varias veces.
 // npx tsx prisma/seeds/estrategico.ts
+//
+// ─── ESTAS 33 FILAS TAMBIÉN VIVEN EN UNA MIGRACIÓN ─────────────────────────────────────
+//
+// `prisma/migrations/20260909120000_catalogos_estrategico/migration.sql` las inserta con
+// `ON CONFLICT DO NOTHING`. **Si cambiás algo acá, cambialo allá también.**
+//
+// Por qué están en los dos lados: el despliegue corre `prisma migrate deploy` y NO siembra.
+// Mientras estas filas existieron sólo acá, producción quedó sin ellas — `/estrategico/mapa`
+// dibujaba la malla sin nombres de eje ni bandas de color, y como `factor_id` es NOT NULL no
+// se podía dar de alta ni un riesgo. Un catálogo que la aplicación necesita para arrancar
+// pertenece a la migración; esta semilla queda para poblar una base local de un tirón.
 
 import { prisma } from '@/lib/db';
 

@@ -49,27 +49,46 @@ export interface NodoGrafo {
   nombre: string;
   columna: number;
   criticidad: number | null;
+  /// D-3 · sólo participa del grafo por un despliegue. Se dibuja únicamente con el
+  /// interruptor de despliegues encendido.
+  soloDespliegue?: boolean;
 }
 
 export default function GrafoClient({
   nodos,
   dependencias,
   contencion,
+  despliegues = [],
   totalActivos,
 }: {
   nodos: NodoGrafo[];
   dependencias: Arista[];
   contencion: { hijoId: number; padreId: number }[];
+  despliegues?: { activoId: number; servidorId: number }[];
   totalActivos: number;
 }) {
   const [modo, setModo] = useState<Modo>('dep');
+  // D-3 · APAGADO por defecto, y la decisión es explícita sobre por qué. El libro dibuja
+  // ~138 aristas de despliegue más que esta vista; encenderlas por omisión daría el mapa
+  // técnico completo a costa de la legibilidad que buscó el autor del SVG. Así el modo por
+  // omisión se conserva y el mapa completo queda a un clic.
+  const [verDespliegues, setVerDespliegues] = useState(false);
   const [sel, setSel] = useState<number | null>(nodos[0]?.id ?? null);
+
+  // El interruptor sólo tiene sentido en «Ambas»: en «Dependencias» y en «Jerarquía» la
+  // vista promete UNA relación, y colar una tercera rompería esa promesa.
+  const desplieguesVisibles = modo === 'todo' && verDespliegues;
+
+  const visibles = useMemo(
+    () => (desplieguesVisibles ? nodos : nodos.filter((n) => n.soloDespliegue !== true)),
+    [nodos, desplieguesVisibles],
+  );
 
   // En modo «jerarquía» las columnas se recalculan sobre la contención: si se dejaran las
   // de dependencia, las flechas punteadas irían para atrás y el dibujo dejaría de
   // sostener su propia regla.
   const columnas = useMemo(() => {
-    if (modo === 'dep') return new Map(nodos.map((n) => [n.id, n.columna]));
+    if (modo === 'dep') return new Map(visibles.map((n) => [n.id, n.columna]));
     const comoAristas: Arista[] = contencion.map((c) => ({
       activoId: c.padreId,
       dependeDeId: c.hijoId,
@@ -77,15 +96,15 @@ export default function GrafoClient({
     }));
     const base = modo === 'jer' ? comoAristas : [...dependencias, ...comoAristas];
     return columnasDelGrafo(
-      nodos.map((n) => n.id),
+      visibles.map((n) => n.id),
       base,
     );
-  }, [modo, nodos, dependencias, contencion]);
+  }, [modo, visibles, dependencias, contencion]);
 
   // La posición de cada caja: columna en X, orden dentro de la columna en Y.
   const posicion = useMemo(() => {
     const porColumna = new Map<number, number[]>();
-    for (const n of nodos) {
+    for (const n of visibles) {
       const c = columnas.get(n.id) ?? 0;
       const previos = porColumna.get(c);
       if (previos === undefined) porColumna.set(c, [n.id]);
@@ -98,7 +117,7 @@ export default function GrafoClient({
       });
     }
     return m;
-  }, [nodos, columnas]);
+  }, [visibles, columnas]);
 
   const ancho = useMemo(
     () => Math.max(...[...posicion.values()].map((p) => p.x + ANCHO_CAJA), 400) + MARGEN,
@@ -111,13 +130,19 @@ export default function GrafoClient({
   const maxColumna = useMemo(() => Math.max(0, ...[...columnas.values()]), [columnas]);
 
   const lineas = useMemo(() => {
-    const dep = modo === 'jer' ? [] : dependencias.map((d) => ({ de: d.activoId, a: d.dependeDeId, jer: false }));
-    const jer = modo === 'dep' ? [] : contencion.map((c) => ({ de: c.padreId, a: c.hijoId, jer: true }));
-    return [...dep, ...jer].filter((l) => posicion.has(l.de) && posicion.has(l.a));
-  }, [modo, dependencias, contencion, posicion]);
+    const dep = modo === 'jer' ? [] : dependencias.map((d) => ({ de: d.activoId, a: d.dependeDeId, jer: false, desp: false }));
+    const jer = modo === 'dep' ? [] : contencion.map((c) => ({ de: c.padreId, a: c.hijoId, jer: true, desp: false }));
+    // D-3 · «corre en»: el activo a la izquierda, el servidor a la derecha, como toda
+    // arista de este grafo. Se distingue con su propio trazo porque no es ni dependencia
+    // declarada ni contencion: es donde el activo esta corriendo hoy.
+    const desp = desplieguesVisibles
+      ? despliegues.map((d) => ({ de: d.activoId, a: d.servidorId, jer: false, desp: true }))
+      : [];
+    return [...dep, ...jer, ...desp].filter((l) => posicion.has(l.de) && posicion.has(l.a));
+  }, [modo, dependencias, contencion, despliegues, desplieguesVisibles, posicion]);
 
-  const elegido = nodos.find((n) => n.id === sel) ?? null;
-  const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
+  const elegido = visibles.find((n) => n.id === sel) ?? null;
+  const porId = useMemo(() => new Map(visibles.map((n) => [n.id, n])), [visibles]);
   const vecinos = elegido === null ? [] : vecinosDirectos(elegido.id, dependencias);
 
   return (
@@ -166,10 +191,25 @@ export default function GrafoClient({
               );
             })}
           </div>
+          {/* D-3 · el interruptor vive PEGADO a los modos y solo se habilita en «Ambas»,
+              porque ahi es donde la decision lo puso: los otros dos modos prometen UNA
+              relacion y una tercera linea rompe esa promesa. */}
+          <label
+            className="mt-0.5 flex items-center gap-1.5 text-11_5"
+            style={{ color: modo === 'todo' ? 'var(--hf-text-secondary-soft)' : 'var(--hf-text-muted)' }}
+          >
+            <input
+              type="checkbox"
+              checked={verDespliegues}
+              disabled={modo !== 'todo'}
+              onChange={(e) => setVerDespliegues(e.target.checked)}
+            />
+            Sumar dónde corre cada activo ({despliegues.length})
+          </label>
         </div>
       </div>
 
-      {nodos.length === 0 ? (
+      {visibles.length === 0 ? (
         <p className="mt-6 max-w-[86ch] text-12_5 leading-relaxed text-muted [text-wrap:pretty]">
           Ningún activo participa todavía de una dependencia ni de la jerarquía de contención,
           así que no hay grafo que dibujar. Se declaran en{' '}
@@ -202,7 +242,7 @@ export default function GrafoClient({
                 width={ancho}
                 height={alto}
                 role="img"
-                aria-label={`Grafo de ${nodos.length} activos y ${lineas.length} relaciones.`}
+                aria-label={`Grafo de ${visibles.length} activos y ${lineas.length} relaciones.`}
                 style={{ maxWidth: 'none' }}
               >
                 <defs>
@@ -230,14 +270,14 @@ export default function GrafoClient({
                       fill="none"
                       stroke={activa ? '#12437f' : '#dbe0dd'}
                       strokeWidth={activa ? 1.9 : 1.2}
-                      strokeDasharray={l.jer ? '4 4' : undefined}
+                      strokeDasharray={l.jer ? '4 4' : l.desp ? '1 3' : undefined}
                       markerEnd={activa ? 'url(#flAct)' : 'url(#fl)'}
                       opacity={sel === null || activa ? 1 : 0.45}
                     />
                   );
                 })}
 
-                {nodos.map((n) => {
+                {visibles.map((n) => {
                   const p = posicion.get(n.id);
                   if (p === undefined) return null;
                   const activo = sel === n.id;
@@ -400,7 +440,7 @@ export default function GrafoClient({
             </section>
 
             <p className="rounded-tarjeta border border-border-field bg-surface px-3.5 py-3 text-10_5 leading-relaxed text-secondary [text-wrap:pretty]">
-              Se dibujan {nodos.length} de {totalActivos} activos: los que participan de alguna
+              Se dibujan {visibles.length} de {totalActivos} activos: los que participan de alguna
               dependencia o de la jerarquía de contención. Los demás no tienen relación que
               mostrar, y llenar la primera columna con cajas sueltas taparía las cadenas que sí
               hay.
