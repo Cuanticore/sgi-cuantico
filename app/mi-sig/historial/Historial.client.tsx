@@ -28,6 +28,30 @@ export interface HistorialFila {
   actaCodigo: string | null;
 }
 
+/// Un intento de curso SCORM. Aparece aunque NO haya cerrado nada: un intento reprobado
+/// o abandonado es justamente el que explica por qué la tarea sigue abierta, y
+/// `RegistroRealizado` no lo cuenta porque en esos casos no hubo cierre.
+export interface IntentoFila {
+  id: number;
+  numero: number;
+  estado: string;
+  completionStatus: string;
+  successStatus: string;
+  /// En 0–100. `null` es «el curso no reportó nota», que no es un cero.
+  calificacion: number | null;
+  tiempo: string;
+  iniciadoEn: Date;
+  curso: string;
+  paqueteVersion: number;
+}
+
+const ETIQUETA_ESTADO_INTENTO: Record<string, string> = {
+  EN_CURSO: 'en curso',
+  SUSPENDIDO: 'suspendido',
+  COMPLETADO: 'completado',
+  ABANDONADO: 'abandonado',
+};
+
 const ETIQUETA_TIPO: Record<string, string> = {
   LECTURA: 'Lectura',
   VERIFICACION: 'Verificación',
@@ -39,10 +63,12 @@ export default function HistorialClient({
   persona,
   resumen,
   filas,
+  intentos,
 }: {
   persona: { nombre: string; correo: string; area: string | null; cargo: string | null };
   resumen: { registros: number; aTiempo: number; cierresAdministrativos: number };
   filas: HistorialFila[];
+  intentos: IntentoFila[];
 }) {
   const [anio, setAnio] = useState<string>('todo');
 
@@ -212,6 +238,77 @@ export default function HistorialClient({
           </section>
         ))}
       </div>
+
+      {/* Los intentos de curso van en su propia sección y no mezclados con los registros:
+          un intento que no cerró nada no es un registro de realizado, y ponerlos en la
+          misma lista haría contar como cumplimiento lo que la asignación sigue exigiendo.
+          Se muestran los cuatro estados, incluido ABANDONADO, porque es el que explica por
+          qué una tarea quedó abierta sin que la persona hiciera nada mal (P13). */}
+      {intentos.length > 0 && (
+        <section className="mt-8">
+          <h2 className="flex items-baseline gap-2 text-13 font-semibold text-primary">
+            Intentos de curso en línea
+            <span className="font-mono text-10_5 text-muted">{intentos.length} intento(s)</span>
+          </h2>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full border-collapse text-11_5">
+              <thead>
+                <tr className="text-left" style={{ color: 'var(--hf-text-label)' }}>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Curso</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Intento</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Estado</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Resultado</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Nota</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Tiempo</th>
+                  <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Iniciado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intentos.map((i) => (
+                  <tr key={i.id} style={{ borderTop: '1px solid var(--hf-border-field)' }}>
+                    <td className="px-2 py-2 align-top text-11_5 text-primary">
+                      {i.curso}
+                      <span className="block font-mono text-10 text-muted">
+                        paquete v{i.paqueteVersion}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 align-top font-mono text-10_5">#{i.numero}</td>
+                    <td className="px-2 py-2 align-top">
+                      {ETIQUETA_ESTADO_INTENTO[i.estado] ?? i.estado}
+                    </td>
+                    <td className="px-2 py-2 align-top leading-relaxed">
+                      {/* Lo que el curso reportó, con sus palabras. «unknown» se dice como
+                          «no reportó» y no se traduce a un veredicto: el curso que no dijo
+                          si aprobaste no dijo que reprobaste. */}
+                      {i.completionStatus === 'completed' ? 'terminó' : 'no terminó'}
+                      {' · '}
+                      {i.successStatus === 'passed'
+                        ? 'aprobó'
+                        : i.successStatus === 'failed'
+                          ? 'no aprobó'
+                          : 'no reportó resultado'}
+                    </td>
+                    <td className="px-2 py-2 align-top font-mono text-10_5">
+                      {/* `null` se dice; un guion se leería como un cero. */}
+                      {i.calificacion === null ? 'sin nota' : i.calificacion}
+                    </td>
+                    <td className="px-2 py-2 align-top font-mono text-10_5">{i.tiempo}</td>
+                    <td className="px-2 py-2 align-top font-mono text-10_5">
+                      {i.iniciadoEn.toISOString().slice(0, 10)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-11_5 text-muted [text-wrap:pretty]">
+            El resultado del curso es lo que cierra la capacitación, y lo que exige el SIG
+            puede ser más alto que lo que el curso considera aprobado: un intento con nota
+            por debajo del mínimo queda registrado acá y la asignación sigue abierta para
+            repetir la evaluación.
+          </p>
+        </section>
+      )}
 
       <p className="mt-8 text-11_5 text-muted">
         El registro es inmutable: corregir uno es reabrir la asignación, y la reapertura

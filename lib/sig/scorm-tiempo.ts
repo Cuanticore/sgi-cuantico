@@ -53,3 +53,20 @@ export function sumarDuraciones(total: string, sesion: string): string {
   const b = aSegundos(sesion) ?? 0;
   return aDuracion(a + b);
 }
+
+/// El mismo tiempo, para que lo lea una persona.
+///
+/// `aDuracion` produce el ISO 8601 que el estándar exige y que el curso espera de vuelta;
+/// «PT35M12S» en el historial de alguien no dice nada. Va acá y no en la pantalla porque
+/// es una conversión con bordes —el cero, el redondeo del minuto, la hora exacta— y esos
+/// bordes son lo que se prueba.
+export function enHorasYMinutos(segundos: number): string {
+  const total = Math.max(0, Math.round(segundos));
+  if (total === 0) return 'sin tiempo registrado';
+  // Menos de un minuto se dice en segundos: «0 min» se lee como que no hizo nada.
+  if (total < SEGUNDOS.minuto) return `${total} s`;
+  const horas = Math.floor(total / SEGUNDOS.hora);
+  const minutos = Math.floor((total % SEGUNDOS.hora) / SEGUNDOS.minuto);
+  if (horas === 0) return `${minutos} min`;
+  return minutos === 0 ? `${horas} h` : `${horas} h ${minutos} min`;
+}

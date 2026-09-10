@@ -79,6 +79,7 @@ export default function FichaClient({
   pasos,
   avisoRevocacion,
   actasBorrado,
+  intentos,
   registros,
 }: {
   persona: PersonaFicha;
@@ -125,6 +126,22 @@ export default function FichaClient({
   /// el marcado entre el render y la hidratación.
   avisoRevocacion: EstadoRevocacion | null;
   actasBorrado: { fecha: string; metodo: string; activos: string[] }[];
+  /// Los intentos de curso SCORM (§11). Se listan TODOS los estados: el ABANDONADO explica
+  /// una tarea abierta sin culpa de la persona, y el reprobado sustenta que la obligación
+  /// siga exigible. Un listado que sólo mostrara los completados escondería justamente los
+  /// dos casos que alguien viene a esta ficha a entender.
+  intentos: {
+    id: number;
+    numero: number;
+    curso: string;
+    paqueteVersion: number;
+    estado: string;
+    resultado: string;
+    /// En 0–100. `null` es «el curso no reportó nota», que no es un cero.
+    calificacion: number | null;
+    tiempo: string;
+    iniciadoEn: string;
+  }[];
   registros: { id: number; codigo: string; titulo: string; tipo: string; periodo: string; fechaLimite: string; cerrada: boolean }[];
 }) {
   const [vista, setVista] = useState<Vista>('ficha');
@@ -389,6 +406,54 @@ export default function FichaClient({
                 )}
               </div>
             ))}
+          </Bloque>
+
+          {/* Junto a las actas, porque responden la misma pregunta con evidencia de otra
+              clase: el acta prueba que la persona aceptó un compromiso; el intento prueba
+              que hizo el curso, cuánto tardó y con qué resultado. */}
+          <Bloque titulo="Intentos de curso en línea" derecha={`${intentos.length} intento(s)`}>
+            {intentos.length === 0 ? (
+              <p className="text-11_5 text-muted">
+                Sin intentos de curso. No es lo mismo que «sin capacitación»: sólo las
+                capacitaciones con paquete SCORM producen intentos.
+              </p>
+            ) : (
+              intentos.map((i) => (
+                <div
+                  key={i.id}
+                  className="flex flex-wrap items-center gap-2 border-t border-hairline py-1.5 text-10_5 first:border-t-0"
+                >
+                  <span className="font-mono text-accent">#{i.numero}</span>
+                  <span className="min-w-0 flex-1 truncate text-11_5 text-secondary">
+                    {i.curso} · paquete v{i.paqueteVersion}
+                  </span>
+                  <Chip
+                    texto={i.estado.toLowerCase().replace('_', ' ')}
+                    fondo={
+                      i.estado === 'COMPLETADO'
+                        ? '#e6efe9'
+                        : i.estado === 'ABANDONADO'
+                          ? 'var(--hf-warn-100)'
+                          : 'var(--hf-bg-surface)'
+                    }
+                    color={
+                      i.estado === 'COMPLETADO'
+                        ? '#0b5c44'
+                        : i.estado === 'ABANDONADO'
+                          ? 'var(--hf-warn-text)'
+                          : 'var(--hf-text-secondary-soft)'
+                    }
+                  />
+                  <span className="text-muted">{i.resultado}</span>
+                  {/* `null` se dice con palabras; un guion se leería como un cero. */}
+                  <span className="font-mono text-muted">
+                    {i.calificacion === null ? 'sin nota' : `nota ${i.calificacion}`}
+                  </span>
+                  <span className="font-mono text-faint">{i.tiempo}</span>
+                  <span className="font-mono text-faint">{i.iniciadoEn}</span>
+                </div>
+              ))
+            )}
           </Bloque>
 
           <Bloque titulo="Últimos registros" derecha={`${registros.length}`}>

@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
 import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
+import { enHorasYMinutos } from '@/lib/sig/scorm-tiempo';
 import HistorialClient from './Historial.client';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,41 @@ export default async function HistorialPage() {
       acta: { select: { codigo: true } },
     },
   });
+
+  // Los intentos de curso, con su resultado, su nota y su tiempo (§11). Van aparte de
+  // `registros` porque no son lo mismo: un intento reprobado o abandonado NO produce
+  // cierre, y es justamente el que la persona necesita ver para saber por qué su tarea
+  // sigue abierta. Mostrar sólo los registros dejaría fuera todo lo que no cerró.
+  const intentos = await prisma.intentoScorm.findMany({
+    where: { personaId: persona.id },
+    orderBy: { iniciadoEn: 'desc' },
+    select: {
+      id: true,
+      numero: true,
+      estado: true,
+      completionStatus: true,
+      successStatus: true,
+      scoreScaled: true,
+      totalTimeSegundos: true,
+      iniciadoEn: true,
+      paquete: { select: { tituloOrganizacion: true, version: true } },
+    },
+  });
+
+  const intentosScorm = intentos.map((i) => ({
+    id: i.id,
+    numero: i.numero,
+    estado: i.estado,
+    completionStatus: i.completionStatus,
+    successStatus: i.successStatus,
+    // La nota en 0–100, la misma escala que `RegistroRealizado.calificacion`. `null` es
+    // «el curso no reportó nota», que no es un cero.
+    calificacion: i.scoreScaled === null ? null : Math.round(Number(i.scoreScaled) * 100 * 100) / 100,
+    tiempo: enHorasYMinutos(i.totalTimeSegundos),
+    iniciadoEn: i.iniciadoEn,
+    curso: i.paquete.tituloOrganizacion,
+    paqueteVersion: i.paquete.version,
+  }));
 
   const filas = registros.map((r) => {
     const a = r.asignacion;
@@ -121,6 +157,7 @@ export default async function HistorialPage() {
         }}
         resumen={resumen}
         filas={filas}
+        intentos={intentosScorm}
       />
     </div>
   );

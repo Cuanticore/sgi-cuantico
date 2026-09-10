@@ -51,6 +51,7 @@ export default async function EstadoPage() {
     accesos,
     excepciones,
     organizaciones,
+    intentosScorm,
   ] = await Promise.all([
     // La última corrida de cada trabajo. Se traen las recientes y se agrupa acá: un
     // `groupBy` con el máximo por trabajo no devuelve el resultado de esa corrida, y sin el
@@ -106,6 +107,7 @@ export default async function EstadoPage() {
         evaluaciones: { select: { anio: true, fecha: true, resultado: true } },
       },
     }),
+    prisma.intentoScorm.findMany({ select: { estado: true } }),
   ]);
 
   const ultimaPorTrabajo = new Map<string, (typeof ejecuciones)[number]>();
@@ -280,7 +282,7 @@ export default async function EstadoPage() {
 
   // ── Lo que nadie está mirando ───────────────────────────────────────────────────────
   //
-  // Las seis consultas de arriba se pasan crudas: la regla de cada cruce vive en
+  // Las siete consultas de arriba se pasan crudas: la regla de cada cruce vive en
   // `lib/sig/anomalias.ts` y se prueba sin base de datos.
   const anomalias = anomaliasDelSistema(
     {
@@ -295,6 +297,7 @@ export default async function EstadoPage() {
         activosACargo: o._count.activos,
         evaluaciones: o.evaluaciones,
       })),
+      intentosScorm,
     },
     ahora,
   );

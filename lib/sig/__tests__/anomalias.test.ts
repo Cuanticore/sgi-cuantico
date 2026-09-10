@@ -1,6 +1,6 @@
 // lib/sig/__tests__/anomalias.test.ts
 //
-// Los seis cruces de «Lo que nadie está mirando». Lo que se prueba acá es el
+// Los siete cruces de «Lo que nadie está mirando». Lo que se prueba acá es el
 // comportamiento que el tablero promete, y hay tres cosas que se pueden romper en silencio:
 //
 //   1. Contar de más. Un activo dado de baja sin propietario, una organización que no es
@@ -18,6 +18,7 @@ import {
   anomaliasDelSistema,
   colaboradoresActivosSinCuenta,
   excepcionesVencidasSinCerrar,
+  intentosScormAbandonados,
   proveedoresConActivosSinEvaluacion,
   salidasSinActaDeBorrado,
   totalDeAnomalias,
@@ -216,6 +217,25 @@ describe('salidasSinActaDeBorrado', () => {
   });
 });
 
+describe('intentosScormAbandonados', () => {
+  // Un intento abandonado es una capacitación que alguien empezó y el sistema dio por
+  // perdida. Si nadie lo mira, la persona queda con la tarea abierta y sin saber por qué.
+  it('cuenta los abandonados y no los demás', () => {
+    expect(
+      intentosScormAbandonados([
+        { estado: 'ABANDONADO' },
+        { estado: 'ABANDONADO' },
+        { estado: 'COMPLETADO' },
+        { estado: 'EN_CURSO' },
+      ]),
+    ).toBe(2);
+  });
+
+  it('una lista vacía es cero', () => {
+    expect(intentosScormAbandonados([])).toBe(0);
+  });
+});
+
 describe('anomaliasDelSistema', () => {
   const completas: FuentesDeAnomalias = {
     activos: [{ activo: true, propietarioId: null }],
@@ -224,11 +244,12 @@ describe('anomaliasDelSistema', () => {
     accesos: [{ hasta: null, solicitudId: null }],
     excepciones: [{ fechaCierre: d('2026-01-01'), cerradaEn: null }],
     organizaciones: [{ esProveedor: true, activa: true, activosACargo: 2, evaluaciones: [] }],
+    intentosScorm: [{ estado: 'ABANDONADO' }],
   };
 
-  it('devuelve siempre los seis cruces, con su ruta y dónde vive cada uno', () => {
+  it('devuelve siempre los siete cruces, con su ruta y dónde vive cada uno', () => {
     const filas = anomaliasDelSistema(completas, HOY);
-    expect(filas).toHaveLength(6);
+    expect(filas).toHaveLength(7);
     expect(filas.map((f) => f.clave)).toEqual([
       'ACTIVO_SIN_PROPIETARIO',
       'COLABORADOR_SIN_CUENTA',
@@ -236,14 +257,15 @@ describe('anomaliasDelSistema', () => {
       'EXCEPCION_VENCIDA_ABIERTA',
       'PROVEEDOR_SIN_EVALUACION',
       'SALIDA_SIN_ACTA',
+      'INTENTO_SCORM_ABANDONADO',
     ]);
     expect(filas.every((f) => f.ruta.startsWith('/'))).toBe(true);
     expect(filas.every((f) => f.donde.length > 0)).toBe(true);
   });
 
-  it('mide los seis cuando todas las fuentes llegaron', () => {
+  it('mide los siete cuando todas las fuentes llegaron', () => {
     const filas = anomaliasDelSistema(completas, HOY);
-    expect(filas.map((f) => f.cantidad)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(filas.map((f) => f.cantidad)).toEqual([1, 1, 1, 1, 1, 1, 1]);
     expect(filas.every((f) => f.porQueNo === null)).toBe(true);
   });
 
@@ -266,10 +288,10 @@ describe('anomaliasDelSistema', () => {
   });
 
   // La fila que no se puede medir se muestra igual. Omitirla haría que un tablero de
-  // cuatro cruces de seis asegurara que el sistema está mejor de lo que se sabe.
+  // cuatro cruces de siete asegurara que el sistema está mejor de lo que se sabe.
   it('la fila sin medir no desaparece de la lista', () => {
     const filas = anomaliasDelSistema({ ...completas, excepciones: null }, HOY);
-    expect(filas).toHaveLength(6);
+    expect(filas).toHaveLength(7);
     expect(filas.find((f) => f.clave === 'EXCEPCION_VENCIDA_ABIERTA')?.cantidad).toBeNull();
   });
 
@@ -309,6 +331,7 @@ describe('totalDeAnomalias', () => {
       accesos: [],
       excepciones: [],
       organizaciones: [],
+      intentosScorm: [],
     }, HOY))).toEqual({ total: 1, sinMedir: 0 });
   });
 
@@ -324,6 +347,7 @@ describe('totalDeAnomalias', () => {
           accesos: null,
           excepciones: [],
           organizaciones: [],
+          intentosScorm: [],
         },
         HOY,
       ),

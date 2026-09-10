@@ -4,7 +4,7 @@
 // prueba acá porque un error de conversión no se ve: el curso reporta 40 minutos, la base
 // guarda 40 segundos, y el informe de capacitación queda mintiendo sin que nada falle.
 
-import { aSegundos, aDuracion, sumarDuraciones } from '../scorm-tiempo';
+import { aSegundos, aDuracion, enHorasYMinutos, sumarDuraciones } from '../scorm-tiempo';
 
 describe('aSegundos', () => {
   it('lee horas, minutos y segundos', () => {
@@ -57,5 +57,33 @@ describe('sumarDuraciones', () => {
 
   it('una sesión inválida no destruye el total acumulado', () => {
     expect(sumarDuraciones('PT1H', 'basura')).toBe('PT1H0M0S');
+  });
+});
+
+describe('enHorasYMinutos', () => {
+  // El cero se DICE. «0 min» se lee como que la persona entró y no hizo nada, y eso es
+  // una afirmación distinta de «el curso no reportó tiempo».
+  it('cero no se disfraza de cero minutos', () => {
+    expect(enHorasYMinutos(0)).toBe('sin tiempo registrado');
+  });
+
+  it('menos de un minuto va en segundos', () => {
+    expect(enHorasYMinutos(45)).toBe('45 s');
+  });
+
+  it('sin horas sólo los minutos', () => {
+    expect(enHorasYMinutos(35 * 60 + 12)).toBe('35 min');
+  });
+
+  it('la hora exacta no arrastra un cero de minutos', () => {
+    expect(enHorasYMinutos(3600)).toBe('1 h');
+  });
+
+  it('horas y minutos juntos', () => {
+    expect(enHorasYMinutos(3600 + 23 * 60 + 45)).toBe('1 h 23 min');
+  });
+
+  it('un negativo no produce un tiempo negativo', () => {
+    expect(enHorasYMinutos(-90)).toBe('sin tiempo registrado');
   });
 });

@@ -23,6 +23,7 @@ import {
   type Paso,
 } from '@/lib/sig/ciclos';
 import { puertaDeAccesos } from '@/lib/sig/colaboradores';
+import { enHorasYMinutos } from '@/lib/sig/scorm-tiempo';
 import FichaClient from './Ficha.client';
 
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,7 @@ export default async function FichaColaboradorPage({
   const personaId = Number(id);
   if (!Number.isInteger(personaId) || personaId <= 0) notFound();
 
-  const [persona, pasos, ultimaCapacitacion, exigidos] = await Promise.all([
+  const [persona, pasos, ultimaCapacitacion, exigidos, intentosScorm] = await Promise.all([
     prisma.persona.findUnique({
       where: { id: personaId },
       include: {
@@ -128,6 +129,24 @@ export default async function FichaColaboradorPage({
       where: { exigeFirma: true, activo: true },
       select: { codigo: true, titulo: true },
       orderBy: { codigo: 'asc' },
+    }),
+    // Los intentos de curso de esta persona, junto a las actas (§11). Se traen TODOS los
+    // estados: el intento ABANDONADO es el que explica una tarea abierta sin que la persona
+    // hiciera nada mal, y el reprobado es el que sustenta que la obligación siga exigible.
+    prisma.intentoScorm.findMany({
+      where: { personaId },
+      orderBy: { iniciadoEn: 'desc' },
+      select: {
+        id: true,
+        numero: true,
+        estado: true,
+        completionStatus: true,
+        successStatus: true,
+        scoreScaled: true,
+        totalTimeSegundos: true,
+        iniciadoEn: true,
+        paquete: { select: { tituloOrganizacion: true, version: true } },
+      },
     }),
   ]);
   if (!persona) notFound();
@@ -312,6 +331,28 @@ export default async function FichaColaboradorPage({
         ...p,
         hecho: completados.has(p.id),
         cumplimiento: cumplimientoDePaso.get(p.id) ?? null,
+      }))}
+      intentos={intentosScorm.map((i) => ({
+        id: i.id,
+        numero: i.numero,
+        curso: i.paquete.tituloOrganizacion,
+        paqueteVersion: i.paquete.version,
+        estado: i.estado,
+        // Lo que el curso reportó, sin traducirlo a un veredicto que no dio: «unknown» es
+        // «no reportó resultado» y no «reprobó».
+        resultado:
+          (i.completionStatus === 'completed' ? 'terminó' : 'no terminó') +
+          ' · ' +
+          (i.successStatus === 'passed'
+            ? 'aprobó'
+            : i.successStatus === 'failed'
+              ? 'no aprobó'
+              : 'no reportó resultado'),
+        /// En 0–100. `null` es «el curso no reportó nota», que no es un cero.
+        calificacion:
+          i.scoreScaled === null ? null : Math.round(Number(i.scoreScaled) * 100 * 100) / 100,
+        tiempo: enHorasYMinutos(i.totalTimeSegundos),
+        iniciadoEn: i.iniciadoEn.toISOString().slice(0, 16).replace('T', ' '),
       }))}
       actasBorrado={persona.actasBorrado.map((x) => ({
         fecha: x.fecha.toISOString().slice(0, 10),

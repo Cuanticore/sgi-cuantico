@@ -32,7 +32,8 @@ export type ClaveAnomalia =
   | 'ACCESO_SIN_SOLICITUD'
   | 'EXCEPCION_VENCIDA_ABIERTA'
   | 'PROVEEDOR_SIN_EVALUACION'
-  | 'SALIDA_SIN_ACTA';
+  | 'SALIDA_SIN_ACTA'
+  | 'INTENTO_SCORM_ABANDONADO';
 
 export interface Anomalia {
   clave: ClaveAnomalia;
@@ -152,6 +153,17 @@ export function salidasSinActaDeBorrado(
 /// Cada fuente puede llegar en `null`, y eso significa «no se pudo consultar», nunca
 /// «está vacía». El tipo obliga a decidirlo en el sitio de la consulta, que es el único
 /// lugar que sabe la diferencia.
+export interface IntentoScormEstado {
+  estado: 'EN_CURSO' | 'SUSPENDIDO' | 'COMPLETADO' | 'ABANDONADO';
+}
+
+/// P13 · un intento abandonado significa que alguien empezó una capacitación y el sistema
+/// la dio por perdida. Sin contarlo, esa persona queda con su tarea abierta y sin saber por
+/// qué — y quien administra no tiene dónde verlo.
+export function intentosScormAbandonados(intentos: readonly IntentoScormEstado[]): number {
+  return intentos.filter((i) => i.estado === 'ABANDONADO').length;
+}
+
 export interface FuentesDeAnomalias {
   activos: readonly ActivoInventariado[] | null;
   personas: readonly ColaboradorBase[] | null;
@@ -161,6 +173,7 @@ export interface FuentesDeAnomalias {
   accesos: readonly AccesoVigencia[] | null;
   excepciones: readonly ExcepcionConCierre[] | null;
   organizaciones: readonly OrganizacionConActivos[] | null;
+  intentosScorm: readonly IntentoScormEstado[] | null;
 }
 
 interface Declaracion {
@@ -216,10 +229,17 @@ const DECLARADAS: readonly Declaracion[] = [
     donde: 'Personas · Desvinculación',
     ruta: '/sig/colaboradores',
   },
+  {
+    clave: 'INTENTO_SCORM_ABANDONADO',
+    singular: 'intento de curso abandonado sin cerrar',
+    plural: 'intentos de curso abandonados sin cerrar',
+    donde: 'SIG · Mis tareas',
+    ruta: '/mi-sig',
+  },
 ];
 
-/// Las seis, siempre las seis. Ninguna se omite por no poder medirse: un tablero que
-/// muestra cuatro cruces de seis y no dice que faltan dos asegura que el sistema está
+/// Las siete, siempre las siete. Ninguna se omite por no poder medirse: un tablero que
+/// muestra cuatro cruces de siete y no dice que faltan tres asegura que el sistema está
 /// mejor de lo que se sabe.
 export function anomaliasDelSistema(f: FuentesDeAnomalias, hoy: Date): Anomalia[] {
   const medido = new Map<ClaveAnomalia, number | null>([
@@ -250,6 +270,10 @@ export function anomaliasDelSistema(f: FuentesDeAnomalias, hoy: Date): Anomalia[
       f.personas === null || f.conActaDeBorrado === null
         ? null
         : salidasSinActaDeBorrado(f.personas, f.conActaDeBorrado),
+    ],
+    [
+      'INTENTO_SCORM_ABANDONADO',
+      f.intentosScorm === null ? null : intentosScormAbandonados(f.intentosScorm),
     ],
   ]);
 
