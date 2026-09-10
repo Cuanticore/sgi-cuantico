@@ -91,6 +91,16 @@ export const TRABAJOS: DefinicionTrabajo[] = [
     cuando: 'Cada hora, :20',
     disponible: true,
   },
+  {
+    nombre: 'abandonar-intentos-scorm',
+    descripcion:
+      'Marca ABANDONADO todo intento SCORM sin actividad por más de ' +
+      'SCORM_INTENTO_ABANDONO_MINUTOS (12 h por omisión), conservando lo que el curso ya ' +
+      'comprometió. Sin esto, un intento colgado se reanudaría para siempre en vez de ' +
+      'dejar abrir uno nuevo (P13).',
+    cuando: 'Cada hora, :40',
+    disponible: true,
+  },
 ];
 
 export function trabajoPorNombre(nombre: string): DefinicionTrabajo | null {

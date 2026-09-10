@@ -44,6 +44,12 @@ SIG_TRABAJOS_SECRET=
 # cada fila queda BLOQUEADO con SIN_PERMISO, que es el comportamiento correcto.
 20 * * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/publicar-soportes >> /var/log/sig-trabajos.log 2>&1
 
+# Marca ABANDONADO los intentos SCORM sin actividad por más de SCORM_INTENTO_ABANDONO_MINUTOS
+# (REQ-SIG-14 · P13). Muchos cursos no llaman `Terminate` si se cierra la pestaña: sin esto
+# un intento colgado se reanudaría para siempre y la persona no podría abrir uno nuevo. Lo
+# comprometido —`location`, `suspend_data`, objetivos, interacciones— se conserva intacto.
+40 * * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/abandonar-intentos-scorm >> /var/log/sig-trabajos.log 2>&1
+
 # Todavía sin construir — la ruta responde 501 con la razón, no 404. Se dejan comentadas
 # para que instalarlas sea descomentar, no volver a leer la documentación:
 #

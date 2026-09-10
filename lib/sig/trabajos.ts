@@ -179,6 +179,10 @@ const IMPLEMENTACIONES: Record<string, (autor: string, hoy: Date) => Promise<Res
     const r = await publicarPendientes();
     return { creados: r.publicados, detalle: r.detalle };
   },
+  'abandonar-intentos-scorm': async (autor, hoy) => {
+    const { abandonarIntentosScorm } = await import('@/lib/sig/trabajos-scorm');
+    return abandonarIntentosScorm(autor, hoy);
+  },
 };
 
 // Al cargar el módulo, no a las 5 de la mañana. Un trabajo marcado `disponible` sin

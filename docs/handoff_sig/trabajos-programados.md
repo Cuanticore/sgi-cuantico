@@ -54,6 +54,7 @@ La ruta **verifica el secreto y nada más**: no usa la sesión, porque no hay pe
 | `permisos-temporales-vencidos` | Cada hora | Cierra los accesos temporales cuya vigencia expiró (REQ-SIG-07 · O14) |
 | `sincronizar-directorio` | Diario, 04:30 | Trae altas y bajas de Azure AD y marca las anomalías del directorio de colaboradores |
 | `publicar-soportes` | Cada hora, :20 | Publica en SharePoint los soportes pendientes, en la carpeta de cada persona (REQ-SIG-13) |
+| `abandonar-intentos-scorm` | Cada hora, :40 | Marca ABANDONADO los intentos SCORM sin actividad, conservando lo comprometido (REQ-SIG-14 · P13) |
 
 ---
 
