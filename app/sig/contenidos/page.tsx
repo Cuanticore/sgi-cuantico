@@ -49,6 +49,24 @@ export default async function ContenidosPage() {
           _count: { select: { registros: true } },
         },
       },
+      // D-1/D-4 · la clase del paquete no es decorativa: separa «este curso no comparte
+      // datos» de «este curso comparte correo y nombre», y separa «la huella congela lo
+      // que la persona vio» de «el proveedor puede cambiar el curso mañana». Quien
+      // responde una auditoría necesita saber qué puede afirmar.
+      paquetes: {
+        orderBy: { version: 'desc' },
+        select: {
+          id: true,
+          version: true,
+          clase: true,
+          edicion: true,
+          archivos: true,
+          dominiosExternos: true,
+          tituloOrganizacion: true,
+          zipSha256: true,
+          subidoEn: true,
+        },
+      },
       obligaciones: {
         where: { activa: true },
         select: {
@@ -95,6 +113,17 @@ export default async function ContenidosPage() {
       publicadaEn: v.publicadaEn.toISOString(),
       publicadaPor: v.publicadaPor?.nombre ?? null,
       registros: v._count.registros,
+    })),
+    paquetes: c.paquetes.map((p) => ({
+      id: p.id,
+      version: p.version,
+      clase: p.clase,
+      edicion: p.edicion,
+      archivos: p.archivos,
+      dominiosExternos: p.dominiosExternos,
+      tituloOrganizacion: p.tituloOrganizacion,
+      zipSha256: p.zipSha256,
+      subidoEn: p.subidoEn.toISOString(),
     })),
     usos: c.obligaciones.map((o) => ({
       id: o.id,

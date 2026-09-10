@@ -758,6 +758,16 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
       return { ok: false, mensaje: plan.errores.join('. ') };
     }
 
+    // P2 · un registro contra «Codificación Segura v2» tiene que seguir apuntando al
+    // paquete que se ejecutó, aunque mañana se suba una v3. Sin esto el historial de
+    // capacitación deja de ser verificable en el momento en que alguien actualiza un curso.
+    const paqueteVigente = await prisma.paqueteScorm.findFirst({
+      where: { contenidoId: id },
+      orderBy: { version: 'desc' },
+      select: { id: true },
+    });
+    const paqueteVigenteId = paqueteVigente?.id ?? null;
+
     await prisma.$transaction(async (tx) => {
       const nuevoTexto = {
         titulo: datos.titulo ?? contenido.titulo,
@@ -773,7 +783,13 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
         // hace seis meses siga siendo verificable contra el texto que esa persona leyó, y
         // por eso el `update` de abajo ya no destruye nada.
         await tx.versionContenido.create({
-          data: { contenidoId: id, version, ...nuevoTexto, publicadaPorId: persona?.id ?? null },
+          data: {
+            contenidoId: id,
+            version,
+            ...nuevoTexto,
+            paqueteScormId: paqueteVigenteId,
+            publicadaPorId: persona?.id ?? null,
+          },
         });
       } else {
         // Corrección de la versión vigente: un contenido sin obligaciones, o un cambio que
@@ -783,10 +799,21 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
         // `upsert` y no `update`: un contenido cargado antes de esta migración podría no
         // tener su fila si la migración corrió a medias, y un fallo acá dejaría el
         // contenido editado sin versión — el defecto que este cambio vino a cerrar.
+        //
+        // P2 · el paquete se congela al CREAR la fila, no al corregirla: la rama `update`
+        // deja `paqueteScormId` como estaba a propósito. Reescribirlo en cada corrección
+        // haría que una versión ya publicada —contra la que alguien pudo cerrar— cambiara
+        // de paquete al vuelo, que es exactamente lo que congelar viene a impedir.
         await tx.versionContenido.upsert({
           where: { contenidoId_version: { contenidoId: id, version } },
           update: nuevoTexto,
-          create: { contenidoId: id, version, ...nuevoTexto, publicadaPorId: persona?.id ?? null },
+          create: {
+            contenidoId: id,
+            version,
+            ...nuevoTexto,
+            paqueteScormId: paqueteVigenteId,
+            publicadaPorId: persona?.id ?? null,
+          },
         });
       }
 

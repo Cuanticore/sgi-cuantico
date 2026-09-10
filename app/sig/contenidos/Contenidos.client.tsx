@@ -25,6 +25,7 @@ import {
   editarContenido,
   type DatosContenido,
 } from '@/app/sig/acciones/tareas';
+import { subirPaqueteScorm } from '@/app/sig/acciones/scorm';
 
 type Tipo = 'LECTURA' | 'VERIFICACION' | 'CAPACITACION' | 'TAREA';
 
@@ -49,6 +50,22 @@ export interface VersionFila {
   registros: number;
 }
 
+/// Un paquete SCORM del contenido. `clase` no es decorativa (D-1/D-4): separa «este curso
+/// no comparte datos» de «este curso comparte correo y nombre», y separa «la huella
+/// congela lo que la persona vio» de «el proveedor puede cambiar el curso mañana». Quien
+/// responde una auditoría necesita saber cuál de las dos cosas tiene delante.
+export interface PaqueteFila {
+  id: number;
+  version: number;
+  clase: string;
+  edicion: string;
+  archivos: number;
+  dominiosExternos: string[];
+  tituloOrganizacion: string;
+  zipSha256: string;
+  subidoEn: string;
+}
+
 export interface ContenidoFila {
   id: number;
   codigo: string;
@@ -67,6 +84,7 @@ export interface ContenidoFila {
   notaMinima: number | null;
   items: ItemFila[];
   versiones: VersionFila[];
+  paquetes: PaqueteFila[];
   usos: { id: number; codigo: string; alcance: string; periodicidad: string }[];
 }
 
@@ -578,6 +596,8 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
           </div>
         )}
 
+        {tipo === 'CAPACITACION' && <PaquetesScorm contenido={contenido} />}
+
         <Historial contenido={contenido} />
 
         <div className="flex flex-col gap-2.5">
@@ -621,6 +641,154 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
 /// modelo SÍ congela: el título de esa versión, cuándo se publicó, quién la publicó y
 /// cuántos registros quedaron anclados a ella; y se dice en pantalla que la nota del cambio
 /// no se está guardando, para que el hueco no se lea como una versión sin cambios.
+// ──────────────────────────────────────────────────────────────────────────────
+// El paquete SCORM del curso
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Subir el `.zip` y ver qué se subió.
+///
+/// **La advertencia va ANTES de guardar y con esas palabras** (D-1/D-4). No alcanza con
+/// mostrar «DESPACHO»: la etiqueta no dice nada a quien no leyó el requerimiento, y lo que
+/// hay que decir es que el correo y el nombre de cada colaborador se transmiten al tercero
+/// y que la huella del paquete no congela el curso. Es la diferencia entre lo que un
+/// auditor puede afirmar y lo que no.
+///
+/// El análisis del manifiesto lo devuelve la acción en su mensaje —edición, archivos,
+/// clase y dominios—, así que no se adivina nada en el cliente: la clase se detecta al
+/// analizar y se lee de la fila guardada.
+function PaquetesScorm({ contenido }: { contenido: ContenidoFila }) {
+  const [subiendo, setSubiendo] = useState(false);
+  const [mensajeScorm, setMensajeScorm] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  const paquetes = contenido.paquetes;
+  const vigente = paquetes[0] ?? null;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Regla
+        etiqueta="Curso SCORM 2004 · REQ-SIG-14"
+        cola={
+          paquetes.length === 0
+            ? 'sin paquete'
+            : paquetes.length === 1
+              ? '1 paquete'
+              : `${paquetes.length} paquetes`
+        }
+      />
+
+      {/* Que el cierre deje de ser manual no es un detalle de implementación: es lo que
+          quien configura el contenido tiene que saber antes de subir el archivo. */}
+      <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+        Con un paquete cargado, esta capacitación{' '}
+        <strong className="font-semibold">deja de cerrarse a mano</strong>: el formulario de
+        asistencia y nota desaparece de la bandeja y el cierre lo hace el curso cuando reporta
+        que terminó (P14). Sólo se acepta SCORM 2004 y un único SCO; un paquete con dos SCO se
+        rechaza con el motivo.
+      </p>
+
+      <form
+        className="flex flex-wrap items-center gap-2.5"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const formulario = e.currentTarget as HTMLFormElement;
+          const datos = new FormData(formulario);
+          datos.set('contenidoId', String(contenido.id));
+          setSubiendo(true);
+          setMensajeScorm(null);
+          const r = await subirPaqueteScorm(datos);
+          setSubiendo(false);
+          setMensajeScorm({ ok: r.ok, texto: r.mensaje });
+          if (r.ok) formulario.reset();
+        }}
+      >
+        <input
+          type="file"
+          name="archivo"
+          accept=".zip"
+          required
+          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-11_5"
+        />
+        <button
+          type="submit"
+          disabled={subiendo}
+          className="rounded-campo px-3.5 py-2 text-11_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300 disabled:opacity-50"
+          style={{ background: 'var(--hf-accent-500)' }}
+        >
+          {subiendo ? 'Analizando…' : vigente === null ? 'Subir paquete SCORM' : 'Reemplazar paquete'}
+        </button>
+      </form>
+
+      {mensajeScorm !== null && (
+        <p
+          className="rounded-tarjeta px-3 py-2.5 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={
+            mensajeScorm.ok
+              ? { background: 'var(--hf-row-verde)', color: 'var(--hf-accent-700)' }
+              : {
+                  background: 'var(--hf-warn-100)',
+                  color: 'var(--hf-warn-text)',
+                  border: '1px solid var(--hf-warn-border)',
+                }
+          }
+        >
+          {mensajeScorm.texto}
+        </p>
+      )}
+
+      {paquetes.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-11_5">
+            <thead>
+              <tr className="text-left" style={{ color: 'var(--hf-text-label)' }}>
+                <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Versión</th>
+                <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Clase</th>
+                <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Edición</th>
+                <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Archivos</th>
+                <th className="px-2 py-1.5 font-mono text-10 font-medium uppercase">Huella</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paquetes.map((p) => (
+                <tr key={p.id} style={{ borderTop: '1px solid var(--hf-border-field)' }}>
+                  <td className="px-2 py-2 align-top font-mono text-10_5">v{p.version}</td>
+                  <td className="px-2 py-2 align-top leading-relaxed">
+                    {p.clase === 'DESPACHO' ? (
+                      // Las palabras son el control, no la etiqueta. «DESPACHO» a secas no
+                      // le dice a nadie que los datos de sus colaboradores salen.
+                      <span style={{ color: 'var(--hf-warn-text)' }}>
+                        Despacho — comparte correo y nombre con{' '}
+                        {p.dominiosExternos.length === 0
+                          ? 'un tercero no declarado'
+                          : p.dominiosExternos.join(', ')}
+                      </span>
+                    ) : (
+                      'Autocontenido — el contenido no sale de la aplicación'
+                    )}
+                  </td>
+                  <td className="px-2 py-2 align-top font-mono text-10_5">{p.edicion}</td>
+                  <td className="px-2 py-2 align-top font-mono text-10_5">{p.archivos}</td>
+                  <td className="px-2 py-2 align-top font-mono text-10_5 leading-relaxed">
+                    {p.zipSha256.slice(0, 12)}
+                    {/* D-1 · en un despacho el hash cubre la cáscara de 18 KB, no el curso:
+                        el proveedor puede cambiarlo mañana y la huella queda idéntica.
+                        Mostrar el hash sin esa frase es publicar una evidencia que no
+                        existe. */}
+                    {p.clase === 'DESPACHO' && (
+                      <span className="block text-10 text-muted">
+                        cubre la cáscara, no el curso
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Historial({ contenido }: { contenido: ContenidoFila }) {
   const versiones = contenido.versiones;
 
