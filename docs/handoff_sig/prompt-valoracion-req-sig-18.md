@@ -28,6 +28,8 @@ Las dos rutas están en el §15.5 y terminan en el mismo estado. **Dime cuál te
 
 **A favor de la Ruta A: el importador de V19 ya está construido**, en `5d4dabb` (la lectura pura y probada), `1ab05b8` (el importador lo reconoce antes que el formato histórico) y `b40f69e` (la pantalla muestra el parte y lo que borra). Así que la Ruta A se reduce a corregir el catálogo, agregar el mapeo, y correr una importación que ya existe.
 
+**El libro no está en el repositorio.** Si vas por la Ruta A necesitás que te lo pasen: `FOR-SIG-12 Consolidado de Activos de Información V19.xlsx`, que vive en el repositorio documental del SIG, en `14. Seguridad de la Informacion/2. Gestión de Activos y Protección de Información/0. Formato de Inventario por procesos/`. Pedilo antes de empezar.
+
 ## 3 · Entregable 1 · la corrección de registros
 
 ### 3.1 El catálogo de cargos · resuelve 26 casillas sin tocar un activo
@@ -94,6 +96,8 @@ Lo que no debes volver a decidir:
 ### 4.1 Arranca la Tabla B por el caso vacío
 
 Hoy casi ningún activo tiene custodio persona: `Activo.personaId` se escribe de a uno desde el popup de REQ-SIG-16 y solo para los subtipos entregables (**≈21 de 299**). El primer día la matriz va a estar casi vacía y **eso es correcto** — la línea de encuadre del §6.6 es la que lo explica. No pongas fila «Sin asignar»: con 275 activos aplastaría a las demás.
+
+**Y hay una segunda capa que te va a parecer un error tuyo y no lo es.** `Activo.personaId` es llave foránea a `Persona`, y `Persona` se puebla desde el Directorio por Microsoft Graph — una sincronización que, por REQ-SIG-17 §7, **todavía no se ha corrido**. Así que la Tabla B puede quedar vacía **incluso si los `personaId` estuvieran puestos**, simplemente porque no hay personas. Constrúyela igual, verifica su caso vacío, y repórtalo: no es un bloqueo de esta pantalla, es una precondición de otro requerimiento. Lo que **no** debes hacer es sembrar personas para probar — `Persona.oid` es el object id de Azure AD y no se fabrica.
 
 ## 5 · Los cinco arreglos en el inventario
 
