@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
-import { resumirCorrida } from '@/lib/sig/personas';
+import { CAMPOS_DE_SINCRONIZACION, resumirCorrida } from '@/lib/sig/personas';
 import PersonasClient, { type AsignacionAbierta, type Corrida } from './Personas.client';
 
 export const dynamic = 'force-dynamic';
@@ -52,8 +52,18 @@ export default async function PersonasPage() {
     // `CURRENT_TIMESTAMP` de Postgres, que dentro de una transacción es el instante en que
     // empezó, y por eso las filas de una misma corrida comparten el valor exacto. Guardar
     // aparte un resumen que la bitácora ya contiene sería guardar lo derivable.
+    // **P28 (REQ-SIG-15) · acotado por campo, y no es opcional.**
+    //
+    // El comentario de arriba decía que `app/sig/acciones/personas.ts` es el único escritor de
+    // filas con `tabla: 'persona'`. **Ya no lo es**: `personas-edicion.ts` escribe una fila
+    // por campo cada vez que alguien guarda la pertenencia de una persona desde el popup.
+    //
+    // Sin este filtro, una edición manual de tres campos se vuelve «la última corrida» —con
+    // su fecha y las cuatro cifras en cero, porque `resumirCorrida` no sabe contar 'área' ni
+    // 'teléfono'— y la franja anuncia una sincronización que nunca ocurrió. Se filtra por los
+    // campos que el resumen SÍ cuenta, que es la lista que vive junto a él.
     prisma.bitacora.findFirst({
-      where: { tabla: 'persona' },
+      where: { tabla: 'persona', campo: { in: [...CAMPOS_DE_SINCRONIZACION] } },
       orderBy: { ocurridoEn: 'desc' },
       select: { ocurridoEn: true },
     }),
@@ -66,8 +76,15 @@ export default async function PersonasPage() {
     ? {
         cuando: ultimaFilaDeCorrida.ocurridoEn.toISOString(),
         ...resumirCorrida(
+          // El mismo filtro acá: una edición del popup puede caer en el mismo instante que
+          // una corrida —dos transacciones concurrentes comparten `CURRENT_TIMESTAMP` sólo
+          // por casualidad, pero la casualidad ocurre— y sus filas inflarían el resumen.
           await prisma.bitacora.findMany({
-            where: { tabla: 'persona', ocurridoEn: ultimaFilaDeCorrida.ocurridoEn },
+            where: {
+              tabla: 'persona',
+              ocurridoEn: ultimaFilaDeCorrida.ocurridoEn,
+              campo: { in: [...CAMPOS_DE_SINCRONIZACION] },
+            },
             select: { campo: true, valorNuevo: true },
           }),
         ),

@@ -5,7 +5,12 @@
 // que apagaría a toda la organización, y un cambio de correo que duplicaría a una persona
 // en vez de renombrarla.
 
-import { normalizarCorreo, planificarSincronizacion } from '../personas';
+import {
+  CAMPOS_DE_SINCRONIZACION,
+  normalizarCorreo,
+  planificarSincronizacion,
+  resumirCorrida,
+} from '../personas';
 
 const ADA = { oid: 'oid-ada', nombre: 'Ada Lovelace', correo: 'ada@cuantico.com' };
 const GRACE = { oid: 'oid-grace', nombre: 'Grace Hopper', correo: 'grace@cuantico.com' };
@@ -133,7 +138,7 @@ describe('entradaDesdePerfil', () => {
     ).toEqual({ oid: 'oid-ada', nombre: 'Ada Lovelace', correo: 'ada@cuantico.com' });
   });
 
-  // Sin oid no hay identidad, y adivinarla por el correo es justo lo que este m�dulo evita.
+  // Sin oid no hay identidad, y adivinarla por el correo es justo lo que este m�dulo evita.
   it('devuelve null sin oid, sin correo o sin perfil', () => {
     expect(entradaDesdePerfil({ name: 'Ada', email: 'ada@cuantico.com' })).toBeNull();
     expect(entradaDesdePerfil({ oid: 'oid-ada', name: 'Ada' })).toBeNull();
@@ -148,8 +153,6 @@ describe('entradaDesdePerfil', () => {
     });
   });
 });
-
-import { resumirCorrida } from '../personas';
 
 // La franja de la pantalla se arma con estas cuatro cifras. Los casos que importan son los
 // que la harían mentir: inactivar y reactivar escriben el MISMO campo en la bitácora, así
@@ -283,5 +286,57 @@ describe('colisión de identidad · oid nuevo con correo ocupado', () => {
     const plan = planificarSincronizacion([ADA, GRACE], [existente(ADA)]);
     expect(plan.conflictos).toEqual([]);
     expect(plan.altas).toHaveLength(1);
+  });
+});
+
+// ─── P28 · la franja de sincronización no se ensucia (REQ-SIG-15) ─────────────────────────
+//
+// La franja de `/sig/personas` reconstruye la última corrida buscando la fila MÁS RECIENTE
+// con `tabla: 'persona'` y leyendo todas las que comparten su `ocurridoEn`. Ese rastro
+// funcionaba porque `app/sig/acciones/personas.ts` era su **único escritor**.
+//
+// **Ya no lo es.** `app/sig/acciones/personas-edicion.ts` escribe filas de `tabla: 'persona'`
+// cada vez que alguien guarda la pertenencia de una persona desde el popup. Sin acotar el
+// rastro, una edición de tres campos se vuelve la «última corrida» —fechada en la edición y
+// con las cuatro cifras en cero— y la franja anuncia una sincronización que nunca ocurrió.
+//
+// Se acota por CAMPO y no por motivo, y la razón importa: `registrarAlta` no recibe motivo,
+// así que las altas de la sincronización lo tienen en `null`. Filtrar por motivo dejaría las
+// altas afuera, que son justo la cifra que más se mira después de una primera corrida.
+
+describe('P28 · qué campos son de una corrida de sincronización', () => {
+  it('los cuatro que `resumirCorrida` sabe contar, y nada más', () => {
+    expect([...CAMPOS_DE_SINCRONIZACION].sort()).toEqual(
+      ['alta', 'baja lógica', 'correo', 'nombre'].sort(),
+    );
+  });
+
+  // La coherencia que hace que el filtro y el resumen no puedan divergir: todo campo que el
+  // resumen cuenta está en la lista, y todo campo de la lista lo cuenta el resumen.
+  it('un campo de la lista siempre mueve alguna cifra', () => {
+    for (const campo of CAMPOS_DE_SINCRONIZACION) {
+      const r = resumirCorrida([{ campo, valorNuevo: 'dado de baja' }]);
+      const total = r.altas + r.actualizaciones + r.inactivaciones + r.reactivaciones;
+      expect(total).toBeGreaterThan(0);
+    }
+  });
+
+  // Y al revés: los campos que el popup de REQ-SIG-15 escribe NO están en la lista, así que
+  // una edición manual no puede pasar por corrida.
+  it.each(['área', 'cargo', 'documento de identidad', 'teléfono', 'correo personal', 'ciudad', 'dirección'])(
+    'el campo «%s» del popup no es de sincronización',
+    (campo) => {
+      expect(CAMPOS_DE_SINCRONIZACION).not.toContain(campo);
+      const r = resumirCorrida([{ campo, valorNuevo: 'algo' }]);
+      expect(r).toEqual({ altas: 0, actualizaciones: 0, inactivaciones: 0, reactivaciones: 0 });
+    },
+  );
+
+  // «correo personal» empieza con «correo» y NO es una actualización del Directorio. Si el
+  // filtro se hiciera por prefijo en vez de por igualdad exacta, este caso lo rompería.
+  it('«correo personal» no se confunde con «correo»', () => {
+    expect(CAMPOS_DE_SINCRONIZACION).toContain('correo');
+    expect(CAMPOS_DE_SINCRONIZACION).not.toContain('correo personal');
+    expect(resumirCorrida([{ campo: 'correo personal', valorNuevo: 'x@gmail.com' }]).actualizaciones).toBe(0);
   });
 });

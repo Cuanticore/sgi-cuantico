@@ -209,6 +209,27 @@ export interface ResumenCorrida {
   reactivaciones: number;
 }
 
+/// **P28 (REQ-SIG-15) · los campos que una corrida de sincronización escribe, y sólo esos.**
+///
+/// La franja de `/sig/personas` reconstruye la última corrida buscando la fila más reciente
+/// con `tabla: 'persona'` y leyendo las que comparten su `ocurridoEn`. Eso funcionaba porque
+/// `app/sig/acciones/personas.ts` era su **único escritor**.
+///
+/// **Ya no lo es.** `app/sig/acciones/personas-edicion.ts` escribe filas de `tabla: 'persona'`
+/// cada vez que alguien guarda la pertenencia de una persona. Sin acotar el rastro, una
+/// edición de tres campos se vuelve la «última corrida» —fechada en la edición y con las
+/// cuatro cifras en cero— y la franja anuncia una sincronización que nunca ocurrió.
+///
+/// **Se acota por CAMPO y no por motivo**, y la razón importa: `registrarAlta` no recibe
+/// motivo, así que las altas de la sincronización lo tienen en `null`. Filtrar por motivo
+/// dejaría las altas afuera, que son justo la cifra que más se mira después de una primera
+/// corrida.
+///
+/// La lista vive **al lado de `resumirCorrida`** a propósito: es exactamente el conjunto de
+/// campos que ese resumen sabe contar, y tenerlas juntas es lo que impide que el filtro de la
+/// consulta y el resumen se desincronicen. Una prueba lo fija en las dos direcciones.
+export const CAMPOS_DE_SINCRONIZACION = ['alta', 'nombre', 'correo', 'baja lógica'] as const;
+
 /// Reconstruye el resultado de una corrida de sincronización desde su rastro en la bitácora.
 ///
 /// El resumen no se guarda en ninguna tabla: la bitácora ya lo contiene entero, y guardarlo
