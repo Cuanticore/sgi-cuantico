@@ -19,13 +19,15 @@
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
     "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.11.1",
     "next": "^16.3.2",
     "next-auth": "^4.24.15",
     "nodemailer": "^7.0.13",
     "pg": "8.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.0",
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -38,6 +40,7 @@
     "@types/pg": "8.15.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "@types/yauzl": "^3.4.0",
     "dotenv": "17.2.3",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.2",
