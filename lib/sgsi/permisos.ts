@@ -80,7 +80,19 @@ export type Permiso =
   | 'bitacora:ver'
   | 'evidencia:ver'
   | 'evidencia:escribir'
-  | 'personas:administrar';
+  | 'personas:administrar'
+  /// REQ-SIG-15 D-9 · deshabilitar una cuenta del Directorio y revocarle las sesiones.
+  ///
+  /// **Se declara aparte aunque hoy lo tenga el mismo grupo que `personas:administrar`.** El
+  /// vocabulario de permisos se conserva entero precisamente para que reabrir un escalón sea
+  /// agregar una entrada en `POR_GRUPO` y nunca recorrer las pantallas de nuevo: un permiso
+  /// propio hoy es una línea, y extraerlo mañana de un `personas:administrar` ya repartido
+  /// por diez pantallas no lo es.
+  ///
+  /// Y deja legible en el código que **bloquear una cuenta no es lo mismo que editar un
+  /// teléfono**, aunque hoy los autorice la misma gente. Es la acción más destructiva que la
+  /// aplicación tiene: deja a una persona sin poder trabajar.
+  | 'personas:bloquear';
 
 const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.seguridad]: [
@@ -112,6 +124,10 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     'evidencia:ver',
     'evidencia:escribir',
     'personas:administrar',
+    // REQ-SIG-15 D-9 · «este módulo es restringido al grupo de responsables, no hay
+    // problema», confirmado por el líder del SIG el 08/09/2026. No se crea ningún grupo
+    // nuevo en el Directorio ni se pide separación de funciones adicional.
+    'personas:bloquear',
   ],
 };
 

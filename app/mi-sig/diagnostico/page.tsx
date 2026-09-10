@@ -60,6 +60,7 @@ const QUE_ABRE: Record<Permiso, string> = {
   'evidencia:ver': 'Ver evidencias y anexos',
   'evidencia:escribir': 'Aportar evidencias y anexos',
   'personas:administrar': 'Administrar personas y sincronizar el Directorio',
+  'personas:bloquear': 'Deshabilitar una cuenta del Directorio y revocarle las sesiones',
 };
 
 const ORDEN = Object.keys(QUE_ABRE) as Permiso[];
