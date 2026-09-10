@@ -75,6 +75,80 @@ export default function PanelCierre({
     }
   }
 
+  // P14 · el cierre lo hace el player. Acá no hay nada que declarar, y por eso el panel
+  // entero se reemplaza en vez de sólo esconder los campos: dejar el botón «Registrar»
+  // llamando a `cerrarAsignacion` permitiría declararse aprobado en el curso que no se
+  // abrió, que es exactamente la razón de ser del player. El servidor lo rechaza igual
+  // (`app/sig/acciones/tareas.ts`), pero una pantalla que ofrece lo que el servidor niega
+  // enseña a desconfiar de la pantalla.
+  if (tarjeta.tipo === 'CAPACITACION' && tarjeta.tienePaqueteScorm) {
+    return (
+      <aside
+        className="fixed inset-y-0 right-0 z-40 flex w-[396px] flex-col overflow-y-auto bg-surface shadow-xl"
+        style={{ borderLeft: '1px solid var(--hf-border-field)' }}
+        aria-label="Abrir el curso"
+      >
+        <header
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid var(--hf-hairline-strong)' }}
+        >
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="font-mono text-10_5 uppercase" style={{ color: 'var(--hf-text-label)' }}>
+              {ETIQUETA[tarjeta.tipo]}
+            </span>
+            <h2 className="truncate text-15 font-semibold text-primary">{tarjeta.titulo}</h2>
+            <span className="truncate font-mono text-10 text-muted">
+              {tarjeta.codigo}
+              {tarjeta.procedimientoOrigen ? ` · ${tarjeta.procedimientoOrigen}` : ''}
+            </span>
+          </div>
+          <button
+            onClick={alCerrar}
+            aria-label="Cerrar panel"
+            className="flex-none rounded-[5px] px-2 py-1 text-15 text-muted hover:bg-app focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div className="flex flex-1 flex-col gap-5 px-5 py-5">
+          <p className="text-12_5 leading-relaxed text-primary">
+            Esta capacitación es un curso en línea. Se cierra sola cuando el curso reporta que
+            la terminaste: no hay que registrar asistencia ni nota a mano.
+          </p>
+          {tarjeta.exigeEvaluacion && tarjeta.notaMinima !== null && (
+            <p className="text-12 leading-relaxed text-muted">
+              Se aprueba con {tarjeta.notaMinima} o más. Si el curso reporta menos, el intento
+              queda registrado y la asignación sigue abierta para repetir la evaluación.
+            </p>
+          )}
+        </div>
+
+        <footer
+          className="flex items-center gap-2 px-5 py-4"
+          style={{ borderTop: '1px solid var(--hf-hairline-strong)' }}
+        >
+          <span className="flex-1 font-mono text-9_5 leading-relaxed text-label">
+            El resultado lo reporta el curso.
+          </span>
+          <button
+            onClick={alCerrar}
+            className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 font-medium text-muted"
+          >
+            Cancelar
+          </button>
+          <a
+            href={`/mi-sig/curso/${tarjeta.id}`}
+            className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+            style={{ background: 'var(--hf-accent-500)' }}
+          >
+            Abrir el curso
+          </a>
+        </footer>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className="fixed inset-y-0 right-0 z-40 flex w-[396px] flex-col overflow-y-auto bg-surface shadow-xl"

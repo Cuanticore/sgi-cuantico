@@ -116,6 +116,35 @@ export async function cerrarAsignacion(
       }
     }
 
+    // P14 · la compuerta real va en el servidor. Retirar el formulario de la pantalla no
+    // alcanza: la acción es invocable desde el navegador, y una capacitación con paquete
+    // tiene que ser incerrable a mano por quien la debe hacer.
+    //
+    // Se exige `!esAdministrativo` y no `puede(rol, 'operacion:administrar')` porque el
+    // cierre administrativo de una CAPACITACION **sí manda `asistio`**: `validarCierre` lo
+    // exige (`lib/sig/cierre.ts:62-68`), así que un cierre administrativo sin ese campo se
+    // rechazaría por otra razón. Condicionar sólo por `datos.asistio !== undefined`, como
+    // decía el plan, habría cerrado también el camino de R5. Y `esAdministrativo` ya pasó
+    // por `autorConPermiso('operacion:administrar')` unas líneas arriba, de modo que la
+    // excepción no la puede tomar cualquiera.
+    if (contenido.tipo === 'CAPACITACION' && !esAdministrativo && datos.asistio !== undefined) {
+      const conPaquete = await prisma.paqueteScorm.findFirst({
+        where: { contenidoId: contenido.id },
+        select: { id: true },
+      });
+      if (conPaquete !== null) {
+        return {
+          ok: false,
+          mensaje:
+            'Esta capacitación tiene un curso en línea: se cierra con el curso, no declarando ' +
+            'asistencia. Abrila desde «Abrir el curso».',
+          extemporaneo: false,
+          administrativo: false,
+          cerrada: false,
+        };
+      }
+    }
+
     // R4: los flags de obligatoriedad salen del contenido, no del cliente. Un ítem que
     // no pertenece a la verificación se rechaza antes de validar.
     let respuestasValidadas: RespuestaCierre[] | undefined;

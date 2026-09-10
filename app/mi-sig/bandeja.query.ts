@@ -33,6 +33,10 @@ export interface TarjetaBandeja {
   dias: number;
   exigeEvaluacion: boolean;
   notaMinima: number | null;
+  /// P14 · con paquete SCORM, el cierre lo hace el player: el formulario de asistencia y
+  /// nota desaparece. Dejar los dos caminos abiertos permitiría declararse aprobado en el
+  /// curso que no se abrió, y anularía la razón de ser del player.
+  tienePaqueteScorm: boolean;
   documentoVersion: string | null;
   documentoUrl: string | null;
   documentoNombre: string | null;
@@ -71,8 +75,19 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
     where: { persona: { correo } },
     orderBy: [{ fechaLimite: 'asc' }],
     include: {
-      contenido: { include: { items: { orderBy: { orden: 'asc' } } } },
-      obligacion: { include: { contenido: { include: { items: { orderBy: { orden: 'asc' } } } } } },
+      // `paquetes` viaja con el contenido por los dos caminos —el directo y el de la
+      // obligación— porque la tarjeta se arma con el que haya: traerlo sólo en uno haría
+      // que la misma capacitación mostrara el formulario manual según de dónde colgara.
+      contenido: {
+        include: { items: { orderBy: { orden: 'asc' } }, paquetes: { select: { id: true }, take: 1 } },
+      },
+      obligacion: {
+        include: {
+          contenido: {
+            include: { items: { orderBy: { orden: 'asc' } }, paquetes: { select: { id: true }, take: 1 } },
+          },
+        },
+      },
       cerradaPorPersona: { select: { nombre: true } },
     },
   });
@@ -107,6 +122,7 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       exigeFirma: contenido?.exigeFirma ?? false,
       declaracion: contenido?.declaracion ?? null,
       notaMinima: contenido?.notaMinima ? Number(contenido.notaMinima) : null,
+      tienePaqueteScorm: (contenido?.paquetes.length ?? 0) > 0,
       documentoVersion: contenido?.documentoVersion ?? null,
       documentoUrl: contenido?.documentoUrl ?? null,
       documentoNombre: contenido?.documentoNombre ?? null,
