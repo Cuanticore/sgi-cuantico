@@ -123,6 +123,7 @@ export async function firmarYAceptar(
     const cabeceras = await headers();
     const anio = new Date().getUTCFullYear();
     let codigo = '';
+    let evidenciaIdPublicable: number | null = null;
 
     await prisma.$transaction(async (tx) => {
       const contador = await tx.contadorActa.upsert({
@@ -207,6 +208,13 @@ export async function firmarYAceptar(
         },
       });
 
+      // REQ-SIG-13 · la fila de la cola se crea DENTRO de la transacción, junto al acta:
+      // si la firma se deshace, no queda un soporte encolado que no existe.
+      await tx.publicacionSoporte.create({
+        data: { evidenciaId: evidencia.id, personaId: asignacion.personaId },
+      });
+      evidenciaIdPublicable = evidencia.id;
+
       await tx.asignacion.update({
         where: { id: asignacion.id },
         data: { estado: 'REALIZADA', fechaCierre: aceptadoEn, cerradaPor: asignacion.personaId },
@@ -223,6 +231,20 @@ export async function firmarYAceptar(
         },
       ]);
     });
+
+    // P10 · ninguna llamada a Graph dentro de la transacción. El cliente HTTP tiene 10 s de
+    // timeout: una transacción esperando a Graph sostiene sus bloqueos todo ese tiempo, y la
+    // firma —que es lo que le importa a la persona— quedaría a merced de la disponibilidad
+    // de Microsoft. Si Graph está caído, la firma se completa igual y el soporte queda
+    // PENDIENTE: el trabajo horario lo publica después.
+    if (evidenciaIdPublicable !== null) {
+      const id = evidenciaIdPublicable;
+      void import('@/lib/sig/publicador-soportes')
+        .then((m) => m.publicarPorEvidencia(id))
+        .catch(() => {
+          // El fallo ya quedó anotado en la fila con su causa; acá no hay a quién avisarle.
+        });
+    }
 
     revalidatePath('/mi-sig');
     revalidatePath('/mi-sig/historial');
