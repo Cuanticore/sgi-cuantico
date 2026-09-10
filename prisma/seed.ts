@@ -11,6 +11,7 @@ import 'dotenv/config';
 
 import { seedEscalas } from './seeds/escalas';
 import { seedMagerit } from './seeds/magerit';
+import { seedObligaciones } from './seeds/obligaciones';
 import { seedIso, seedControlAmenaza } from './seeds/iso';
 import { seedActivos } from './seeds/activos';
 import { seedPlan } from './seeds/plan';
@@ -29,6 +30,16 @@ async function main(): Promise<void> {
 
   console.log('Sembrando áreas, catálogos y taxonomía MAGERIT…');
   await seedMagerit(prisma);
+
+  // REQ-SIG-17 · va DESPUÉS de seedMagerit, que es quien siembra áreas y cargos: los
+  // destinos de alcance de las 27 obligaciones se resuelven contra esos dos catálogos.
+  console.log('Sembrando las obligaciones del numeral 8 (REQ-SIG-17)…');
+  const ob = await seedObligaciones(prisma);
+  console.log(
+    `  ${ob.contenidosCreados} contenidos nuevos (${ob.contenidosYaExistian} ya estaban), ` +
+      `${ob.obligacionesCreadas} obligaciones nuevas (${ob.obligacionesYaExistian} ya estaban), ` +
+      `${ob.cargosCreados} cargo(s), contexto ${ob.contextosCreados} creado(s) / ${ob.contextosActualizados} corregido(s).`,
+  );
 
   console.log('Sembrando controles ISO, dominios y capacidades…');
   await seedIso(prisma);
