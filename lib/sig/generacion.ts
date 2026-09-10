@@ -36,6 +36,9 @@ export interface ObligacionGenerable {
   alcanceActivoId: number | null;
   alcanceTipoActivoId: number | null;
   alcanceNivelActivoId: number | null;
+  /// El grupo de interés del alcance. **Nunca es el grupo derivado «Todos»**: ése se guarda
+  /// como `alcance: 'TODOS'` (P11).
+  alcanceGrupoInteresId?: number | null;
   /// A quién llega la asignación cuando el activo no tiene propietario. D3: «la asignación
   /// no se crea en el vacío — se dirige al responsable de seguimiento de la obligación y se
   /// marca el faltante. Un activo sin propietario es un hallazgo, no un error de
@@ -77,6 +80,13 @@ export interface PersonaGenerable {
   /// diligencia de quien escribe en el sistema.
   areaDesde: Date | null;
   cargoDesde: Date | null;
+  /// Las membresías **VIGENTES** en grupos de interés (`hasta IS NULL`), con su fecha de
+  /// inicio. Ausente se lee como «no pertenece a ninguno», que es lo correcto para un censo
+  /// que no las trae.
+  ///
+  /// El grupo derivado «Todos» **nunca** aparece acá: su pertenencia se calcula, y una
+  /// obligación dirigida a todo el mundo se guarda con `alcance: 'TODOS'` (P10, P11).
+  gruposDesde?: readonly { grupoId: number; desde: Date }[];
 }
 
 export interface ActivoGenerable {
@@ -217,6 +227,20 @@ export function resolverAlcance(
     case 'TODOS':
       // «Toda persona activa» no tiene principio distinto del ingreso (P16).
       return soloPersonas(activas, () => null);
+
+    case 'GRUPO_INTERES': {
+      // Sólo las membresías VIGENTES. `MiembroGrupoInteres.hasta` existe para que «quién
+      // estaba en Desarrolladores en marzo» siga teniendo respuesta, pero el generador mira
+      // el presente: una membresía cerrada no genera tareas nuevas.
+      const miembro = (p: PersonaGenerable) =>
+        (p.gruposDesde ?? []).find((g) => g.grupoId === obligacion.alcanceGrupoInteresId);
+      return soloPersonas(
+        activas.filter((p) => miembro(p) !== undefined),
+        // P16 · el término de pertenencia es `MiembroGrupoInteres.desde`. Marcar a alguien en
+        // septiembre no le cobra el curso del primer trimestre (P13).
+        (p) => miembro(p)?.desde ?? null,
+      );
+    }
 
     case 'NIVEL_ACTIVO':
       // Declarado en el enum y sin resolver todavía. **El motivo cambió y el mensaje estaba

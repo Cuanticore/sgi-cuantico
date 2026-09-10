@@ -47,6 +47,11 @@ export interface PersonaDelCenso {
   activa: boolean;
   areaId: number | null;
   cargoId: number | null;
+  /// REQ-SIG-15 · las membresías VIGENTES en grupos de interés. Ausente se lee como «no
+  /// pertenece a ninguno». La previsión no necesita la fecha —no calcula periodos, cuenta
+  /// gente— pero comparte la forma con `PersonaGenerable` para que el censo se arme una vez
+  /// y sirva a los dos lados.
+  gruposDesde?: readonly { grupoId: number; desde: Date }[];
 }
 
 export interface EntradaPrevision {
@@ -56,6 +61,7 @@ export interface EntradaPrevision {
   alcanceAreaId?: number;
   alcanceActivoId?: number;
   alcanceTipoActivoId?: number;
+  alcanceGrupoInteresId?: number;
   periodicidad: Periodicidad;
   fechaInicio: Date;
   plazoDias: number;
@@ -112,6 +118,12 @@ export function personasAlcanzadas(
       return activas.filter((p) => p.cargoId === entrada.alcanceCargoId);
     case 'AREA':
       return activas.filter((p) => p.areaId === entrada.alcanceAreaId);
+    // REQ-SIG-15 · la misma regla que `resolverAlcance`: sólo las membresías VIGENTES. Si
+    // acá se contara distinto, la pantalla prometería un número que la generación no cumple.
+    case 'GRUPO_INTERES':
+      return activas.filter((p) =>
+        (p.gruposDesde ?? []).some((g) => g.grupoId === entrada.alcanceGrupoInteresId),
+      );
     // Los alcances por activo NO cuentan personas: cuentan activos. Una tarea por activo,
     // dirigida al cargo que lo posee. `activosAlcanzados` hace esa cuenta.
     case 'ACTIVO':
@@ -157,6 +169,7 @@ export function preverGeneracion(
     entrada.alcance === 'AREA' ? entrada.alcanceAreaId : undefined,
     entrada.alcance === 'ACTIVO' ? entrada.alcanceActivoId : undefined,
     entrada.alcance === 'TIPO_ACTIVO' ? entrada.alcanceTipoActivoId : undefined,
+    entrada.alcance === 'GRUPO_INTERES' ? entrada.alcanceGrupoInteresId : undefined,
   ].filter((d) => d !== undefined);
   if (entrada.alcance !== 'TODOS' && destinos.length === 0) {
     problemas.push(`falta elegir a quién alcanza: el alcance es ${entrada.alcance.toLowerCase()}`);

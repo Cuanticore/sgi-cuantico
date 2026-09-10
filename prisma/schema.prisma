@@ -1127,6 +1127,10 @@ model Persona {
 
   soportesPublicados PublicacionSoporte[] @relation("PublicacionPersona")
 
+  // ── REQ-SIG-15 · grupos de interés y contactos de emergencia ──
+  gruposInteres       MiembroGrupoInteres[] @relation("MiembroGrupoPersona")
+  contactosEmergencia ContactoEmergencia[]  @relation("ContactoDePersona")
+
   accesos                AccesoPersona[] @relation("AccesoPersonaTitular")
   solicitudesPedidas     Solicitud[]     @relation("SolicitudSolicitante")
   solicitudesAutorizadas Solicitud[]     @relation("SolicitudAutoriza")
@@ -1180,6 +1184,17 @@ enum AlcanceObligacion {
   /// `NivelActivo` es de REQ-SIG-06 y todavia no existe, asi que la generacion rechaza
   /// este alcance con un mensaje explicito en vez de generar nada en silencio.
   NIVEL_ACTIVO
+  /// REQ-SIG-15 §4.4 · quienes pertenecen a un grupo de interés del SIG.
+  ///
+  /// **El nombre completo y no `GRUPO` a secas**: en este dominio «grupo» ya significa grupo
+  /// del Directorio Activo, que es lo que otorga permisos (`lib/sgsi/permisos.ts`), y son dos
+  /// cosas que no se pueden confundir en una revisión de accesos. Un grupo de interés es
+  /// pertenencia de GESTIÓN: sirve para dirigir obligaciones y para reportar, y **no otorga
+  /// ningún permiso** (P12).
+  ///
+  /// Es la pieza que le faltaba al motor de tareas: «codificación segura» va a los
+  /// desarrolladores, y quien entre después la recibe sin que nadie lo agregue a una lista.
+  GRUPO_INTERES
 
   @@map("alcance_obligacion")
 }
@@ -1316,6 +1331,12 @@ model Obligacion {
   /// Sin llave foranea todavia: `NivelActivo` no existe. Nace opcional, como `procesoId`,
   /// y la llave se agrega cuando REQ-SIG-06 cree la tabla.
   alcanceNivelActivoId     Int?              @map("alcance_nivel_activo_id")
+  /// REQ-SIG-15 §4.4 · el grupo de interés al que la obligación se dirige.
+  ///
+  /// **Nunca se usa con el grupo derivado «Todos».** Elegir Todos en el selector guarda
+  /// `alcance: 'TODOS'` y deja esto en null (P11): en la base sigue habiendo UNA
+  /// representación de «todo el mundo», y las obligaciones que ya usan `TODOS` no se migran.
+  alcanceGrupoInteresId    Int?              @map("alcance_grupo_interes_id")
   periodicidad             Periodicidad
   fechaInicio              DateTime          @map("fecha_inicio") @db.Date
   plazoDias                Int               @map("plazo_dias")
@@ -1347,10 +1368,107 @@ model Obligacion {
   alcanceArea            Area?             @relation(fields: [alcanceAreaId], references: [id])
   alcanceActivo          Activo?           @relation("ObligacionAlcanceActivo", fields: [alcanceActivoId], references: [id])
   alcanceTipoActivo      TipoMagerit?      @relation("ObligacionAlcanceTipo", fields: [alcanceTipoActivoId], references: [id])
+  alcanceGrupoInteres    GrupoInteres?     @relation(fields: [alcanceGrupoInteresId], references: [id])
   responsableSeguimiento Persona           @relation("ObligacionSeguimiento", fields: [responsableSeguimientoId], references: [id])
   asignaciones           Asignacion[]
 
   @@map("obligacion")
+}
+
+// ─── Grupos de interés (REQ-SIG-15 §3.4 y §4.2) ────────────────────────────────────────
+//
+// Lo que permite dirigir una obligación a un conjunto de gente que no coincide con un área
+// ni con un cargo. Sin esto, «codificación segura» hay que asignarla nombrando a las
+// personas una por una, y quien entre después no la recibe.
+
+/// Un conjunto de gestión del SIG. **No otorga ningún permiso** (P12): el acceso a la
+/// aplicación lo siguen dando —sólo— los grupos del Directorio Activo. Si un grupo
+/// administrado dentro del SIG pudiera otorgar acceso, habría dos fuentes de autorización y
+/// la pregunta «quién autorizó este permiso» dejaría de tener respuesta en Azure, que es
+/// exactamente la propiedad que `lib/sgsi/permisos.ts` está construido para conservar.
+model GrupoInteres {
+  id          Int     @id @default(autoincrement())
+  /// `TODOS`, `DESARROLLADORES`.
+  codigo      String  @unique
+  nombre      String
+  /// Qué clase de obligación le corresponde. Se muestra bajo la casilla.
+  descripcion String?
+  /// **P10 · la pertenencia se CALCULA, no se guarda.** `true` en «Todos», cuya pertenencia
+  /// es «toda persona con `activa = true`», resuelta al generar.
+  ///
+  /// Es la diferencia entre que «por defecto una persona está en Todos» sea una PROMESA o un
+  /// HECHO. Con filas de membresía la promesa se cumple mientras nadie se olvide de crear la
+  /// fila —el alta por sincronización, una transacción que falló a mitad, una migración que
+  /// corrió antes de que el grupo existiera— y el resultado de cualquiera de las tres es una
+  /// persona que **no recibe el curso de concienciación y no aparece en ninguna lista de
+  /// faltantes**, porque para el sistema no pertenece. Derivado, ese estado no se alcanza.
+  derivado    Boolean @default(false)
+  activo      Boolean @default(true)
+  orden       Int
+
+  miembros     MiembroGrupoInteres[]
+  obligaciones Obligacion[]
+
+  @@map("grupo_interes")
+}
+
+/// La membresía vigente de una persona en un grupo. **Un grupo derivado nunca tiene filas
+/// acá**: la acción de guardar lo rechaza en vez de crearlas, porque si «Todos» tuviera
+/// además filas habría dos respuestas a «quién pertenece» y ganaría la que consulte cada
+/// pantalla.
+model MiembroGrupoInteres {
+  id        Int       @id @default(autoincrement())
+  grupoId   Int       @map("grupo_id")
+  personaId Int       @map("persona_id")
+  /// **P16 · el piso.** Desde cuándo pertenece: es el tercer término del piso de periodos
+  /// cuando el alcance es por grupo. Marcar Desarrolladores a alguien en septiembre no le
+  /// cobra el curso del primer trimestre.
+  desde     DateTime  @db.Date
+  /// `hasta` en vez de borrar la fila: **quién estaba en Desarrolladores en marzo es una
+  /// pregunta de auditoría**, y una fila borrada no la contesta. La membresía VIGENTE es
+  /// `hasta IS NULL`, y es la única que el generador mira.
+  hasta     DateTime? @db.Date
+  creadaEn  DateTime  @default(now()) @map("creada_en")
+
+  grupo   GrupoInteres @relation(fields: [grupoId], references: [id])
+  persona Persona      @relation("MiembroGrupoPersona", fields: [personaId], references: [id])
+
+  @@unique([grupoId, personaId])
+  @@index([personaId])
+  @@map("miembro_grupo_interes")
+}
+
+/// **P9 · dato personal de un tercero que nunca autorizó nada.** Es la madre, la pareja o el
+/// hermano de un colaborador: no firmó autorización de tratamiento, no está en el censo y no
+/// tiene relación con la organización. Eso obliga a tres cosas y no son opinables
+/// (Ley 1581, A.5.34):
+///
+///   1. entra al inventario de tratamientos como finalidad propia —«atención de emergencias
+///      del personal»— usando `TratamientoDatosPersonales`, que ya existe. Un dato personal
+///      que no está en el RAT es un hallazgo;
+///   2. **se recoge lo mínimo**: nombre, parentesco y teléfono. Nada más. No hay campo de
+///      correo, ni de dirección, ni de documento: para llamar en una emergencia no se
+///      necesitan;
+///   3. sólo lo ve quien tiene `personas:administrar`, y **no aparece en ninguna
+///      exportación** del censo ni en la ficha que la propia persona ve en Mi SIG.
+///
+/// Tabla y no dos columnas en `Persona`: casi todo el mundo da dos contactos, y con columnas
+/// el segundo se llama `contacto2_nombre` y el tercero no cabe.
+model ContactoEmergencia {
+  id          Int      @id @default(autoincrement())
+  personaId   Int      @map("persona_id")
+  nombre      String
+  /// Texto libre: la lista cerrada de parentescos siempre le queda corta a alguien.
+  parentesco  String
+  telefono    String
+  /// A quién se llama primero.
+  orden       Int      @default(1)
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  persona Persona @relation("ContactoDePersona", fields: [personaId], references: [id])
+
+  @@index([personaId])
+  @@map("contacto_emergencia")
 }
 
 /// Una instancia concreta: obligación + persona + periodo. La unique tripla es lo que

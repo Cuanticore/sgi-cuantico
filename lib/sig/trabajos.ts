@@ -79,6 +79,13 @@ export async function generarAsignacionesComo(
         creadaEn: true,
         areaDesde: true,
         cargoDesde: true,
+        // REQ-SIG-15 · las membresias VIGENTES en grupos de interes. `hasta: null` es la
+        // vigencia: una membresia cerrada no genera tareas nuevas, pero la fila se conserva
+        // porque «quien estaba en Desarrolladores en marzo» es una pregunta de auditoria.
+        gruposInteres: {
+          where: { hasta: null },
+          select: { grupoId: true, desde: true },
+        },
       },
     }),
     prisma.asignacion.findMany({
@@ -113,6 +120,7 @@ export async function generarAsignacionesComo(
     ingreso: p.fechaIngreso ?? p.creadaEn,
     areaDesde: p.areaDesde,
     cargoDesde: p.cargoDesde,
+    gruposDesde: p.gruposInteres,
   }));
 
   const plan = planificarGeneracion(obligaciones, censo, existentes, hoy, 90, activos);

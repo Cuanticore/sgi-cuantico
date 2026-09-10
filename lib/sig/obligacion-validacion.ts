@@ -12,26 +12,30 @@
 // desincronizan en el primer cambio, y la que se rompe en silencio es la de la semilla,
 // porque nadie la mira. Movidas acá: un solo lugar, dos llamadores, y por fin probables.
 //
-// La extracción no cambia **ni una** regla: el cuerpo es el de `tareas.ts:937-994`, textual.
+// La extracción no cambió **ni una** regla: el cuerpo era el de `tareas.ts:937-994`, textual.
+// Lo único que cambió después fue el TIPO del alcance, y va explicado abajo.
 
-/// El alcance sigue siendo una union escrita a mano y no el enum de Prisma, tal como estaba.
+import type { AlcanceObligacion, Periodicidad } from '@prisma/client';
+
+/// El alcance sale del **enum de Prisma**, no de una union escrita a mano.
 ///
-/// **Y eso es un riesgo conocido, anotado y no corregido acá**: es la misma trampa que
-/// `lib/sig/prevision.ts:26-33` documenta —un tipo propio que se ve exhaustivo contra una
-/// lista incompleta— y cuando REQ-SIG-15 agregue `GRUPO_INTERES` al enum, esta union no se
-/// va a enterar. Cambiarla a `AlcanceObligacion` de Prisma es lo correcto y es un cambio de
-/// conducta que no corresponde colar dentro de una extracción: va con el requerimiento que
-/// agregue el valor.
+/// **Y se corrigió al agregar `GRUPO_INTERES`, que es cuando la diferencia se paga.** Cuando
+/// esta función se extrajo de `tareas.ts` traía la union a mano, y quedó anotado que era la
+/// misma trampa que `lib/sig/prevision.ts:26-33` documenta: un tipo propio se ve exhaustivo
+/// contra una lista incompleta y **el compilador no avisa**. Con la union a mano, una
+/// obligación por grupo de interés habría llegado a Prisma **sin pasar por la guarda de
+/// «exactamente un destino»** — la validación se habría visto completa y no lo estaría.
 export interface DatosObligacion {
   contenidoId: number;
-  alcance: 'PERSONA' | 'CARGO' | 'AREA' | 'TODOS' | 'ACTIVO' | 'TIPO_ACTIVO' | 'NIVEL_ACTIVO';
+  alcance: AlcanceObligacion;
   alcancePersonaId?: number;
   alcanceCargoId?: number;
   alcanceAreaId?: number;
   alcanceActivoId?: number;
   alcanceTipoActivoId?: number;
   alcanceNivelActivoId?: number;
-  periodicidad: 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+  alcanceGrupoInteresId?: number;
+  periodicidad: Periodicidad;
   fechaInicio: Date;
   plazoDias: number;
   diasAviso: number;
@@ -72,6 +76,7 @@ export function validarDatosObligacion(datos: DatosObligacion): string[] {
     datos.alcanceActivoId,
     datos.alcanceTipoActivoId,
     datos.alcanceNivelActivoId,
+    datos.alcanceGrupoInteresId,
   ].filter((v) => v !== undefined);
   if (datos.alcance !== 'TODOS' && destinos.length !== 1) {
     errores.push('el alcance exige exactamente un destino');
@@ -82,13 +87,19 @@ export function validarDatosObligacion(datos: DatosObligacion): string[] {
   // Y el destino tiene que ser el de SU columna. Sin esto, un alcance `TIPO_ACTIVO` con
   // `alcanceAreaId` puesto pasaba la cuenta de arriba y la generación no encontraba
   // ningún activo: la obligación quedaba creada y sin generar nada, en silencio.
-  const columnaDe: Record<string, number | undefined> = {
+  // `Record<AlcanceObligacion, …>` y no `Record<string, …>`: así el compilador exige que cada
+  // valor del enum tenga su columna. Con `string` como llave, un alcance nuevo sin entrada
+  // daba `undefined` y caía en el error de abajo — «exige su propio destino» — culpando a
+  // quien creaba la obligación de un hueco que era del código.
+  const columnaDe: Record<AlcanceObligacion, number | undefined> = {
     PERSONA: datos.alcancePersonaId,
     CARGO: datos.alcanceCargoId,
     AREA: datos.alcanceAreaId,
+    TODOS: undefined,
     ACTIVO: datos.alcanceActivoId,
     TIPO_ACTIVO: datos.alcanceTipoActivoId,
     NIVEL_ACTIVO: datos.alcanceNivelActivoId,
+    GRUPO_INTERES: datos.alcanceGrupoInteresId,
   };
   if (datos.alcance !== 'TODOS' && columnaDe[datos.alcance] === undefined) {
     errores.push(`el alcance ${datos.alcance} exige su propio destino, no el de otro alcance`);

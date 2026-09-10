@@ -13,9 +13,16 @@
 // tenía siete, así que devolvía cero para `NIVEL_ACTIVO` en silencio mientras el generador sí
 // lo conocía. `prevision.ts:26-33` documenta ese incidente.
 //
-// **Lo que esta prueba compra, y es lo que importa:** recorre el enum de Prisma completo, así
-// que el día que REQ-SIG-15 agregue `GRUPO_INTERES` falla hasta que esté resuelto **en los
-// dos lados**. Es una red, no una aserción.
+// **Lo que esta prueba compra, y ya se cobró una vez.** Al agregarse `GRUPO_INTERES` al enum,
+// esta red disparó cuatro errores de compilación antes de que nadie corriera nada: el `Record`
+// de abajo, el `switch` de `resolverAlcance`, el `switch` de `personasAlcanzadas` y la union
+// de la pantalla. Los cuatro son lugares que tenían que resolver el alcance nuevo, y los
+// cuatro habrían devuelto cero en silencio.
+//
+// Y después atrapó lo que le faltaba: la comparación de `GRUPO_INTERES` **pasaba** con los dos
+// lados devolviendo `[]`, y la aserción de «resuelve al menos una persona» —que existe
+// justamente contra eso— la hizo fallar hasta que el fixture tuvo membresías. Una equivalencia
+// entre dos ceros no prueba nada, y es el modo de falla exacto que `NIVEL_ACTIVO` tuvo.
 
 // El enum entra como TIPO y no como valor: importarlo como valor arrastra el runtime de
 // Prisma, que no arranca en jsdom. Y sale mejor así — la exhaustividad se comprueba en
@@ -52,16 +59,17 @@ const PERSONA = 1;
 const TIPO = 5;
 const ACTIVO = 100;
 const NIVEL = 9;
+const GRUPO = 11;
 const SEGUIMIENTO = 99;
 
 /// Nueve personas: tres del área 3, dos del cargo 7, una inactiva que NUNCA debe contarse, y
 /// el responsable de seguimiento, que en producción siempre está en el censo.
 const CENSO: (PersonaGenerable & PersonaDelCenso)[] = [
-  { id: 1, activa: true, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
-  { id: 2, activa: true, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
+  { id: 1, activa: true, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO, gruposDesde: [{ grupoId: GRUPO, desde: ANTIGUO }] },
+  { id: 2, activa: true, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO, gruposDesde: [{ grupoId: GRUPO, desde: ANTIGUO }] },
   { id: 3, activa: true, areaId: AREA, cargoId: 8, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
   { id: 4, activa: true, areaId: 4, cargoId: 8, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
-  { id: 5, activa: false, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
+  { id: 5, activa: false, areaId: AREA, cargoId: CARGO, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO, gruposDesde: [{ grupoId: GRUPO, desde: ANTIGUO }] },
   { id: SEGUIMIENTO, activa: true, areaId: 9, cargoId: 9, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO },
 ];
 
@@ -85,6 +93,7 @@ const OBLIGACION: ObligacionGenerable = {
   alcanceActivoId: ACTIVO,
   alcanceTipoActivoId: TIPO,
   alcanceNivelActivoId: NIVEL,
+  alcanceGrupoInteresId: GRUPO,
   responsableSeguimientoId: SEGUIMIENTO,
   periodicidad: 'MENSUAL',
   fechaInicio: d('2026-09-01'),
@@ -100,6 +109,7 @@ const ENTRADA: EntradaPrevision = {
   alcanceAreaId: AREA,
   alcanceActivoId: ACTIVO,
   alcanceTipoActivoId: TIPO,
+  alcanceGrupoInteresId: GRUPO,
   periodicidad: 'MENSUAL',
   fechaInicio: d('2026-09-01'),
   plazoDias: 15,
@@ -119,6 +129,9 @@ const UNIDAD: Record<AlcanceObligacion, 'persona' | 'activo'> = {
   CARGO: 'persona',
   AREA: 'persona',
   TODOS: 'persona',
+  // REQ-SIG-15 · lo clasificó esta red: al agregarse al enum, `tsc` se negó a compilar hasta
+  // que alguien decidiera de qué lado estaba. Es la propiedad que `NIVEL_ACTIVO` no tuvo.
+  GRUPO_INTERES: 'persona',
   ACTIVO: 'activo',
   TIPO_ACTIVO: 'activo',
   NIVEL_ACTIVO: 'activo',
@@ -142,8 +155,8 @@ describe('el enum está cubierto entero', () => {
 
   // Si esta cifra cambia sin que nadie toque las pruebas de abajo, es que entró un alcance
   // nuevo. La cuenta está acá para que el cambio se vea en el diff.
-  it('hoy el enum tiene siete valores', () => {
-    expect(TODOS_LOS_ALCANCES).toHaveLength(7);
+  it('hoy el enum tiene ocho valores', () => {
+    expect(TODOS_LOS_ALCANCES).toHaveLength(8);
   });
 });
 
