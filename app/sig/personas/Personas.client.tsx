@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
 import { reasignarPendientesDe } from '@/app/sig/acciones/tareas';
 import type { RolDeclarado } from '@/lib/sgsi/permisos';
+import PopupPersona, { type CatalogosDelPopup } from './PopupPersona';
 
 /// Una asignación abierta de la persona, para listarla antes de moverla.
 export interface AsignacionAbierta {
@@ -34,6 +35,23 @@ export interface PersonaFila {
   abiertas: AsignacionAbierta[];
   /// Derivado del Directorio al leer, nunca guardado. `DESCONOCIDO` no es Colaborador.
   rol: RolDeclarado;
+
+  // ── REQ-SIG-15 · lo que el popup edita ──
+  //
+  // Los ids y no los nombres: los `select` trabajan con ids, y el nombre ya viaja arriba
+  // para la tabla. Las fechas como `YYYY-MM-DD` porque es lo que un `input[type=date]`
+  // espera y devuelve.
+  areaId: number | null;
+  cargoId: number | null;
+  areaDesde: string | null;
+  cargoDesde: string | null;
+  documentoIdentidad: string | null;
+  tipoContratoId: number | null;
+  fechaIngreso: string | null;
+  telefono: string | null;
+  correoPersonal: string | null;
+  ciudad: string | null;
+  direccion: string | null;
 }
 
 /// El resultado de la última corrida de sincronización, ya reconstruido en el servidor.
@@ -74,6 +92,7 @@ export default function PersonasClient({
   administra,
   rolesConsultables,
   motivoSinRoles,
+  catalogos,
 }: {
   filas: PersonaFila[];
   corrida: Corrida | null;
@@ -82,6 +101,9 @@ export default function PersonasClient({
   /// La causa REAL de que no se pudieran leer los roles, ya redactada. Es `null` cuando
   /// sí se pudieron: no hay nada que explicar.
   motivoSinRoles: string | null;
+  /// Los catálogos que el popup necesita para sus `select`. Se leen en el servidor y viajan
+  /// una vez: pedirlos al abrir cada fila serían 36 viajes en la corrida de arranque.
+  catalogos: CatalogosDelPopup;
 }) {
   const [filtro, setFiltro] = useState<'activas' | 'inactivas' | 'todas'>('activas');
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -403,39 +425,37 @@ export default function PersonasClient({
         </table>
       </div>
 
+      {/* REQ-SIG-15 §3 · la fila abre el POPUP, y el panel de reasignación pasa a ser el pie
+          de su pestaña de datos base. Antes eran dos superficies para la misma persona: una
+          para mover pendientes y ninguna para editar el área, que es el campo del que
+          dependía que las obligaciones por área generaran algo. */}
       {elegida && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-6"
-          onClick={() => setElegida(null)}
-        >
-          <div
-            className="flex w-full max-w-[480px] flex-col gap-4 rounded-modal bg-surface p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              borderTop: `3px solid ${
-                elegida.pendientes > 0 ? 'var(--hf-danger-text)' : 'var(--hf-border-field)'
-              }`,
-            }}
-          >
-            {/* El eyebrow del lienzo nombra la situación antes que a la persona: quien abre
-                este panel necesita saber en un renglón por qué está abierto. */}
-            <div className="flex flex-col gap-1">
-              <span
-                className="etiqueta-campo"
-                style={{
-                  color: !elegida.activa && elegida.pendientes > 0
-                    ? 'var(--hf-danger-text)'
-                    : 'var(--hf-text-label)',
-                }}
-              >
-                {eyebrow(elegida)}
-              </span>
-              <h2 className="text-15 font-semibold text-primary">
-                {elegida.activa
-                  ? `Carga abierta de ${elegida.nombre}`
-                  : `${elegida.nombre} ya no figura en el Directorio`}
-              </h2>
-            </div>
+        <PopupPersona
+          persona={elegida}
+          catalogos={catalogos}
+          administra={administra}
+          onCerrar={() => setElegida(null)}
+          pieDeDatosBase={
+            <div className="flex flex-col gap-3">
+              {/* El eyebrow del lienzo nombra la situación antes que a la persona: quien abre
+                  esto necesita saber en un renglón por qué está acá. */}
+              <div className="flex flex-col gap-1">
+                <span
+                  className="etiqueta-campo"
+                  style={{
+                    color: !elegida.activa && elegida.pendientes > 0
+                      ? 'var(--hf-danger-text)'
+                      : 'var(--hf-text-label)',
+                  }}
+                >
+                  {eyebrow(elegida)}
+                </span>
+                <h2 className="text-13 font-semibold text-primary">
+                  {elegida.activa
+                    ? `Carga abierta de ${elegida.nombre}`
+                    : `${elegida.nombre} ya no figura en el Directorio`}
+                </h2>
+              </div>
             <p className="text-12_5 text-muted">
               {elegida.pendientes === 0
                 ? // Cero abiertas no es lo mismo que «nada que hacer acá»: se dice que no
@@ -495,14 +515,8 @@ export default function PersonasClient({
               </label>
               </>
             )}
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setElegida(null)}
-                className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 text-muted"
-              >
-                {elegida.pendientes === 0 ? 'Cerrar' : 'Cancelar'}
-              </button>
-              {elegida.pendientes > 0 && (
+            {elegida.pendientes > 0 && (
+              <div className="flex justify-end">
                 <button
                   onClick={reasignar}
                   disabled={!destino}
@@ -515,15 +529,16 @@ export default function PersonasClient({
                     ? 'Reasignar la pendiente'
                     : `Reasignar las ${elegida.pendientes}`}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             {mensaje && (
               <p className="text-12" style={{ color: 'var(--hf-accent-700)' }}>
                 {mensaje}
               </p>
             )}
-          </div>
-        </div>
+            </div>
+          }
+        />
       )}
     </main>
   );

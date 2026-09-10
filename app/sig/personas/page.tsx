@@ -91,6 +91,32 @@ export default async function PersonasPage() {
       }
     : null;
 
+  // Los catálogos del popup de REQ-SIG-15. Se leen aparte del `Promise.all` de arriba porque
+  // ése ya devuelve cuatro cosas y agregarle cuatro más lo vuelve ilegible; son cuatro tablas
+  // cortas y la latencia extra es de un viaje.
+  const [areas, cargos, tiposContrato, gruposInteres] = await Promise.all([
+    prisma.area.findMany({
+      where: { activa: true },
+      select: { id: true, nombre: true, prefijo: true },
+      orderBy: { orden: 'asc' },
+    }),
+    prisma.cargoResponsable.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { orden: 'asc' },
+    }),
+    prisma.tipoContrato.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    }),
+    prisma.grupoInteres.findMany({
+      where: { activo: true },
+      select: { id: true, codigo: true, nombre: true, descripcion: true, derivado: true },
+      orderBy: { orden: 'asc' },
+    }),
+  ]);
+
   const hoy = new Date();
   // La columna cuenta PENDIENTES ABIERTOS, no solo los vencidos.
   //
@@ -122,6 +148,19 @@ export default async function PersonasPage() {
       cargo: p.cargo?.nombre ?? null,
       activa: p.activa,
       sincronizadaEn: p.sincronizadaEn?.toISOString() ?? null,
+      // REQ-SIG-15 · lo que el popup edita. Los ids y no los nombres: los `select` trabajan
+      // con ids, y el nombre ya viaja arriba para la tabla.
+      areaId: p.areaId,
+      cargoId: p.cargoId,
+      areaDesde: p.areaDesde?.toISOString().slice(0, 10) ?? null,
+      cargoDesde: p.cargoDesde?.toISOString().slice(0, 10) ?? null,
+      documentoIdentidad: p.documentoIdentidad,
+      tipoContratoId: p.tipoContratoId,
+      fechaIngreso: p.fechaIngreso?.toISOString().slice(0, 10) ?? null,
+      telefono: p.telefono,
+      correoPersonal: p.correoPersonal,
+      ciudad: p.ciudad,
+      direccion: p.direccion,
       pendientes: abiertas.length,
       vencidas: abiertas.filter((a) => a.vencida).length,
       // El panel las lista una por una: reasignar «3 pendientes» sin decir cuáles obliga a
@@ -138,6 +177,7 @@ export default async function PersonasPage() {
       administra={administra}
       rolesConsultables={miembrosDelGrupo.ok}
       motivoSinRoles={miembrosDelGrupo.ok ? null : explicarFallo(miembrosDelGrupo.fallo)}
+      catalogos={{ areas, cargos, tiposContrato, gruposInteres }}
     />
   );
 }
