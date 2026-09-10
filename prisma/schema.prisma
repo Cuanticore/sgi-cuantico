@@ -580,7 +580,8 @@ model Evidencia {
   archivoVersion   Int           @default(1) @map("archivo_version")
   archivoVersionDe Int?          @map("archivo_version_de")
 
-  archivo EvidenciaArchivo?
+  archivo     EvidenciaArchivo?
+  publicacion PublicacionSoporte?
 
   control Control? @relation(fields: [controlId], references: [id])
 
@@ -1049,6 +1050,12 @@ model Persona {
   /// `lib/sig/colaboradores.ts`: son dos fuentes del mismo hecho, y por eso ninguna
   /// pantalla las lee por separado.
   retiradoEn                 DateTime?        @map("retirado_en")
+  /// P2 · el `driveItem.id` de su carpeta de soportes. Se direcciona por id y no por
+  /// nombre: si alguien renombra la carpeta en SharePoint —y alguien lo hará—, las
+  /// publicaciones siguen cayendo donde deben en vez de crear una segunda.
+  carpetaSoportesId          String?          @map("carpeta_soportes_id")
+  /// El nombre con el que se creó, para detectar el renombre por cambio de correo (P4).
+  carpetaSoportesRuta        String?          @map("carpeta_soportes_ruta")
   creadaEn                   DateTime         @default(now()) @map("creada_en")
 
   area  Area?             @relation(fields: [areaId], references: [id])
@@ -1105,6 +1112,8 @@ model Persona {
   borradosEjecutados ActaBorradoSeguro[] @relation("ActaBorradoEjecutor")
 
   actasAceptacion ActaAceptacion[] @relation("ActaPersona")
+
+  soportesPublicados PublicacionSoporte[] @relation("PublicacionPersona")
 
   accesos                AccesoPersona[] @relation("AccesoPersonaTitular")
   solicitudesPedidas     Solicitud[]     @relation("SolicitudSolicitante")
@@ -2607,6 +2616,56 @@ model ContadorActa {
   ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_acta")
+}
+
+// ─── Publicación de soportes en SharePoint (REQ-SIG-13) ────────────────────────────────
+
+enum EstadoPublicacion {
+  PENDIENTE
+  PUBLICADO
+  /// No se reintenta más: la causa no se arregla sola (403, 404). Queda visible con su
+  /// motivo, que es lo que un booleano `publicado` no podría responder.
+  BLOQUEADO
+
+  @@map("estado_publicacion")
+}
+
+/// La cola de publicación de un soporte en SharePoint.
+///
+/// Por qué una tabla y no una columna `publicadoEn` en `Evidencia`: un booleano o una fecha
+/// no pueden responder «¿por qué no está en SharePoint?», y esa es justamente la pregunta
+/// que alguien va a hacer. La cola necesita intentos, causa y detalle, o el módulo vuelve a
+/// la situación que `lib/sgsi/graph-fallo.ts` documenta y corrige: un `null` que significa
+/// cinco cosas distintas.
+model PublicacionSoporte {
+  id              Int               @id @default(autoincrement())
+  /// La llave es la EVIDENCIA y no el acta: así sumar un segundo tipo de soporte mañana no
+  /// exige una tabla nueva ni una segunda máquina de publicar.
+  evidenciaId     Int               @unique @map("evidencia_id")
+  /// A quién pertenece el soporte. Es lo que decide la carpeta.
+  personaId       Int               @map("persona_id")
+  estado          EstadoPublicacion @default(PENDIENTE)
+  intentos        Int               @default(0)
+  ultimoIntentoEn DateTime?         @map("ultimo_intento_en")
+  /// La `causa` de `FalloGraph`, tal cual. Sin esto, «¿por qué no está en SharePoint?» no
+  /// tiene respuesta.
+  causaFallo      String?           @map("causa_fallo")
+  detalleFallo    String?           @map("detalle_fallo")
+  driveItemId     String?           @map("drive_item_id")
+  webUrl          String?           @map("web_url")
+  rutaPublicada   String?           @map("ruta_publicada")
+  nombreArchivo   String?           @map("nombre_archivo")
+  publicadoEn     DateTime?         @map("publicado_en")
+  /// La baja lógica de la evidencia NO borra el archivo publicado: se anota. Borrar el
+  /// soporte de una auditoría es el artefacto que la auditoría busca.
+  bajaAnotadaEn   DateTime?         @map("baja_anotada_en")
+  creadaEn        DateTime          @default(now()) @map("creada_en")
+
+  evidencia Evidencia @relation(fields: [evidenciaId], references: [id])
+  persona   Persona   @relation("PublicacionPersona", fields: [personaId], references: [id])
+
+  @@index([estado, ultimoIntentoEn])
+  @@map("publicacion_soporte")
 }
 
 // ─── Operación del SGSI · accesos y solicitudes (REQ-SIG-07 · Fase 3) ──────────────────
