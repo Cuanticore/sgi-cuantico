@@ -1,6 +1,14 @@
 // app/lib/sharepoint.ts
 import axios from 'axios';
 
+import {
+  clasificarRecurso,
+  clasificarToken,
+  variablesQueFaltan,
+  type FalloGraph,
+  type ResultadoGraph,
+} from '@/lib/sgsi/graph-fallo';
+
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 
 // Axios has no default timeout: a Graph call that never answers holds the request open
@@ -17,7 +25,7 @@ const http = axios.create({ timeout: 10_000 });
 
 export type IndicatorYear = '2025' | '2026';
 
-async function getToken(): Promise<string> {
+export async function getToken(): Promise<string> {
   const res = await http.post(
     `https://login.microsoftonline.com/${process.env.SHAREPOINT_TENANT_ID}/oauth2/v2.0/token`,
     new URLSearchParams({
@@ -31,7 +39,7 @@ async function getToken(): Promise<string> {
   return res.data.access_token;
 }
 
-async function getSiteId(token: string): Promise<string> {
+export async function getSiteId(token: string): Promise<string> {
   const res = await http.get(
     `${GRAPH}/sites/${process.env.SHAREPOINT_SITE_URL}:/sites/${process.env.SHAREPOINT_SITE_NAME}`,
     { headers: { Authorization: `Bearer ${token}` } }
@@ -39,7 +47,7 @@ async function getSiteId(token: string): Promise<string> {
   return res.data.id;
 }
 
-async function getDriveId(token: string, siteId: string): Promise<string> {
+export async function getDriveId(token: string, siteId: string): Promise<string> {
   const res = await http.get(
     `${GRAPH}/sites/${siteId}/drives`,
     { headers: { Authorization: `Bearer ${token}` } }
@@ -80,4 +88,189 @@ export async function fetchIndicatorsBuffer(year: IndicatorYear = '2026'): Promi
     { headers: { Authorization: `Bearer ${token}` }, responseType: 'arraybuffer' }
   );
   return Buffer.from(res.data);
+}
+
+// ── Escritura de soportes (REQ-SIG-13) ──────────────────────────────────────────────────
+//
+// Lo que sigue existe para publicar las actas de firma en la carpeta de cada persona.
+// Reusa el token, el sitio y la biblioteca de arriba —no abre un segundo camino a Graph— y
+// clasifica cada fallo con `lib/sgsi/graph-fallo.ts` en vez de dejar escapar el error de
+// axios: la pantalla tiene que poder decir QUÉ hacer, no «error al publicar».
+
+/// El permiso que se nombra en un 403. Es el de REQ-SIG-13 §8: menos que
+/// `Files.ReadWrite.All`, que daría escritura sobre todo el tenant a un secreto de un `.env`.
+const PERMISO_ESCRITURA = 'Sites.Selected (rol write)';
+
+/// P7 · el sitio y la biblioteca son estables; hoy se resuelven en cada llamada, que son dos
+/// viajes a Graph antes de cada operación útil. La caché vive en el proceso y se invalida al
+/// reiniciar, que es exactamente cuando puede haber cambiado la configuración.
+let idsEnCache: { siteId: string; driveId: string } | null = null;
+
+function faltanVariables(): string[] {
+  const propias = ['SHAREPOINT_SITE_URL', 'SHAREPOINT_SITE_NAME', 'SHAREPOINT_SOPORTES_PATH'];
+  return [
+    ...variablesQueFaltan(process.env),
+    ...propias.filter((v) => (process.env[v] ?? '').trim() === ''),
+  ];
+}
+
+function fallo(e: unknown, recurso: string): FalloGraph {
+  if (axios.isAxiosError(e)) {
+    if (e.response) return clasificarRecurso(e.response.status, recurso, PERMISO_ESCRITURA);
+    return { causa: 'SIN_RED', detalle: e.code ?? e.message };
+  }
+  return { causa: 'SIN_RED', detalle: e instanceof Error ? e.message : String(e) };
+}
+
+/// Graph identifica una ruta con `root:/a/b/c:` — las barras NO se codifican, todo lo demás sí.
+function rutaGraph(ruta: string): string {
+  return encodeURIComponent(ruta).replace(/%2F/g, '/');
+}
+
+async function tokenYIds(): Promise<
+  ResultadoGraph<{ token: string; siteId: string; driveId: string }>
+> {
+  const faltan = faltanVariables();
+  if (faltan.length > 0) return { ok: false, fallo: { causa: 'SIN_CONFIGURAR', faltan } };
+
+  let token: string;
+  try {
+    token = await getToken();
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response) {
+      return { ok: false, fallo: clasificarToken(e.response.status, e.response.statusText ?? '') };
+    }
+    return { ok: false, fallo: fallo(e, 'el endpoint de token') };
+  }
+
+  if (idsEnCache) return { ok: true, datos: { token, ...idsEnCache } };
+
+  try {
+    const siteId = await getSiteId(token);
+    const driveId = await getDriveId(token, siteId);
+    idsEnCache = { siteId, driveId };
+    return { ok: true, datos: { token, siteId, driveId } };
+  } catch (e) {
+    return { ok: false, fallo: fallo(e, 'el sitio o la biblioteca de SharePoint') };
+  }
+}
+
+export interface CarpetaBase {
+  driveId: string;
+  carpetaBaseId: string;
+}
+
+export async function resolverCarpetaBase(): Promise<ResultadoGraph<CarpetaBase>> {
+  const base = await tokenYIds();
+  if (!base.ok) return base;
+  const { token, driveId } = base.datos;
+  const ruta = process.env.SHAREPOINT_SOPORTES_PATH as string;
+
+  try {
+    const res = await http.get(`${GRAPH}/drives/${driveId}/root:/${rutaGraph(ruta)}:`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return { ok: true, datos: { driveId, carpetaBaseId: res.data.id } };
+  } catch (e) {
+    // P1 · si no existe, se FALLA. No se crea: una variable mal escrita no debe convertirse
+    // en un árbol de carpetas fantasma dentro de la biblioteca del SIG.
+    return { ok: false, fallo: fallo(e, `la carpeta «${ruta}»`) };
+  }
+}
+
+export interface CarpetaDePersona {
+  id: string;
+  nombre: string;
+}
+
+export async function asegurarCarpetaDePersona(
+  driveId: string,
+  carpetaBaseId: string,
+  nombre: string,
+  conocida: CarpetaDePersona | null,
+): Promise<ResultadoGraph<CarpetaDePersona>> {
+  if (conocida !== null && conocida.nombre === nombre) {
+    return { ok: true, datos: conocida };
+  }
+
+  const base = await tokenYIds();
+  if (!base.ok) return base;
+  const { token } = base.datos;
+  const cabeceras = { headers: { Authorization: `Bearer ${token}` } };
+
+  // P4 · el correo cambió: se renombra por id. Crear una segunda carpeta partiría en dos
+  // los soportes de una misma persona.
+  if (conocida !== null) {
+    try {
+      await http.patch(
+        `${GRAPH}/drives/${driveId}/items/${conocida.id}`,
+        { name: nombre },
+        cabeceras,
+      );
+      return { ok: true, datos: { id: conocida.id, nombre } };
+    } catch (e) {
+      return { ok: false, fallo: fallo(e, `la carpeta «${conocida.nombre}»`) };
+    }
+  }
+
+  try {
+    const res = await http.post(
+      `${GRAPH}/drives/${driveId}/items/${carpetaBaseId}/children`,
+      { name: nombre, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' },
+      cabeceras,
+    );
+    return { ok: true, datos: { id: res.data.id, nombre } };
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 409) {
+      try {
+        const res = await http.get(
+          `${GRAPH}/drives/${driveId}/items/${carpetaBaseId}:/${rutaGraph(nombre)}:`,
+          cabeceras,
+        );
+        return { ok: true, datos: { id: res.data.id, nombre } };
+      } catch (e2) {
+        return { ok: false, fallo: fallo(e2, `la carpeta «${nombre}»`) };
+      }
+    }
+    return { ok: false, fallo: fallo(e, `la carpeta «${nombre}»`) };
+  }
+}
+
+export async function subirSoporte(
+  driveId: string,
+  carpetaId: string,
+  nombre: string,
+  bytes: Buffer,
+  mime: string,
+): Promise<ResultadoGraph<{ id: string; webUrl: string }>> {
+  const base = await tokenYIds();
+  if (!base.ok) return base;
+  const { token } = base.datos;
+  const cabeceras = { headers: { Authorization: `Bearer ${token}` } };
+
+  try {
+    // P6 · `fail` y nunca `replace` ni `rename`: `replace` permitiría sobrescribir un acta
+    // firmada, y `rename` llenaría la carpeta de «ACT-2026-0014 1.txt».
+    const res = await http.put(
+      `${GRAPH}/drives/${driveId}/items/${carpetaId}:/${rutaGraph(nombre)}:/content` +
+        '?%40microsoft.graph.conflictBehavior=fail',
+      bytes,
+      { headers: { ...cabeceras.headers, 'Content-Type': mime } },
+    );
+    return { ok: true, datos: { id: res.data.id, webUrl: res.data.webUrl } };
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 409) {
+      // Ya está publicado. El reintento del cron no puede tratar esto como fallo.
+      try {
+        const res = await http.get(
+          `${GRAPH}/drives/${driveId}/items/${carpetaId}:/${rutaGraph(nombre)}:`,
+          cabeceras,
+        );
+        return { ok: true, datos: { id: res.data.id, webUrl: res.data.webUrl } };
+      } catch (e2) {
+        return { ok: false, fallo: fallo(e2, `el archivo «${nombre}»`) };
+      }
+    }
+    return { ok: false, fallo: fallo(e, `el archivo «${nombre}»`) };
+  }
 }
