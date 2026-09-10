@@ -35,8 +35,27 @@ export interface ValoresDimension {
 }
 
 /// One critical dimension is enough to make the asset critical.
+///
+/// THE MAXIMUM OVER AN ARBITRARY SET OF DIMENSIONS. `Dimension` admits five codes —
+/// D, I, C, A, T — and three are seeded today, so anything that aggregates the register
+/// has to iterate the ACTIVE dimensions instead of three constants (REQ-SIG-18 §3). This
+/// is the one implementation of the rule; `valorActivo` below is the three-dimension
+/// entry point every screen already calls, and it delegates here so that there is still
+/// exactly one place where the value can be wrong.
+///
+/// The caller decides what "no dimension at all" means: an empty list would have no
+/// maximum, so it is rejected rather than answered with a zero. Not valued and valued
+/// at zero are different facts and confusing them inflates the lowest level with assets
+/// nobody ever looked at.
+export function valorMaximo(valores: readonly number[]): Decimal {
+  if (valores.length === 0) {
+    throw new Error('valorMaximo: sin dimensiones valoradas no hay máximo que calcular');
+  }
+  return new Decimal(Math.max(...valores));
+}
+
 export function valorActivo(valores: ValoresDimension): Decimal {
-  return new Decimal(Math.max(valores.D, valores.I, valores.C));
+  return valorMaximo([valores.D, valores.I, valores.C]);
 }
 
 /// The value of a dimension multiplied by the fraction the threat degrades in it.

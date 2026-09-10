@@ -5,6 +5,7 @@ import {
   entraAlAnalisis,
   impactoAcumulado,
   valorActivo,
+  valorMaximo,
 } from '../formulas';
 import { clasificar, clasificarZona } from '../clasificar';
 import { eficaciaAmenaza, eficaciaDeNivel, mediana } from '../madurez';
@@ -160,5 +161,34 @@ describe('escala de madurez', () => {
   it('la mediana resiste los extremos', () => {
     expect(mediana([0, 3, 3, 3, 5])).toBe(3);
     expect(mediana([3, 4])).toBe(3.5);
+  });
+});
+
+describe('valorMaximo · la misma regla sobre un número cualquiera de dimensiones', () => {
+  // REQ-SIG-18 §3 exige iterar las dimensiones ACTIVAS y no tres constantes: `Dimension`
+  // admite cinco códigos y hoy hay tres sembradas. `valorActivo` sigue siendo la entrada de
+  // tres dimensiones que ya llaman la ficha, el inventario y el export, y delega acá, así que
+  // hay una sola implementación del máximo y no dos que puedan separarse.
+  it('coincide con valorActivo en las 216 combinaciones de D, I y C', () => {
+    for (let D = 0; D <= 5; D += 1) {
+      for (let I = 0; I <= 5; I += 1) {
+        for (let C = 0; C <= 5; C += 1) {
+          expect(valorMaximo([D, I, C]).toNumber()).toBe(valorActivo({ D, I, C }).toNumber());
+        }
+      }
+    }
+  });
+
+  it('con una sola dimensión valorada, el máximo es esa', () => {
+    expect(valorMaximo([4]).toNumber()).toBe(4);
+  });
+
+  it('admite una cuarta y una quinta dimensión sin tocar nada', () => {
+    expect(valorMaximo([1, 1, 1, 5]).toNumber()).toBe(5);
+    expect(valorMaximo([1, 1, 1, 1, 2]).toNumber()).toBe(2);
+  });
+
+  it('sin ninguna dimensión valorada no responde 0: no hay máximo que calcular', () => {
+    expect(() => valorMaximo([])).toThrow(/sin dimensiones valoradas/);
   });
 });
