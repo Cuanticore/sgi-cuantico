@@ -57,7 +57,17 @@ export async function abrirIntento(asignacionId: number): Promise<Apertura> {
           id: true,
           version: true,
           notaMinima: true,
-          paquetes: { orderBy: { version: 'desc' }, take: 1 },
+          paquetes: {
+            orderBy: { version: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              entradaHref: true,
+              clase: true,
+              dominiosExternos: true,
+              tituloOrganizacion: true,
+            },
+          },
         },
       },
     },
@@ -140,6 +150,27 @@ export async function abrirIntento(asignacionId: number): Promise<Apertura> {
     // Lo guardado gana sobre lo inicial: objetivos e interacciones vuelven como quedaron.
     ...guardado,
   };
+
+  // P20 · en un paquete de DESPACHO, el correo y el nombre de la persona salen hacia el
+  // tercero: el propio SCO los pone en la URL del contenido (§2). Sin este registro, la
+  // organización no puede responder «a quién le compartimos los datos de nuestros
+  // colaboradores y cuándo», que es lo que un titular de datos tiene derecho a preguntar.
+  //
+  // Se anota también en `mode=review`: ahí no se crea intento ni se escribe nada, pero el
+  // curso se lanza igual y los dos datos viajan igual. Un registro que se calla en el
+  // repaso subcontaría exactamente los envíos que nadie está mirando.
+  if (paquete.clase === 'DESPACHO') {
+    await registrar({ bitacora: prisma.bitacora }, correo, [
+      {
+        tabla: 'intento_scorm',
+        registroId: String(intento.id),
+        campo: 'datos_a_tercero',
+        anterior: null,
+        nuevo: `correo y nombre → ${paquete.dominiosExternos.join(', ')}`,
+        motivo: `lanzamiento del curso ${paquete.tituloOrganizacion} (paquete de despacho, D-4)`,
+      },
+    ]);
+  }
 
   return {
     ok: true,
