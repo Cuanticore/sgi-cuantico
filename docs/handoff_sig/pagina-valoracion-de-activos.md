@@ -9,7 +9,7 @@
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Ruta nueva** | `/sgsi/valoracion` |
 | **Toca además** | `app/components/sgsi/inventario/InventarioActivos.tsx` y `app/sgsi/inventario/page.tsx` (§7 · **sin esto la navegación pedida no existe**) |
-| **Estado** | D-1 a D-9 cerradas · D-7 con una pregunta abierta · **D-10 a D-12 abiertas** (§14 · el match cargo → persona) · listo para ejecutar el §4 al §7 |
+| **Estado** | **D-1 a D-12 cerradas** · D-7 con una pregunta menor abierta · el match cargo → persona resuelto para los 299 activos (§14) · listo para ejecutar |
 
 ---
 
@@ -508,9 +508,11 @@ Los conteos reales dependen de qué carga esté aplicada —234 activos migrados
 
 ## 14 · Anexo · el match cargo → persona
 
-La Tabla B necesita saber **qué persona está detrás de cada cargo responsable**. Este anexo lo resuelve con datos, no de memoria, y deja aislado lo que falta decidir.
+La Tabla B necesita saber **qué persona está detrás de cada cargo responsable**. Este anexo lo resuelve con datos, no de memoria. **Al 2026-09-09 está cerrado: los 299 activos tienen propietario con nombre y diez personas cubren el inventario completo** (§14.5).
 
-**Fuentes cruzadas:** los responsables reales salen de `FOR-SIG-12 Consolidado de Activos de Información V19.xlsx`, hoja «Matriz de Activos», columnas 12 (Custodio) y 13 (Propietario del activo), sobre los **299 activos con código válido**. Los nombres salen de `01. Organigrama/2. 2026/1. Organigrama Cuantico V2.0.pptx`, diapositiva 3, que es la única versión del organigrama que lleva nombres. La confirmación de ocho cargos la dio el líder del SIG el 2026-09-09.
+**Fuentes cruzadas:** los responsables reales salen de `FOR-SIG-12 Consolidado de Activos de Información V19.xlsx`, hoja «Matriz de Activos», columnas 12 (Custodio) y 13 (Propietario del activo), sobre los **299 activos con código válido**. Los nombres salen de `01. Organigrama/2. 2026/1. Organigrama Cuantico V2.0.pptx`, diapositiva 3, que es la única versión del organigrama que lleva nombres. Las resoluciones de D-10, D-11 y D-12 las dio el líder del SIG el 2026-09-09, y **manda sobre el organigrama** donde los dos difieren (§14.4).
+
+**Lo único que quedó sin ejecutar es la reasignación de los diez activos de D-11**, y el §14.7 explica por qué no se hizo con un `UPDATE` y dónde tiene que vivir para no deshacerse en la próxima carga.
 
 ### 14.1 Los responsables reales, con su volumen
 
@@ -534,7 +536,18 @@ La Tabla B necesita saber **qué persona está detrás de cada cargo responsable
 
 **Cobertura: 273 de 299 activos** quedan con persona resuelta por propietario. Los 26 restantes son las cuatro filas marcadas.
 
-### 14.2 D-10 · la duda que más pesa · **abierta**
+### 14.2 D-10 · la duda que más pesa · **CERRADA 2026-09-09 · lectura (a)**
+
+**Yuliet Rojas sigue en Operations & Services Manager.** «Technology manager» en la confirmación era forma corta de ese cargo, así que **Jhon Tamayo se queda en Architecture and Technology Manager** y el organigrama V2.0 no está desactualizado en este punto. Los 220 activos quedan atribuidos así:
+
+| Cargo | Custodio de | Persona |
+|---|---:|---|
+| Operations & Services Manager | 203 | **Yuliet Rojas** |
+| Architecture and Technology Manager | 17 | **Jhon Tamayo** |
+
+El análisis que llevó a la pregunta queda abajo, porque la próxima vez que el organigrama cambie hay que volver a hacerlo.
+
+---
 
 **Entre «Operations & Services Manager» y «Architecture and Technology Manager» se juega el custodio de 220 de los 299 activos — el 74 % del inventario.** Es la única duda que, mal resuelta, misatribuye la mayoría de la Tabla B.
 
@@ -553,23 +566,64 @@ Tres lecturas posibles y hay que elegir una:
 
 **Ojo con la grafía.** El organigrama escribe «Yuliet» y la confirmación «Yulieth». El match de la Tabla B viaja por `Persona.correo` (§8), así que la grafía del nombre no rompe el enlace — pero sí decide **a qué fila del Directorio** apunta, y ahí una letra importa.
 
-### 14.3 D-11 · los tres responsables que no son personas · **abierta**
+### 14.3 D-11 · los tres responsables que no son personas · **CERRADA 2026-09-09**
 
-Diez activos tienen como propietario algo que no es una persona de la organización:
+Los diez activos se reasignan a un cargo real. Decisión del líder del SIG:
 
-| Valor | Activos | Qué es | Propuesta |
+| Valor en V19 | Activos | Pasa a | Persona resultante |
 |---|---:|---|---|
-| «Cada usuario» | 8 | Los 34 colaboradores a la vez | **No se resuelve a una persona.** Estos 8 son justamente los que hay que entregar de a uno con el popup de REQ-SIG-16, y entonces su `personaId` los pone en la Tabla B solos |
-| «External Legal Counsel» | 1 | Abogado externo. El organigrama lo lista **sin nombre** | Sin `Persona`: no tiene cuenta del Directorio y `Persona.oid` es obligatorio. Va como `Proveedor` u `Organizacion`, no como persona |
-| «Cliente» | 1 | Un tercero | Igual que el anterior |
+| «Cada usuario» | 8 | **Operations & Services Manager** | Yuliet Rojas |
+| «External Legal Counsel» | 1 | **Chief Legal Officer** | Marcela Molina |
+| «Cliente» | 1 | **Chief Operating Officer** | Laura Agudelo |
 
-Los tres estaban ya levantados como hallazgo **H-19 de REQ-SIG-12 §6** («propietario como rol genérico»), que pedía mapearlos al `CargoResponsable` correspondiente. Este anexo dice que **dos de los tres no tienen cargo al que mapear**, y ese es el dato nuevo.
+Cierra el hallazgo **H-19 de REQ-SIG-12 §6**, que pedía exactamente esto: mapear el rol genérico al `CargoResponsable` correspondiente. El §14.7 dice **dónde** se ejecuta, que no es obvio.
 
-### 14.4 D-12 · dos cargos que el organigrama nombra y nadie confirmó · **abierta**
+**Y con esto el propietario deja de tener huecos.** Los 299 activos pasan a tener un propietario que resuelve a una persona real, y el catálogo en uso baja de once valores a ocho:
 
-**Project Manager** (custodio de 5) → Mario Hernández, y **Data Analytics Manager** (custodio de 2) → Marcela Morales. Los dos salen del organigrama y **no** de la confirmación del líder del SIG. Son siete activos: poco volumen, pero un sí o un no cuesta lo mismo que dejarlos en duda.
+| Cargo | Propietario de | Persona |
+|---|---:|---|
+| Chief Operating Officer | 143 + 1 = **144** | Laura Agudelo |
+| Líder del SIG | 33 | Katherine Quiroga |
+| Finance and Administrative Manager | 32 | Albeiro Medina |
+| CEO | 26 | Daniel Medina |
+| Chief Commercial Officer | 25 | Lina Medina |
+| Operations & Services Manager | 15 + 8 = **23** | Yuliet Rojas |
+| Chief Legal Officer | 14 + 1 = **15** | Marcela Molina |
+| Quality Analyst | 1 | Katherine Quiroga |
+| | **299** | **7 personas** |
 
-### 14.5 Defectos del catálogo de cargos, para el desarrollador
+Ocho cargos y siete personas, porque Katherine Quiroga ocupa dos.
+
+### 14.4 D-12 · los dos cargos que faltaban · **CERRADA 2026-09-09**
+
+| Cargo | Custodio de | Persona | Contra el organigrama |
+|---|---:|---|---|
+| Data Analytics Manager | 2 | **Marcela Morales** | coincide |
+| Project Manager | 5 | **Mateo Vergara** | **no coincide** — la diapositiva 3 dice Mario Hernández |
+
+**Segundo hallazgo para el dueño del organigrama.** El Organigrama V2.0 pone a **Mario Hernández** en Project Manager y la confirmación dice **Mateo Vergara**. A diferencia de D-10, acá el organigrama sí está desactualizado. Manda la confirmación —es la fuente viva— y queda anotado que el `.pptx` de OneDrive necesita una pasada. No se corrige desde acá: es del lado de quien especifica.
+
+### 14.5 El inventario completo, con nombre
+
+Cerradas las tres dudas, **diez personas cubren los 299 activos** entre propietario y custodio:
+
+| Persona | Cargo(s) | Propietario de | Custodio de |
+|---|---|---:|---:|
+| Laura Agudelo | Chief Operating Officer | 144 | — |
+| Yuliet Rojas | Operations & Services Manager | 23 | 203 |
+| Katherine Quiroga | Líder del SIG · Quality Analyst | 34 | 8 |
+| Albeiro Medina | Finance and Administrative Manager | 32 | 19 |
+| Daniel Medina | CEO | 26 | 4 |
+| Lina Medina | Chief Commercial Officer | 25 | 6 |
+| Marcela Molina | Chief Legal Officer | 15 | 17 |
+| Jhon Tamayo | Architecture and Technology Manager | — | 17 |
+| Mateo Vergara | Project Manager | — | 5 |
+| Marcela Morales | Data Analytics Manager | — | 2 |
+| *sin custodio* | — | — | **18** |
+
+Los 18 sin custodio siguen permitidos por el esquema y siguen siendo trabajo pendiente, no un defecto de la carga (REQ-SIG-12 H-20).
+
+### 14.6 Defectos del catálogo de cargos, para el desarrollador
 
 El catálogo de la aplicación (`prisma/data/listas.json`, `cargosResponsables`, 11 valores) **no coincide con lo que V19 usa**, y el importador resuelve el cargo por nombre:
 
@@ -582,7 +636,41 @@ El catálogo de la aplicación (`prisma/data/listas.json`, `cargosResponsables`,
 
 Es el mismo aviso que ya trae el prompt de arranque del paquete —«antes de poblar, unifica el catálogo de cargos: hay cargos escritos de dos y tres formas distintas»— con los nombres concretos.
 
-### 14.6 Lo que este anexo NO decide
+### 14.7 Cómo se ejecuta la reasignación de D-11 · y por qué no con un `UPDATE` pelado
+
+Se pidió hacerlo directo en la base. **No lo pude hacer, y además hay un lugar mejor.**
+
+**Por qué no lo hice.** La base de desarrollo no responde desde esta sesión: `postgresql://…@localhost:5437` da `ECONNREFUSED`, y `npm run db:up` levanta el contenedor con `docker compose`, que no existe en este entorno. Verificado dos veces.
+
+**Y por qué el `UPDATE` pelado no es el camino, aunque hubiera conexión.** Depende de si V19 ya está cargado, y son dos rutas distintas:
+
+**Ruta A · V19 todavía no está cargado → va en el importador, no en la base.** Es la ruta limpia. Las tres cadenas se mapean a su cargo destino al importar, que es literalmente lo que pedía H-19 de REQ-SIG-12. Cero `UPDATE`, y el libro sigue siendo la fuente de verdad.
+
+```
+'Cada usuario'           → Operations & Services Manager
+'External Legal Counsel' → Chief Legal Officer
+'Cliente'                → Chief Operating Officer
+```
+
+**Ruta B · V19 ya está cargado → una corrección, con bitácora en la misma transacción.** Diez filas, y el invariante 7 del paquete es explícito: «la bitácora va en la misma transacción que el hecho que registra». Un `UPDATE activo SET propietario_id = …` a secas reescribiría el propietario de diez activos **sin dejar rastro de quién lo cambió ni por qué**, en el sistema cuyo punto es justamente poder responder eso. La primera auditoría lo pregunta.
+
+La corrección usa lo que ya existe —`registrar()` de `lib/sgsi/bitacora.ts`, el mismo que llama `crearActivo`— una fila de `Bitacora` por activo tocado:
+
+```
+tabla          'activo'
+registroId     el código del activo
+campo          'propietario'
+valorAnterior  'Cada usuario'
+valorNuevo     'Operations & Services Manager'
+motivo         'REQ-SIG-18 §14.3 · H-19 · rol genérico reasignado a cargo real'
+usuario        quien ejecuta la corrección
+```
+
+**Y lo que hay que hacer además, o el arreglo se deshace solo.** Corregir solo la base deja las tres cadenas intactas en `FOR-SIG-12 … V19.xlsx`, así que **la próxima reimportación las reintroduce**. El arreglo tiene que vivir en el mapeo del importador (Ruta A) o en el libro. Si se toma la Ruta B, hay que hacer las dos cosas: corregir las diez filas **y** agregar el mapeo, para que la carga siguiente no revierta la decisión.
+
+Mi recomendación: **Ruta A si V19 no entró todavía** —y por lo que dice `carga-de-datos.md` §0, la base aún tiene los 234 activos de la migración anterior, así que es lo más probable—. Confirmalo con `select count(*) from activo` antes de decidir: 234 significa Ruta A, 296 o 299 significa Ruta B.
+
+### 14.8 Lo que este anexo NO decide
 
 - **No asigna `personaId` a ningún activo.** El match cargo → persona sirve para leer la Tabla A con nombres al lado del cargo; `Activo.personaId` sigue escribiéndose de a uno desde REQ-SIG-16 (§6.6). Son dos cosas: quién ocupa el cargo, y a quién se le entregó el equipo.
 - **No crea un campo nuevo.** `CargoResponsable` no gana una columna «persona actual»: quién ocupa un cargo ya vive en `Persona.cargoId`, y derivarlo de ahí es lo correcto —cuando alguien cambia de puesto, el match se mueve solo—. La pantalla lo resuelve al leer.
