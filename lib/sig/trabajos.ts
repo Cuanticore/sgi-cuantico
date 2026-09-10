@@ -137,6 +137,11 @@ const IMPLEMENTACIONES: Record<string, (autor: string, hoy: Date) => Promise<Res
     if (!r.ok) throw new Error(r.mensaje);
     return { creados: r.enviados, detalle: r.mensaje };
   },
+  'publicar-soportes': async () => {
+    const { publicarPendientes } = await import('@/lib/sig/publicador-soportes');
+    const r = await publicarPendientes();
+    return { creados: r.publicados, detalle: r.detalle };
+  },
 };
 
 // Al cargar el módulo, no a las 5 de la mañana. Un trabajo marcado `disponible` sin

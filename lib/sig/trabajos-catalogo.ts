@@ -82,6 +82,15 @@ export const TRABAJOS: DefinicionTrabajo[] = [
     cuando: 'Cada hora',
     disponible: false,
   },
+  {
+    nombre: 'publicar-soportes',
+    descripcion:
+      'Publica en SharePoint los soportes pendientes, en la carpeta de cada persona ' +
+      '(REQ-SIG-13). Respeta la espera creciente de cada fila y se detiene cuando la causa ' +
+      'del fallo es del entorno: 300 llamadas condenadas sólo llenan el registro de ruido.',
+    cuando: 'Cada hora, :20',
+    disponible: true,
+  },
 ];
 
 export function trabajoPorNombre(nombre: string): DefinicionTrabajo | null {

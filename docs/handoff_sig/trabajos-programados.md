@@ -53,6 +53,7 @@ La ruta **verifica el secreto y nada más**: no usa la sesión, porque no hay pe
 | `excepciones-vencidas` | Diario, 05:20 | Levanta hallazgo por cada excepción que pasó su fecha de cierre sin cerrarse (REQ-SIG-08 · G4) |
 | `permisos-temporales-vencidos` | Cada hora | Cierra los accesos temporales cuya vigencia expiró (REQ-SIG-07 · O14) |
 | `sincronizar-directorio` | Diario, 04:30 | Trae altas y bajas de Azure AD y marca las anomalías del directorio de colaboradores |
+| `publicar-soportes` | Cada hora, :20 | Publica en SharePoint los soportes pendientes, en la carpeta de cada persona (REQ-SIG-13) |
 
 ---
 

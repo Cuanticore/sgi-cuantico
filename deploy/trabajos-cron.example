@@ -37,6 +37,13 @@ SIG_TRABAJOS_SECRET=
 # constantes del código. Por eso el semanal y el mensual NO tienen entrada aparte.
 0 6 * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/enviar-notificaciones >> /var/log/sig-trabajos.log 2>&1
 
+# Publica en SharePoint los soportes pendientes (REQ-SIG-13). Es la red de seguridad del
+# disparo inmediato de la firma: si Graph estaba caído cuando alguien firmó, acá se recupera.
+# Cada fila respeta su propia espera creciente, así que correrlo cada hora no reintenta nada
+# antes de tiempo. Exige `Sites.Selected` con rol «write» sobre el sitio: sin ese permiso
+# cada fila queda BLOQUEADO con SIN_PERMISO, que es el comportamiento correcto.
+20 * * * *  curl -fsS -X POST -H "Authorization: Bearer $SIG_TRABAJOS_SECRET" $SIG_URL/publicar-soportes >> /var/log/sig-trabajos.log 2>&1
+
 # Todavía sin construir — la ruta responde 501 con la razón, no 404. Se dejan comentadas
 # para que instalarlas sea descomentar, no volver a leer la documentación:
 #
