@@ -1,0 +1,10 @@
+# deploy/origen-cursos.nginx.example
+# El origen de contenido del player SCORM sirve DOS rutas y nada más.
+# Sin esta regla, /mi-sig y /sig quedan alcanzables en el host de contenido: no filtran
+# datos —las cookies de sesión son host-only y ahí no hay sesión— pero exponen superficie
+# de la aplicación al JavaScript de un curso, y eso no tiene ninguna razón de existir.
+server {
+  server_name cursos.sig.cuantico.com;
+  location ~ ^/scorm/ { proxy_pass http://sgi-app:3004; }
+  location / { return 404; }
+}
