@@ -149,7 +149,11 @@ export function esAlcancePorActivo(alcance: AlcanceObligacion): boolean {
 }
 
 /// Los activos que una obligación alcanza. Sólo vigentes.
-function activosAlcanzados(
+///
+/// **Exportada para que la equivalencia con `prevision.ts` se pueda probar.** La duplicación
+/// entre los dos módulos es consciente y declarada (`prevision.ts:10-13`), pero lo único que
+/// la sostiene es que las dos digan lo mismo — y eso no se comprobaba con esto privado.
+export function activosAlcanzados(
   obligacion: ObligacionGenerable,
   activos: readonly ActivoGenerable[],
 ): ActivoGenerable[] {
@@ -166,7 +170,13 @@ function activosAlcanzados(
 
 /// Quienes debe alcanzar una obligación, resuelto HOY (R2): quien ingrese después recibe
 /// los periodos siguientes, nunca los pasados.
-function resolverAlcance(
+///
+/// **Exportada para probar la equivalencia con `personasAlcanzadas` de `prevision.ts`.** Era
+/// privada, y por eso la duplicación que `prevision.ts:10-13` declara —«se prueba que las dos
+/// digan lo mismo sobre el mismo conjunto»— nunca se había probado. El precio ya se pagó una
+/// vez: la previsión devolvía cero para `NIVEL_ACTIVO` en silencio mientras esto sí lo
+/// conocía.
+export function resolverAlcance(
   obligacion: ObligacionGenerable,
   personas: readonly PersonaGenerable[],
   activos: readonly ActivoGenerable[],
