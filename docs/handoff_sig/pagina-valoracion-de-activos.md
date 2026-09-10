@@ -8,7 +8,7 @@
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Ruta nueva** | `/sgsi/valoracion` |
-| **Toca además** | `app/components/sgsi/inventario/InventarioActivos.tsx` y `app/sgsi/inventario/page.tsx` (§7 · **sin esto la navegación pedida no existe**) |
+| **Toca además** | `app/components/sgsi/inventario/InventarioActivos.tsx` y `app/sgsi/inventario/page.tsx` (§7 · **sin esto la navegación pedida no existe**) · el catálogo `CargoResponsable` y `lib/sgsi/consolidado-lectura.ts` (§15 · **la corrección de registros va antes de la pantalla**) |
 | **Estado** | **D-1 a D-12 cerradas** · D-7 con una pregunta menor abierta · el match cargo → persona resuelto para los 299 activos (§14) · listo para ejecutar |
 
 ---
@@ -25,6 +25,8 @@ Tres piezas, y una condición:
 - **La matriz** — las mismas cuatro filas por seis niveles, en números. Es la vista de tabla accesible y el respaldo de cada cifra.
 - **Las dos tablas de detalle** — la A por propietario (cargo) × nivel, siguiendo la dimensión seleccionada; la B por persona × los cuatro criterios × seis niveles. La primera dice quién responde; la segunda, quién lo tiene en la mano.
 - **La condición** — que un clic en cualquier celda abra el inventario ya filtrado. Eso **no se puede hacer hoy** y es el §7.
+
+Y **un paso previo que no es pantalla**: 35 activos quedarían sin responsable por cuatro huecos del catálogo de cargos y tres valores que no son personas. Las dos tablas los mostrarían como «sin asignar». El §15 corrige los registros antes de dibujar nada, porque una pantalla que resume datos incompletos enseña el hueco del dato, no el del inventario.
 
 ---
 
@@ -491,6 +493,8 @@ Los conteos reales dependen de qué carga esté aplicada —234 activos migrados
 
 ## 13 · Resumen para el desarrollador
 
+- **Empezá por el §15, no por la pantalla.** Corré `select count(*) from activo`: 234 es Ruta A y no lleva un solo `UPDATE`; 296 o 299 es Ruta B. Con el catálogo de hoy, 35 activos quedan sin responsable y las dos tablas los mostrarían como «sin asignar».
+- **Renombrá `Architecture Manager`, no agregues una segunda fila.** Es el mismo cargo y hay siete llaves foráneas apuntando a esa tabla. Duplicarlo repite el incidente que el propio esquema documenta con «Líder del SIG» / «Lider del SIG».
 - **Cuatro pilas, una matriz, dos tablas y cinco arreglos en el inventario.** Si solo construís la página, el clic no filtra y el requerimiento no está cumplido: leé el §7 antes de empezar.
 - **Las dos tablas son un solo componente llamado dos veces.** Agrupador × criterios × niveles. Si te salen dos componentes, el tinte y el cuadre van a divergir.
 - **Empezá la Tabla B por el caso vacío.** Hoy casi ningún activo tiene custodio persona: `personaId` se escribe de a uno desde el popup de REQ-SIG-16 y solo para los subtipos entregables (≈21 de 296). El primer día la matriz va a estar casi vacía y eso es correcto — la línea de encuadre del §6.6 es la que tiene que explicarlo.
@@ -636,42 +640,153 @@ El catálogo de la aplicación (`prisma/data/listas.json`, `cargosResponsables`,
 
 Es el mismo aviso que ya trae el prompt de arranque del paquete —«antes de poblar, unifica el catálogo de cargos: hay cargos escritos de dos y tres formas distintas»— con los nombres concretos.
 
-### 14.7 Cómo se ejecuta la reasignación de D-11 · y por qué no con un `UPDATE` pelado
+### 14.7 Por qué no lo hice directo en la base
 
-Se pidió hacerlo directo en la base. **No lo pude hacer, y además hay un lugar mejor.**
+Se pidió ejecutar la reasignación en la base. **No la pude ejecutar**: `postgresql://…@localhost:5437` da `ECONNREFUSED` desde esta sesión, y `npm run db:up` levanta el contenedor con `docker compose`, que no existe en este entorno. Verificado tres veces.
 
-**Por qué no lo hice.** La base de desarrollo no responde desde esta sesión: `postgresql://…@localhost:5437` da `ECONNREFUSED`, y `npm run db:up` levanta el contenedor con `docker compose`, que no existe en este entorno. Verificado dos veces.
+Pero el bloqueo resultó afortunado, porque al preparar la corrección aparecieron **dos cosas que un `UPDATE` a las diez filas no habría arreglado**, y están en el §15:
 
-**Y por qué el `UPDATE` pelado no es el camino, aunque hubiera conexión.** Depende de si V19 ya está cargado, y son dos rutas distintas:
+1. **No son diez activos, son 35.** Con el catálogo de cargos de hoy, una carga de V19 deja **36 casillas de responsable en null** —11 de propietario y 25 de custodio— porque al catálogo le faltan cuatro cargos. Los diez de D-11 son una parte.
+2. **Corregir solo la base se deshace solo.** Las cadenas siguen en el libro V19, así que la próxima reimportación las reintroduce. El arreglo tiene que vivir también en el catálogo y en el mapeo del importador.
 
-**Ruta A · V19 todavía no está cargado → va en el importador, no en la base.** Es la ruta limpia. Las tres cadenas se mapean a su cargo destino al importar, que es literalmente lo que pedía H-19 de REQ-SIG-12. Cero `UPDATE`, y el libro sigue siendo la fuente de verdad.
-
-```
-'Cada usuario'           → Operations & Services Manager
-'External Legal Counsel' → Chief Legal Officer
-'Cliente'                → Chief Operating Officer
-```
-
-**Ruta B · V19 ya está cargado → una corrección, con bitácora en la misma transacción.** Diez filas, y el invariante 7 del paquete es explícito: «la bitácora va en la misma transacción que el hecho que registra». Un `UPDATE activo SET propietario_id = …` a secas reescribiría el propietario de diez activos **sin dejar rastro de quién lo cambió ni por qué**, en el sistema cuyo punto es justamente poder responder eso. La primera auditoría lo pregunta.
-
-La corrección usa lo que ya existe —`registrar()` de `lib/sgsi/bitacora.ts`, el mismo que llama `crearActivo`— una fila de `Bitacora` por activo tocado:
-
-```
-tabla          'activo'
-registroId     el código del activo
-campo          'propietario'
-valorAnterior  'Cada usuario'
-valorNuevo     'Operations & Services Manager'
-motivo         'REQ-SIG-18 §14.3 · H-19 · rol genérico reasignado a cargo real'
-usuario        quien ejecuta la corrección
-```
-
-**Y lo que hay que hacer además, o el arreglo se deshace solo.** Corregir solo la base deja las tres cadenas intactas en `FOR-SIG-12 … V19.xlsx`, así que **la próxima reimportación las reintroduce**. El arreglo tiene que vivir en el mapeo del importador (Ruta A) o en el libro. Si se toma la Ruta B, hay que hacer las dos cosas: corregir las diez filas **y** agregar el mapeo, para que la carga siguiente no revierta la decisión.
-
-Mi recomendación: **Ruta A si V19 no entró todavía** —y por lo que dice `carga-de-datos.md` §0, la base aún tiene los 234 activos de la migración anterior, así que es lo más probable—. Confirmalo con `select count(*) from activo` antes de decidir: 234 significa Ruta A, 296 o 299 significa Ruta B.
-
-### 14.8 Lo que este anexo NO decide
+### 14.9 Lo que este anexo NO decide
 
 - **No asigna `personaId` a ningún activo.** El match cargo → persona sirve para leer la Tabla A con nombres al lado del cargo; `Activo.personaId` sigue escribiéndose de a uno desde REQ-SIG-16 (§6.6). Son dos cosas: quién ocupa el cargo, y a quién se le entregó el equipo.
 - **No crea un campo nuevo.** `CargoResponsable` no gana una columna «persona actual»: quién ocupa un cargo ya vive en `Persona.cargoId`, y derivarlo de ahí es lo correcto —cuando alguien cambia de puesto, el match se mueve solo—. La pantalla lo resuelve al leer.
-- **No toca el organigrama.** Si D-10 se resuelve por la lectura 2, el que está desactualizado es el `.pptx` de OneDrive y eso se corrige del lado de quien especifica.
+- **No toca el organigrama.** El `.pptx` de OneDrive quedó desactualizado en Project Manager (§14.4) y eso se corrige del lado de quien especifica.
+
+---
+
+## 15 · La actualización de los registros
+
+Entra en el alcance de este REQ y **se ejecuta antes de la pantalla**: la Tabla A y la Tabla B leen `propietarioId` y `custodioId`, así que una casilla en null es una fila «sin asignar» que no debería existir.
+
+### 15.1 No son diez registros, son 35
+
+El importador resuelve el cargo **por nombre** y, cuando no lo encuentra, **no crea nada**: avisa y deja la casilla en null. Está en `lib/sgsi/consolidado-lectura.ts:311`, en el resolutor `opcional()`:
+
+```ts
+const encontrado = catalogo.find((x) => igual(x.nombre, v));
+if (!encontrado) {
+  avisar(`${etiqueta} «${v}» no está en el catálogo: el activo se carga sin ${etiqueta.toLowerCase()}.`);
+  return null;
+}
+```
+
+Corriendo el catálogo de la aplicación (`prisma/data/listas.json`, `cargosResponsables`, 11 valores) contra las columnas 12 y 13 de V19 sobre los 299 activos, **36 casillas quedan en null** —11 de propietario y 25 de custodio, en **35 activos distintos**, porque `SIG-EQU-0001` las pierde las dos:
+
+| Valor en V19 | Propietario | Custodio | Por qué no resuelve |
+|---|---:|---:|---|
+| Architecture and Technology Manager | — | **17** | El catálogo lo llama «Architecture Manager» |
+| Cada usuario | **8** | — | No es un cargo · H-19 |
+| Project Manager | — | **5** | Falta en el catálogo |
+| Data Analytics Manager | — | **2** | Falta en el catálogo |
+| Quality Analyst | **1** | **1** | Falta en el catálogo |
+| External Legal Counsel | **1** | — | No es un cargo · H-19 |
+| Cliente | **1** | — | No es un cargo · H-19 |
+| | **11** | **25** | |
+
+**Y la corrección se parte en dos, con proporciones muy distintas:** arreglar el catálogo resuelve **26 casillas sin tocar un solo activo**; solo las **10** de H-19 necesitan reasignación.
+
+### 15.2 Paso 1 · el catálogo de cargos · resuelve 26
+
+Una renombrada y tres altas en `CargoResponsable`.
+
+| Acción | Fila | Por qué |
+|---|---|---|
+| **Renombrar** | `Architecture Manager` → **`Architecture and Technology Manager`** | Es el **mismo cargo** con el nombre viejo. Renombrar la fila preserva las siete llaves foráneas que apuntan a `CargoResponsable`. **Crear una segunda fila sería el error**: reproduce exactamente la duplicación que el comentario del esquema documenta como incidente de producción, «así es como “Líder del SIG” y “Lider del SIG” terminaron coexistiendo» |
+| **Alta** | `Project Manager` | Cargo real · Mateo Vergara · 5 custodios |
+| **Alta** | `Data Analytics Manager` | Cargo real · Marcela Morales · 2 custodios |
+| **Alta** | `Quality Analyst` | Cargo real · Katherine Quiroga · 1 propietario + 1 custodio |
+
+Las tres altas nacen con `activo = true`, su `orden` a continuación del último, y **`esPropietario` y `esCustodio` según su uso real**: `Quality Analyst` en las dos listas; `Project Manager` y `Data Analytics Manager` solo en `esCustodio`, porque en V19 no son propietarios de nada. Poner las dos banderas en `true` por defecto ofrecería en el desplegable de propietario dos cargos que la organización no usa así.
+
+**Ninguna de las cuatro toca un activo.** Con el catálogo corregido, esas 26 casillas resuelven solas.
+
+### 15.3 Paso 2 · la reasignación de H-19 · 10 activos
+
+Los códigos salen de V19 y van explícitos, para que nadie los tenga que volver a derivar:
+
+| De (V19) | A | Activos | Códigos |
+|---|---|---:|---|
+| `Cada usuario` | **Operations & Services Manager** | 8 | `TEC-APP-0007` · `TEC-APP-0008` · `TEC-APP-0009` · `TEC-APP-0010` · `TEC-APP-0011` · `TEC-APP-0012` · `TEC-APP-0013` · `TEC-APP-0014` |
+| `External Legal Counsel` | **Chief Legal Officer** | 1 | `TEC-APP-0015` |
+| `Cliente` | **Chief Operating Officer** | 1 | `TEC-EQU-0008` |
+
+Los tres cambian **`propietarioId`** y nada más. El custodio de esos diez no se toca.
+
+**Ojo con `TEC-APP-0015`.** «External Legal Counsel» pasa a Chief Legal Officer, que es un cargo interno. La decisión es correcta —alguien de la casa tiene que responder por ese activo— pero **el hecho de que el abogado externo lo maneja se pierde**. Si eso importa, vive en `Activo.proveedorId` o en la descripción, no en el propietario. Queda anotado, no resuelto.
+
+### 15.4 La bitácora · no es opcional
+
+El invariante 7 del paquete: «la bitácora va en la misma transacción que el hecho que registra». Un `UPDATE activo SET propietario_id = …` a secas reescribe el propietario de diez activos **sin dejar rastro de quién lo cambió ni por qué**, en el sistema cuyo punto es poder responder eso.
+
+Se usa lo que ya existe: **`registrar(escritor, usuario, cambios)`** de `lib/sgsi/bitacora.ts`, el mismo que llama `crearActivo`. Una entrada de `Cambio` por casilla tocada:
+
+```
+tabla          'activo'
+registroId     el código del activo          → 'TEC-APP-0007'
+campo          'propietario'                 (o 'custodio')
+anterior       'Cada usuario'
+nuevo          'Operations & Services Manager'
+motivo         'REQ-SIG-18 §15.3 · H-19 · rol genérico reasignado a cargo real'
+usuario        quien ejecuta la corrección
+```
+
+**Y sale idempotente sin esfuerzo**, que es lo que la hace segura de repetir: `registrar()` arranca filtrando los cambios que no cambian nada —`cambios.filter(c => texto(c.anterior) !== texto(c.nuevo))`, `bitacora.ts:45`— así que una segunda corrida no escribe una segunda fila. El `update` del activo también hay que hacerlo condicional al valor actual, o el `updatedAt` se mueve sin motivo.
+
+La renombrada del catálogo lleva su propia fila: `tabla 'cargo_responsable'`, `campo 'nombre'`, de `Architecture Manager` a `Architecture and Technology Manager`. Las tres altas, una fila de alta cada una.
+
+### 15.5 El orden, y por qué depende de si V19 ya entró
+
+**`select count(*) from activo` decide la ruta.** 234 es la migración anterior; 296 o 299 es V19.
+
+**Ruta A · da 234 · V19 todavía no entró.** Es la limpia, y **no lleva un solo `UPDATE` sobre activos**:
+
+```
+1  Catálogo de cargos            §15.2 · 1 renombrada + 3 altas
+2  Mapeo en el importador        §15.6 · las 3 cadenas de H-19
+3  Cargar V19                    REQ-SIG-12 · cero avisos de responsable
+4  Construir la pantalla         §4 al §7
+```
+
+**Ruta B · da 296 o 299 · V19 ya entró.** Los pasos 1 y 2 son los mismos, y se agrega la corrección de lo ya cargado:
+
+```
+1  Catálogo de cargos            §15.2
+2  Reasignar las 26 casillas     releyendo V19, o por los códigos del §15.1
+3  Reasignar las 10 de H-19      §15.3 · con bitácora
+4  Mapeo en el importador        §15.6 · para que la próxima carga no revierta
+5  Construir la pantalla
+```
+
+Las dos rutas terminan igual. La A cuesta menos y es la más probable: `carga-de-datos.md` §0 dice que la base tiene los 234 activos de la migración anterior.
+
+### 15.6 El mapeo en el importador · o el arreglo se deshace
+
+**Las tres cadenas de H-19 siguen en `FOR-SIG-12 … V19.xlsx`.** Corregir la base y no el importador significa que **la próxima reimportación las reintroduce**, y la corrección se pierde sin que nadie lo note hasta que la Tabla A muestre otra vez una fila «Sin propietario» con ocho activos.
+
+En `consolidado-lectura.ts`, antes de `opcional('propietario', …)`, una tabla de sinónimos:
+
+```
+'Cada usuario'           → 'Operations & Services Manager'
+'External Legal Counsel' → 'Chief Legal Officer'
+'Cliente'                → 'Chief Operating Officer'
+```
+
+Con `motivo` en el aviso, para que la carga **reporte que hizo la traducción** en lugar de hacerla en silencio: un mapeo callado es tan malo como el null callado que reemplaza. La tabla vive en datos, no en el código, si se decide que la organización la va a curar; mientras sean tres filas, una constante documentada alcanza.
+
+**Lo que además hay que hacer fuera del software:** pedirle al dueño de V19 que corrija esas tres celdas en el libro. Mientras el libro diga «Cliente», el sinónimo es una curita que hay que mantener.
+
+### 15.7 Criterios de aceptación de la corrección
+
+Van con los del §10 y se prueban antes de la pantalla.
+
+1. `select count(*) from cargo_responsable where nombre = 'Architecture Manager'` → **0**, y `… = 'Architecture and Technology Manager'` → **1**. Renombrada, no duplicada.
+2. `select count(*) from cargo_responsable` → **14** (los 11 de hoy más las 3 altas; la renombrada no suma).
+3. `select count(*) from activo where activo and propietario_id is null` → **0**.
+4. `select count(*) from activo where activo and custodio_id is null` → **18**, ni uno más. Son los que V19 trae vacíos (REQ-SIG-12 H-20) y siguen siendo trabajo pendiente legítimo.
+5. Los ocho `TEC-APP-0007..0014` tienen propietario **Operations & Services Manager**; `TEC-APP-0015` tiene **Chief Legal Officer**; `TEC-EQU-0008` tiene **Chief Operating Officer**.
+6. `select count(*) from bitacora where tabla = 'activo' and campo in ('propietario','custodio') and motivo like 'REQ-SIG-18%'` → **igual al número de casillas efectivamente cambiadas**. En la Ruta A es 0 —no se corrigió nada, se cargó bien— y eso también es correcto.
+7. **Idempotencia:** correr la corrección dos veces no agrega filas de `Bitacora` ni cambia `count(*)` en ninguna parte.
+8. Recargar V19 después de la corrección **no reintroduce** ningún null de responsable. Es el criterio que prueba el §15.6, y el único que se puede olvidar sin que nada se rompa hoy.
