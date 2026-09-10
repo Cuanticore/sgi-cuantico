@@ -83,6 +83,13 @@ const GRUPOS: Grupo[] = [
     tituloCorto: 'SGSI',
     items: [
       { etiqueta: 'Inventario de activos', abreviatura: 'INV', href: '/sgsi/inventario', contador: 'activos' },
+      // REQ-SIG-18 · va inmediatamente después del inventario porque es el RESUMEN del registro,
+      // no un indicador de gestión: se lee junto al inventario que resume, y el orden del menú ya
+      // agrupa «lo que la organización tiene» antes de «lo que la amenaza».
+      //
+      // SIN contador a propósito: el número de esta pantalla no es «cuántos activos» —eso ya lo
+      // dice INV— sino cuántos alcanzan el umbral, y eso no cabe en el menú.
+      { etiqueta: 'Valoración de activos', abreviatura: 'VAL', href: '/sgsi/valoracion' },
       { etiqueta: 'Matrices de riesgo', abreviatura: 'MTZ', href: '/sgsi/matrices' },
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
