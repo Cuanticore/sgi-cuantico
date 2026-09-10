@@ -191,12 +191,54 @@ describe('columnas nulables · la fila se carga y se avisa', () => {
     expect(avisos[0].mensaje).toContain('Architecture and Technology Manager');
   });
 
-  // H-19 · «Cada usuario» y «Cliente» son roles genéricos, no cargos. Se avisan igual: la
-  // decisión fue no crear cargos que nadie aprobó.
-  it('un propietario genérico se avisa en vez de inventarle un cargo (H-19)', () => {
-    const { filas, avisos } = leer(con({ 13: 'Cada usuario' }));
-    expect(filas[0].propietarioId).toBeNull();
-    expect(avisos).toHaveLength(1);
+  // H-19 · «Cada usuario», «External Legal Counsel» y «Cliente» son roles genéricos, no
+  // cargos.
+  //
+  // **La regla cambió en REQ-SIG-18 §15.6, y a propósito.** Antes se avisaba y se dejaba en
+  // null, con el criterio de no crear cargos que nadie aprobó — correcto para un valor
+  // desconocido. Pero estos tres no son desconocidos: el §15.3 fijó a qué cargo REAL
+  // corresponde cada uno, así que dejarlos en null no protege nada y deja ocho activos sin
+  // dueño. Ahora se traducen, **y la traducción se reporta**: un mapeo callado es tan malo
+  // como el null callado que reemplaza.
+  describe('un responsable genérico se traduce y se reporta (H-19 · §15.6)', () => {
+    const CON_DESTINO = {
+      ...CATALOGOS,
+      cargos: [...CATALOGOS.cargos, { id: 32, nombre: 'Operations & Services Manager' }],
+    };
+    const leerConDestino = (...filas: Record<number, string>[]) =>
+      leerMatrizConsolidado(hoja(...filas), CON_DESTINO);
+
+    it('resuelve al cargo real cuando está en el catálogo', () => {
+      const { filas, avisos } = leerConDestino(con({ 13: 'Cada usuario' }));
+      expect(filas[0].propietarioId).toBe(32);
+      expect(avisos).toHaveLength(1);
+      expect(avisos[0].mensaje).toContain('«Cada usuario» no es un cargo');
+      expect(avisos[0].mensaje).toContain('Operations & Services Manager');
+    });
+
+    // Si el destino de la traducción tampoco está en el catálogo, se avisan las DOS cosas:
+    // que se tradujo, y que el cargo traducido falta. Callar la primera dejaría a alguien
+    // buscando «Cada usuario» en el catálogo, que nunca va a estar ahí.
+    it('sin el cargo destino en el catálogo, avisa la traducción Y el faltante', () => {
+      const { filas, avisos } = leer(con({ 13: 'Cada usuario' }));
+      expect(filas[0].propietarioId).toBeNull();
+      expect(avisos).toHaveLength(2);
+      expect(avisos[0].mensaje).toContain('no es un cargo');
+      expect(avisos[1].mensaje).toContain('no está en el catálogo');
+    });
+
+    it('el custodio se traduce por el mismo camino', () => {
+      const { filas } = leerConDestino(con({ 12: 'Cada usuario' }));
+      expect(filas[0].custodioId).toBe(32);
+    });
+
+    // La ubicación, el entorno y el proveedor NO se traducen: la tabla es de cargos.
+    it('no traduce las columnas que no son de responsable', () => {
+      const { filas, avisos } = leerConDestino(con({ 14: 'Cliente' }));
+      expect(filas[0].ubicacionId).toBeNull();
+      expect(avisos).toHaveLength(1);
+      expect(avisos[0].mensaje).toContain('no está en el catálogo');
+    });
   });
 
   it.each([

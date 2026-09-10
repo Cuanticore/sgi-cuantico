@@ -27,6 +27,7 @@
 
 import { aTernario, entreCorchetes, type Ternario } from './plantilla-lectura';
 import { esCodigoDeLibro } from './consolidado';
+import { traducirResponsable } from './responsables-v19';
 
 /// Las columnas de la hoja, por su NÚMERO en Excel (1-based), que es el que la persona ve
 /// en la barra de columnas cuando le decimos «mirá la columna 11».
@@ -300,9 +301,32 @@ export function leerMatrizConsolidado(
       const v = col(COLUMNAS_MATRIZ[clave]);
       if (v === '') return null;
       if (clave === 'proveedor' && contiene(PROVEEDOR_NO_APLICA, v)) return null;
-      const encontrado = catalogo.find((x) => igual(x.nombre, v));
+
+      // REQ-SIG-18 §15.6 · H-19 · las tres cadenas que V19 escribe en las columnas de
+      // responsable y que NO son cargos —«Cada usuario», «External Legal Counsel»,
+      // «Cliente»— se traducen ANTES de buscar en el catálogo.
+      //
+      // Sin esto, corregir los registros en la base sirve hasta la próxima reimportación:
+      // el libro sigue diciendo lo mismo, los nulls vuelven, y nadie lo nota hasta que la
+      // Tabla A muestra otra vez «Sin propietario» con ocho activos.
+      //
+      // Y la traducción **se reporta**: un mapeo callado es tan malo como el null callado
+      // que reemplaza. Quien carga tiene que ver que la aplicación decidió por el libro.
+      const esCargo = clave === 'custodio' || clave === 'propietario';
+      const traducido = esCargo ? traducirResponsable(v) : { nombre: v, original: null };
+      const buscado = traducido.nombre;
+      if (traducido.original !== null) {
+        avisar(
+          `${etiqueta} «${traducido.original}» no es un cargo: se carga como ` +
+            `«${buscado}» (REQ-SIG-18 §15.6 · H-19).`,
+        );
+      }
+
+      const encontrado = catalogo.find((x) => igual(x.nombre, buscado));
       if (!encontrado) {
-        avisar(`${etiqueta} «${v}» no está en el catálogo: el activo se carga sin ${etiqueta.toLowerCase()}.`);
+        avisar(
+          `${etiqueta} «${buscado}» no está en el catálogo: el activo se carga sin ${etiqueta.toLowerCase()}.`,
+        );
         return null;
       }
       return encontrado.id;
