@@ -1128,6 +1128,9 @@ model Persona {
   eventosCerrados   EventoSeguridad[] @relation("EventoCierra")
   accionesIncidente AccionIncidente[] @relation("AccionIncidenteAutor")
 
+  paquetesSubidos PaqueteScorm[] @relation("PaqueteSubidoPor")
+  intentosScorm   IntentoScorm[] @relation("IntentoPersona")
+
   @@map("persona")
 }
 
@@ -1255,6 +1258,9 @@ model ContenidoSig {
 
   actas ActaAceptacion[]
 
+  /// P1 · un curso SCORM es una CAPACITACION con paquete, no un tipo nuevo de contenido.
+  paquetes PaqueteScorm[]
+
   @@map("contenido_sig")
 }
 
@@ -1374,6 +1380,7 @@ model Asignacion {
   medicionesAlerta  MedicionMetrica[]      @relation("MedicionAsignacion")
   activo            Activo?                @relation("AsignacionActivo", fields: [activoId], references: [id])
   hallazgos         HallazgoAccion[]
+  intentosScorm     IntentoScorm[]
 
   /// T1 · la idempotencia que permite que el cron reintente sin miedo.
   ///
@@ -1417,6 +1424,7 @@ model RegistroRealizado {
   respuestas       RespuestaItem[]
   versionContenido VersionContenido? @relation(fields: [versionContenidoId], references: [id])
   acta             ActaAceptacion?
+  intentoScorm     IntentoScorm?     @relation("RegistroIntento")
 
   @@index([asignacionId])
   @@map("registro_realizado")
@@ -2393,11 +2401,16 @@ model VersionContenido {
   /// Quién la publicó. Nulo en las versiones creadas por la migración inicial, que no
   /// tuvieron autor: inventar uno sería firmar un documento en nombre de otro.
   publicadaPorId   Int?     @map("publicada_por_id")
+  /// P2 · qué paquete se ejecutaba cuando esta versión se publicó. Un registro de realizado
+  /// contra «Codificación Segura v2» tiene que seguir apuntando al paquete que se ejecutó,
+  /// aunque mañana se suba una v3.
+  paqueteScormId   Int?     @map("paquete_scorm_id")
 
   contenido    ContenidoSig        @relation(fields: [contenidoId], references: [id])
   publicadaPor Persona?            @relation("VersionPublicadaPor", fields: [publicadaPorId], references: [id])
   registros    RegistroRealizado[]
   actas        ActaAceptacion[]
+  paqueteScorm PaqueteScorm?       @relation("VersionPaquete", fields: [paqueteScormId], references: [id])
 
   @@unique([contenidoId, version])
   @@map("version_contenido")
@@ -3638,4 +3651,117 @@ model ComponenteTercero {
   sistema Sistema @relation(fields: [sistemaId], references: [id])
 
   @@map("componente_tercero")
+}
+
+// ============================================================================
+// REQ-SIG-14 · Player SCORM 2004. Un curso se EJECUTA dentro de la aplicación y
+// su resultado —completó, aprobó, con qué nota, cuánto tiempo, en qué intento—
+// deja de ser una afirmación de la persona sobre sí misma.
+// ============================================================================
+
+enum ClasePaquete {
+  /// Los archivos están en el paquete y se sirven desde el origen aislado. `zipSha256`
+  /// congela lo que la persona vio.
+  AUTOCONTENIDO
+  /// El contenido lo entrega un tercero. La huella cubre la cáscara, NO el curso: el
+  /// proveedor puede cambiarlo mañana y el hash queda idéntico (D-1).
+  DESPACHO
+
+  @@map("clase_paquete")
+}
+
+enum EstadoIntento {
+  EN_CURSO
+  SUSPENDIDO
+  COMPLETADO
+  ABANDONADO
+
+  @@map("estado_intento")
+}
+
+model PaqueteScorm {
+  id                 Int          @id @default(autoincrement())
+  contenidoId        Int          @map("contenido_id")
+  version            Int
+  clase              ClasePaquete
+  edicion            String
+  organizacionId     String       @map("organizacion_id")
+  tituloOrganizacion String       @map("titulo_organizacion")
+  /// El href del recurso del SCO, relativo a la raíz del paquete.
+  entradaHref        String       @map("entrada_href")
+  /// Los orígenes que el paquete declaró al analizarse. La CSP se arma con esto (D-5).
+  dominiosExternos   String[]     @map("dominios_externos")
+  zipSha256          String       @map("zip_sha256")
+  zipTamano          Int          @map("zip_tamano")
+  archivos           Int
+  subidoPorId        Int?         @map("subido_por_id")
+  subidoEn           DateTime     @default(now()) @map("subido_en")
+
+  contenido          ContenidoSig       @relation(fields: [contenidoId], references: [id])
+  subidoPor          Persona?           @relation("PaqueteSubidoPor", fields: [subidoPorId], references: [id])
+  archivosDelPaquete ArchivoScorm[]
+  intentos           IntentoScorm[]
+  versiones          VersionContenido[] @relation("VersionPaquete")
+
+  @@unique([contenidoId, version])
+  @@map("paquete_scorm")
+}
+
+model ArchivoScorm {
+  id        Int    @id @default(autoincrement())
+  paqueteId Int    @map("paquete_id")
+  /// Ruta relativa YA normalizada (`scorm-zip.ts`). Es la llave con la que responde el
+  /// servidor de archivos.
+  ruta      String
+  mime      String
+  tamano    Int
+  sha256    String
+  bytes     Bytes
+
+  paquete PaqueteScorm @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+
+  @@unique([paqueteId, ruta])
+  @@map("archivo_scorm")
+}
+
+model IntentoScorm {
+  id                  Int           @id @default(autoincrement())
+  asignacionId        Int           @map("asignacion_id")
+  personaId           Int           @map("persona_id")
+  /// El paquete EFECTIVAMENTE ejecutado, no el vigente. Sin esto, el historial deja de ser
+  /// verificable en el momento en que alguien actualiza un curso.
+  paqueteId           Int           @map("paquete_id")
+  numero              Int
+  estado              EstadoIntento @default(EN_CURSO)
+  completionStatus    String        @default("unknown") @map("completion_status")
+  successStatus       String        @default("unknown") @map("success_status")
+  scoreScaled         Decimal?      @map("score_scaled") @db.Decimal(5, 4)
+  progressMeasure     Decimal?      @map("progress_measure") @db.Decimal(5, 4)
+  location            String?
+  /// 64 000 caracteres: `Text` y no `VarChar`. Truncarlo es perder el avance de alguien.
+  suspendData         String?       @map("suspend_data") @db.Text
+  entry               String        @default("ab-initio")
+  exit                String?
+  mode                String        @default("normal")
+  sessionTimeSegundos Int           @default(0) @map("session_time_segundos")
+  totalTimeSegundos   Int           @default(0) @map("total_time_segundos")
+  /// El modelo COMPLETO tal como quedó, con objetivos e interacciones. Las columnas de
+  /// arriba responden los tableros; esto responde al auditor que pregunta «¿cómo sabe que
+  /// aprobó?» — y es el dato que no se puede reconstruir después.
+  cmi                 Json
+  iniciadoEn          DateTime      @default(now()) @map("iniciado_en")
+  ultimaActividadEn   DateTime      @default(now()) @map("ultima_actividad_en")
+  terminadoEn         DateTime?     @map("terminado_en")
+  registroId          Int?          @unique @map("registro_id")
+  ip                  String?
+  agente              String?
+
+  asignacion Asignacion         @relation(fields: [asignacionId], references: [id])
+  persona    Persona            @relation("IntentoPersona", fields: [personaId], references: [id])
+  paquete    PaqueteScorm       @relation(fields: [paqueteId], references: [id])
+  registro   RegistroRealizado? @relation("RegistroIntento", fields: [registroId], references: [id])
+
+  @@unique([asignacionId, numero])
+  @@index([estado, ultimaActividadEn])
+  @@map("intento_scorm")
 }
