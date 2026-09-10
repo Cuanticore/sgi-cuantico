@@ -7,10 +7,19 @@
 // are classified at read time through lib/sgsi/clasificar.ts against the parametrized
 // UmbralRiesgo rows. That is why editing D, I or C in the grid moves the value, the
 // level badge, the row colour and the chip counters at once, with no round trip.
+//
+// LOS FILTROS VIVEN EN LA URL (REQ-SIG-18 §7.1)
+//
+// La pantalla hidrata `Filtros` desde los parámetros de búsqueda en el primer render y refleja
+// cada cambio de vuelta con `router.replace` —sin apilar historial—, así que una vista filtrada
+// es enlazable y sobrevive a un recargue. La traducción URL ⇄ filtros y el predicado que decide
+// si un activo pasa viven en `lib/sgsi/inventario-filtros.ts`, con sus pruebas: la pantalla de
+// Valoración promete que el número de una celda es el número de filas que aparecen acá, y esa
+// promesa es una decisión, no cableado.
 
 import Link from 'next/link';
-import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { guardarValoracion } from '@/app/sgsi/acciones/activos';
 import PopupImportacion from '@/app/components/sgsi/inventario/PopupImportacion';
 import { clasificar } from '@/lib/sgsi/clasificar';
@@ -20,6 +29,22 @@ import {
   type NivelRiesgo,
 } from '@/lib/sgsi/riesgo-activo';
 import { valorActivo } from '@/lib/sgsi/formulas';
+import { CRITERIO_MAX, type DimensionActiva } from '@/lib/sgsi/valoracion-agregada';
+import {
+  FILTROS_VACIOS,
+  SIN_ASIGNAR,
+  TODAS_PERSONAS,
+  TODOS_PROPIETARIOS,
+  TODOS_RESPONSABLES,
+  TODOS_SUBTIPOS,
+  TODOS_TIPOS,
+  TODOS_VALORES,
+  consultaDeFiltros,
+  cumpleFiltros,
+  filtrosDesdeUrl,
+  type CatalogosFiltro,
+  type Filtros,
+} from '@/lib/sgsi/inventario-filtros';
 
 /// One (asset, threat) row, reduced to what the inventory needs. Decimals travel as
 /// strings: Prisma's Decimal cannot cross the server/client boundary, and a float would
@@ -38,6 +63,13 @@ export interface ActivoVista {
   subtipo: string;
   propietario: string | null;
   custodio: string | null;
+  /// El custodio PERSONA (`Activo.personaId`), no el cargo. El esquema los separa a proposito:
+  /// el cargo dice quien RESPONDE por el activo y sobrevive a la rotacion; la persona dice
+  /// quien lo tiene en la mano. Nulo en casi todo el inventario, porque se escribe de a un
+  /// activo por vez desde el popup de REQ-SIG-16.
+  persona: string | null;
+  /// `Persona.correo`. Es lo que viaja en el filtro `persona`: es unico y el nombre no lo es.
+  personaCorreo: string | null;
   proveedor: string | null;
   /// La jerarquia del inventario (REQ-SIG-06). Los tres grados llegan DERIVADOS del
   /// servidor: el activo guarda `nivelId` apuntando al nivel 3 y los otros dos salen de
@@ -49,6 +81,11 @@ export interface ActivoVista {
   D: number;
   I: number;
   C: number;
+  /// Codigo de dimension activa → valor guardado, o `null` si no hay fila en `ActivoValor`.
+  /// Va aparte de D/I/C porque esas tres son las EDITABLES de la grilla y el cliente les
+  /// superpone lo que se este cambiando; este mapa es el que lee el filtro por dimension, y
+  /// trae tambien cualquier dimension que se active despues de D, I y C.
+  valores: Readonly<Record<string, number | null>>;
   riesgos: RiesgoDeActivo[];
 }
 
@@ -74,6 +111,9 @@ interface Props {
   /// `umbral_valoracion`, 4 by default: an asset enters the analysis when its value
   /// reaches it, and only then does it have risks.
   umbralValoracion: number;
+  /// Las dimensiones ACTIVAS de `Dimension`, en el orden del catalogo. El filtro por dimension
+  /// se arma con estas y no con tres constantes: el esquema admite cinco codigos.
+  dimensiones: DimensionActiva[];
 }
 
 /// The top of the valuation scale. Both the asset value and the risk-band ladder are
@@ -162,11 +202,6 @@ function colorDeBanda(nombre: string): { bg: string; fg: string } {
   return { bg: `var(--hf-risk-${clave}-bg)`, fg: `var(--hf-risk-${clave}-fg)` };
 }
 
-const TODOS_TIPOS = 'Todos los tipos';
-const TODOS_SUBTIPOS = 'Todos los subtipos';
-const TODOS_RESPONSABLES = 'Todos los responsables';
-
-type ColorFiltro = 'Todos' | 'rojo' | 'verde' | 'blanco';
 type Agrupacion =
   | 'proceso|tipo'
   | 'tipo|proceso'
@@ -175,48 +210,93 @@ type Agrupacion =
   | 'nivel2|nivel3'
   | 'nivel3|tipo';
 
-interface Filtros {
-  tipo: string;
-  subtipo: string;
-  responsable: string;
-  color: ColorFiltro;
-}
-
-const FILTROS_VACIOS: Filtros = {
-  tipo: TODOS_TIPOS,
-  subtipo: TODOS_SUBTIPOS,
-  responsable: TODOS_RESPONSABLES,
-  color: 'Todos',
-};
-
-/// The twelve columns of the grid, verbatim from the handoff. They live in one constant
+/// The twelve columns of the grid, verbatim from the handoff. They live in one function
 /// because the header row and every asset row must never drift apart.
-const COLUMNAS =
-  '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 124px 124px 92px';
+///
+/// La treceava —el custodio persona— aparece solo cuando el filtro `persona` o `conPersona`
+/// esta puesto, para que se vea contra que se filtro. El resto del tiempo la grilla ya tiene
+/// doce columnas y agregar una que esta vacia en 299 de 299 activos costaria ancho sin decir
+/// nada (REQ-SIG-18 §7.5).
+function columnas(conPersona: boolean): string {
+  const base =
+    '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 124px 124px 92px';
+  return conPersona ? `${base} 150px` : base;
+}
 
 /// 1552px of columns plus the row's 58px of padding. The handoff marks an insufficient
 /// min-width as the rule that caused repeated defects.
-const ANCHO_MINIMO = 1620;
+function anchoMinimo(conPersona: boolean): number {
+  return conPersona ? 1770 : 1620;
+}
 
 export default function InventarioActivos({
   activos,
   escala,
   bandas,
   umbralValoracion,
+  dimensiones,
 }: Props) {
   // D, I and C are edited in the grid. The override map is keyed by asset code and holds
   // only what actually moved, so an untouched dimension keeps showing the stored value.
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const [pendiente, iniciar] = useTransition();
   const router = useRouter();
+  const parametros = useSearchParams();
   const [valores, setValores] = useState<Record<string, Partial<Record<'D' | 'I' | 'C', number>>>>(
     {},
   );
-  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
+
+  // Lo que la URL puede nombrar. Un parametro con un valor que no esta en el inventario se
+  // ignora y se avisa: dejar la pantalla vacia sin explicacion es peor que mostrarla entera.
+  const catalogos: CatalogosFiltro = useMemo(
+    () => ({
+      tipos: unicos(activos.map((a) => a.tipo)),
+      subtipos: unicos(activos.map((a) => a.subtipo)),
+      responsables: unicos(
+        [...activos.map((a) => a.propietario), ...activos.map((a) => a.custodio)].filter(
+          (v): v is string => v !== null,
+        ),
+      ),
+      propietarios: unicos(
+        activos.map((a) => a.propietario).filter((v): v is string => v !== null),
+      ),
+      personas: unicos(
+        activos.map((a) => a.personaCorreo).filter((v): v is string => v !== null),
+      ),
+      dimensiones: dimensiones.map((d) => d.codigo),
+      niveles: escala.map((e) => e.valor),
+    }),
+    [activos, dimensiones, escala],
+  );
+
+  // §7.1 · la hidratacion es del PRIMER render y nada mas. Volver a leer la URL en cada render
+  // haria que el `router.replace` de abajo se pisara con el estado y que un filtro puesto a
+  // mano se revirtiera solo; la URL manda al llegar y el estado manda desde entonces.
+  const [{ filtros, avisos: avisosDeUrl }, setLectura] = useState(() =>
+    filtrosDesdeUrl(parametros, catalogos),
+  );
+  const setFiltros = (f: (previos: Filtros) => Filtros): void =>
+    setLectura((l) => ({ filtros: f(l.filtros), avisos: [] }));
   const [busqueda, setBusqueda] = useState('');
   const [agrupar, setAgrupar] = useState<Agrupacion>('proceso|tipo');
   const [colapsados, setColapsados] = useState<Record<string, boolean>>({});
   const [importando, setImportando] = useState(false);
+
+  // §7.1 · y la vuelta: cada cambio se refleja en la URL con `replace`, sin apilar historial,
+  // para que la pantalla filtrada sea enlazable y sobreviva a un recargue. `scroll: false`
+  // porque un cambio de filtro no es una navegacion y saltar al tope pierde de vista la fila
+  // de filtros que se acaba de tocar.
+  const consulta = consultaDeFiltros(filtros);
+  const ultimaConsulta = useRef<string | null>(null);
+  useEffect(() => {
+    if (ultimaConsulta.current === null) {
+      ultimaConsulta.current = consulta;
+      return;
+    }
+    if (ultimaConsulta.current === consulta) return;
+    ultimaConsulta.current = consulta;
+    router.replace(`/sgsi/inventario${consulta}`, { scroll: false });
+  }, [consulta, router]);
 
   const nombreDeNivel = useMemo(() => {
     // El nombre sale de `lib/sig/valoracion.ts`: la misma funcion que usan Dependencias e
@@ -247,6 +327,11 @@ export default function InventarioActivos({
           D,
           I,
           C,
+          // El mapa por dimension con lo que se este editando superpuesto: el filtro por
+          // dimension tiene que moverse con la grilla, igual que el valor y el color del
+          // renglon. Las dimensiones que no son D/I/C conservan lo guardado, que es todo lo
+          // que hay: la grilla no las edita.
+          valoresVigentes: { ...a.valores, D, I, C },
           desviado: { D: ov.D !== undefined, I: ov.I !== undefined, C: ov.C !== undefined },
           valor,
           nivel: nombreDeNivel(valor),
@@ -261,10 +346,7 @@ export default function InventarioActivos({
 
   type Calculado = (typeof calculados)[number];
 
-  const opcionesTipo = useMemo(
-    () => [TODOS_TIPOS, ...unicos(activos.map((a) => a.tipo))],
-    [activos],
-  );
+  const opcionesTipo = useMemo(() => [TODOS_TIPOS, ...catalogos.tipos], [catalogos.tipos]);
   const opcionesSubtipo = useMemo(
     () => [
       TODOS_SUBTIPOS,
@@ -275,38 +357,42 @@ export default function InventarioActivos({
     [activos, filtros.tipo],
   );
   const opcionesResponsable = useMemo(
-    () => [
-      TODOS_RESPONSABLES,
-      ...unicos([
-        ...activos.map((a) => a.propietario),
-        ...activos.map((a) => a.custodio),
-      ].filter((v): v is string => v !== null)),
-    ],
-    [activos],
+    () => [TODOS_RESPONSABLES, ...catalogos.responsables],
+    [catalogos.responsables],
   );
+  const opcionesPropietario = useMemo(
+    () => [TODOS_PROPIETARIOS, ...catalogos.propietarios, SIN_ASIGNAR],
+    [catalogos.propietarios],
+  );
+  // Las opciones de persona se rotulan con el nombre y valen el correo: dos personas pueden
+  // llamarse igual y el desplegable no debe ofrecer dos filas indistinguibles.
+  const opcionesPersona = useMemo(() => {
+    const porCorreo = new Map<string, string>();
+    for (const a of activos) {
+      if (a.personaCorreo !== null) porCorreo.set(a.personaCorreo, a.persona ?? a.personaCorreo);
+    }
+    return [...porCorreo.entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
+  }, [activos]);
 
   // The selects and the search box narrow the set first; the colour chips count over
   // THAT set, so a chip always says how many of the currently visible assets it would
   // keep, and never how many exist in the whole inventory.
-  const preColor = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return calculados.filter((c) => {
-      const a = c.activo;
-      if (filtros.tipo !== TODOS_TIPOS && a.tipo !== filtros.tipo) return false;
-      if (filtros.subtipo !== TODOS_SUBTIPOS && a.subtipo !== filtros.subtipo) return false;
-      if (
-        filtros.responsable !== TODOS_RESPONSABLES &&
-        a.propietario !== filtros.responsable &&
-        a.custodio !== filtros.responsable
-      ) {
-        return false;
-      }
-      if (q === '') return true;
-      return [a.codigo, a.codigoHeredado, a.nombre, a.proveedor, a.subtipo]
-        .filter((v): v is string => !!v)
-        .some((v) => v.toLowerCase().includes(q));
-    });
-  }, [calculados, filtros, busqueda]);
+  //
+  // Todo lo que decide vive en `lib/sgsi/inventario-filtros.ts` con sus pruebas; acá queda el
+  // color, que depende de las bandas de riesgo y se aplica despues para que los chips puedan
+  // contar sobre este conjunto.
+  const preColor = useMemo(
+    () =>
+      calculados.filter((c) =>
+        cumpleFiltros(
+          { ...c.activo, valores: c.valoresVigentes },
+          filtros,
+          busqueda,
+          dimensiones,
+        ),
+      ),
+    [calculados, filtros, busqueda, dimensiones],
+  );
 
   const cuentaColor = useMemo(() => {
     const c = { rojo: 0, verde: 0, blanco: 0 };
@@ -338,6 +424,10 @@ export default function InventarioActivos({
     }
     return orden.map((k1) => ({ nombre: k1, sub: mapa.get(k1)! }));
   }, [visibles, clave1, clave2]);
+
+  // La columna de la persona aparece cuando el filtro esta puesto, igual que se marca la
+  // dimension filtrada: para que se vea contra que se filtro (§7.5).
+  const verPersona = filtros.persona !== TODAS_PERSONAS || filtros.conPersona;
 
   const sinValorar = calculados.filter((c) => !c.entra).length;
   const sinResidual = calculados.filter((c) => c.entra && c.residual === null).length;
@@ -481,15 +571,29 @@ export default function InventarioActivos({
             opciones={opcionesSubtipo}
             onChange={(v) => setFiltros((f) => ({ ...f, subtipo: v }))}
           />
+          {/* Los dos son distintos y ahora tienen dos nombres (§7.4). RESPONSABLE acepta si
+              coincide el propietario O el custodio —es el de siempre y no se le toca la
+              semantica—; PROPIETARIO filtra solo por `Activo.propietarioId`, que es lo que la
+              pantalla de Valoracion cuenta. Con uno solo, un clic en una celda de 41 abria 63
+              filas y nada fallaba: el numero simplemente era mentira. */}
           <Filtro
             etiqueta="RESPONSABLE"
             valor={filtros.responsable}
             opciones={opcionesResponsable}
             onChange={(v) => setFiltros((f) => ({ ...f, responsable: v }))}
+            titulo="Propietario o custodio del activo"
+          />
+          <Filtro
+            etiqueta="PROPIETARIO"
+            valor={filtros.propietario}
+            opciones={opcionesPropietario}
+            nombreDeOpcion={(o) => (o === SIN_ASIGNAR ? 'Sin propietario' : o)}
+            onChange={(v) => setFiltros((f) => ({ ...f, propietario: v }))}
+            titulo="Solo el propietario, que es un cargo y no una persona"
           />
           <button
             onClick={() => {
-              setFiltros(FILTROS_VACIOS);
+              setFiltros(() => FILTROS_VACIOS);
               setBusqueda('');
             }}
             className="text-12 font-semibold text-brand-nav"
@@ -497,6 +601,103 @@ export default function InventarioActivos({
             Limpiar
           </button>
         </div>
+
+        {/* Row 2b — el valor del activo, que NO es el color del renglon: el color es banda de
+            riesgo y el valor es max(D,I,C). Los tres se agregaron para que un clic en la
+            pantalla de Valoracion llegue al mismo conjunto que la celda conto (§7.2 y §7.3). */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Filtro
+            etiqueta="DIMENSIÓN"
+            valor={filtros.dimension}
+            opciones={[CRITERIO_MAX, ...dimensiones.map((d) => d.codigo)]}
+            nombreDeOpcion={(o) =>
+              o === CRITERIO_MAX
+                ? 'Valor del activo (máx)'
+                : (dimensiones.find((d) => d.codigo === o)?.nombre ?? o)
+            }
+            onChange={(v) => setFiltros((f) => ({ ...f, dimension: v }))}
+            titulo="Contra qué se comparan el valor y el valor mínimo"
+          />
+          <Filtro
+            etiqueta="VALOR"
+            valor={filtros.valor === null ? TODOS_VALORES : String(filtros.valor)}
+            opciones={[TODOS_VALORES, ...escala.map((e) => String(e.valor))]}
+            nombreDeOpcion={(o) =>
+              o === TODOS_VALORES ? o : (escala.find((e) => String(e.valor) === o)?.etiqueta ?? o)
+            }
+            // `valor` y `valorMinimo` no se pueden pedir a la vez: pedir uno suelta el otro,
+            // que es la misma regla que el §8 aplica a la URL — pero acá se aplica antes de que
+            // haya una combinacion invalida que avisar.
+            onChange={(v) =>
+              setFiltros((f) => ({
+                ...f,
+                valor: v === TODOS_VALORES ? null : Number(v),
+                valorMinimo: v === TODOS_VALORES ? f.valorMinimo : null,
+              }))
+            }
+            titulo="Valor exacto en la dimensión elegida"
+          />
+          <Filtro
+            etiqueta="VALOR MÍNIMO"
+            valor={filtros.valorMinimo === null ? TODOS_VALORES : String(filtros.valorMinimo)}
+            opciones={[TODOS_VALORES, ...escala.map((e) => String(e.valor))]}
+            nombreDeOpcion={(o) => (o === TODOS_VALORES ? o : `${o} o más`)}
+            onChange={(v) =>
+              setFiltros((f) => ({
+                ...f,
+                valorMinimo: v === TODOS_VALORES ? null : Number(v),
+                valor: v === TODOS_VALORES ? f.valor : null,
+              }))
+            }
+            titulo="Valor igual o superior en la dimensión elegida — es lo que la columna «≥ umbral» necesita"
+          />
+          {/* El custodio PERSONA. Hoy no hay ninguno asignado, asi que el desplegable llega con
+              una sola opcion util: eso es el dato, no un defecto de la pantalla (§6.6). */}
+          <Filtro
+            etiqueta="CUSTODIO PERSONA"
+            valor={filtros.persona}
+            opciones={[TODAS_PERSONAS, ...opcionesPersona.map(([correo]) => correo), SIN_ASIGNAR]}
+            nombreDeOpcion={(o) =>
+              o === SIN_ASIGNAR
+                ? 'Sin custodio persona'
+                : (opcionesPersona.find(([correo]) => correo === o)?.[1] ?? o)
+            }
+            onChange={(v) => setFiltros((f) => ({ ...f, persona: v }))}
+            titulo="La persona que tiene el activo en la mano, no el cargo que responde por él"
+          />
+          <button
+            onClick={() => setFiltros((f) => ({ ...f, conPersona: !f.conPersona }))}
+            aria-pressed={filtros.conPersona}
+            className="rounded-chip border px-2.5 py-1.5 text-11_5 transition-colors"
+            style={{
+              borderColor: filtros.conPersona ? 'var(--hf-brand-nav)' : 'var(--hf-border-field)',
+              background: filtros.conPersona ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+              color: filtros.conPersona ? 'var(--hf-brand-nav)' : 'var(--hf-text-secondary-soft)',
+              fontWeight: filtros.conPersona ? 700 : 500,
+            }}
+            title="Solo los activos entregados a una persona"
+          >
+            Solo entregados
+          </button>
+        </div>
+
+        {/* Lo que la URL pidio y no se pudo honrar. Se dice; no se descarta en silencio, y no
+            se deja la pantalla vacia sin explicacion (§7.1). */}
+        {avisosDeUrl.length > 0 && (
+          <div
+            className="rounded-campo border px-4 py-2.5 text-12"
+            style={{
+              borderColor: 'var(--hf-warn-border)',
+              background: 'var(--hf-warn-100)',
+              color: 'var(--hf-warn-text)',
+            }}
+            role="status"
+          >
+            {avisosDeUrl.map((a) => (
+              <p key={a}>{a}</p>
+            ))}
+          </div>
+        )}
 
         {/* Row 3 — the row-colour chips, which also filter and carry their own count. */}
         <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
@@ -591,23 +792,35 @@ export default function InventarioActivos({
       {/* The grid owns its own horizontal overflow. The cards INSIDE it round and clip
           their corners; none of them is allowed to be the scrolling element. */}
       <div className="tabla-ancha mt-5">
-        <div style={{ minWidth: ANCHO_MINIMO }} className="flex flex-col gap-2.5">
+        <div style={{ minWidth: anchoMinimo(verPersona) }} className="flex flex-col gap-2.5">
           <div
             className="grid font-mono text-9_5 tracking-[0.06em] text-label"
-            style={{ gridTemplateColumns: COLUMNAS, padding: '0 12px 8px 46px' }}
+            style={{ gridTemplateColumns: columnas(verPersona), padding: '0 12px 8px 46px' }}
           >
             <div>CÓDIGO</div>
             <div>ACTIVO</div>
             <div>SUBTIPO</div>
             <div>PROPIETARIO</div>
-            <div className="text-accent-700">DISPONIBILIDAD</div>
-            <div className="text-accent-700">INTEGRIDAD</div>
-            <div className="text-accent-700">CONFIDENCIALIDAD</div>
-            <div className="text-center">VALOR</div>
+            {/* Las tres columnas de dimension estan siempre: son los selects con los que se
+                valora, asi que el §7.3 —«mostrar D/I/C cuando haya un filtro de dimension»— ya
+                se cumplia antes de este cambio. Lo que se marca es CUAL se esta filtrando. */}
+            <div className={filtros.dimension === 'D' ? 'text-brand-nav' : 'text-accent-700'}>
+              DISPONIBILIDAD
+            </div>
+            <div className={filtros.dimension === 'I' ? 'text-brand-nav' : 'text-accent-700'}>
+              INTEGRIDAD
+            </div>
+            <div className={filtros.dimension === 'C' ? 'text-brand-nav' : 'text-accent-700'}>
+              CONFIDENCIALIDAD
+            </div>
+            <div className={filtros.dimension === CRITERIO_MAX ? 'text-center text-brand-nav' : 'text-center'}>
+              VALOR
+            </div>
             <div>NIVEL</div>
             <div>RIESGO INHERENTE</div>
             <div>RIESGO RESIDUAL</div>
             <div className="text-right">RIESGOS</div>
+            {verPersona && <div>CUSTODIO PERSONA</div>}
           </div>
 
           {grupos.map((g) => {
@@ -666,6 +879,7 @@ export default function InventarioActivos({
                               c={c}
                               escala={escala}
                               onEditar={editar}
+                              verPersona={verPersona}
                             />
                           ))}
                       </div>
@@ -717,9 +931,10 @@ interface RenglonProps {
   };
   escala: NivelValor[];
   onEditar: (codigo: string, dim: 'D' | 'I' | 'C', valor: number) => void;
+  verPersona: boolean;
 }
 
-function Renglon({ c, escala, onEditar }: RenglonProps) {
+function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
   const a = c.activo;
   const fondo = FONDO_RENGLON[c.color];
   const nivelColor = colorDeNivel(c.valor);
@@ -746,7 +961,7 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
       className="grid items-center border-b border-hairline-faint text-12_5 hover:bg-[var(--fila-hover)]"
       style={
         {
-          gridTemplateColumns: COLUMNAS,
+          gridTemplateColumns: columnas(verPersona),
           padding: '9px 12px 9px 46px',
           background: fondo.fondo,
           '--fila-hover': fondo.hover,
@@ -824,6 +1039,14 @@ function Renglon({ c, escala, onEditar }: RenglonProps) {
           <span className="tabular-nums text-primary">{a.riesgos.length}</span>
         )}
       </div>
+
+      {verPersona && (
+        <div className="min-w-0 truncate pr-3 text-muted" title={a.personaCorreo ?? undefined}>
+          {a.persona ?? (
+            <span className="text-[var(--hf-text-placeholder)]">sin custodio persona</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -900,30 +1123,43 @@ function Filtro({
   valor,
   opciones,
   onChange,
+  nombreDeOpcion,
+  titulo,
 }: {
   etiqueta: string;
   valor: string;
   opciones: string[];
   onChange: (v: string) => void;
+  /// Lo que se muestra de cada opcion cuando el valor que viaja no es el que se lee: la
+  /// persona vale un correo y se rotula con el nombre, el nivel vale un numero y se rotula con
+  /// su etiqueta de la escala, y `__sin__` se rotula «Sin propietario».
+  nombreDeOpcion?: (opcion: string) => string;
+  titulo?: string;
 }) {
   // An active filter is worth seeing from across the room: the container's border turns
   // corporate blue, the same signal the chips use.
-  const activo = !valor.startsWith('Todos');
+  //
+  // «Todas las personas» tambien es un valor por defecto y tambien tiene que leerse como
+  // apagado: el genero de la palabra no puede decidir si el filtro parece puesto.
+  const activo = !valor.startsWith('Todos') && !valor.startsWith('Todas');
+  const nombre = nombreDeOpcion ?? ((o: string) => o);
   return (
     <div
       className="flex items-center gap-2 rounded-[7px] border bg-surface py-1.5 pr-1.5 pl-3"
       style={{ borderColor: activo ? 'var(--hf-brand-nav)' : 'var(--hf-border-field)' }}
+      title={titulo}
     >
       <span className="font-mono text-9_5 tracking-[0.06em] text-faint">{etiqueta}</span>
       <select
         value={valor}
+        aria-label={etiqueta}
         onChange={(e) => onChange(e.target.value)}
         style={{ maxWidth: 250 }}
         className="rounded-[5px] border border-border-default bg-subtle px-2 py-1 text-12_5 font-medium text-secondary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
       >
         {opciones.map((o) => (
           <option key={o} value={o}>
-            {o}
+            {nombre(o)}
           </option>
         ))}
       </select>
