@@ -10,6 +10,8 @@ import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
+import { registrar } from '@/lib/sgsi/bitacora';
+import { veredictoDelIntento } from '@/lib/sig/scorm-cierre';
 import { aDuracion, aSegundos, sumarDuraciones } from '@/lib/sig/scorm-tiempo';
 import { modeloInicial, validarEscritura } from '@/lib/sig/scorm-modelo';
 import { firmarIntento, verificarIntento } from '@/lib/sig/scorm-token';
@@ -177,7 +179,26 @@ export async function guardarIntento(
       id: true,
       estado: true,
       totalTimeSegundos: true,
+      asignacionId: true,
+      registroId: true,
+      mode: true,
       persona: { select: { correo: true } },
+      asignacion: {
+        select: {
+          id: true,
+          estado: true,
+          personaId: true,
+          contenido: {
+            select: {
+              id: true,
+              version: true,
+              exigeEvaluacion: true,
+              notaMinima: true,
+              versiones: { orderBy: { version: 'desc' }, take: 1, select: { id: true } },
+            },
+          },
+        },
+      },
     },
   });
   if (intento === null) return { ok: false, mensaje: 'el intento no existe' };
@@ -208,35 +229,119 @@ export async function guardarIntento(
   const exit = limpio['cmi.exit'] ?? null;
   const completion = limpio['cmi.completion_status'] ?? 'unknown';
 
-  await prisma.intentoScorm.update({
-    where: { id: intento.id },
-    data: {
-      cmi: limpio,
-      completionStatus: completion,
-      successStatus: limpio['cmi.success_status'] ?? 'unknown',
-      scoreScaled: limpio['cmi.score.scaled'] === undefined ? null : Number(limpio['cmi.score.scaled']),
-      progressMeasure:
-        limpio['cmi.progress_measure'] === undefined ? null : Number(limpio['cmi.progress_measure']),
-      location: limpio['cmi.location'] ?? null,
-      suspendData: limpio['cmi.suspend_data'] ?? null,
-      exit,
-      sessionTimeSegundos: Math.round(sesionSegundos),
-      // `total_time` lo acumula el LMS (§6): sólo al cerrar la sesión, o se sumaría dos
-      // veces con cada `Commit` intermedio.
-      totalTimeSegundos: final
-        ? (aSegundos(sumarDuraciones(aDuracion(intento.totalTimeSegundos), aDuracion(sesionSegundos))) ?? 0)
-        : intento.totalTimeSegundos,
-      estado: !final
-        ? 'EN_CURSO'
-        : exit === 'suspend'
-          ? 'SUSPENDIDO'
-          : completion === 'completed'
-            ? 'COMPLETADO'
-            : 'SUSPENDIDO',
-      terminadoEn: final ? new Date() : null,
-      ultimaActividadEn: new Date(),
-    },
+  // P14/P15 · el veredicto se calcula con el módulo puro, el mismo que decide el cierre
+  // manual. Sólo al cerrar la sesión: un `Commit` intermedio no cierra nada.
+  const veredicto = final
+    ? veredictoDelIntento(
+        {
+          completionStatus: completion,
+          successStatus: limpio['cmi.success_status'] ?? 'unknown',
+          scoreScaled:
+            limpio['cmi.score.scaled'] === undefined ? null : Number(limpio['cmi.score.scaled']),
+          scoreRaw: limpio['cmi.score.raw'] === undefined ? null : Number(limpio['cmi.score.raw']),
+          scoreMin: limpio['cmi.score.min'] === undefined ? null : Number(limpio['cmi.score.min']),
+          scoreMax: limpio['cmi.score.max'] === undefined ? null : Number(limpio['cmi.score.max']),
+        },
+        {
+          exigeEvaluacion: intento.asignacion.contenido?.exigeEvaluacion ?? false,
+          notaMinima:
+            intento.asignacion.contenido?.notaMinima === null ||
+            intento.asignacion.contenido?.notaMinima === undefined
+              ? null
+              : Number(intento.asignacion.contenido.notaMinima),
+        },
+      )
+    : null;
+
+  // P12 · `mode=review` no escribe nada: quien repasa lo que ya aprobó no arriesga su
+  // registro. El intento de repaso no existe como fila, pero la guarda va acá también por
+  // si alguna vez se abre uno.
+  const registra =
+    veredicto !== null && veredicto.registrar && intento.mode !== 'review' && intento.registroId === null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.intentoScorm.update({
+      where: { id: intento.id },
+      data: {
+        cmi: limpio,
+        completionStatus: completion,
+        successStatus: limpio['cmi.success_status'] ?? 'unknown',
+        scoreScaled: limpio['cmi.score.scaled'] === undefined ? null : Number(limpio['cmi.score.scaled']),
+        progressMeasure:
+          limpio['cmi.progress_measure'] === undefined ? null : Number(limpio['cmi.progress_measure']),
+        location: limpio['cmi.location'] ?? null,
+        suspendData: limpio['cmi.suspend_data'] ?? null,
+        exit,
+        sessionTimeSegundos: Math.round(sesionSegundos),
+        // `total_time` lo acumula el LMS (§6): sólo al cerrar la sesión, o se sumaría dos
+        // veces con cada `Commit` intermedio.
+        totalTimeSegundos: final
+          ? (aSegundos(sumarDuraciones(aDuracion(intento.totalTimeSegundos), aDuracion(sesionSegundos))) ?? 0)
+          : intento.totalTimeSegundos,
+        estado: !final
+          ? 'EN_CURSO'
+          : exit === 'suspend'
+            ? 'SUSPENDIDO'
+            : completion === 'completed'
+              ? 'COMPLETADO'
+              : 'SUSPENDIDO',
+        // Un `Commit` intermedio NO borra el cierre. Estaba escrito `final ? new Date() : null`,
+        // y con eso un `Commit` posterior a un `Terminate` con `exit=suspend` —el intento
+        // queda SUSPENDIDO, que sigue aceptando escrituras— dejaba un intento terminado sin
+        // fecha de terminación. `undefined` es «no toques la columna» para Prisma.
+        terminadoEn: final ? new Date() : undefined,
+        ultimaActividadEn: new Date(),
+      },
+    });
+
+    if (!registra || veredicto === null) return;
+
+    // El registro se crea UNA vez por intento (`intento.registroId` es único): un `Commit`
+    // final repetido —los hay, cuando el curso llama Commit y después Terminate— no puede
+    // duplicar el cierre.
+    const registro = await tx.registroRealizado.create({
+      data: {
+        asignacionId: intento.asignacionId,
+        asistio: veredicto.asistio,
+        calificacion: veredicto.calificacion,
+        // Congelado al cerrar: `notaMinima` vive en el contenido y cambia; el registro debe
+        // seguir siendo verificable (R10).
+        aprobado: veredicto.aprobado,
+        versionContenidoId: intento.asignacion.contenido?.versiones[0]?.id ?? null,
+        nota: `curso SCORM · intento registrado por el player · ${veredicto.motivo}`,
+      },
+    });
+
+    await tx.intentoScorm.update({
+      where: { id: intento.id },
+      data: { registroId: registro.id },
+    });
+
+    if (veredicto.cierra && intento.asignacion.estado === 'PENDIENTE') {
+      await tx.asignacion.update({
+        where: { id: intento.asignacionId },
+        data: {
+          estado: 'REALIZADA',
+          fechaCierre: new Date(),
+          // No es un cierre administrativo: lo cerró la persona haciendo el curso.
+          cerradaPor: intento.asignacion.personaId,
+        },
+      });
+    }
+
+    await registrar(tx, correo, [
+      {
+        tabla: 'intento_scorm',
+        registroId: String(intento.id),
+        campo: veredicto.cierra ? 'cierre' : 'intento',
+        anterior: null,
+        nuevo:
+          `${completion}/${limpio['cmi.success_status'] ?? 'unknown'} · ` +
+          `${veredicto.calificacion ?? 'sin nota'}`,
+        motivo: veredicto.motivo,
+      },
+    ]);
   });
 
-  return { ok: true };
+  return { ok: true, mensaje: veredicto?.motivo };
 }
