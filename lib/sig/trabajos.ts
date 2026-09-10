@@ -62,10 +62,24 @@ export async function generarAsignacionesComo(
         // R12 · sin esto toda obligacion se leeria como anclada y una flotante nunca
         // generaria su segundo ciclo.
         anclaje: true,
+        // REQ-SIG-15 P16 · el piso. Sin esto, una obligacion creada hoy con fechaInicio
+        // retroactiva le crea a todo el mundo los periodos ya transcurridos, todos vencidos.
+        creadaEn: true,
       },
     }),
     prisma.persona.findMany({
-      select: { id: true, activa: true, areaId: true, cargoId: true },
+      select: {
+        id: true,
+        activa: true,
+        areaId: true,
+        cargoId: true,
+        // REQ-SIG-15 P16 · los tres terminos del piso que dependen de la persona. El cuarto
+        // —cual de los dos «desde» aplica— lo elige el alcance dentro del generador.
+        fechaIngreso: true,
+        creadaEn: true,
+        areaDesde: true,
+        cargoDesde: true,
+      },
     }),
     prisma.asignacion.findMany({
       // `fechaApertura` y `fechaCierre` las usa SOLO el anclaje flotante, que necesita
@@ -86,7 +100,22 @@ export async function generarAsignacionesComo(
     }),
   ]);
 
-  const plan = planificarGeneracion(obligaciones, personas, existentes, hoy, 90, activos);
+  // REQ-SIG-15 P16 · `fechaIngreso ?? creadaEn`: quien no tiene fecha de ingreso cargada no
+  // puede quedar SIN piso —eso le devolveria los periodos vencidos que D-5 prohibe— asi que
+  // cae en la fecha en que el censo la trajo, que es lo mas antiguo que la aplicacion puede
+  // afirmar sobre ella. La conversion vive aca y no en el modulo puro porque es el mapeo de
+  // dos columnas de Prisma a un concepto, no una decision.
+  const censo = personas.map((p) => ({
+    id: p.id,
+    activa: p.activa,
+    areaId: p.areaId,
+    cargoId: p.cargoId,
+    ingreso: p.fechaIngreso ?? p.creadaEn,
+    areaDesde: p.areaDesde,
+    cargoDesde: p.cargoDesde,
+  }));
+
+  const plan = planificarGeneracion(obligaciones, censo, existentes, hoy, 90, activos);
   if (plan.crear.length === 0) {
     return { creados: 0, detalle: 'no había periodos nuevos por abrir' };
   }

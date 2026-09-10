@@ -19,7 +19,12 @@
 // entre el 248.
 
 import type { AlcanceObligacion, Periodicidad } from '@prisma/client';
-import { periodosHasta, type PeriodoGenerable } from './periodos';
+import {
+  aplicarPiso,
+  instanteMasTardio,
+  periodosHasta,
+  type PeriodoGenerable,
+} from './periodos';
 
 export interface ObligacionGenerable {
   id: number;
@@ -43,6 +48,12 @@ export interface ObligacionGenerable {
   /// R12. Ausente se lee como `ANCLADA`, que es lo que el generador hacía antes de que la
   /// regla existiera: agregar el campo no cambia la conducta de nada que ya estuviera.
   anclaje?: Anclaje;
+  /// **P16 · el piso.** No se puede exigir algo antes de que la obligación exista.
+  ///
+  /// Es lo que impide que una obligación creada hoy con `fechaInicio` retroactiva le cree a
+  /// todo el mundo los periodos ya transcurridos, todos vencidos — el tercer caso de la tabla
+  /// de §5.2. Ya está en el esquema (`Obligacion.creadaEn`).
+  creadaEn: Date;
 }
 
 export type Anclaje = 'ANCLADA' | 'FLOTANTE';
@@ -52,6 +63,20 @@ export interface PersonaGenerable {
   activa: boolean;
   areaId: number | null;
   cargoId: number | null;
+  /// **P16 · el piso.** Desde cuándo esta persona es colaboradora.
+  ///
+  /// `fechaIngreso ?? creadaEn`: quien no tiene fecha de ingreso cargada no puede quedar sin
+  /// piso —eso le devolvería los nueve periodos vencidos que D-5 vino a prohibir— así que cae
+  /// en la fecha en que el censo la trajo, que es lo más antiguo que la aplicación puede
+  /// afirmar sobre ella.
+  ingreso: Date;
+  /// Desde cuándo pertenece al área y al cargo. **No es lo mismo que la bitácora**: la
+  /// bitácora registra cuándo se digitó el cambio, y esto es desde cuándo la persona
+  /// pertenece — que normalmente es anterior (el traslado fue el 1.º, se registró el 15).
+  /// Generar contra la fecha de digitación le regalaría o le cobraría periodos según la
+  /// diligencia de quien escribe en el sistema.
+  areaDesde: Date | null;
+  cargoDesde: Date | null;
 }
 
 export interface ActivoGenerable {
@@ -105,6 +130,16 @@ export interface PlanGeneracion {
 interface Destinatario {
   personaId: number;
   activoId: number | null;
+  /// **P16 · el tercer término del piso, ya elegido por el alcance.**
+  ///
+  /// Cuál de las fechas de pertenencia aplica lo decide el alcance, y el alcance sólo se
+  /// conoce acá — no en el arreglo de personas. Por eso viaja en el destinatario y no en
+  /// `PersonaGenerable`: un solo campo `desde` obligaría a rearmar el censo por obligación.
+  ///
+  /// `null` cuando el alcance no tiene una pertenencia con principio propio (`TODOS`,
+  /// `PERSONA`) o cuando la persona llegó por ser responsable de seguimiento y no por
+  /// pertenecer a nada.
+  pertenenciaDesde: Date | null;
 }
 
 const ALCANCES_POR_ACTIVO: AlcanceObligacion[] = ['ACTIVO', 'TIPO_ACTIVO', 'NIVEL_ACTIVO'];
@@ -137,20 +172,41 @@ function resolverAlcance(
   activos: readonly ActivoGenerable[],
 ): { destinatarios: Destinatario[]; rechazo: string | null } {
   const activas = personas.filter((p) => p.activa);
-  const soloPersonas = (lista: PersonaGenerable[]): { destinatarios: Destinatario[]; rechazo: null } => ({
-    destinatarios: lista.map((p) => ({ personaId: p.id, activoId: null })),
+  /// `desde` es el término de pertenencia que el alcance elige (P16). `null` cuando la
+  /// pertenencia no tiene principio distinto del ingreso de la persona.
+  const soloPersonas = (
+    lista: PersonaGenerable[],
+    desde: (p: PersonaGenerable) => Date | null,
+  ): { destinatarios: Destinatario[]; rechazo: null } => ({
+    destinatarios: lista.map((p) => ({
+      personaId: p.id,
+      activoId: null,
+      pertenenciaDesde: desde(p),
+    })),
     rechazo: null,
   });
 
   switch (obligacion.alcance) {
     case 'PERSONA':
-      return soloPersonas(activas.filter((p) => p.id === obligacion.alcancePersonaId));
+      // Dirigida a una persona concreta: la pertenencia ES la persona, y su principio es su
+      // ingreso, que el piso ya considera aparte.
+      return soloPersonas(
+        activas.filter((p) => p.id === obligacion.alcancePersonaId),
+        () => null,
+      );
     case 'CARGO':
-      return soloPersonas(activas.filter((p) => p.cargoId === obligacion.alcanceCargoId));
+      return soloPersonas(
+        activas.filter((p) => p.cargoId === obligacion.alcanceCargoId),
+        (p) => p.cargoDesde,
+      );
     case 'AREA':
-      return soloPersonas(activas.filter((p) => p.areaId === obligacion.alcanceAreaId));
+      return soloPersonas(
+        activas.filter((p) => p.areaId === obligacion.alcanceAreaId),
+        (p) => p.areaDesde,
+      );
     case 'TODOS':
-      return soloPersonas(activas);
+      // «Toda persona activa» no tiene principio distinto del ingreso (P16).
+      return soloPersonas(activas, () => null);
 
     case 'NIVEL_ACTIVO':
       // Declarado en el enum y sin resolver todavía. **El motivo cambió y el mensaje estaba
@@ -196,10 +252,27 @@ function resolverAlcance(
           // que sea un faltante se deriva al leer comparando contra `activo.propietarioId`
           // — no se guarda una marca que quedaría vieja el día que alguien le ponga
           // propietario.
-          destinatarios.push({ personaId: obligacion.responsableSeguimientoId, activoId: activo.id });
+          //
+          // P16 · **sin término de pertenencia**: esta persona no llega por pertenecer a
+          // nada, llega por ser la responsable del seguimiento. Su piso es el ingreso más la
+          // fecha de la obligación, y nada más.
+          destinatarios.push({
+            personaId: obligacion.responsableSeguimientoId,
+            activoId: activo.id,
+            pertenenciaDesde: null,
+          });
           continue;
         }
-        for (const d of duenos) destinatarios.push({ personaId: d.id, activoId: activo.id });
+        // P16 · el término es `cargoDesde`: esta persona está sujeta a la revisión del activo
+        // **desde que ocupa el cargo que lo posee**. Es lo que hace que ponerle un cargo a
+        // alguien hoy no le cobre las revisiones del año pasado de sus cuarenta activos.
+        for (const d of duenos) {
+          destinatarios.push({
+            personaId: d.id,
+            activoId: activo.id,
+            pertenenciaDesde: d.cargoDesde,
+          });
+        }
       }
       return { destinatarios, rechazo: null };
     }
@@ -237,7 +310,18 @@ function periodoFlotante(
 
   if (mias.length === 0) {
     const apertura = obligacion.fechaInicio;
-    return [{ etiqueta: iso(apertura), apertura, fechaLimite: sumarDias(apertura, obligacion.plazoDias) }];
+    // `finVentana: null` · un ciclo flotante NO tiene ventana de calendario: no termina en
+    // una fecha, termina cuando alguien lo cierra. Por eso `aplicarPiso` lo corre y nunca lo
+    // descarta, que es la conducta correcta — el primer ciclo de quien acaba de entrar abre
+    // el día que entra, no en la `fechaInicio` de la obligación.
+    return [
+      {
+        etiqueta: iso(apertura),
+        apertura,
+        fechaLimite: sumarDias(apertura, obligacion.plazoDias),
+        finVentana: null,
+      },
+    ];
   }
 
   // La última por apertura. Sin `fechaApertura` no se puede ordenar, y adivinar el orden
@@ -250,7 +334,17 @@ function periodoFlotante(
   if (cierre === null) return [];
 
   const apertura = cierre;
-  return [{ etiqueta: iso(apertura), apertura, fechaLimite: sumarDias(apertura, obligacion.plazoDias) }];
+  // El ciclo que nace del cierre del anterior tampoco tiene ventana de calendario, y su
+  // apertura ya es posterior al piso por construcción: el ciclo previo se cerró después de
+  // que la persona entró y de que la obligación existiera. `aplicarPiso` lo deja intacto.
+  return [
+    {
+      etiqueta: iso(apertura),
+      apertura,
+      fechaLimite: sumarDias(apertura, obligacion.plazoDias),
+      finVentana: null,
+    },
+  ];
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -276,6 +370,8 @@ export function planificarGeneracion(
   );
   const crear: AsignacionACrear[] = [];
   const rechazadas: ObligacionRechazada[] = [];
+  // El censo por id, para resolver el piso de cada destinatario sin recorrer el arreglo.
+  const porId = new Map(personas.map((p) => [p.id, p]));
 
   for (const obligacion of obligaciones) {
     if (!obligacion.activa) continue; // R11: no genera nada nuevo.
@@ -294,9 +390,24 @@ export function planificarGeneracion(
     const periodosAnclados = anclados ? periodosHasta(obligacion, hoy, horizonteDias) : [];
 
     for (const destino of destinatarios) {
-      const periodos = anclados
+      // P16 · el piso es el más tardío de tres instantes, y es POR PERSONA. El calendario
+      // (`periodosAnclados`) se sigue calculando una sola vez afuera porque es el mismo para
+      // todos —es el calendario, no la deuda de nadie—; lo que cambia por persona es cuáles
+      // de esos periodos le corresponden y desde cuándo corre su plazo.
+      const persona = porId.get(destino.personaId);
+      // Un destinatario que el alcance produjo y el censo no tiene: no se genera. Adivinarle
+      // un piso sería devolverle los periodos vencidos que D-5 vino a prohibir.
+      if (!persona) continue;
+      const piso = instanteMasTardio([
+        obligacion.creadaEn,
+        persona.ingreso,
+        destino.pertenenciaDesde,
+      ]);
+
+      const calendario = anclados
         ? periodosAnclados
         : periodoFlotante(obligacion, destino, existentes);
+      const periodos = aplicarPiso(calendario, piso, obligacion.plazoDias);
       for (const periodo of periodos) {
         const clave = `${obligacion.id}|${destino.personaId}|${periodo.etiqueta}|${destino.activoId ?? 'x'}`;
         if (yaExiste.has(clave)) continue;

@@ -9,6 +9,12 @@ function d(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+/// REQ-SIG-15 P16 · el piso de la pertenencia. Estos fixtures usan fechas ANTIGUAS a
+/// propósito: es la conducta previa al piso, y así estas pruebas siguen midiendo lo que
+/// medían —alcance, idempotencia, anclaje— sin que el piso les recorte periodos. Los casos
+/// del piso viven en generacion-piso.test.ts, que es donde tienen que estar.
+const ANTIGUO = d('2020-01-01');
+
 const HOY = d('2026-09-15');
 
 const contenido = { id: 10, tipo: 'LECTURA' as const };
@@ -30,11 +36,12 @@ const obligacionBase = {
   fechaInicio: d('2026-09-01'),
   plazoDias: 10,
   activa: true,
+  creadaEn: ANTIGUO,
 };
 
-const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7 };
-const GRACE = { id: 2, activa: true, areaId: 3, cargoId: 8 };
-const LINUS = { id: 3, activa: false, areaId: 4, cargoId: 7 };
+const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
+const GRACE = { id: 2, activa: true, areaId: 3, cargoId: 8, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
+const LINUS = { id: 3, activa: false, areaId: 4, cargoId: 7, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
 
 // Cada persona recibe TODOS los periodos del horizonte (sep–dic desde el 15/09:
 // 15/09 + 90 días = 14/12). Los casos de alcance comparan sobre el periodo actual.

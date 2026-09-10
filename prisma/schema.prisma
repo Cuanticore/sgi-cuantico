@@ -1050,6 +1050,18 @@ model Persona {
   /// `lib/sig/colaboradores.ts`: son dos fuentes del mismo hecho, y por eso ninguna
   /// pantalla las lee por separado.
   retiradoEn                 DateTime?        @map("retirado_en")
+  /// REQ-SIG-15 P16 · desde cuándo pertenece al área y al cargo. Lo usa el piso de periodos:
+  /// ninguna asignación nace vencida, y el reloj de una tarea empieza cuando la persona la
+  /// recibe.
+  ///
+  /// **Por qué se guarda una fecha que la bitácora parece contener ya.** No es lo mismo: la
+  /// bitácora registra **cuándo se digitó** el cambio, y esto es **desde cuándo la persona
+  /// pertenece**, que normalmente es anterior — el traslado fue el 1.º y se registró el 15.
+  /// Generar contra la fecha de digitación le regalaría o le cobraría periodos a la persona
+  /// según la diligencia de quien escribe en el sistema. Es el mismo criterio por el que
+  /// `retiradoEn` es una fecha y no un booleano.
+  areaDesde                  DateTime?        @map("area_desde") @db.Date
+  cargoDesde                 DateTime?        @map("cargo_desde") @db.Date
   /// P2 · el `driveItem.id` de su carpeta de soportes. Se direcciona por id y no por
   /// nombre: si alguien renombra la carpeta en SharePoint —y alguien lo hará—, las
   /// publicaciones siguen cayendo donde deben en vez de crear una segunda.

@@ -13,6 +13,16 @@ export interface PeriodoGenerable {
   etiqueta: string;
   apertura: Date;
   fechaLimite: Date;
+  /// Dónde termina la ventana de este periodo: la apertura del siguiente.
+  ///
+  /// Existe para que `aplicarPiso` pueda decidir si el piso dejó este periodo atrás por
+  /// completo (REQ-SIG-15 P17.1), y **no se puede derivar de `fechaLimite`**: el plazo suele
+  /// ser más corto que el periodo. Con `plazoDias = 15` en una obligación mensual la ventana
+  /// dura 30 días y el plazo 15, así que confundirlos descartaría el periodo en curso de
+  /// quien entra el día 20 — justo la tarea que sí le corresponde.
+  ///
+  /// `null` en `UNICA`: un periodo único no cierra, así que nunca se descarta.
+  finVentana: Date | null;
 }
 
 interface EntradaPeriodos {
@@ -131,7 +141,14 @@ export function periodosHasta(
   const { periodicidad, fechaInicio, plazoDias } = entrada;
   if (periodicidad === 'UNICA') {
     const apertura = aperturaDePeriodo(periodicidad, fechaInicio);
-    return [{ etiqueta: iso(fechaInicio), apertura, fechaLimite: sumarDias(apertura, plazoDias) }];
+    return [
+      {
+        etiqueta: iso(fechaInicio),
+        apertura,
+        fechaLimite: sumarDias(apertura, plazoDias),
+        finVentana: null,
+      },
+    ];
   }
 
   const limite = sumarDias(hoy, horizonteDias);
@@ -139,15 +156,80 @@ export function periodosHasta(
   let cursor = aperturaDePeriodo(periodicidad, fechaInicio);
   let saltos = 0;
   while (cursor.getTime() <= limite.getTime()) {
+    saltos += 1;
+    // El siguiente cursor se calcula ANTES de empujar, porque es el fin de ventana de este
+    // periodo. Es el mismo salto que el bucle ya hacía; sólo se adelanta una línea.
+    const siguiente = aperturaDePeriodo(periodicidad, desplazar(periodicidad, fechaInicio, saltos));
     periodos.push({
       etiqueta: etiquetaDePeriodo(periodicidad, cursor),
       apertura: cursor,
       fechaLimite: sumarDias(cursor, plazoDias),
+      finVentana: siguiente,
     });
-    saltos += 1;
-    cursor = aperturaDePeriodo(periodicidad, desplazar(periodicidad, fechaInicio, saltos));
+    cursor = siguiente;
   }
   return periodos;
+}
+
+/// **P16–P18 · el piso de una asignación.** REQ-SIG-15 §5.2, decisión D-5.
+///
+/// «Ninguna asignación nace vencida.» La tarea es de la persona, así que su reloj empieza
+/// cuando la persona la recibe. Dos efectos y ni uno más:
+///
+///   1. Un periodo cuya ventana **entera** terminó antes del piso no se genera. Los nueve
+///      meses de enero a agosto no existen para quien llega en septiembre.
+///   2. El periodo en curso se genera con el **plazo completo contado desde el piso**. Sin
+///      esto, una obligación mensual con plazo de 15 días le crearía a quien entra el día 28
+///      la tarea del mes con límite el día 16: vencida en el mismo instante en que se crea.
+///
+/// **Lo que NO hace, y es lo que sostiene la idempotencia (P18):** no toca la etiqueta. La
+/// etiqueta es la del calendario —`2026-09`— y la unique es
+/// `(obligacionId, personaId, periodo, activoId)`. Una etiqueta con la fecha de ingreso haría
+/// que la corrida siguiente creara una SEGUNDA fila para el mismo periodo, y se perdería la
+/// garantía T1 que permite reintentar sin miedo.
+///
+/// Consecuencia que hay que aceptar: dos personas pueden tener el mismo periodo de la misma
+/// obligación con **fechas límite distintas**. Es correcto —el plazo es de la tarea de cada
+/// uno, no del calendario— y ninguna pantalla necesita cambiar: `esVencida` ya se calcula
+/// contra el `fechaLimite` de cada asignación.
+export function aplicarPiso(
+  periodos: readonly PeriodoGenerable[],
+  piso: Date,
+  plazoDias: number,
+): PeriodoGenerable[] {
+  const salida: PeriodoGenerable[] = [];
+  for (const p of periodos) {
+    // Sin ventana que cierre no hay nada que descartar: sólo se corre. Es `UNICA`, y
+    // descartarla dejaría a quien entra hoy sin el compromiso de una sola vez —el acuerdo de
+    // confidencialidad— que PRO-TAL-01 exige antes de habilitar cualquier acceso.
+    if (p.finVentana !== null && piso.getTime() >= p.finVentana.getTime()) continue;
+    if (piso.getTime() <= p.apertura.getTime()) {
+      salida.push(p);
+      continue;
+    }
+    const apertura = new Date(piso);
+    salida.push({
+      etiqueta: p.etiqueta,
+      apertura,
+      fechaLimite: sumarDias(apertura, plazoDias),
+      finVentana: p.finVentana,
+    });
+  }
+  return salida;
+}
+
+/// El más tardío de varios instantes, descartando los que no aplican. Es la fórmula del piso
+/// de P16: no se puede exigir algo antes de que exista quien lo debe, la pertenencia que lo
+/// obliga, o la obligación misma.
+export function instanteMasTardio(fechas: readonly (Date | null | undefined)[]): Date {
+  let maximo: Date | null = null;
+  for (const f of fechas) {
+    if (!f) continue;
+    if (maximo === null || f.getTime() > maximo.getTime()) maximo = f;
+  }
+  // Sin ningún instante no hay piso: se devuelve el comienzo del tiempo, que deja el
+  // calendario intacto. Es más seguro que inventar `hoy`, que descartaría periodos válidos.
+  return maximo ?? new Date(0);
 }
 
 function sumarDias(fecha: Date, dias: number): Date {

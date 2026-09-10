@@ -13,8 +13,14 @@ function d(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+/// REQ-SIG-15 P16 · el piso de la pertenencia. Estos fixtures usan fechas ANTIGUAS a
+/// propósito: es la conducta previa al piso, y así estas pruebas siguen midiendo lo que
+/// medían —alcance, idempotencia, anclaje— sin que el piso les recorte periodos. Los casos
+/// del piso viven en generacion-piso.test.ts, que es donde tienen que estar.
+const ANTIGUO = d('2020-01-01');
+
 const HOY = d('2026-09-15');
-const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7 };
+const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
 
 const base = {
   id: 1,
@@ -31,6 +37,7 @@ const base = {
   fechaInicio: d('2024-06-11'),
   plazoDias: 15,
   activa: true,
+  creadaEn: ANTIGUO,
 };
 
 describe('R12 · ANCLADA — el trimestre existió aunque nadie lo mirara', () => {
@@ -124,7 +131,7 @@ describe('R12 · FLOTANTE — el siguiente nace al cerrar el previo', () => {
   it('cada destinatario lleva su propio ciclo', () => {
     // Dos personas con la misma obligación flotante: que una cierre no le abre el ciclo a
     // la otra. Por eso el periodo flotante se calcula por destinatario y no una vez.
-    const GRACE = { id: 2, activa: true, areaId: 3, cargoId: 8 };
+    const GRACE = { id: 2, activa: true, areaId: 3, cargoId: 8, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
     const paraTodos = { ...flotante, alcance: 'TODOS' as const, alcancePersonaId: null };
     const plan = planificarGeneracion(
       [paraTodos],

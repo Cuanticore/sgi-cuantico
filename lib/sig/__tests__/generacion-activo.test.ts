@@ -18,16 +18,39 @@ function d(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+/// REQ-SIG-15 P16 · el piso de la pertenencia. Estos fixtures usan fechas ANTIGUAS a
+/// propósito: es la conducta previa al piso, y así estas pruebas siguen midiendo lo que
+/// medían —alcance, idempotencia, anclaje— sin que el piso les recorte periodos. Los casos
+/// del piso viven en generacion-piso.test.ts, que es donde tienen que estar.
+const ANTIGUO = d('2020-01-01');
+
 const HOY = d('2026-06-01');
 
 const SERVIDOR = 1;
 const PORTATIL = 2;
 
-const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7 };
-const OTRA = { id: 5, activa: true, areaId: 3, cargoId: 7 };
+const ADA = { id: 1, activa: true, areaId: 3, cargoId: 7, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
+const OTRA = { id: 5, activa: true, areaId: 3, cargoId: 7, ingreso: ANTIGUO, areaDesde: ANTIGUO, cargoDesde: ANTIGUO };
 
 /// El responsable de seguimiento de la obligacion: a donde va lo que no tiene propietario.
 const SEGUIMIENTO = 99;
+
+/// Y su persona en el censo.
+///
+/// **Antes no estaba, y el plan generaba igual para ella.** REQ-SIG-15 P16 cambió eso: el
+/// piso se resuelve POR PERSONA, así que un destinatario que el censo no tiene no se genera
+/// —adivinarle un piso sería devolverle los periodos vencidos que D-5 prohíbe—. En
+/// producción el responsable SIEMPRE está: `trabajos.ts` pasa `persona.findMany()` sin
+/// filtro. Era el fixture el que describía una situación que no ocurre.
+const RESPONSABLE = {
+  id: SEGUIMIENTO,
+  activa: true,
+  areaId: 9,
+  cargoId: 9,
+  ingreso: ANTIGUO,
+  areaDesde: ANTIGUO,
+  cargoDesde: ANTIGUO,
+};
 
 const anual: ObligacionGenerable = {
   id: 1,
@@ -44,6 +67,7 @@ const anual: ObligacionGenerable = {
   fechaInicio: d('2026-01-01'),
   plazoDias: 30,
   activa: true,
+  creadaEn: ANTIGUO,
 };
 
 /// Cinco activos: tres servidores y dos portatiles. Uno de cada tipo sin propietario, y uno
@@ -56,7 +80,11 @@ const ACTIVOS: ActivoGenerable[] = [
   { id: 201, activo: false, tipoId: SERVIDOR, propietarioId: 7 },
 ];
 
-const plan = (obligacion: ObligacionGenerable, personas = [ADA], existentes: Parameters<typeof planificarGeneracion>[2] = []) =>
+const plan = (
+  obligacion: ObligacionGenerable,
+  personas = [ADA, RESPONSABLE],
+  existentes: Parameters<typeof planificarGeneracion>[2] = [],
+) =>
   planificarGeneracion([obligacion], personas, existentes, HOY, 90, ACTIVOS);
 
 describe('alcance TIPO_ACTIVO', () => {
