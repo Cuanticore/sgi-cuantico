@@ -9,7 +9,7 @@
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Ruta nueva** | `/sgsi/valoracion` |
 | **Toca además** | `app/components/sgsi/inventario/InventarioActivos.tsx` y `app/sgsi/inventario/page.tsx` (§7 · **sin esto la navegación pedida no existe**) |
-| **Estado** | D-1 a D-8 cerradas · D-7 con una pregunta abierta · listo para ejecutar |
+| **Estado** | D-1 a D-9 cerradas · D-7 con una pregunta abierta · **D-10 a D-12 abiertas** (§14 · el match cargo → persona) · listo para ejecutar el §4 al §7 |
 
 ---
 
@@ -503,3 +503,87 @@ Los conteos reales dependen de qué carga esté aplicada —234 activos migrados
 - **El número de la celda tiene que ser el número de filas del inventario.** Es el criterio 6 y es la razón de que exista `propietario` aparte de `responsable`.
 - **Las tres cifras de «qué dimensión manda» no suman el total, y eso está bien.** Los empates son la norma. La advertencia va en pantalla, no en un comentario del código.
 - **Nada de verde ni rojo.** Un activo de valor 5 es valioso, no malo.
+
+---
+
+## 14 · Anexo · el match cargo → persona
+
+La Tabla B necesita saber **qué persona está detrás de cada cargo responsable**. Este anexo lo resuelve con datos, no de memoria, y deja aislado lo que falta decidir.
+
+**Fuentes cruzadas:** los responsables reales salen de `FOR-SIG-12 Consolidado de Activos de Información V19.xlsx`, hoja «Matriz de Activos», columnas 12 (Custodio) y 13 (Propietario del activo), sobre los **299 activos con código válido**. Los nombres salen de `01. Organigrama/2. 2026/1. Organigrama Cuantico V2.0.pptx`, diapositiva 3, que es la única versión del organigrama que lleva nombres. La confirmación de ocho cargos la dio el líder del SIG el 2026-09-09.
+
+### 14.1 Los responsables reales, con su volumen
+
+| Cargo en V19 | Propietario de | Custodio de | Persona | Fuente |
+|---|---:|---:|---|---|
+| **Chief Operating Officer** | **143** | — | Laura Agudelo | confirmado · organigrama |
+| **Operations & Services Manager** | 15 | **203** | **⚠ en duda** | ver D-10 |
+| Líder del SIG | 33 | 7 | Katherine Quiroga | confirmado |
+| Finance and Administrative Manager | 32 | 19 | Albeiro Medina | confirmado |
+| CEO | 26 | 4 | Daniel Medina | confirmado · organigrama |
+| Chief Commercial Officer | 25 | 6 | Lina Medina | confirmado · organigrama |
+| Chief Legal Officer | 14 | 17 | Marcela Molina | confirmado · organigrama |
+| **Architecture and Technology Manager** | — | **17** | **⚠ en duda** | ver D-10 |
+| Project Manager | — | 5 | Mario Hernández | **solo organigrama** |
+| Data Analytics Manager | — | 2 | Marcela Morales | **solo organigrama** |
+| Quality Analyst | 1 | 1 | Katherine Quiroga | confirmado |
+| *Cada usuario* | 8 | — | **no es un cargo** | H-19 · ver D-11 |
+| *External Legal Counsel* | 1 | — | **externo, sin nombre** | ver D-11 |
+| *Cliente* | 1 | — | **no es de la organización** | H-19 · ver D-11 |
+| *(vacío)* | 0 | 18 | — | permitido por el esquema |
+
+**Cobertura: 273 de 299 activos** quedan con persona resuelta por propietario. Los 26 restantes son las cuatro filas marcadas.
+
+### 14.2 D-10 · la duda que más pesa · **abierta**
+
+**Entre «Operations & Services Manager» y «Architecture and Technology Manager» se juega el custodio de 220 de los 299 activos — el 74 % del inventario.** Es la única duda que, mal resuelta, misatribuye la mayoría de la Tabla B.
+
+Las dos fuentes no dicen lo mismo:
+
+| Fuente | Operations & Services Manager | Architecture and Technology Manager |
+|---|---|---|
+| Organigrama V2.0, diapositiva 3 | **Yuliet Rojas** | **Jhon Tamayo** |
+| Confirmación del 2026-09-09 | — | «Technology manager: **Yulieth Rojas**» |
+
+Tres lecturas posibles y hay que elegir una:
+
+1. **Yuliet Rojas sigue en Operations & Services Manager** y «Technology manager» fue una forma corta de nombrar ese cargo. Entonces Jhon Tamayo sigue en Architecture and Technology y no hay conflicto.
+2. **Yulieth Rojas pasó a Architecture and Technology Manager** y el organigrama V2.0 está desactualizado. Entonces hay que decir quién quedó en Operations & Services, que es el custodio de 203 activos.
+3. Son **dos personas distintas** y la coincidencia de apellido confundió el mensaje. El organigrama tiene además a **Huberney Rojas** como Information Security Officer: hay tres apellidos Rojas en juego.
+
+**Ojo con la grafía.** El organigrama escribe «Yuliet» y la confirmación «Yulieth». El match de la Tabla B viaja por `Persona.correo` (§8), así que la grafía del nombre no rompe el enlace — pero sí decide **a qué fila del Directorio** apunta, y ahí una letra importa.
+
+### 14.3 D-11 · los tres responsables que no son personas · **abierta**
+
+Diez activos tienen como propietario algo que no es una persona de la organización:
+
+| Valor | Activos | Qué es | Propuesta |
+|---|---:|---|---|
+| «Cada usuario» | 8 | Los 34 colaboradores a la vez | **No se resuelve a una persona.** Estos 8 son justamente los que hay que entregar de a uno con el popup de REQ-SIG-16, y entonces su `personaId` los pone en la Tabla B solos |
+| «External Legal Counsel» | 1 | Abogado externo. El organigrama lo lista **sin nombre** | Sin `Persona`: no tiene cuenta del Directorio y `Persona.oid` es obligatorio. Va como `Proveedor` u `Organizacion`, no como persona |
+| «Cliente» | 1 | Un tercero | Igual que el anterior |
+
+Los tres estaban ya levantados como hallazgo **H-19 de REQ-SIG-12 §6** («propietario como rol genérico»), que pedía mapearlos al `CargoResponsable` correspondiente. Este anexo dice que **dos de los tres no tienen cargo al que mapear**, y ese es el dato nuevo.
+
+### 14.4 D-12 · dos cargos que el organigrama nombra y nadie confirmó · **abierta**
+
+**Project Manager** (custodio de 5) → Mario Hernández, y **Data Analytics Manager** (custodio de 2) → Marcela Morales. Los dos salen del organigrama y **no** de la confirmación del líder del SIG. Son siete activos: poco volumen, pero un sí o un no cuesta lo mismo que dejarlos en duda.
+
+### 14.5 Defectos del catálogo de cargos, para el desarrollador
+
+El catálogo de la aplicación (`prisma/data/listas.json`, `cargosResponsables`, 11 valores) **no coincide con lo que V19 usa**, y el importador resuelve el cargo por nombre:
+
+| Problema | Detalle |
+|---|---|
+| **Nombre distinto para el mismo cargo** | El catálogo dice **«Architecture Manager»**; V19 y el organigrama dicen **«Architecture and Technology Manager»**. Sin unificar, esos 17 custodios no resuelven |
+| **Cuatro cargos de V19 no están en el catálogo** | `Project Manager` · `Data Analytics Manager` · `Quality Analyst` · `External Legal Counsel` |
+| **Dos entradas del catálogo son áreas, no cargos** | «Gestión Tecnológica» y «Talento Humano» están en `cargosResponsables` y no nombran a ninguna persona. V19 no las usa |
+| **«Por asignar»** | Existe en el catálogo y V19 no lo usa: los sin custodio vienen vacíos (18), no rotulados |
+
+Es el mismo aviso que ya trae el prompt de arranque del paquete —«antes de poblar, unifica el catálogo de cargos: hay cargos escritos de dos y tres formas distintas»— con los nombres concretos.
+
+### 14.6 Lo que este anexo NO decide
+
+- **No asigna `personaId` a ningún activo.** El match cargo → persona sirve para leer la Tabla A con nombres al lado del cargo; `Activo.personaId` sigue escribiéndose de a uno desde REQ-SIG-16 (§6.6). Son dos cosas: quién ocupa el cargo, y a quién se le entregó el equipo.
+- **No crea un campo nuevo.** `CargoResponsable` no gana una columna «persona actual»: quién ocupa un cargo ya vive en `Persona.cargoId`, y derivarlo de ahí es lo correcto —cuando alguien cambia de puesto, el match se mueve solo—. La pantalla lo resuelve al leer.
+- **No toca el organigrama.** Si D-10 se resuelve por la lectura 2, el que está desactualizado es el `.pptx` de OneDrive y eso se corrige del lado de quien especifica.
