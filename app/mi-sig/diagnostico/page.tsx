@@ -10,10 +10,18 @@
 // Muestra únicamente los datos de quien la abre — nunca los de otra persona — así que no
 // hace falta permiso para entrar: cualquiera puede ver por qué su propio acceso es el que
 // es, que es justamente lo que evita una consulta al administrador por cada duda.
+//
+// REQ-SIG-13 §9 suma acá el estado de la publicación de soportes, y eso ensancha un poco
+// esa regla: son CIFRAS AGREGADAS del sistema, no las de quien mira. Se acepta porque el
+// requerimiento lo pide por su nombre y porque esta es la pantalla que ya existe para
+// responder «por qué no funciona lo de Graph» sin escribirle a nadie. Lo que NO se muestra
+// acá es de quién es cada soporte: un conteo por causa no identifica a nadie, y la lista
+// nominal vive en la ficha del colaborador, detrás de rol de responsable.
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import EncabezadoSig from '@/app/components/sgsi/EncabezadoSig';
+import { prisma } from '@/lib/db';
 import {
   GRUPOS,
   grupoDeIdentificador,
@@ -68,6 +76,24 @@ export default async function DiagnosticoPage() {
   const sinReclamo = crudos === undefined;
   const reclamoVacio = Array.isArray(crudos) && crudos.length === 0;
   const hayNoReconocidos = Array.isArray(crudos) && crudos.some((g) => !otorga(g));
+
+  // REQ-SIG-13 §9 · el estado de la cola de publicación, agrupado por estado y causa.
+  const soportes = await prisma.publicacionSoporte.groupBy({
+    by: ['estado', 'causaFallo'],
+    _count: { _all: true },
+  });
+
+  const cuenta = (estado: string) =>
+    soportes.filter((s) => s.estado === estado).reduce((t, s) => t + s._count._all, 0);
+  const publicados = cuenta('PUBLICADO');
+  const pendientes = cuenta('PENDIENTE');
+  const bloqueados = cuenta('BLOQUEADO');
+  // Sólo las que tienen causa: un PENDIENTE recién encolado todavía no falló por nada, y
+  // listarlo como «sin causa» haría parecer que algo se rompió sin decir qué.
+  const porCausa = soportes
+    .filter((s) => s.causaFallo !== null)
+    .map((s) => ({ estado: s.estado, causa: s.causaFallo as string, cuantos: s._count._all }))
+    .sort((a, b) => b.cuantos - a.cuantos);
 
   return (
     <div className="flex min-h-screen flex-col bg-app">
@@ -205,6 +231,85 @@ export default async function DiagnosticoPage() {
               );
             })}
           </ul>
+        </section>
+
+        {/* REQ-SIG-13 §9 · «¿por qué mi acta no está en SharePoint?» se responde acá y no
+            abriendo la base. Nunca se afirma que algo está publicado sin el `driveItemId`
+            que lo respalda: estos números salen del estado real de cada fila. */}
+        <section className="flex max-w-[74ch] flex-col gap-3 rounded-tarjeta border border-default bg-surface px-5 py-4">
+          <h2 className="text-11 font-semibold uppercase tracking-[0.08em] text-label">
+            Soportes en SharePoint
+          </h2>
+
+          {publicados + pendientes + bloqueados === 0 ? (
+            <p className="text-12_5 text-muted [text-wrap:pretty]">
+              Todavía no hay ningún soporte encolado. La cola se llena al firmar un acta: cada
+              firma deja su soporte pendiente y el trabajo horario lo publica.
+            </p>
+          ) : (
+            <>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-13">
+                <dt className="text-muted">Publicados</dt>
+                <dd className="text-primary">{publicados}</dd>
+                <dt className="text-muted">Pendientes</dt>
+                <dd className="text-primary">{pendientes}</dd>
+                <dt className="text-muted">Bloqueados</dt>
+                <dd className={bloqueados > 0 ? 'font-semibold text-primary' : 'text-primary'}>
+                  {bloqueados}
+                </dd>
+              </dl>
+
+              {porCausa.length > 0 && (
+                <ul className="flex flex-col">
+                  {porCausa.map((c) => (
+                    <li
+                      key={`${c.estado}-${c.causa}`}
+                      className="flex items-baseline gap-3 border-b border-hairline py-1.5 last:border-0"
+                    >
+                      <span
+                        className="shrink-0 text-10 font-semibold uppercase tracking-[0.06em]"
+                        style={{
+                          color:
+                            c.estado === 'BLOQUEADO'
+                              ? 'var(--hf-warn-text-soft)'
+                              : 'var(--hf-text-muted)',
+                        }}
+                      >
+                        {c.estado === 'BLOQUEADO' ? 'bloqueado' : 'reintentando'}
+                      </span>
+                      <code className="min-w-0 break-all text-12 text-primary">{c.causa}</code>
+                      <span className="ml-auto shrink-0 text-12 text-muted">{c.cuantos}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {bloqueados > 0 && (
+                <div
+                  className="flex flex-col gap-2 rounded-tarjeta border px-4 py-3"
+                  style={{
+                    background: 'var(--hf-warn-100)',
+                    borderColor: 'var(--hf-warn-border)',
+                  }}
+                >
+                  <p className="text-13 font-semibold" style={{ color: 'var(--hf-warn-text)' }}>
+                    Hay soportes que no se van a reintentar solos.
+                  </p>
+                  <p
+                    className="text-12_5 [text-wrap:pretty]"
+                    style={{ color: 'var(--hf-warn-text)' }}
+                  >
+                    Un <code>SIN_PERMISO</code> o un <code>NO_EXISTE</code> no se arregla
+                    reintentando: se arregla en Azure o en la configuración del servidor. El
+                    permiso que la publicación exige es <strong>Sites.Selected</strong> como
+                    permiso de <strong>aplicación</strong>, con rol <strong>write</strong> sobre
+                    el sitio. Mientras eso falte, el acta sigue guardada y descargable desde la
+                    aplicación: lo único que no ocurre es la copia en la biblioteca documental.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </section>
 
         <p className="max-w-[74ch] text-11_5 text-muted [text-wrap:pretty]">

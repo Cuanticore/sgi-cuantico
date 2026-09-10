@@ -48,7 +48,18 @@ export default async function FichaColaboradorPage({
           orderBy: { desde: 'desc' },
         },
         actasAceptacion: {
-          include: { contenido: { select: { codigo: true, titulo: true } } },
+          include: {
+            contenido: { select: { codigo: true, titulo: true } },
+            // REQ-SIG-13 · el estado de publicación en SharePoint, para poder decir el
+            // enlace o el motivo por el que no está.
+            pdf: {
+              select: {
+                publicacion: {
+                  select: { estado: true, webUrl: true, detalleFallo: true, causaFallo: true },
+                },
+              },
+            },
+          },
           orderBy: { aceptadoEn: 'desc' },
         },
         actasBorrado: {
@@ -274,6 +285,18 @@ export default async function FichaColaboradorPage({
         aceptadoEn: a.aceptadoEn.toISOString().slice(0, 16).replace('T', ' '),
         // La huella recortada: es lo que permite citar el acta sin pegar 64 caracteres.
         huella: a.actaHash.slice(0, 12),
+        // D-4/P12 · esta pantalla es de los responsables, que son quienes tienen acceso a la
+        // carpeta. Acá el enlace a SharePoint sí sirve.
+        sharepoint:
+          a.pdf?.publicacion?.estado === 'PUBLICADO' ? (a.pdf.publicacion.webUrl ?? null) : null,
+        // Nunca se afirma que algo está publicado sin el enlace que lo respalda. Si no está,
+        // se dice por qué — la misma disciplina de `explicarFallo`.
+        publicacion:
+          a.pdf?.publicacion == null
+            ? 'sin encolar'
+            : a.pdf.publicacion.estado === 'PUBLICADO'
+              ? 'publicado'
+              : (a.pdf.publicacion.detalleFallo ?? 'pendiente de publicar'),
       }))}
       vinculacion={progresoDelCiclo(pasosTipados, completados, 'VINCULACION', esNomina)}
       desvinculacion={progresoDelCiclo(pasosTipados, completados, 'DESVINCULACION', esNomina)}

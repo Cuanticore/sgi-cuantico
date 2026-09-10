@@ -92,7 +92,19 @@ export default function FichaClient({
     puerta: { abierta: boolean; faltan: number } | null;
     exigidos: { codigo: string; titulo: string; firmado: boolean }[];
   };
-  actas: { codigo: string; contenido: string; version: number; aceptadoEn: string; huella: string }[];
+  actas: {
+    codigo: string;
+    contenido: string;
+    version: number;
+    aceptadoEn: string;
+    huella: string;
+    /// REQ-SIG-13 · el `webUrl` del soporte publicado, o `null` si no está publicado. Sólo
+    /// llega con valor cuando la publicación está confirmada por su `driveItemId`.
+    sharepoint: string | null;
+    /// Qué pasó con la publicación, en palabras: «publicado», «sin encolar», o la frase de
+    /// `explicarFallo` que dice qué hacer.
+    publicacion: string;
+  }[];
   vinculacion: ProgresoFila[];
   desvinculacion: ProgresoFila[];
   personaId: number;
@@ -355,6 +367,26 @@ export default function FichaClient({
                 >
                   descargar
                 </a>
+                {/* D-4/P12 · esta pantalla ya exige rol de responsable, y la carpeta «2.
+                    Soportes SIG» está restringida justamente a los responsables: acá el
+                    enlace a SharePoint sí se puede abrir. En `/mi-sig` NO se muestra.
+
+                    Y nunca se afirma que algo está publicado sin el enlace que lo respalda:
+                    si no hay `webUrl`, se dice el motivo en vez de callarlo. */}
+                {a.sharepoint !== null ? (
+                  <a
+                    href={a.sharepoint}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-accent"
+                  >
+                    en SharePoint
+                  </a>
+                ) : (
+                  <span className="text-faint" title={a.publicacion}>
+                    sin publicar · {a.publicacion}
+                  </span>
+                )}
               </div>
             ))}
           </Bloque>

@@ -176,7 +176,15 @@ export default function HistorialClient({
                     )}
                     {/* El acta se genera al firmar y queda congelada con su huella. Acá
                         estaba la promesa incumplida: el aviso posterior a firmar decía
-                        «queda en tu historial» y en el historial no había nada. */}
+                        «queda en tu historial» y en el historial no había nada.
+
+                        P12 (REQ-SIG-13) · esto es LA RUTA DE LA APLICACIÓN y nunca el
+                        `webUrl` de SharePoint. La carpeta «2. Soportes SIG» está restringida
+                        a los responsables (D-4): el colaborador no tiene permiso sobre ella,
+                        así que un enlace a SharePoint le daría «acceso denegado» y haría
+                        parecer roto lo que funciona — un ticket por cada acta.
+                        `/api/sig/acta` sí lo autoriza, porque verifica que quien pide es su
+                        titular. No agregar acá el enlace a SharePoint. */}
                     {f.actaCodigo !== null && (
                       <a
                         href={`/api/sig/acta?codigo=${encodeURIComponent(f.actaCodigo)}`}
