@@ -7,8 +7,8 @@
 | **Fecha** | 2026-09-11 |
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
-| **Toca** | `FichaActivo.tsx` · `InventarioActivos.tsx` · `lib/sgsi/riesgos.ts` · `AccionPlan` · sidebar · una ruta nueva y una migración |
-| **Estado** | D-1 a D-6 abiertas · **D-3 y D-5 bloquean** (§15) |
+| **Toca** | `FichaActivo.tsx` · `InventarioActivos.tsx` · `lib/sgsi/consolidado-lectura.ts` · `AccionPlan` · sidebar · una ruta nueva, una migración y **una columna nueva en `FOR-SIG-12`** |
+| **Estado** | D-2 y D-3 **cerradas** · D-1, D-4 y D-6 abiertas sin bloquear · **D-5 bloquea** la aceptación 4 (§15) |
 
 ---
 
@@ -165,11 +165,36 @@ Bloquear el guardado tiene además un efecto perverso conocido: quien tiene pris
 **Cómo se resuelve sin bloquear:**
 
 1. Al guardar algo que deja un residual en **Crítico**, se abre el popup de plan **prellenado**. Nadie tiene que buscar nada.
-2. Si se cierra sin registrar, el riesgo queda marcado **«plan pendiente»**, con fecha.
-3. Ese estado aparece en la tarjeta «Sin plan» del §5.1, en el tablero del SIG, y **genera una obligación** para el propietario del activo con el plazo de `CriterioAceptacion`.
+2. Si se cierra sin registrar, **el guardado ocurre igual** y el riesgo queda marcado **«plan pendiente»**, con fecha.
+3. Ese estado **alerta con nombre y apellido en dos listas** (§7.3), aparece en la tarjeta «Sin plan» del §5.1, y **genera una obligación** para el propietario del activo.
 4. A los N días sin plan, escala. El plazo sale de `CriterioAceptacion.plazoPlan`, que ya existe y ya dice quién aprueba.
 
 El riesgo no se puede esconder; simplemente no se secuestra la pantalla.
+
+### 7.3 La alerta nombra los activos, no cuenta un número
+
+Un contador que dice «3 sin plan» obliga a ir a buscar cuáles. La alerta **lista los códigos** y cada uno abre su ficha con el contrato de URL del §6.
+
+Va en **dos lugares**, porque son dos personas distintas las que la tienen que ver:
+
+**En la lista de planes de tratamiento** (`/sgsi/planes`) — la ve quien gestiona el plan:
+
+```
+⚠  3 activos con riesgo residual Crítico y sin plan de tratamiento
+   TEC-GEN-0004 · MINTRACE producción        A.24 Denegación de servicio    hace 6 días
+   TEC-EQU-0003 · srv-clientes-pro           A.11 Acceso no autorizado      hace 2 días
+   TEC-SER-0051 · UNAD producción            A.24 Denegación de servicio    hoy
+                                                          [ Registrar plan → ]
+```
+
+**En la lista de activos** —tanto el inventario como la página del §5— la ve quien responde por el activo. Misma franja, y además **la fila del activo se marca**: un punto ámbar junto al código, con el texto «sin plan» al pasar por encima.
+
+Cuatro reglas:
+
+- **La franja no se puede descartar para siempre.** Se colapsa a una línea y vuelve entera en la siguiente sesión. Es una deuda abierta, no un aviso.
+- **Muestra hasta cinco y luego «+n más»**, que enlaza a la página del §5 ya filtrada por «sin plan».
+- **Dice cuánto lleva pendiente.** «Hace 6 días» contra el plazo de `CriterioAceptacion.plazoPlan` es lo que convierte la alerta en algo que escala.
+- **Si el plan es de tipo `ACEPTAR`, el activo sale de la lista.** Aceptar es planificar: la decisión está tomada, firmada y con fecha de revisión. Lo que la alerta persigue es el silencio, no el riesgo alto.
 
 ### 7.2 El plan es sobre el control, originado en el activo
 
@@ -309,30 +334,59 @@ Se gana la experiencia que pediste y no se pierde una sola fila de auditoría. L
 
 **No existe hoy.** No hay columna de criticidad en V19 ni atributo en `Activo`.
 
-Y «incluye la criticidad» admite dos lecturas que llevan a construcciones distintas. Es la decisión **D-3** y bloquea:
+**D-3 cerrada: la criticidad la declara el negocio en el archivo, no la calcula el sistema.** Es una columna nueva de `FOR-SIG-12`, al lado de la valoración D/I/C, diligenciada por el dueño del proceso. La razón es la misma por la que la valoración se declara y no se deduce: **cuánta interrupción tolera un servicio es un compromiso de negocio, no un resultado aritmético.** Si el sistema la calculara del peor residual, diría que un activo es crítico *porque está mal protegido* — exactamente al revés de lo que se necesita, que es saber cuánto exige **antes** de mirar cómo está.
 
-**Lectura A · la criticidad es derivada** — la banda del peor riesgo residual del activo. No cuesta nada: es una columna calculada en la lista del §5.2 y ya se muestra como «peor residual».
+Y es lo que separa a MinTrace de UNAD: **los dos valen D=5 y no toleran lo mismo.**
 
-**Lectura B · la criticidad es un atributo propio del negocio** — un catálogo que dice cuánta interrupción tolera el activo, independiente de su valoración D/I/C. Es lo que discutimos con MinTrace y UNAD: **los dos están en D=5 y no exigen lo mismo**. UNAD tolera horas de caída; MinTrace no.
+### 11.1 La escala propuesta
 
-**Recomiendo la B**, porque es la que resuelve el problema que la originó y porque la A ya está cubierta por la columna de residual. Sería:
+Dos ejes, porque son dos preguntas distintas y una no implica la otra: **RTO** —cuánto puede estar caído— y **RPO** —cuánto dato se puede perder—.
+
+| Nivel | RTO | RPO | Lo que exige en arquitectura |
+|---|---|---|---|
+| **C1 · Crítica continua** | **≤ 10 min** | **≤ 5 min** | Multi-región activo-activo, o conmutación automática **probada**. Réplica síncrona o casi |
+| **C2 · Crítica** | ≤ 4 h | ≤ 1 h | Segunda región en espera tibia, con conmutación probada y documentada |
+| **C3 · Importante** | ≤ 24 h | ≤ 8 h | Respaldo restaurable con prueba de restauración periódica |
+| **C4 · Estándar** | ≤ 72 h | ≤ 24 h | Respaldo diario, restauración bajo demanda |
+| **C5 · Sin compromiso** | sin SLA | sin SLA | Esfuerzo razonable. Es un valor, no la ausencia de uno |
+
+El `C1` recoge tu propuesta de RTO y RPO por debajo de diez minutos, y es el único nivel que **exige por definición una segunda región**: ningún respaldo restaura en diez minutos. Ahí está el valor de la columna — **decir «MinTrace es C1» es decir «MinTrace necesita dos regiones», sin discutir arquitectura.**
+
+`C5` existe a propósito y no es «vacío». Un activo sin compromiso declarado es distinto de uno que nadie clasificó: el primero es una decisión, el segundo es trabajo pendiente. Los no clasificados quedan en nulo y se listan como faltantes.
+
+### 11.2 Dónde vive el dato
+
+| Capa | Qué se agrega |
+|---|---|
+| `FOR-SIG-12` | **Columna 26 · «Criticidad de negocio (RTO/RPO)»**, después de «Nivel del activo». Desplegable con los cinco valores |
+| Esquema | `Activo.criticidadId` → catálogo **`CriticidadNegocio`** (`codigo`, `nombre`, `rtoMinutos`, `rpoMinutos`, `descripcion`, `orden`, `activo`) |
+| Importador | `consolidado-lectura.ts` resuelve la columna 26 contra el catálogo. **Nulo permitido**, con aviso — igual que el custodio |
+| Ficha del activo | Se edita en la pestaña General, junto a la valoración |
+| Listas | Columna en el §5.2 y en el inventario, con su chip |
+| Semilla | Los cinco niveles, con sus minutos |
+
+**RTO y RPO se guardan en minutos**, no como texto. «≤ 4 h» es presentación; `240` es el dato. Sin eso no se puede ordenar, comparar ni calcular una brecha.
+
+### 11.3 Dos comprobaciones que la columna habilita
+
+La criticidad y la valoración D son primas, no gemelas — y cuando se contradicen, una de las dos está mal:
+
+- **Criticidad C1 o C2 con `D ≤ 3`** → sospechoso. Si no tolera diez minutos de caída, difícilmente su disponibilidad valga «Medio». La pantalla lo marca y pide revisar la valoración.
+- **`D = 5` con criticidad C4 o C5** → coherente y hay que dejarlo pasar. Perder el activo es catastrófico **y** se puede esperar tres días a recuperarlo. Son cosas distintas y confundirlas es el error que esta columna existe para evitar.
+
+### 11.4 La exigencia queda declarada, no implementada
+
+Con la columna aparece **la exigencia**, que es el concepto que te interesó: la criticidad fija el **nivel exigido** del control principal de cada amenaza que alcanza al activo, y la brecha contra la madurez real es el hallazgo.
 
 ```
-Activo.criticidadId  →  CriticidadNegocio
-   Crítica      RTO < 1 h      exige el control principal en L4
-   Alta         RTO < 8 h      exige L3
-   Media        RTO < 72 h     exige L3
-   Baja         sin compromiso  sin exigencia adicional
+MINTRACE producción · criticidad C1 (RTO ≤ 10 min · RPO ≤ 5 min)
+   exige A.8.14 Redundancia en L4        la organización está en L3
+   ▸ brecha de un nivel  ▸ plan de tratamiento o aceptación firmada
 ```
 
-Y con eso aparece **la exigencia**, que es el concepto que te gustó: la criticidad del activo fija el **nivel exigido** del control principal de cada amenaza que lo alcanza, y la brecha contra la madurez real es el hallazgo.
+Eso es el plan de las dos regiones, dicho por el sistema y no por una reunión.
 
-```
-MINTRACE producción · criticidad Crítica · exige A.8.14 en L4
-La organización está en L3.  ▸ brecha de un nivel  ▸ plan o aceptación
-```
-
-Eso es el plan de las dos regiones, dicho por el sistema. **Pero la exigencia es un requerimiento propio**: toca el modelo de datos, el tablero y el plan de tratamiento. Acá se crea **el atributo y su catálogo**, se muestra en la lista y en la ficha, y **la regla de exigencia queda declarada y sin implementar** — anotada como REQ-SIG-21.
+**Pero la regla de exigencia no entra acá.** Toca el modelo de madurez, el tablero y el plan de tratamiento, y merece su propio requerimiento — **REQ-SIG-21**. En REQ-SIG-20 se crea **la columna, el catálogo, la carga, la edición y la visualización**, que es lo que permite empezar a diligenciarla ya. La regla llega después, sobre un dato que para entonces existe.
 
 ---
 
@@ -362,11 +416,11 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 | 1 | **Base** | P1 guardas de umbral · P5 grilla · recálculo | 1.5 |
 | 2 | **Trazabilidad** | P7 fórmulas visibles · P8 pestaña Ecuación | 3.0 |
 | 3 | **El camino** | P3 URL del popup · P4 página nueva | 5.0 |
-| 4 | **El cierre** | P2 plan por residual crítico · P6 notas · P9 criticidad | 6.5 |
+| 4 | **El cierre** | P2 plan por residual crítico · P6 notas · P9 criticidad | 8.0 |
 | | **Pruebas, ajuste y verificación** | | 2.0 |
-| | | | **18** |
+| | | | **19.5** |
 
-**≈ 18 días de desarrollo · 3,5 a 4 semanas de una persona.** El desglose fino:
+**≈ 19 a 20 días de desarrollo · 4 semanas de una persona.** El desglose fino:
 
 | Petición | Días | Por qué |
 |---|---:|---|
@@ -376,9 +430,9 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 | P8 · pestaña Ecuación | 1.5 | Siete pasos, excepciones y copiar como texto |
 | P3 · URL del popup | 2.0 | Overlay, volver al origen, refresco de la pantalla de abajo |
 | P4 · página nueva | 3.0 | Lista, cinco tarjetas, seis filtros que reescopan las dos |
-| P2 · plan por residual crítico | 3.5 | Popup, prellenado, estado pendiente, obligación, integración con planes |
+| P2 · plan por residual crítico | 4.0 | Popup, prellenado, estado pendiente, obligación, **la franja de alerta en dos listas** (§7.3), integración con planes |
 | P6 · notas al final | 1.5 | Toca el flujo de bitácora; hay que no romper la auditoría |
-| P9 · criticidad | 1.5 | Migración, catálogo, semilla, dos pantallas |
+| P9 · criticidad | 2.5 | Migración, catálogo con RTO/RPO en minutos, semilla, **columna 26 de FOR-SIG-12 y su lectura en el importador**, edición en la ficha, dos listas, las dos comprobaciones de coherencia |
 | Recálculo y verificación | 0.5 | |
 | Pruebas y ajuste | 2.0 | |
 
@@ -399,20 +453,23 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 4. La grilla del inventario **no muestra** columnas de inherente ni residual, y el filtro por valor da 3 · 34 · 37 · 244 · 18.
 5. La página nueva lista **37 filas**; las tarjetas suman lo mismo que la lista bajo cualquier combinación de filtros.
 6. `?activo=TEC-GEN-0004&tab=ecuacion` abre el overlay en esa pestaña **desde tres módulos distintos**; al cerrar, los filtros y el scroll de abajo quedan intactos.
-7. Guardar una madurez que deja un residual en Crítico abre el popup de plan prellenado; cerrarlo sin registrar deja el riesgo en **«plan pendiente»** y suma 1 a la tarjeta «Sin plan».
+7. Guardar una madurez que deja un residual en Crítico **guarda igual**, abre el popup prellenado, y al cerrarlo sin registrar deja el riesgo en **«plan pendiente»**, suma 1 a la tarjeta «Sin plan» y **hace aparecer el código del activo** en la franja de alerta de `/sgsi/planes` **y** de la lista de activos. Registrar un plan de tipo `ACEPTAR` lo saca de las dos franjas.
 8. Un plan registrado desde ahí **aparece en el módulo de planes de tratamiento** y guarda el activo y la amenaza que lo originaron.
 9. Tres cambios en una sesión de edición producen **tres filas de `Bitacora`**, cada una con su campo, su valor anterior, su valor nuevo y **la misma nota** como motivo. Guardar sin nota **falla**.
 10. La pestaña Ecuación de `TEC-GEN-0004 × A.24` resuelve los siete pasos y su paso 7 **coincide hasta el cuarto decimal** con `Riesgo.riesgoResidual`. Si difieren, hay dos aritméticas.
 11. Ninguna cifra de las pantallas nuevas se calcula fuera de `lib/sgsi/formulas.ts`.
-12. Las pantallas nuevas **no escriben nada** al visitarlas: ni una fila de `Bitacora`.
+12. `CriticidadNegocio` tiene **5 filas** con sus `rtoMinutos` y `rpoMinutos` en minutos —`C1` con 10 y 5— y **no en texto**. Ordenar la lista del §5.2 por criticidad las ordena por RTO.
+13. Un `FOR-SIG-12` con la columna 26 diligenciada carga la criticidad; uno sin ella carga los activos con criticidad **nula y un aviso**, nunca con un valor por defecto.
+14. Un activo con criticidad `C1` y `D ≤ 3` muestra la advertencia de coherencia del §11.3. Uno con `D = 5` y criticidad `C4` **no** muestra ninguna: es una combinación válida.
+15. Las pantallas nuevas **no escriben nada** al visitarlas: ni una fila de `Bitacora`.
 
 ---
 
 ## 15 · Decisiones
 
 - **D-1 · el nombre de la página nueva.** «Valoración de riesgos» como pediste, o **«Análisis de riesgos»** para no dejar dos entradas casi homónimas pegadas en el menú. Recomiendo la segunda.
-- **D-2 · exigir sin bloquear.** El residual crítico abre el popup y marca «plan pendiente», pero **no impide guardar** (§7.1). Es la regla de la casa y además evita que la gente falsee el dato para poder guardar.
-- **D-3 · qué es la criticidad · BLOQUEA.** Derivada del peor residual, o atributo propio del negocio con su catálogo. Recomiendo el atributo, porque es el que habilita la exigencia (§11).
+- **D-2 · exigir sin bloquear · CERRADA.** El guardado ocurre siempre. El residual crítico abre el popup prellenado y, si se cierra, deja el riesgo en «plan pendiente» y **alerta nombrando los activos** en la lista de planes y en la de activos (§7.3). Es la regla de la casa y además evita que alguien falsee el dato para poder guardar.
+- **D-3 · la criticidad · CERRADA.** Es una **variable explícita del negocio**, columna 26 de `FOR-SIG-12`, con escala de cinco niveles sobre RTO y RPO (§11.1). No se deriva del peor residual: eso diría que un activo es crítico porque está mal protegido, al revés de lo que se necesita.
 - **D-4 · el plan es sobre el control.** Originado en el activo y la amenaza, que quedan guardados, pero la unidad de gestión sigue siendo el control, como manda la metodología.
 - **D-5 · «—» o `0` para los que no entran · BLOQUEA la aceptación 4.** Recomiendo «—»: no calculado y calculado en cero son hechos distintos.
 - **D-6 · el filtro `color`** se mueve del inventario a la página nueva. Confirmar que nadie dependa de él donde está.
