@@ -8,7 +8,7 @@
 | **Solicitante** | Líder del Sistema Integrado de Gestión |
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Toca** | `FichaActivo.tsx` · `InventarioActivos.tsx` · `lib/sgsi/consolidado-lectura.ts` · `AccionPlan` · sidebar · una ruta nueva, una migración y **una columna nueva en `FOR-SIG-12`** |
-| **Estado** | D-2 y D-3 **cerradas** · D-1, D-4 y D-6 abiertas sin bloquear · **D-5 bloquea** la aceptación 4 (§15) |
+| **Estado** | D-2, D-3 y D-5 **cerradas** · D-1, D-4 y D-6 abiertas sin bloquear · **listo para ejecutar** (§15) |
 
 ---
 
@@ -68,6 +68,28 @@ En `FichaActivo.tsx`, las pestañas **Amenazas** y **Matrices** se habilitan sol
 > Este activo vale 3. El análisis de riesgos arranca en 4 — `Parametro.umbral_valoracion`. Subí su valoración en la pestaña anterior si corresponde.
 
 El umbral se lee de la base, nunca se escribe en el código. Y la guarda va **también en el servidor**: las acciones que escriben degradación, frecuencia o madurez de un riesgo rechazan un activo bajo el umbral. Una pestaña deshabilitada es ayuda, no control.
+
+### 3.1 Deshabilitar la pestaña no alcanza: hay que dejar de calcular
+
+**Hallazgo verificado en el código de hoy.** `FichaActivo.tsx` sí conoce el umbral —`entraAlAnalisis` en la línea 530— pero **la pasada de derivación de la línea 592 corre para todos los activos**, entre o no entre. Para un activo de valor 3 el resultado es que la pantalla se contradice:
+
+| Dónde | Qué hace hoy |
+|---|---|
+| `:2446` | Un párrafo dice «no requiere análisis y **no genera riesgos**» |
+| `:2505` | …y a continuación `filas.map` **lista las amenazas con su impacto, inherente y residual ya calculados** |
+| `:3451` | La pestaña Matrices las distribuye y las cuenta como «los N riesgos de este activo» |
+| `:1197` | La insignia de la pestaña dice «no requiere» sobre N filas |
+
+Fue **deliberado**: el propio párrafo lo argumenta como previsualización —«las N amenazas siguen listadas como referencia de lo que se generaría al subir la valoración»—. Pero el efecto es que **la pantalla afirma que no genera riesgos y acto seguido los muestra**, y lo que el lector ve son cifras de riesgo sobre un activo fuera del análisis.
+
+**Qué se hace (D-5, cerrada):**
+
+1. **La pasada de derivación no corre** cuando el activo no alcanza el umbral. No es solo deshabilitar la pestaña: es **no calcular**.
+2. **La previsualización se retira por completo.** No queda detrás de un botón ni plegada: se va.
+3. La insignia de la pestaña no muestra conteo. Sin filas no hay número que mostrar.
+4. Las dos pestañas quedan deshabilitadas con la explicación del §3.
+
+**Y hay un beneficio de paso que conviene medir:** hoy esa pasada corre sobre las amenazas del tipo en **cada apertura de ficha de los 299 activos**, cuando solo 37 la necesitan. Es trabajo del cliente desperdiciado en el 88 % de los casos.
 
 ---
 
@@ -401,9 +423,11 @@ Correr `generarRiesgos()` después de todo lo anterior.
 | Riesgos generados | **725** |
 | Riesgos obsoletos | los de activos que bajaron del umbral |
 
-**Sobre «a los demás dejar en 0».** Los 262 activos bajo el umbral **no tienen filas de `Riesgo`** — `generarRiesgos` los salta. Mostrar `0` diría que se calculó y dio cero; la verdad es que no se calculó.
+**Sobre «a los demás dejarlos en 0».** No es una decisión de presentación: es alcance. Los 262 activos bajo el umbral **no tienen filas de `Riesgo`** —`generarRiesgos` los salta en la línea 143— y **tampoco deben tener cifras calculadas en ninguna pantalla**. El §3.1 quita la única que las producía.
 
-Es el mismo error que REQ-SIG-18 §8 ya evitó con «Sin valorar»: no valorado y valorado en cero son hechos distintos. **Propongo mostrar «—» con el tooltip «fuera del análisis · valor 3»** en vez de `0`. Es la decisión **D-5** y si preferís el `0`, se pone `0`.
+La regla, en una línea: **un activo bajo el umbral está fuera del análisis, y estar fuera significa que no se calcula, no que se calcula y da cero.** Es el mismo criterio que REQ-SIG-18 §8 aplicó a «Sin valorar»: no calculado y calculado en cero son hechos distintos, y confundirlos es lo que hace que un tablero sume 262 ceros y concluya que el 88 % del inventario tiene riesgo nulo.
+
+Donde una exportación o una API tenga que emitir la fila igual —el inventario completo sale a Excel— el campo va **vacío**, nunca `0`.
 
 ---
 
@@ -448,6 +472,7 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 ## 14 · Criterios de aceptación
 
 1. Un activo de valor 3 abre su ficha con **Amenazas y Matrices deshabilitadas y explicadas**; la acción de servidor que escribe una degradación para ese activo **rechaza**.
+1b. En ese mismo activo, la pestaña Amenazas **no lista ni una fila** y la de Matrices **no cuenta ningún riesgo**. La pasada de derivación **no se ejecuta**: verificable poniendo una traza en el `useMemo` de `FichaActivo.tsx:592` y abriendo un activo de valor 3 y otro de valor 5 — corre una sola vez, en el segundo.
 2. `select count(*) from activo where activo` → 299. Activos con al menos un `Riesgo` no obsoleto → **37**. Riesgos no obsoletos → **725**.
 3. Cambiar `umbral_valoracion` a 3 y regenerar: el conteo de activos en análisis sube **sin tocar código**, y las pestañas se habilitan solas.
 4. La grilla del inventario **no muestra** columnas de inherente ni residual, y el filtro por valor da 3 · 34 · 37 · 244 · 18.
@@ -471,7 +496,7 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 - **D-2 · exigir sin bloquear · CERRADA.** El guardado ocurre siempre. El residual crítico abre el popup prellenado y, si se cierra, deja el riesgo en «plan pendiente» y **alerta nombrando los activos** en la lista de planes y en la de activos (§7.3). Es la regla de la casa y además evita que alguien falsee el dato para poder guardar.
 - **D-3 · la criticidad · CERRADA.** Es una **variable explícita del negocio**, columna 26 de `FOR-SIG-12`, con escala de cinco niveles sobre RTO y RPO (§11.1). No se deriva del peor residual: eso diría que un activo es crítico porque está mal protegido, al revés de lo que se necesita.
 - **D-4 · el plan es sobre el control.** Originado en el activo y la amenaza, que quedan guardados, pero la unidad de gestión sigue siendo el control, como manda la metodología.
-- **D-5 · «—» o `0` para los que no entran · BLOQUEA la aceptación 4.** Recomiendo «—»: no calculado y calculado en cero son hechos distintos.
+- **D-5 · los activos bajo el umbral no se consideran · CERRADA.** No era una decisión de presentación —esa fue una mala lectura mía de «dejalos en 0»— sino de alcance: **no se calculan**. La previsualización de `FichaActivo.tsx` que hoy los computa y los lista **se retira por completo** (§3.1). En exportaciones el campo va vacío, nunca `0`.
 - **D-6 · el filtro `color`** se mueve del inventario a la página nueva. Confirmar que nadie dependa de él donde está.
 
 ---
