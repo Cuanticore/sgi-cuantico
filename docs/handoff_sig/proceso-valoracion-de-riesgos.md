@@ -408,7 +408,7 @@ MINTRACE producción · criticidad C1 (RTO ≤ 10 min · RPO ≤ 5 min)
 
 Eso es el plan de las dos regiones, dicho por el sistema y no por una reunión.
 
-**Pero la regla de exigencia no entra acá.** Toca el modelo de madurez, el tablero y el plan de tratamiento, y merece su propio requerimiento — **REQ-SIG-21**. En REQ-SIG-20 se crea **la columna, el catálogo, la carga, la edición y la visualización**, que es lo que permite empezar a diligenciarla ya. La regla llega después, sobre un dato que para entonces existe.
+**Pero la regla de exigencia no entra acá.** Toca el modelo de madurez, el tablero y el plan de tratamiento, y merece su propio requerimiento — **REQ-SIG-23**. En REQ-SIG-20 se crea **la columna, el catálogo, la carga, la edición y la visualización**, que es lo que permite empezar a diligenciarla ya. La regla llega después, sobre un dato que para entonces existe.
 
 ---
 
@@ -462,7 +462,7 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 
 **Lo que puede mover la estimación:**
 
-- **+2 a 3 días** si D-3 se resuelve por la lectura B **y** se decide implementar la exigencia acá en vez de dejarla para REQ-SIG-21.
+- **+2 a 3 días** si D-3 se resuelve por la lectura B **y** se decide implementar la exigencia acá en vez de dejarla para REQ-SIG-23.
 - **+1 a 2 días** si el popup del activo (§6) resulta más acoplado a su página de lo que se ve desde afuera. `FichaActivo.tsx` es el archivo más grande del módulo.
 - **−1 día** si D-1 se resuelve reusando la página de REQ-SIG-18 en vez de crear una nueva.
 - **No incluye** asignar la relevancia de los 272 pares ni corregir las madureces declaradas. Son dos trabajos de criterio, no de desarrollo, y van en paralelo.
@@ -503,7 +503,7 @@ Nueve peticiones, cuatro bloques. El orden importa: los dos primeros son la base
 
 ## 16 · Lo que no entra
 
-- **La regla de exigencia por criticidad.** Acá se crea el atributo; la regla que lo convierte en nivel exigido y en brecha es **REQ-SIG-21**.
+- **La regla de exigencia por criticidad.** Acá se crea el atributo; la regla que lo convierte en nivel exigido y en brecha es **REQ-SIG-23**.
 - **Asignar la relevancia de los 272 pares** y **corregir las madureces declaradas.** Son los dos trabajos que hacen que estos números signifiquen algo, y son de criterio, no de desarrollo. El aviso «sin relevancia asignada» del §8 y del §9 existe justamente para que la brecha se vea mientras tanto.
 - **Cambiar la fórmula, la curva de eficacia o el catálogo de amenazas.** Nada de eso se toca acá.
 - **Un plan por riesgo.** La metodología lo descartó y este requerimiento no lo reintroduce.
