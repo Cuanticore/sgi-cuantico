@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
 import { puede, rolDeLaPersona, rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { bloqueoHabilitado } from '@/lib/sgsi/bloqueo';
 import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
 import { CAMPOS_DE_SINCRONIZACION, resumirCorrida } from '@/lib/sig/personas';
@@ -18,6 +19,21 @@ export default async function PersonasPage() {
   const session = await getServerSession(authOptions);
   const rol = rolDesdeGrupos(session?.user?.grupos);
   const administra = puede(rol, 'personas:administrar');
+
+  // **P25 · el bloqueo se decide acá y viaja como un booleano.**
+  //
+  // Son dos condiciones y las dos tienen que darse. El permiso es `personas:bloquear` y NO
+  // `personas:administrar`: hoy los concede el mismo grupo, y el vocabulario los separa igual
+  // porque bloquear una cuenta no es lo mismo que editar un teléfono.
+  //
+  // La variable es la otra mitad: los permisos de Azure que el bloqueo necesita
+  // —`User.EnableDisableAccount.All` y `User.RevokeSessions.All`— no están concedidos todavía,
+  // así que arranca en `false`. Y se lee en el servidor porque tiene que leerse en el
+  // servidor: sin el prefijo `NEXT_PUBLIC_` el navegador no la ve, que es exactamente lo que
+  // hay que querer de una bandera que habilita deshabilitar cuentas.
+  const bloqueoDisponible =
+    puede(rol, 'personas:bloquear') &&
+    bloqueoHabilitado(process.env as Record<string, string | undefined>);
 
   const [personas, pendientes, miembrosDelGrupo, ultimaFilaDeCorrida] = await Promise.all([
     prisma.persona.findMany({
@@ -175,6 +191,7 @@ export default async function PersonasPage() {
       filas={filas}
       corrida={corrida}
       administra={administra}
+      bloqueoDisponible={bloqueoDisponible}
       rolesConsultables={miembrosDelGrupo.ok}
       motivoSinRoles={miembrosDelGrupo.ok ? null : explicarFallo(miembrosDelGrupo.fallo)}
       catalogos={{ areas, cargos, tiposContrato, gruposInteres }}

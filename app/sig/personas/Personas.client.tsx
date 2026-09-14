@@ -90,6 +90,7 @@ export default function PersonasClient({
   filas,
   corrida,
   administra,
+  bloqueoDisponible,
   rolesConsultables,
   motivoSinRoles,
   catalogos,
@@ -97,6 +98,9 @@ export default function PersonasClient({
   filas: PersonaFila[];
   corrida: Corrida | null;
   administra: boolean;
+  /// **P25 · si la pestaña Cuenta del popup se dibuja o no.** Viaja resuelta desde el
+  /// servidor porque depende de `GRAPH_BLOQUEO_HABILITADO`, que el navegador no puede leer.
+  bloqueoDisponible: boolean;
   rolesConsultables: boolean;
   /// La causa REAL de que no se pudieran leer los roles, ya redactada. Es `null` cuando
   /// sí se pudieron: no hay nada que explicar.
@@ -434,6 +438,7 @@ export default function PersonasClient({
           persona={elegida}
           catalogos={catalogos}
           administra={administra}
+          bloqueoDisponible={bloqueoDisponible}
           onCerrar={() => setElegida(null)}
           pieDeDatosBase={
             <div className="flex flex-col gap-3">

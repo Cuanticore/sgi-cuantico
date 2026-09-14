@@ -34,6 +34,7 @@ import {
   type DatosPertenencia,
 } from '@/app/sig/acciones/personas-edicion';
 import type { ContactoPropuesto } from '@/lib/sig/contactos';
+import BloqueoCuenta from './BloqueoCuenta';
 import LicenciasPersona from './LicenciasPersona';
 import type { PersonaFila } from './Personas.client';
 
@@ -50,7 +51,7 @@ export interface CatalogosDelPopup {
   }[];
 }
 
-type Seccion = 'base' | 'licencias' | 'contactos' | 'grupos';
+type Seccion = 'base' | 'licencias' | 'contactos' | 'grupos' | 'cuenta';
 
 /// El estado del formulario. Cadenas y no números porque los `select` y los `input` trabajan
 /// con cadenas; la conversión ocurre una vez, al enviar.
@@ -130,12 +131,19 @@ export default function PopupPersona({
   persona,
   catalogos,
   administra,
+  bloqueoDisponible,
   onCerrar,
   pieDeDatosBase,
 }: {
   persona: PersonaFila;
   catalogos: CatalogosDelPopup;
   administra: boolean;
+  /// **P25 · si esto es `false`, la pestaña Cuenta no existe en el DOM.** Lo decide el
+  /// servidor: hace falta el permiso `personas:bloquear` Y que `GRAPH_BLOQUEO_HABILITADO`
+  /// esté en «true», y la variable no se puede leer desde el navegador. No se dibuja
+  /// deshabilitada — un botón que existe y responde 403 se lee como que la aplicación está
+  /// rota, y alguien va a probarlo con tres personas distintas antes de concluirlo.
+  bloqueoDisponible: boolean;
   onCerrar: () => void;
   /// El panel de reasignación de pendientes (R9), que pasa a ser el pie de esta pestaña en
   /// vez de vivir en una superficie propia. Lo arma quien llama, porque su acción y su estado
@@ -331,6 +339,8 @@ export default function PopupPersona({
       etiqueta: 'Grupos de interés',
       cuantos: catalogos.gruposInteres.length,
     },
+    // P25 · se AGREGA, no se deshabilita. Sin permiso o sin la variable, la pestaña no está.
+    ...(bloqueoDisponible ? [{ clave: 'cuenta' as const, etiqueta: 'Cuenta' }] : []),
   ];
 
 
@@ -350,8 +360,10 @@ export default function PopupPersona({
             Cerrar
           </button>
           {/* Guardar aparece donde hay algo que guardar. Licencias no escribe nada, así que
-              ahí un botón habilitado prometería un cambio que no ocurre. */}
-          {administra && seccion !== 'licencias' && (
+              ahí un botón habilitado prometería un cambio que no ocurre. Y Cuenta tiene su
+              propio botón, con su propia confirmación: un «Guardar» genérico al lado de un
+              bloqueo es exactamente el clic que P20 viene a hacer imposible. */}
+          {administra && seccion !== 'licencias' && seccion !== 'cuenta' && (
             <button
               type="button"
               onClick={guardar}
@@ -699,6 +711,17 @@ export default function PopupPersona({
 
             <Avisos error={error} mensaje={mensaje} frases={frases} />
           </div>
+        )}
+
+        {/* §6 · bloquear y desbloquear. La pestaña sólo está cuando el servidor la habilitó,
+            así que no hace falta comprobarlo otra vez acá: `seccion` nunca puede valer
+            'cuenta' sin `bloqueoDisponible`, porque no hay forma de llegar. */}
+        {seccion === 'cuenta' && (
+          <BloqueoCuenta
+            persona={persona}
+            // P22 · el bloqueo OFRECE reasignar, y la oferta lleva al único panel que lo hace.
+            onIrAReasignar={() => setSeccion('base')}
+          />
         )}
       </Pestanas>
     </Popup>

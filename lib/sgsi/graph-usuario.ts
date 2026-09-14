@@ -37,5 +37,23 @@ export interface UsuarioDeGraph {
 export function esColaboradorDeLaOrganizacion(u: UsuarioDeGraph): boolean {
   if (!u.id || !u.displayName || !u.userPrincipalName) return false;
   if (u.accountEnabled === false) return false;
-  return u.userType !== 'Guest';
+  return !esInvitadoB2B(u);
+}
+
+/// **¿Es una cuenta invitada?** La misma pregunta de arriba, aislada, porque hay un segundo
+/// lugar que la necesita: el bloqueo (REQ-SIG-15 P21.3) tiene que negarse a deshabilitar la
+/// cuenta de un aliado de Tiindux o de la UNAD, y ahí `esColaboradorDeLaOrganizacion` no
+/// sirve como pregunta — devuelve `false` también para una cuenta propia ya deshabilitada,
+/// que es justo la que el DESBLOQUEO tiene que poder tocar.
+///
+/// Se extrae en vez de copiarse: dos lugares que decidan por su cuenta qué es un invitado es
+/// cómo se termina con uno mirando `userType` y el otro el `#ext#` del UPN — y ese segundo
+/// deja de filtrar en silencio el día que Microsoft cambie el formato.
+///
+/// **Un `userType` ausente NO es un invitado.** Graph lo omite en varios escenarios, y ahí el
+/// error caro se invierte respecto del censo: acá un falso positivo impediría bloquear a
+/// alguien de la organización, y eso se ve; un falso negativo bloquearía a un tercero, y eso
+/// le rompe la colaboración a otro sin que nadie de este lado se entere.
+export function esInvitadoB2B(u: UsuarioDeGraph): boolean {
+  return u.userType === 'Guest';
 }

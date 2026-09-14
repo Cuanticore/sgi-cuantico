@@ -89,6 +89,47 @@ export async function consultarGraph<T>(
   }
 }
 
+/// Una ESCRITURA en Graph, con el token ya resuelto.
+///
+/// Es la hermana de `consultarGraph` y vive al lado por la misma razón por la que aquélla
+/// salió de `directorio.ts`: el token, el `Authorization` y la traducción del código de
+/// respuesta son lo mismo lea o escriba, y copiarlos para el bloqueo habría creado otra vez
+/// la situación que este archivo vino a cerrar.
+///
+/// **No lee el cuerpo de la respuesta.** Las dos escrituras que existen hoy no devuelven un
+/// recurso: `PATCH /users/{oid}` contesta 204 sin contenido y `revokeSignInSessions` contesta
+/// un `{ "value": true }` que no agrega nada a lo que el código de estado ya dijo. Un
+/// `res.json()` incondicional sobre el 204 revienta con «Unexpected end of JSON input» y ese
+/// error se leería como que la escritura falló cuando de hecho ocurrió — el peor resultado
+/// posible en una operación que deshabilita la cuenta de una persona.
+///
+/// `cuerpo` en `null` es para el POST sin carga: sin él iría un `Content-Type: application/json`
+/// anunciando un cuerpo que no existe.
+export async function escribirEnGraph(
+  url: string,
+  metodo: 'PATCH' | 'POST',
+  cuerpo: Record<string, unknown> | null,
+  recurso: string,
+  permiso: string,
+): Promise<ResultadoGraph<null>> {
+  const token = await tokenDeGraph();
+  if (!token.ok) return token;
+  try {
+    const res = await fetch(url, {
+      method: metodo,
+      headers: {
+        Authorization: `Bearer ${token.datos}`,
+        ...(cuerpo !== null && { 'Content-Type': 'application/json' }),
+      },
+      ...(cuerpo !== null && { body: JSON.stringify(cuerpo) }),
+    });
+    if (!res.ok) return { ok: false, fallo: clasificarRecurso(res.status, recurso, permiso) };
+    return { ok: true, datos: null };
+  } catch (e) {
+    return { ok: false, fallo: { causa: 'SIN_RED', detalle: mensajeDe(e) } };
+  }
+}
+
 export function mensajeDe(e: unknown): string {
   return e instanceof Error ? e.message : 'error desconocido';
 }
