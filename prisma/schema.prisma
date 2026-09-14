@@ -1511,6 +1511,7 @@ model Asignacion {
   activo            Activo?                @relation("AsignacionActivo", fields: [activoId], references: [id])
   hallazgos         HallazgoAccion[]
   intentosScorm     IntentoScorm[]
+  enlacesFirma      EnlaceFirma[]
 
   /// T1 · la idempotencia que permite que el cron reintente sin miedo.
   ///
@@ -2739,12 +2740,28 @@ model ActaAceptacion {
   pdfId              Int?     @map("pdf_id")
   /// SHA-256 del artefacto generado.
   actaHash           String   @map("acta_hash")
+  /// **REQ-SIG-19 · el acta declara el medio REAL de identificacion.** El numeral 5 sostiene
+  /// la confiabilidad en algo distinto segun la via, y decir «cuenta corporativa» en una
+  /// firma por enlace seria falso en el documento que se le muestra a un auditor.
+  ///
+  /// `@default(SESION_CORPORATIVA)` es lo que hace que esta migracion no toque ninguna acta
+  /// existente: todas las que hay se firmaron con sesion corporativa, y eso es verdad.
+  medioIdentificacion MedioIdentificacion @default(SESION_CORPORATIVA) @map("medio_identificacion")
+  /// A donde se notifico. En la via por enlace es el correo personal al que fue; en la
+  /// corporativa queda nulo. **Se copia al emitir** y no se referencia: si la persona cambia
+  /// su correo despues, el acta tiene que seguir diciendo a donde se envio.
+  correoNotificacion String?  @map("correo_notificacion")
+  /// El codigo del enlace que produjo esta acta, `ENL-2026-0007`. **Es el codigo y nunca el
+  /// token** (P2, P3): un token en un registro que audita las firmas es un token en manos de
+  /// quien audita.
+  enlaceCodigo       String?  @map("enlace_codigo")
 
   persona          Persona           @relation("ActaPersona", fields: [personaId], references: [id])
   contenido        ContenidoSig      @relation(fields: [contenidoId], references: [id])
   versionContenido VersionContenido? @relation(fields: [versionContenidoId], references: [id])
   registro         RegistroRealizado @relation(fields: [registroId], references: [id])
   pdf              Evidencia?        @relation("ActaPdf", fields: [pdfId], references: [id])
+  enlaceFirma      EnlaceFirma?
 
   @@index([personaId, aceptadoEn])
   @@map("acta_aceptacion")
@@ -2759,6 +2776,72 @@ model ContadorActa {
   ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_acta")
+}
+
+// --- Firma por enlace publico (REQ-SIG-19) ------------------------------------------------
+
+/// Con que se identifico quien firmo. **El acta lo declara** (§7): el numeral 5 sostiene la
+/// confiabilidad de una firma simple, y sostenerla en la cuenta corporativa cuando la firma
+/// llego por un enlace al correo personal seria falso en el documento que lee un auditor.
+enum MedioIdentificacion {
+  /// La via de siempre: token de Azure, sesion viva, correo corporativo.
+  SESION_CORPORATIVA
+  /// Enlace de un solo uso enviado al correo personal, con el documento de identidad como
+  /// segunda pieza (P5). Es para quien ya no tiene cuenta habilitada y todavia debe firmar.
+  ENLACE_CORREO_PERSONAL
+
+  @@map("medio_identificacion")
+}
+
+/// Un enlace de un solo uso para firmar **una** asignacion (D-4) sin cuenta corporativa.
+///
+/// **Del token se guarda el hash y nunca el token** (P2). Lo que se nombra en la bitacora, en
+/// el acta y en un ticket de soporte es `codigo` (P3): un token en un registro que audita las
+/// firmas es un token en manos de quien audita.
+model EnlaceFirma {
+  id               Int       @id @default(autoincrement())
+  /// `ENL-2026-0007`. El consecutivo sale de `ContadorEnlace`, no de un `count()`.
+  codigo           String    @unique
+  asignacionId     Int       @map("asignacion_id")
+  /// SHA-256 del token. El token en claro no se guarda nunca.
+  tokenHash        String    @unique @map("token_hash")
+  /// La direccion a la que se envio, **copiada** al emitir. Si la persona cambia su correo
+  /// personal despues, el acta tiene que seguir diciendo a donde fue el enlace. Es la misma
+  /// doctrina que la regla F2 de la declaracion.
+  correoDestino    String    @map("correo_destino")
+  expiraEn         DateTime  @map("expira_en")
+  /// Correo de quien lo emitio. Es una autorizacion y tiene autor.
+  emitidoPor       String    @map("emitido_por")
+  creadoEn         DateTime  @default(now()) @map("creado_en")
+  enviadoEn        DateTime? @map("enviado_en")
+  /// Reenviar es normal -«no me llego»- y hay que poder contarlo.
+  vecesEnviado     Int       @default(0) @map("veces_enviado")
+  /// Instante de la firma. Es lo que vuelve al enlace de un solo uso (D-5).
+  usadoEn          DateTime? @map("usado_en")
+  /// El acta que produjo. Cierra la trazabilidad enlace -> acta -> evidencia.
+  actaId           Int?      @unique @map("acta_id")
+  /// Del documento de identidad (P5). Con el tope alcanzado el enlace queda bloqueado.
+  intentosFallidos Int       @default(0) @map("intentos_fallidos")
+  bloqueadoEn      DateTime? @map("bloqueado_en")
+  revocadoEn       DateTime? @map("revocado_en")
+  motivoRevocacion String?   @map("motivo_revocacion")
+
+  asignacion Asignacion      @relation(fields: [asignacionId], references: [id])
+  acta       ActaAceptacion? @relation(fields: [actaId], references: [id])
+
+  @@index([asignacionId])
+  @@index([expiraEn])
+  @@map("enlace_firma")
+}
+
+/// El consecutivo de los enlaces por año, con el mismo patron -y el mismo motivo- que
+/// `ContadorActa`: contar filas y sumar uno produce dos enlaces con el mismo codigo cuando
+/// dos emisiones ocurren a la vez, y el codigo es la referencia con la que el enlace se cita.
+model ContadorEnlace {
+  anio        Int @id
+  ultimoValor Int @default(0) @map("ultimo_valor")
+
+  @@map("contador_enlace")
 }
 
 // ─── Publicación de soportes en SharePoint (REQ-SIG-13) ────────────────────────────────
