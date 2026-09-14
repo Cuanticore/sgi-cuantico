@@ -20,7 +20,36 @@ import { prisma } from '@/lib/db';
 import { registrar, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import { clasificar, tratamientoSugerido } from '@/lib/sgsi/clasificar';
+import { entraAlAnalisis, type ValoresDimension } from '@/lib/sgsi/formulas';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
+
+/// D-2 (REQ-SIG-20 §3): the same gate the sheet disables its tabs with, enforced again
+/// here because a disabled tab is help, not control — a server action is reachable
+/// without the screen. Reads the asset's own valores and the live
+/// `Parametro.umbral_valoracion`, exactly as `FichaActivo.tsx` and `generarRiesgos` do, so
+/// the three never disagree about which assets are in scope.
+async function activoEnAnalisis(activoId: number): Promise<boolean> {
+  const [filas, parametro] = await Promise.all([
+    prisma.activoValor.findMany({
+      where: { activoId },
+      select: { dimension: { select: { codigo: true } }, valor: { select: { valor: true } } },
+    }),
+    prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } }),
+  ]);
+  const umbral = Number(parametro?.valor ?? 4);
+
+  const valores: Partial<ValoresDimension> = {};
+  for (const f of filas) {
+    if (f.dimension.codigo === 'D' || f.dimension.codigo === 'I' || f.dimension.codigo === 'C') {
+      valores[f.dimension.codigo] = f.valor.valor;
+    }
+  }
+  if (valores.D === undefined || valores.I === undefined || valores.C === undefined) return false;
+  return entraAlAnalisis(valores as ValoresDimension, umbral);
+}
+
+const FUERA_DE_ANALISIS =
+  'Este activo no alcanza el umbral de valoración: está fuera del análisis de riesgos y esta escritura se rechaza.';
 
 /// The three dimensions this deployment models. The declared deviation reassigns
 /// Autenticidad and Trazabilidad into Integridad, so D, I and C are the whole set — and
@@ -62,6 +91,9 @@ export async function guardarTratamiento(
 
     const riesgo = await prisma.riesgo.findUnique({ where: { codigo: codigoRiesgo } });
     if (!riesgo) return { ok: false, mensaje: `No existe el riesgo ${codigoRiesgo}.` };
+    if (!(await activoEnAnalisis(riesgo.activoId))) {
+      return { ok: false, mensaje: FUERA_DE_ANALISIS };
+    }
 
     // What the field will hold after the save: an omitted key keeps its stored value.
     const tratamientoFinal =
@@ -234,6 +266,9 @@ export async function excepcionFrecuencia(
       include: { frecuencia: true, amenaza: { include: { frecuencia: true } } },
     });
     if (!riesgo) return { ok: false, mensaje: `No existe el riesgo ${codigoRiesgo}.` };
+    if (!(await activoEnAnalisis(riesgo.activoId))) {
+      return { ok: false, mensaje: FUERA_DE_ANALISIS };
+    }
 
     let destino = frecuenciaId;
     let nombreDestino: string | null = null;
@@ -326,6 +361,9 @@ export async function excepcionDegradacion(
       include: { amenaza: true },
     });
     if (!riesgo) return { ok: false, mensaje: `No existe el riesgo ${codigoRiesgo}.` };
+    if (!(await activoEnAnalisis(riesgo.activoId))) {
+      return { ok: false, mensaje: FUERA_DE_ANALISIS };
+    }
 
     const dim = await prisma.dimension.findUnique({ where: { codigo: dimension } });
     if (!dim) return { ok: false, mensaje: `Dimensión desconocida: ${dimension}.` };

@@ -336,3 +336,34 @@ export function cumpleFiltros(
 export function hayFiltros(filtros: Filtros, busqueda: string): boolean {
   return Object.keys(parametrosDeFiltros(filtros)).length > 0 || busqueda.trim() !== '';
 }
+
+/// Los conteos del filtro de valor del §4 (P5): Todos, 5, 4, «4 y 5» (el umbral por
+/// defecto) y las dos franjas por debajo. Siempre sobre `max(D, I, C)` — el valor del
+/// activo, no una dimensión — y siempre recalculados sobre lo que reciben: 244 activos
+/// están a un punto del umbral hoy y una revisión de valoración mueve estas cifras sin
+/// tocar código (§2 del requerimiento).
+export interface ConteoPorValor {
+  todos: number;
+  v5: number;
+  v4: number;
+  /// `>= 4`: los que SÍ entran al análisis hoy.
+  v4y5: number;
+  v3: number;
+  v2: number;
+}
+
+export function contarPorValor(
+  activos: readonly ActivoFiltrable[],
+  dimensiones: readonly DimensionActiva[],
+): ConteoPorValor {
+  const conteo: ConteoPorValor = { todos: activos.length, v5: 0, v4: 0, v4y5: 0, v3: 0, v2: 0 };
+  for (const a of activos) {
+    const v = valorDeCriterio(a.valores, CRITERIO_MAX, dimensiones);
+    if (v === 5) conteo.v5 += 1;
+    if (v === 4) conteo.v4 += 1;
+    if (v === 4 || v === 5) conteo.v4y5 += 1;
+    if (v === 3) conteo.v3 += 1;
+    if (v === 2) conteo.v2 += 1;
+  }
+  return conteo;
+}

@@ -66,54 +66,54 @@ left to the user/orchestrator, not decided here.
 
 ## Phase 0: Baseline
 
-- [ ] 0.1 Confirm green baseline before any change: `npm test` (89 suites / 1743 tests, all
+- [x] 0.1 Confirm green baseline before any change: `npm test` (89 suites / 1743 tests, all
       pass), `npx tsc --noEmit -p tsconfig.json` (0 errors), `npm run lint` (0 errors, 5
       preexisting warnings). A different result means an environment problem, not this plan's.
 
 ## Phase 1: Base — P1 gating · P5 grid · recálculo (1.5d) — Checkpoint A
 
-- [ ] 1.1 RED integration test in `app/components/sgsi/activos/__tests__/FichaActivo.test.tsx`:
+- [x] 1.1 RED integration test in `app/components/sgsi/activos/__tests__/FichaActivo.test.tsx`:
       a value-3 asset renders zero threat rows, zero badge count, and Amenazas/Matrices visible
       **and disabled**; a value-5 asset renders ≥1 row. Fails today because the preview at
       `FichaActivo.tsx:2446/3458` still lists rows for value-3. AC: spec `risk-analysis-scope`
       "Derivation pass never executes"; proposal AC1, AC1b.
-- [ ] 1.2 Make 1.1 pass: `FichaActivo.tsx` — the `useMemo` at lines 592–797 returns `[]` unless
+- [x] 1.2 Make 1.1 pass: `FichaActivo.tsx` — the `useMemo` at lines 592–797 returns `[]` unless
       `entra` (line 530's `entraAlAnalisis`); delete the preview paragraphs at 2446 and 3458
       entirely (not behind a flag); badge (~1197) shows no count on empty `filas`.
-- [ ] 1.3 Tabs visible+disabled with hover reason (value, threshold, `Parametro.umbral_valoracion`
+- [x] 1.3 Tabs visible+disabled with hover reason (value, threshold, `Parametro.umbral_valoracion`
       source, pointer to the valuation tab) — same file, covered by 1.1's test. AC: spec
       `risk-analysis-scope` "Threshold-gated tabs with visible reason".
-- [ ] 1.4 Server-side rejection — add `activoEnAnalisis()` guard (reads `Activo` valores +
+- [x] 1.4 Server-side rejection — add `activoEnAnalisis()` guard (reads `Activo` valores +
       `Parametro.umbral_valoracion`, reuses `entraAlAnalisis`) in `app/sgsi/acciones/riesgos.ts`;
       apply to `guardarTratamiento`, `excepcionFrecuencia`, `excepcionDegradacion`. Wiring —
       touches Prisma, no new unit test per repo convention; verify by running against a seeded
       value-3 fixture and confirming rejection. AC: spec `risk-analysis-scope` "Server-side
       rejection", proposal AC1.
-- [ ] 1.5 Drop inherent/residual risk columns from `app/components/sgsi/inventario/
+- [x] 1.5 Drop inherent/residual risk columns from `app/components/sgsi/inventario/
       InventarioActivos.tsx`. AC: spec `risk-inventory-view` "Grid without risk columns".
-- [ ] 1.6 RED test `lib/sgsi/__tests__/inventario-filtros.test.ts`: value filter counts
+- [x] 1.6 RED test `lib/sgsi/__tests__/inventario-filtros.test.ts`: value filter counts
       5·3, 4·34, "4 y 5"·37, 3·244, 2·18, Todos·299 from a V19-shaped fixture, never hard-coded.
       Run: `npm test -- inventario-filtros` → FAIL until implemented.
-- [ ] 1.7 Make 1.6 pass in `lib/sgsi/inventario-filtros.ts`; **remove** the `color` filter from
+- [x] 1.7 Make 1.6 pass in `lib/sgsi/inventario-filtros.ts`; **remove** the `color` filter from
       `InventarioActivos.tsx`'s rendered UI but **keep** its underlying band logic
       (`inventario-filtros.ts:19-46,167-237`) intact — task 3.11 rewires it into the analysis
       page (see Open Item 2). AC: spec `risk-inventory-view` "Color filter relocated (D-6)".
-- [ ] 1.8 RED test extending `lib/sgsi/__tests__/riesgos.test.ts`: after `generarRiesgos` runs,
+- [x] 1.8 RED test extending `lib/sgsi/__tests__/riesgos.test.ts`: after `generarRiesgos` runs,
       every non-obsolete `Riesgo` has ≥1 matching `RiesgoCalculo` row whose four decimals equal
       the `Riesgo`'s. Implement the batched `createMany` snapshot writer in `lib/sgsi/riesgos.ts`
       right after the per-risk create/update loop (~line 208). This is D4's first writer for a
       table with zero writers today. See Open Item 3 for why it's here, not Phase 4. Verify:
       `npm test -- riesgos` PASS; confirm `consolidado-carga.ts:362`'s `deleteMany({})` still
       clears the table on a fresh load.
-- [ ] 1.9 Run `generarRiesgos()` against the current data and record the actual non-obsolete
+- [x] 1.9 Run `generarRiesgos()` against the current data and record the actual non-obsolete
       risk count. Investigate the 722-vs-725 gap (Open Item 1) — check `Riesgo.excluidoManual`
       rows first — and document the finding in the PR description instead of editing the spec's
       asserted number in silence. AC: proposal Success Criteria "299 / 37 / 725"; spec
       `risk-analysis-scope` "Regeneration figures with the V19 dataset".
-- [ ] 1.10 RED test: with `Parametro.umbral_valoracion` changed to 3 in a fixture DB, re-running
+- [x] 1.10 RED test: with `Parametro.umbral_valoracion` changed to 3 in a fixture DB, re-running
       `generarRiesgos` raises the in-analysis count with no code change. AC: spec
       `risk-analysis-scope` "Threshold change re-enables without recompile"; proposal AC3.
-- [ ] 1.11 Verify `lib/sgsi/riesgo-activo.ts`'s `nivelDeRiesgoDelActivo` returns null/empty (not
+- [x] 1.11 Verify `lib/sgsi/riesgo-activo.ts`'s `nivelDeRiesgoDelActivo` returns null/empty (not
       `0`) for a below-threshold asset with zero `Riesgo` rows, as consumed by
       `app/api/sgsi/exportar-activos/route.ts`; add a case to its test suite if not already
       covered. AC: spec `risk-analysis-scope` "Not calculated is not zero" / "Export emits

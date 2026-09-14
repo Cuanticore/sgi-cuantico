@@ -589,9 +589,16 @@ export default function FichaActivo({
   //
   // Every figure the three tabs show comes out of here: one pass, one arithmetic path
   // through lib/sgsi/formulas.ts, and therefore one place a number can be wrong.
+  //
+  // BELOW THE THRESHOLD, THE PASS DOES NOT RUN (D-5, REQ-SIG-20 §3.1). It is not enough
+  // to hide the result: `generarRiesgos` on the server never creates a `Riesgo` for these
+  // assets either, so a client that still computed one would show a figure with nothing
+  // behind it. `entra` short-circuits before a single row is mapped.
   const filas = useMemo<FilaAmenaza[]>(
     () =>
-      listaAmenazas.map(({ amenaza, preclasificada }) => {
+      !entra
+        ? []
+        : listaAmenazas.map(({ amenaza, preclasificada }) => {
         const ov = degOv[amenaza.codigo] ?? {};
 
         // Degradation is an attribute of the THREAT. The override is read first only so
@@ -774,6 +781,7 @@ export default function FichaActivo({
         };
       }),
     [
+      entra,
       listaAmenazas,
       degOv,
       frecOv,
@@ -1189,14 +1197,21 @@ export default function FichaActivo({
     nuevo || posicion < 0 ? null : navegacion.codigos[(posicion - 1 + total) % total];
   const siguiente = nuevo || posicion < 0 ? null : navegacion.codigos[(posicion + 1) % total];
 
-  const pestanas: { clave: Pestana; label: string; meta: string }[] = [
-    { clave: 'valoracion', label: 'Valoración', meta: 'D · I · C' },
+  // Below the threshold, Amenazas and Matrices ("resumen") stay VISIBLE and DISABLED — a
+  // tab that vanishes silently reads as a defect — and the hover states the value, the
+  // threshold with its parameter source, and where to raise the valuation (D-2, REQ-SIG-20
+  // §3). Valoración is never gated: it is where the value that decides the other two lives.
+  const razonBloqueo = `Este activo vale ${valor}. El análisis de riesgos arranca en ${catalogos.umbralValoracion} — Parametro.umbral_valoracion. Subí su valoración en la pestaña Valoración si corresponde.`;
+
+  const pestanas: { clave: Pestana; label: string; meta: string; bloqueada: boolean }[] = [
+    { clave: 'valoracion', label: 'Valoración', meta: 'D · I · C', bloqueada: false },
     {
       clave: 'amenazas',
       label: 'Amenazas',
       meta: entra ? `${filas.length} riesgos` : 'no requiere',
+      bloqueada: !entra,
     },
-    { clave: 'resumen', label: 'Resumen del activo', meta: 'matrices' },
+    { clave: 'resumen', label: 'Resumen del activo', meta: 'matrices', bloqueada: !entra },
   ];
 
   return (
@@ -1331,9 +1346,11 @@ export default function FichaActivo({
               <button
                 key={p.clave}
                 type="button"
+                disabled={p.bloqueada}
                 onClick={() => setPestana(p.clave)}
                 aria-current={activa ? 'page' : undefined}
-                className="flex items-center gap-2 border-b-2 px-[18px] py-[11px] text-13 font-semibold transition-colors"
+                title={p.bloqueada ? razonBloqueo : undefined}
+                className="flex items-center gap-2 border-b-2 px-[18px] py-[11px] text-13 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   color: activa ? 'var(--hf-accent-700)' : 'var(--hf-text-faint)',
                   borderBottomColor: activa ? 'var(--hf-accent-500)' : 'transparent',
@@ -1371,9 +1388,6 @@ export default function FichaActivo({
           nFilas={filas.length}
           aplicables={preclasificadas.length}
           codigoTipo={tipo?.codigo ?? ''}
-          entra={entra}
-          umbral={catalogos.umbralValoracion}
-          valor={valor}
           catalogos={catalogos}
           abierta={abierta}
           nSinGestionar={sinGestionar.length}
@@ -2363,9 +2377,6 @@ function TabAmenazas({
   nFilas,
   aplicables,
   codigoTipo,
-  entra,
-  umbral,
-  valor,
   catalogos,
   abierta,
   nSinGestionar,
@@ -2385,9 +2396,6 @@ function TabAmenazas({
   nFilas: number;
   aplicables: number;
   codigoTipo: string;
-  entra: boolean;
-  umbral: number;
-  valor: number;
   catalogos: Catalogos;
   abierta: string | null;
   nSinGestionar: number;
@@ -2442,16 +2450,6 @@ function TabAmenazas({
           </button>
         </div>
       </div>
-
-      {!entra && (
-        <p className="rounded-[8px] border border-border-default bg-subtle px-3.5 py-2.5 text-12 text-muted [text-wrap:pretty]">
-          El valor de este activo es {valor} y no alcanza el umbral de {umbral}, así que{' '}
-          <span className="font-mono">no requiere</span> análisis y no genera riesgos. Las{' '}
-          {nFilas} amenazas siguen listadas como referencia de lo que se generaría al subir
-          la valoración: <span className="font-mono">no requiere</span> no es lo mismo que
-          cero.
-        </p>
-      )}
 
       <div className="flex flex-wrap items-center gap-2.5">
         <button
@@ -3454,14 +3452,6 @@ function TabResumen({
           reflejan bajando la degradación de la amenaza. No existe impacto residual.
         </p>
       </div>
-
-      {!entra && (
-        <p className="rounded-[8px] border border-border-default bg-subtle px-3.5 py-2.5 text-12 text-muted [text-wrap:pretty]">
-          El activo no alcanza el umbral de {catalogos.umbralValoracion}, así que{' '}
-          <span className="font-mono">no requiere</span> análisis. Las matrices muestran lo
-          que se generaría al subir la valoración.
-        </p>
-      )}
 
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(440px,1fr))]">
         <MatrizActivo

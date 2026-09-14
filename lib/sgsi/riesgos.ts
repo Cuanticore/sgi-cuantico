@@ -17,9 +17,72 @@
 // defect this domain has already paid for once, so the residual columns stay null and
 // the screens say "sin calcular" instead of showing a number nobody computed.
 
-import type { PrismaClient } from '@prisma/client';
-import { Decimal, calcularRiesgo, entraAlAnalisis, type ValoresDimension } from './formulas';
+import type { Prisma, PrismaClient } from '@prisma/client';
+import {
+  Decimal,
+  calcularRiesgo,
+  entraAlAnalisis,
+  type EntradaRiesgo,
+  type SalidaRiesgo,
+  type ValoresDimension,
+} from './formulas';
 import { eficaciaAmenaza, eficaciaDeNivel } from './madurez';
+
+/// One `RiesgoCalculo` row, ready for `createMany`. `entrada` is JSON so the four decimals
+/// can be traced back to exactly what produced them — the same shape `calcularRiesgo`
+/// takes, with `aro`/`eficacia` stringified because they may be Prisma `Decimal`s and JSON
+/// cannot hold one.
+export interface SnapshotCalculo {
+  riesgoId: number;
+  entrada: Prisma.InputJsonValue;
+  impacto: string;
+  riesgoPotencial: string;
+  frecuenciaResidual: string;
+  riesgoResidual: string;
+}
+
+/// D4 (REQ-SIG-20, tarea 1.8) · the pure decision behind `RiesgoCalculo`'s first writer.
+///
+/// `RiesgoCalculo.frecuenciaResidual` and `.riesgoResidual` are `Decimal` NOT NULL in the
+/// schema — but a residual with unknown efficacy is UNKNOWN, never zero (invariant 1, and
+/// the header comment above on why `generarRiesgos` leaves the residual columns null in
+/// `Riesgo` itself). Writing a snapshot with a zero placeholder would be exactly that
+/// defect, and widening the schema is out of scope this phase (the only migration this
+/// change allows is criticality's, in Phase 4). So this is the one choice that violates
+/// neither rule: no residual known, no row.
+///
+/// **Verified against the dev DB (2026-09-14, `npx tsx` run, no schema/data changed):**
+/// every one of the 37 in-analysis assets already has at least one `ControlAmenaza` row
+/// per threat, so `eficaciaPorAmenaza` never returns null for them today and all 722
+/// non-obsolete risks got a `RiesgoCalculo` row on this run — the residual-unknown branch
+/// below is a real safety net for a threat with zero mapped controls, not the common case
+/// this dataset exercises. Do not assume from the module's older comments (written before
+/// `ControlAmenaza` had rows) that residual is unknown everywhere; it currently is not.
+export function construirSnapshotCalculo(
+  riesgoId: number,
+  entrada: EntradaRiesgo,
+  salida: SalidaRiesgo,
+  residualConocido: boolean,
+): SnapshotCalculo | null {
+  if (!residualConocido) return null;
+  return {
+    riesgoId,
+    entrada: {
+      valores: { ...entrada.valores },
+      degradaciones: {
+        D: String(entrada.degradaciones.D),
+        I: String(entrada.degradaciones.I),
+        C: String(entrada.degradaciones.C),
+      },
+      aro: String(entrada.aro),
+      eficacia: String(entrada.eficacia),
+    } as Prisma.InputJsonValue,
+    impacto: salida.impacto.toString(),
+    riesgoPotencial: salida.riesgoPotencial.toString(),
+    frecuenciaResidual: salida.frecuenciaResidual.toString(),
+    riesgoResidual: salida.riesgoResidual.toString(),
+  };
+}
 
 export interface DiagnosticoRiesgos {
   activosEnInventario: number;
@@ -137,6 +200,10 @@ export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoR
   let generados = 0;
   let residualSinCalcular = 0;
   let consecutivo = existentes.length;
+  // D4 (tarea 1.8): the batch for `RiesgoCalculo`'s first writer. Collected here and
+  // written once after every risk is created/updated, so one `createMany` replaces what
+  // would otherwise be one insert per risk.
+  const snapshots: SnapshotCalculo[] = [];
 
   for (const activo of activos) {
     const valores = leerValores(activo.valores);
@@ -188,14 +255,16 @@ export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoR
         calculadoEn: new Date(),
       };
 
+      let riesgoId: number;
       if (previo) {
+        riesgoId = previo.id;
         await prisma.riesgo.update({
           where: { id: previo.id },
           data: { ...derivados, obsoleto: false, obsoletoEn: null },
         });
       } else {
         consecutivo++;
-        await prisma.riesgo.create({
+        const creado = await prisma.riesgo.create({
           data: {
             codigo: `R-${String(consecutivo).padStart(4, '0')}`,
             activo: { connect: { id: activo.id } },
@@ -203,9 +272,23 @@ export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoR
             ...derivados,
           },
         });
+        riesgoId = creado.id;
       }
       generados++;
+
+      const snapshot = construirSnapshotCalculo(
+        riesgoId,
+        { valores, degradaciones, aro, eficacia: eficacia ?? 0 },
+        calculo,
+        residualConocido,
+      );
+      if (snapshot) snapshots.push(snapshot);
     }
+  }
+
+  // Batched, once for the whole run — not one createMany per risk.
+  if (snapshots.length > 0) {
+    await prisma.riesgoCalculo.createMany({ data: snapshots });
   }
 
   // Out of scope now: marked obsolete, never deleted.

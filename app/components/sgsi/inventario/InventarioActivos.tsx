@@ -40,6 +40,7 @@ import {
   TODOS_TIPOS,
   TODOS_VALORES,
   consultaDeFiltros,
+  contarPorValor,
   cumpleFiltros,
   filtrosDesdeUrl,
   type CatalogosFiltro,
@@ -189,19 +190,6 @@ function colorDeNivel(valor: number): { bg: string; fg: string } {
   return { bg: `var(--hf-level-${i}-bg)`, fg: `var(--hf-level-${i}-fg)` };
 }
 
-/// Risk bands carry their own token pair. An unknown band falls back to Bajo rather
-/// than to nothing, so a renamed band never renders as an unstyled word.
-function colorDeBanda(nombre: string): { bg: string; fg: string } {
-  const clave = nombre.toLowerCase().startsWith('crít')
-    ? 'critico'
-    : nombre.toLowerCase().startsWith('alto')
-      ? 'alto'
-      : nombre.toLowerCase().startsWith('medio')
-        ? 'medio'
-        : 'bajo';
-  return { bg: `var(--hf-risk-${clave}-bg)`, fg: `var(--hf-risk-${clave}-fg)` };
-}
-
 type Agrupacion =
   | 'proceso|tipo'
   | 'tipo|proceso'
@@ -210,23 +198,24 @@ type Agrupacion =
   | 'nivel2|nivel3'
   | 'nivel3|tipo';
 
-/// The twelve columns of the grid, verbatim from the handoff. They live in one function
-/// because the header row and every asset row must never drift apart.
+/// The ten columns of the grid (REQ-SIG-20 §4/P5 drops the two risk columns the handoff
+/// originally had: the inventory answers what exists and what it is worth, not how much
+/// risk it carries — that lives on the analysis page and in the matrices). They live in
+/// one function because the header row and every asset row must never drift apart.
 ///
-/// La treceava —el custodio persona— aparece solo cuando el filtro `persona` o `conPersona`
+/// La undécima —el custodio persona— aparece solo cuando el filtro `persona` o `conPersona`
 /// esta puesto, para que se vea contra que se filtro. El resto del tiempo la grilla ya tiene
-/// doce columnas y agregar una que esta vacia en 299 de 299 activos costaria ancho sin decir
+/// diez columnas y agregar una que esta vacia en 299 de 299 activos costaria ancho sin decir
 /// nada (REQ-SIG-18 §7.5).
 function columnas(conPersona: boolean): string {
-  const base =
-    '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 124px 124px 92px';
+  const base = '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 92px';
   return conPersona ? `${base} 150px` : base;
 }
 
-/// 1552px of columns plus the row's 58px of padding. The handoff marks an insufficient
+/// 1304px of columns plus the row's 68px of padding. The handoff marks an insufficient
 /// min-width as the rule that caused repeated defects.
 function anchoMinimo(conPersona: boolean): number {
-  return conPersona ? 1770 : 1620;
+  return conPersona ? 1522 : 1372;
 }
 
 export default function InventarioActivos({
@@ -374,35 +363,42 @@ export default function InventarioActivos({
     return [...porCorreo.entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
   }, [activos]);
 
-  // The selects and the search box narrow the set first; the colour chips count over
-  // THAT set, so a chip always says how many of the currently visible assets it would
-  // keep, and never how many exist in the whole inventory.
+  // The selects and the search box narrow the set: everything `cumpleFiltros` decides
+  // lives in `lib/sgsi/inventario-filtros.ts`, with its tests.
   //
-  // Todo lo que decide vive en `lib/sgsi/inventario-filtros.ts` con sus pruebas; acá queda el
-  // color, que depende de las bandas de riesgo y se aplica despues para que los chips puedan
-  // contar sobre este conjunto.
-  const preColor = useMemo(
+  // REQ-SIG-20 §4 (D-6, P5): the `color` filter — the row's risk band — is gone from this
+  // screen. It filtered a column that no longer exists here; task 3.11 wires the same
+  // preserved logic into the risk analysis page. The grid ships without a band filter for
+  // the span between this phase and that one (see tasks.md Open Item 2) — the row
+  // background still reads the band for a quick visual scan, it is just not a filter here
+  // any more.
+  const visibles = useMemo(
+    () =>
+      calculados.filter((c) =>
+        cumpleFiltros({ ...c.activo, valores: c.valoresVigentes }, filtros, busqueda, dimensiones),
+      ),
+    [calculados, filtros, busqueda, dimensiones],
+  );
+
+  // The value-filter chips (§4/P5) count over what every OTHER filter already narrowed —
+  // the same pattern the removed colour chips used — so a chip always says how many of
+  // the currently visible assets it would keep. Never over `valor`/`valorMinimo`
+  // themselves, or clicking "Todos" would never show the true total.
+  const preValor = useMemo(
     () =>
       calculados.filter((c) =>
         cumpleFiltros(
           { ...c.activo, valores: c.valoresVigentes },
-          filtros,
+          { ...filtros, valor: null, valorMinimo: null },
           busqueda,
           dimensiones,
         ),
       ),
     [calculados, filtros, busqueda, dimensiones],
   );
-
-  const cuentaColor = useMemo(() => {
-    const c = { rojo: 0, verde: 0, blanco: 0 };
-    for (const x of preColor) c[x.color] += 1;
-    return c;
-  }, [preColor]);
-
-  const visibles = useMemo(
-    () => preColor.filter((c) => filtros.color === 'Todos' || c.color === filtros.color),
-    [preColor, filtros.color],
+  const conteoValor = useMemo(
+    () => contarPorValor(preValor.map((c) => ({ ...c.activo, valores: c.valoresVigentes })), dimensiones),
+    [preValor, dimensiones],
   );
 
   const [clave1, clave2] = agrupar.split('|') as [ClaveGrupo, ClaveGrupo];
@@ -699,67 +695,50 @@ export default function InventarioActivos({
           </div>
         )}
 
-        {/* Row 3 — the row-colour chips, which also filter and carry their own count. */}
+        {/* Row 3 — the value-filter chips (§4/P5): the fastest way to the 37 that reach
+            the threshold, with the count on every option — never hard-coded, see
+            lib/sgsi/inventario-filtros.ts's contarPorValor and its tests. */}
         <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
-          <span className="etiqueta-campo text-9">COLOR DEL RENGLÓN</span>
+          <span className="etiqueta-campo text-9">VALOR DEL ACTIVO</span>
           {(
             [
+              { k: 'todos' as const, label: 'Todos', n: conteoValor.todos, valor: null, valorMinimo: null },
+              { k: 'v5' as const, label: '5', n: conteoValor.v5, valor: 5, valorMinimo: null },
+              { k: 'v4' as const, label: '4', n: conteoValor.v4, valor: 4, valorMinimo: null },
               {
-                k: 'Todos' as const,
-                label: 'Todos',
-                swatch:
-                  'linear-gradient(90deg, var(--hf-row-rojo) 0 34%, var(--hf-row-verde) 34% 67%, var(--hf-row-blanco) 67%)',
-                borde: '#dde2df',
-                n: preColor.length,
+                k: 'v4y5' as const,
+                label: '4 y 5',
+                n: conteoValor.v4y5,
+                valor: null,
+                valorMinimo: 4,
               },
-              {
-                k: 'rojo' as const,
-                // Two readings under one colour: a measured residual of 4-5, and a high
-                // inherent whose residual nobody has computed. The chip names both, because
-                // "Residual 4 a 5" over rows that have no residual at all is a lie.
-                label: 'Residual 4 a 5 o sin calcular',
-                swatch: 'var(--hf-row-rojo)',
-                borde: 'var(--hf-cmm-rojo-bd)',
-                n: cuentaColor.rojo,
-              },
-              {
-                k: 'verde' as const,
-                label: 'Inherente 4 a 5, residual 1 a 3',
-                swatch: 'var(--hf-row-verde)',
-                borde: '#cfe4d7',
-                n: cuentaColor.verde,
-              },
-              {
-                k: 'blanco' as const,
-                label: 'Valor 1 a 3',
-                swatch: 'var(--hf-row-blanco)',
-                borde: '#dde2df',
-                n: cuentaColor.blanco,
-              },
+              { k: 'v3' as const, label: '3', n: conteoValor.v3, valor: 3, valorMinimo: null },
+              { k: 'v2' as const, label: '2', n: conteoValor.v2, valor: 2, valorMinimo: null },
             ] as const
           ).map((c) => {
-            const activo = filtros.color === c.k;
+            const activo =
+              filtros.dimension === CRITERIO_MAX &&
+              filtros.valor === c.valor &&
+              filtros.valorMinimo === c.valorMinimo;
             return (
               <button
                 key={c.k}
                 aria-pressed={activo}
-                onClick={() => setFiltros((f) => ({ ...f, color: c.k }))}
-                className="flex items-center gap-2 rounded-chip border py-1.5 pr-3 pl-2 transition-colors"
+                aria-label={`Filtrar por valor del activo: ${c.label}`}
+                onClick={() =>
+                  setFiltros((f) => ({
+                    ...f,
+                    dimension: CRITERIO_MAX,
+                    valor: c.valor,
+                    valorMinimo: c.valorMinimo,
+                  }))
+                }
+                className="flex items-center gap-2 rounded-chip border py-1.5 pr-3 pl-2.5 transition-colors"
                 style={{
                   borderColor: activo ? 'var(--hf-brand-nav)' : 'var(--hf-border-field)',
                   background: activo ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
                 }}
               >
-                <span
-                  className="rounded-swatch border"
-                  style={{
-                    width: 20,
-                    height: 13,
-                    flex: 'none',
-                    background: c.swatch,
-                    borderColor: c.borde,
-                  }}
-                />
                 <span
                   className="text-11_5"
                   style={{
@@ -817,8 +796,6 @@ export default function InventarioActivos({
               VALOR
             </div>
             <div>NIVEL</div>
-            <div>RIESGO INHERENTE</div>
-            <div>RIESGO RESIDUAL</div>
             <div className="text-right">RIESGOS</div>
             {verPersona && <div>CUSTODIO PERSONA</div>}
           </div>
@@ -1025,9 +1002,6 @@ function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
         </span>
       </div>
 
-      <CeldaRiesgo nivel={c.inherente} entra={c.entra} tieneRiesgos={a.riesgos.length > 0} />
-      <CeldaRiesgo nivel={c.residual} entra={c.entra} tieneRiesgos={a.riesgos.length > 0} />
-
       <div className="text-right font-mono text-11">
         {!c.entra ? (
           <span className="text-[var(--hf-text-placeholder)]" title="Su valor no alcanza el umbral">
@@ -1047,38 +1021,6 @@ function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/// Three states, and none of them is a zero or a bare dash: an asset below the threshold
-/// does not require the analysis, one above it without rows has not had them generated,
-/// and a level that cannot be classified has not been calculated.
-function CeldaRiesgo({
-  nivel,
-  entra,
-  tieneRiesgos,
-}: {
-  nivel: NivelRiesgo | null;
-  entra: boolean;
-  tieneRiesgos: boolean;
-}) {
-  if (nivel === null) {
-    const texto = !entra ? 'no requiere' : !tieneRiesgos ? 'sin generar' : 'sin calcular';
-    return (
-      <div className="font-mono text-10_5 text-[var(--hf-text-placeholder)]">{texto}</div>
-    );
-  }
-  const color = colorDeBanda(nivel.banda);
-  return (
-    <div className="flex items-center gap-2" title={`Mayor riesgo del activo: ${nivel.figura}`}>
-      <span className="cifra text-13 font-bold text-primary">{nivel.nivel}</span>
-      <span
-        className="inline-block rounded-badge px-1.5 py-0.5 text-10_5 font-semibold"
-        style={{ background: color.bg, color: color.fg }}
-      >
-        {nivel.banda}
-      </span>
     </div>
   );
 }

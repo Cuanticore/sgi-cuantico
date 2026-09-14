@@ -13,6 +13,7 @@ import {
   TODOS_SUBTIPOS,
   TODOS_TIPOS,
   consultaDeFiltros,
+  contarPorValor,
   cumpleFiltros,
   filtrosDesdeUrl,
   hayFiltros,
@@ -314,5 +315,62 @@ describe('los filtros que ya existían siguen igual', () => {
         persona: TODAS_PERSONAS,
       }),
     ).toBe(true);
+  });
+});
+
+// El filtro de valor del §4 (P5): los conteos que la grilla muestra en sus opciones nunca se
+// hardcodean, se recalculan sobre lo que reciben. La forma del fixture es la de V19 (299
+// activos: 3 en 5, 34 en 4, 244 en 3, 18 en 2) pero SE ARMA con un loop, nunca se copian los
+// números — si `contarPorValor` tuviera el 37 escrito a mano, un loop con otra distribución lo
+// destaparía.
+describe('§4 (P5) · contarPorValor nunca hardcodea el total', () => {
+  function activosDeValor(valor: number, cantidad: number): ActivoFiltrable[] {
+    return Array.from({ length: cantidad }, (_, i) =>
+      activo({ codigo: `V${valor}-${i}`, valores: { D: valor, I: valor, C: valor } }),
+    );
+  }
+
+  const V19 = [
+    ...activosDeValor(5, 3),
+    ...activosDeValor(4, 34),
+    ...activosDeValor(3, 244),
+    ...activosDeValor(2, 18),
+  ];
+
+  it('reproduce la distribución de V19: 5·3, 4·34, "4 y 5"·37, 3·244, 2·18, Todos·299', () => {
+    expect(contarPorValor(V19, DIMENSIONES)).toEqual({
+      todos: 299,
+      v5: 3,
+      v4: 34,
+      v4y5: 37,
+      v3: 244,
+      v2: 18,
+    });
+  });
+
+  it('una revisión de valoración mueve las cifras sin tocar código (triangulación)', () => {
+    // Treinta de los 244 activos de valor 3 suben a 4 — el escenario que el §2 del
+    // requerimiento advierte que hay que aguantar.
+    const revisado = [
+      ...activosDeValor(5, 3),
+      ...activosDeValor(4, 34 + 30),
+      ...activosDeValor(3, 244 - 30),
+      ...activosDeValor(2, 18),
+    ];
+    expect(contarPorValor(revisado, DIMENSIONES)).toEqual({
+      todos: 299,
+      v5: 3,
+      v4: 64,
+      v4y5: 67,
+      v3: 214,
+      v2: 18,
+    });
+  });
+
+  it('un activo sin ninguna valoración no entra en ningún cubo, pero sí en Todos', () => {
+    const conUnoSinValorar = [...V19, activo({ codigo: 'SIN-VALORAR', valores: {} })];
+    const conteo = contarPorValor(conUnoSinValorar, DIMENSIONES);
+    expect(conteo.todos).toBe(300);
+    expect(conteo.v5 + conteo.v4 + conteo.v3 + conteo.v2).toBe(299);
   });
 });

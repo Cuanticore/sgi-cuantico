@@ -10,7 +10,7 @@
 // prueba acá: `useSearchParams` está simulado. Lo que se prueba es que el primer render ya llega
 // filtrado, que es la mitad que depende del código.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import InventarioActivos, { type ActivoVista } from '../InventarioActivos';
 import type { DimensionActiva } from '@/lib/sgsi/valoracion-agregada';
 
@@ -236,5 +236,38 @@ describe('§7.1 · el estado se refleja de vuelta en la URL', () => {
     consulta = 'propietario=CEO';
     pintar();
     expect(reemplazos).toEqual([]);
+  });
+});
+
+// REQ-SIG-20 §4 (D-6, P5): la grilla se centra en «qué tenemos y cuánto vale», no en el
+// riesgo — eso vive en la página de análisis y en las matrices.
+describe('REQ-SIG-20 §4 (P5) · la grilla sin columnas de riesgo, con el filtro de valor', () => {
+  it('no muestra las columnas de riesgo inherente ni residual', () => {
+    pintar();
+    expect(screen.queryByText('RIESGO INHERENTE')).not.toBeInTheDocument();
+    expect(screen.queryByText('RIESGO RESIDUAL')).not.toBeInTheDocument();
+  });
+
+  it('no muestra el filtro «color del renglón»: se movió, no se borró (D-6)', () => {
+    pintar();
+    expect(screen.queryByText('COLOR DEL RENGLÓN')).not.toBeInTheDocument();
+  });
+
+  it('ofrece el filtro de valor con los conteos a la vista, nunca hardcodeados', () => {
+    pintar();
+    expect(screen.getByText('VALOR DEL ACTIVO')).toBeInTheDocument();
+    // Los cuatro activos del fixture: dos valen 4 (A-01, A-02), uno vale 1 (A-03) y uno
+    // vale 3 (A-04) — así que «Todos» cuenta los cuatro y «4» cuenta dos.
+    const botonTodos = screen.getByRole('button', { name: 'Filtrar por valor del activo: Todos' });
+    expect(botonTodos).toHaveTextContent('4');
+    const botonCuatro = screen.getByRole('button', { name: 'Filtrar por valor del activo: 4' });
+    expect(botonCuatro).toHaveTextContent('2');
+  });
+
+  it('clickear el chip «4» filtra la grilla al valor del activo, no a una dimensión', () => {
+    pintar();
+    const botonCuatro = screen.getByRole('button', { name: 'Filtrar por valor del activo: 4' });
+    fireEvent.click(botonCuatro);
+    expect(visibles()).toBe(2);
   });
 });

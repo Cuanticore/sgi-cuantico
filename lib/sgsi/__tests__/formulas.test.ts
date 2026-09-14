@@ -88,6 +88,20 @@ describe('umbral de entrada al análisis', () => {
     expect(entraAlAnalisis({ D: 3, I: 3, C: 2 }, 4)).toBe(false);
     expect(entraAlAnalisis({ D: 3, I: 4, C: 2 }, 4)).toBe(true);
   });
+
+  // Tarea 1.10 (REQ-SIG-20 §3, spec risk-analysis-scope «Threshold change re-enables
+  // without recompile»): el mismo activo, sin tocar código, cambia de lado cuando el
+  // PARÁMETRO cambia — nunca al revés. `generarRiesgos` (lib/sgsi/riesgos.ts) lee
+  // `Parametro.umbral_valoracion` de la base en cada corrida y se lo pasa tal cual a esta
+  // misma función; no hay ningún 4 escrito a mano en ese camino. La prueba de integración
+  // completa (mutar la fila real y volver a correr `generarRiesgos`) no se hizo acá: crear
+  // y luego revertir ~250 filas de `Riesgo`/`RiesgoCalculo` en la base de desarrollo
+  // compartida solo para esta aserción es un costo que esta función pura ya cubre.
+  it('el mismo activo cambia de lado cuando el umbral cambia, no cuando el activo cambia', () => {
+    const activo = { D: 3, I: 3, C: 3 };
+    expect(entraAlAnalisis(activo, 4)).toBe(false);
+    expect(entraAlAnalisis(activo, 3)).toBe(true);
+  });
 });
 
 describe('zonas de riesgo, MAGERIT Libro I cap. 3', () => {
