@@ -57,6 +57,10 @@ for (let r = 8; r <= hojaV19.rowCount; r++) {
   activos.push({
     codigo,
     nombre: val(fila.getCell(6)),
+    nivel1: val(fila.getCell(3)),
+    nivel2: val(fila.getCell(4)),
+    nivel3: val(fila.getCell(5)),
+    etiquetaV19: val(fila.getCell(25)),
     proceso: val(fila.getCell(11)),
     tipo: tipo ? `[${tipo}]` : '',
     subtipo: val(fila.getCell(10)),
@@ -67,6 +71,24 @@ for (let r = 8; r <= hojaV19.rowCount; r++) {
     C: primerDigito(val(fila.getCell(23))),
   });
 }
+
+// ── 1b · Criticidad de negocio, asignada por regla ────────────────────────────
+//
+// Instrucción del líder del SIG (2026-09-14): el ambiente de producción de MinTrace
+// es el más alto, los demás ambientes productivos el siguiente, y el resto más bajo.
+//
+// La regla se escribe acá y la columna «Origen» la deja visible en la hoja, para que
+// cualquiera pueda discutir una fila sin tener que adivinar por qué le tocó ese nivel.
+const criticidadDe = (a) => {
+  if (/mintrace/i.test(a.nombre) && /ambiente de producci/i.test(a.nombre)) {
+    return ['C1', 'Ambiente de producción de MinTrace · el más alto'];
+  }
+  if (/ambiente de producci/i.test(a.nombre)) {
+    return ['C2', 'Ambiente de producción'];
+  }
+  return ['C4', 'Resto del inventario'];
+};
+for (const a of activos) [a.criticidad, a.origenCriticidad] = criticidadDe(a);
 
 // ── 2 · Catálogos ─────────────────────────────────────────────────────────────
 const CRITICIDAD = [
@@ -197,38 +219,48 @@ const titulo = (ws, celda, texto) => {
 {
   const ws = wb.addWorksheet('Activos');
   encabezar(ws, [
-    ['Código', 'codigo', 14], ['Nombre del activo', 'nombre', 46], ['Proceso o Área', 'proceso', 26],
+    ['Código', 'codigo', 14], ['Nombre del activo', 'nombre', 46],
+    ['Nivel 1', 'n1', 12], ['Nivel 2', 'n2', 17], ['Nivel 3', 'n3', 24],
+    ['Proceso o Área', 'proceso', 26],
     ['Tipo', 'tipo', 9], ['Subtipo', 'subtipo', 28],
     ['Propietario (cargo)', 'prop', 28], ['Custodio (cargo)', 'cust', 28],
     ['D', 'D', 5], ['I', 'I', 5], ['C', 'C', 5],
     ['Valor  =MAX(D,I,C)', 'valor', 11],
-    ['CRITICIDAD ← diligenciar', 'crit', 15],
+    ['CRITICIDAD ← editable', 'crit', 15],
+    ['Origen de la criticidad', 'orig', 34],
     ['RTO (min)', 'rto', 10],
     ['¿Entra al análisis?', 'entra', 12],
     ['Nivel exigido al principal', 'exige', 13],
+    ['Etiqueta V19', 'etq', 12],
   ]);
   activos.forEach((a, i) => {
     const f = i + 2;
     ws.addRow({
-      codigo: a.codigo, nombre: a.nombre, proceso: a.proceso, tipo: a.tipo, subtipo: a.subtipo,
+      codigo: a.codigo, nombre: a.nombre,
+      n1: a.nivel1, n2: a.nivel2, n3: a.nivel3,
+      proceso: a.proceso, tipo: a.tipo, subtipo: a.subtipo,
       prop: a.propietario, cust: a.custodio, D: a.D, I: a.I, C: a.C,
-      valor: { formula: `MAX(H${f}:J${f})` },
-      crit: null,
-      rto: { formula: `IFERROR(VLOOKUP($L${f},Escalas!$A$12:$F$16,3,FALSE),"")` },
-      entra: { formula: `IF($K${f}>=Escalas!$B$27,"SÍ","no")` },
-      exige: { formula: `IF($L${f}="","",MAX(IFERROR(VLOOKUP($L${f},Escalas!$A$12:$F$16,5,FALSE),0),IF($H${f}=5,4,IF($H${f}=4,3,0))))` },
+      valor: { formula: `MAX(K${f}:M${f})` },
+      crit: a.criticidad,
+      orig: a.origenCriticidad,
+      rto: { formula: `IFERROR(VLOOKUP($O${f},Escalas!$A$12:$F$16,3,FALSE),"")` },
+      entra: { formula: `IF($N${f}>=Escalas!$B$27,"SÍ","no")` },
+      exige: { formula: `IF($O${f}="","",MAX(IFERROR(VLOOKUP($O${f},Escalas!$A$12:$F$16,5,FALSE),0),IF($K${f}=5,4,IF($K${f}=4,3,0))))` },
+      etq: a.etiquetaV19,
     });
   });
-  // Desplegable de criticidad
+  // Desplegable de criticidad, ya asignada por regla pero editable fila a fila
   for (let r = 2; r <= activos.length + 1; r++) {
-    ws.getCell(`L${r}`).dataValidation = {
+    ws.getCell(`O${r}`).dataValidation = {
       type: 'list', allowBlank: true, formulae: ['"C1,C2,C3,C4,C5"'],
       promptTitle: 'Criticidad de negocio',
       prompt: 'C1 RTO≤10min · C2 ≤4h · C3 ≤24h · C4 ≤72h · C5 sin compromiso',
     };
-    ws.getCell(`L${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBAR } };
+    ws.getCell(`O${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBAR } };
+    ws.getCell(`P${r}`).font = { size: 9, italic: true, color: { argb: 'FF666660' } };
   }
-  ws.getColumn('K').font = { bold: true };
+  ws.getColumn('N').font = { bold: true };
+  ws.getColumn('O').font = { bold: true };
   cuerpo(ws);
 }
 
@@ -386,7 +418,7 @@ const riesgos = [];
     const A = `"${r.act.codigo}"`;
     ws.addRow({
       ac: r.act.codigo, an: r.act.nombre, pr: r.act.proceso, po: r.act.propietario,
-      cr: { formula: `IFERROR(VLOOKUP($A${f},Activos!$A:$L,12,FALSE),"")` },
+      cr: { formula: `IFERROR(VLOOKUP($A${f},Activos!$A:$O,15,FALSE),"")` },
       D: r.act.D, I: r.act.I, C: r.act.C,
       am: r.am.codigo, nm: r.am.nombre,
       fD: { formula: `IFERROR(VLOOKUP($I${f},Amenazas!$A:$G,7,FALSE),0)` },
@@ -500,11 +532,23 @@ matriz('MatrizResidual', '$Z', '$X',
     ['Fuente de activos', 'FOR-SIG-12 Consolidado de Activos de Información V19.xlsx'],
     ['Requerimientos', 'REQ-SIG-20 §11 (criticidad) · REQ-SIG-21 §4 (eficacia) · REQ-SIG-23 (exigencia)'],
     ['', ''],
-    ['LAS DOS COLUMNAS A DILIGENCIAR — están en ámbar', ''],
-    ['1 · Activos!L', 'CRITICIDAD de negocio. La declara el negocio, no se calcula. Empezá por los que'],
-    ['', 'dicen SÍ en «¿Entra al análisis?»: son los que generan riesgos.'],
-    ['2 · ControlAmenaza!F', 'RELEVANCIA de cada par. Exactamente UN «Principal» por amenaza.'],
-    ['', 'Mientras esté vacía, esa amenaza se calcula por la media simple de MET-SIG-01 v2.'],
+    ['LAS COLUMNAS EDITABLES — están en ámbar', ''],
+    ['1 · Activos!O', 'CRITICIDAD de negocio. Viene ASIGNADA por la regla del 14/09: el ambiente de'],
+    ['', 'producción de MinTrace en C1, los otros ocho ambientes productivos en C2, y el'],
+    ['', 'resto del inventario en C4. La columna P dice de dónde salió cada una, para que'],
+    ['', 'puedas discutir una fila sin adivinar. Se edita con el desplegable.'],
+    ['2 · ControlAmenaza!F', 'RELEVANCIA de cada par. **Esto sigue vacío y es el trabajo pendiente.**'],
+    ['', 'Exactamente UN «Principal» por amenaza. Mientras esté vacía, esa amenaza se'],
+    ['', 'calcula por la media simple de MET-SIG-01 v2 y el techo del principal no opera.'],
+    ['3 · Controles!G', 'MADUREZ actual de cada control. Editable para tantear escenarios.'],
+    ['', ''],
+    ['LA JERARQUÍA DEL ACTIVO', ''],
+    ['Activos!C, D, E', 'Nivel 1 / 2 / 3 del Consolidado V19. El Nivel 2 es el producto o servicio'],
+    ['', '—MINTRACE, ILC, SIG, SERVICIOS BASE— y es por donde conviene agrupar al revisar'],
+    ['', 'la criticidad: los activos de un mismo producto suelen compartir compromiso.'],
+    ['Activos!S', 'La etiqueta que V19 trae en su columna 25. Se incluye para trazabilidad y'],
+    ['', 'porque discrepa en un activo: LCO-DAT-0013 «RNBD - SIC» calcula valor 3 (Medio)'],
+    ['', 'y V19 lo rotula «Bajo». Uno de los dos está mal y hay que mirarlo.'],
     ['', ''],
     ['CÓMO LEER EL RESULTADO', ''],
     ['EficaciaAmenaza!N', 'Dice «v2» o «v3»: con qué regla se calculó esa amenaza. Hoy son todas v2.'],
@@ -549,3 +593,24 @@ for (const n of ['Activos', 'Amenazas', 'Controles', 'ControlAmenaza', 'Eficacia
 }
 console.log('activos en análisis:', activos.filter((a) => Math.max(a.D ?? 0, a.I ?? 0, a.C ?? 0) >= UMBRAL_VALORACION).length);
 console.log('riesgos generados  :', riesgos.length);
+
+console.log('\n=== CRITICIDAD ASIGNADA ===');
+const porCrit = {};
+for (const a of activos) porCrit[a.criticidad] = (porCrit[a.criticidad] ?? 0) + 1;
+for (const [k, n] of Object.entries(porCrit).sort()) console.log(`  ${k}  ${String(n).padStart(3)} activos`);
+console.log('\n  C1 y C2:');
+for (const a of activos.filter((x) => x.criticidad !== 'C4')) {
+  console.log(`    ${a.criticidad}  ${a.codigo.padEnd(14)}v${Math.max(a.D ?? 0, a.I ?? 0, a.C ?? 0)}  ${a.nivel2.padEnd(15)}${a.nombre.slice(0, 40)}`);
+}
+
+// Coherencia: infraestructura bajo un producto cuyo ambiente es C1/C2 y que quedó en C4.
+const n2Criticos = new Set(activos.filter((a) => a.criticidad === 'C1' || a.criticidad === 'C2').map((a) => a.nivel2));
+const sospechosos = activos.filter(
+  (a) => a.criticidad === 'C4' && n2Criticos.has(a.nivel2) &&
+    ['[HW]', '[COM]', '[S]', '[SW]'].includes(a.tipo) &&
+    Math.max(a.D ?? 0, a.I ?? 0, a.C ?? 0) >= UMBRAL_VALORACION,
+);
+console.log(`\n  ⚠ en C4 pero sostienen un producto C1/C2 y entran al análisis: ${sospechosos.length}`);
+for (const a of sospechosos) {
+  console.log(`      ${a.codigo.padEnd(14)}v${Math.max(a.D ?? 0, a.I ?? 0, a.C ?? 0)}  ${a.tipo.padEnd(7)}${a.nivel2.padEnd(15)}${a.nombre.slice(0, 40)}`);
+}
