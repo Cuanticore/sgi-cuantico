@@ -1,0 +1,69 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Next.js 16.3 (App Router, standalone output, port 3004) + React 19 + TypeScript 5 (strict) + Prisma 7.9/PostgreSQL (@prisma/adapter-pg) + Tailwind CSS 4 + NextAuth 4.
+  Architecture: route dirs under app/ (sig, sgsi, estrategico, scorm, tecnologia, mi-sig, auth, api); server-side domain modules in lib/sig and lib/sgsi; middleware.ts; scripts/ tooling.
+  Domain: single-tenant SGSI — MAGERIT v3.0 asset/risk analysis + ISO/IEC 27001:2022 Annex A maturity; Spanish domain vocabulary by design.
+  Testing: Jest 30 via next/jest (jsdom), suites collocated in __tests__ next to modules; ESLint 9 flat config; no formatter configured.
+  Quality caveat: `next build` ignores TypeScript errors (ignoreBuildErrors: true) — typecheck explicitly with `npx tsc --noEmit`.
+  Docs/CI: requirements live in docs/handoff_sig/; CI workflows are deploy-only (no test/lint/typecheck gates); dev DB via `npm run db:up` (docker-compose.dev.yml).
+
+strict_tdd: true
+
+testing: |
+  ## Testing Capabilities
+
+  **Strict TDD Mode**: enabled
+  **Detected**: 2026-09-14
+
+  ### Test Runner
+
+  - Command: `npm test` (runs `jest`)
+  - Framework: Jest 30 via next/jest (jsdom, ts-jest; testMatch `**/__tests__/**/*.test.ts(x)`)
+
+  ### Test Layers
+
+  | Layer       | Available | Tool |
+  | ----------- | --------- | ---- |
+  | Unit        | ✅ | Jest 30 + Testing Library; ~40 suites collocated in lib/sig/__tests__ |
+  | Integration | ✅ | @testing-library/react + @testing-library/jest-dom (jsdom component tests) |
+  | E2E         | ❌ | — (@playwright/test is installed but no playwright.config.* or e2e specs exist) |
+
+  ### Coverage
+
+  - Available: ✅
+  - Command: `npx jest --coverage` (Jest built-in; no threshold configured)
+
+  ### Quality Tools
+
+  | Tool         | Available | Command |
+  | ------------ | --------- | ------- |
+  | Linter       | ✅ | `npm run lint` (ESLint 9 flat config, eslint-config-next; docs/ ignored) |
+  | Type checker | ✅ | `npx tsc --noEmit` (no package script; `next build` ignores TS errors) |
+  | Formatter    | ❌ | — (no Prettier/Biome config found) |
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes (production deploys are gated by preflight + prisma migrate deploy + backup in .github/workflows/deploy.yml)
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+      - Collocate unit tests in __tests__ next to the module under test
+    tdd: true
+    test_command: "npm test"
+  verify:
+    test_command: "npm test"
+    build_command: "npm run build"
+    typecheck_command: "npx tsc --noEmit"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
