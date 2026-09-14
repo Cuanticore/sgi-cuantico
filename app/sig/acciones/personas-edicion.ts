@@ -44,6 +44,7 @@ import {
   type ContactoPropuesto,
 } from '@/lib/sig/contactos';
 import { planificarGeneracion, type AsignacionACrear } from '@/lib/sig/generacion';
+import { planificarGrupos, type PlanDeGrupos } from '@/lib/sig/grupos';
 import {
   desglosarPorOrigen,
   frasesDelDesglose,
@@ -76,6 +77,18 @@ export interface DatosPertenencia {
   /// previsión y la pestaña de datos base guardan sin abrir Contactos, y si la ausencia se
   /// leyera como lista vacía, guardar el área de alguien le borraría a quién llamar.
   contactosEmergencia?: ContactoPropuesto[];
+  /// **P10 · los grupos de interés marcados, la lista entera.** Son casillas —se pertenece a
+  /// varios a la vez— así que llega el conjunto completo y se cruza con las membresías
+  /// vigentes: lo que no viene se cierra, lo que viene y no estaba se abre.
+  ///
+  /// `undefined` significa «el formulario no trajo la lista» y **no** «los desmarcaron a
+  /// todos»: la previsión y la pestaña de datos base guardan sin abrir Grupos, y si la
+  /// ausencia se leyera como lista vacía, corregir un teléfono sacaría a la persona de todos
+  /// sus grupos y le dejaría los pendientes colgando.
+  ///
+  /// **El grupo derivado no va acá.** Se rechaza en el servidor (`planificarGrupos`), no sólo
+  /// con la casilla deshabilitada del popup.
+  gruposInteres?: number[];
   /// **P27 · el motivo se exige donde la decisión tiene consecuencia**, y editar un teléfono
   /// no es una de esas. Opcional acá; obligatorio en bloqueo, desbloqueo, anulación y
   /// reasignación. Pedirlo para corregir un teléfono convierte el campo en un trámite y lo
@@ -91,6 +104,10 @@ export interface ResultadoPertenencia extends Resultado {
   /// **P4 · los pendientes que venían del área anterior.** No se borran ni se cierran: se
   /// cuentan y se dicen. Una asignación puede tener un registro de realizado detrás.
   pendientesDelAreaAnterior: number;
+  /// **P13 → P4 · los pendientes de los grupos que se desmarcaron.** Mismo trato que el área
+  /// anterior: se cuentan y se dicen, no se cierran ni se anulan (R9). Salir de un grupo no
+  /// es haber cumplido lo que ese grupo pedía.
+  pendientesDeGruposRetirados: number;
 }
 
 const VACIO = {
@@ -98,6 +115,7 @@ const VACIO = {
   desglose: [] as RenglonDelDesglose[],
   frases: [] as string[],
   pendientesDelAreaAnterior: 0,
+  pendientesDeGruposRetirados: 0,
 };
 
 /// Lo que el generador necesita saber de las obligaciones, más los nombres que el desglose
@@ -145,7 +163,9 @@ const SELECCION_PERSONA = {
   direccion: true,
   area: { select: { nombre: true } },
   cargo: { select: { nombre: true } },
-  gruposInteres: { where: { hasta: null }, select: { grupoId: true, desde: true } },
+  // Sólo las VIGENTES. El `id` viaja porque desmarcar **cierra** esa fila con `hasta` y hay
+  // que saber cuál: una membresía cerrada sigue contestando quién estaba en el grupo en marzo.
+  gruposInteres: { where: { hasta: null }, select: { id: true, grupoId: true, desde: true } },
 } as const;
 
 /// El nombre que el desglose pone en la frase, según el alcance.
@@ -194,6 +214,9 @@ interface Calculo {
   desglose: RenglonDelDesglose[];
   asignadas: number;
   pendientesDelAreaAnterior: number;
+  /// `null` cuando el formulario no trajo la lista de grupos: no hay nada que abrir ni cerrar.
+  planGrupos: PlanDeGrupos | null;
+  pendientesDeGruposRetirados: number;
 }
 
 function leerPersona(personaId: number) {
@@ -252,6 +275,40 @@ async function calcular(
         })
       : 0;
 
+  // ── P10 · el plan de los grupos de interés, decidido antes de tocar nada ────────────────
+  //
+  // **El rechazo del derivado vive acá y no en la pantalla.** La casilla de «Todos» está
+  // deshabilitada en el popup, pero eso sólo protege a quien usa el popup: la acción es
+  // invocable directamente con el id puesto. Y como el rechazo está en `calcular()`, lo
+  // comparten la previsión y el guardado — el popup se entera del error antes de apretar
+  // Guardar, y la transacción no llega a abrirse.
+  let planGrupos: PlanDeGrupos | null = null;
+  if (datos.gruposInteres !== undefined) {
+    const catalogo = await prisma.grupoInteres.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, derivado: true },
+    });
+    planGrupos = planificarGrupos(persona.gruposInteres, datos.gruposInteres, catalogo, hoy);
+    if (planGrupos.errores.length > 0) {
+      return { ok: false, mensaje: planGrupos.errores.join('; ') + '.' };
+    }
+  }
+
+  // **P13 → P4 · los pendientes de los grupos que se desmarcan.** Se cuentan contra los grupos
+  // de los que la persona sale, igual que con el área anterior, y **no se tocan**: cada uno
+  // puede tener un registro de realizado detrás, y cerrarlos inventaría cumplimiento (R9).
+  const gruposRetirados = (planGrupos?.cerrar ?? []).map((m) => m.grupoId);
+  const pendientesDeGruposRetirados =
+    gruposRetirados.length === 0
+      ? 0
+      : await prisma.asignacion.count({
+          where: {
+            personaId,
+            estado: 'PENDIENTE',
+            obligacion: { alcance: 'GRUPO_INTERES', alcanceGrupoInteresId: { in: gruposRetirados } },
+          },
+        });
+
   const [obligaciones, existentes, activos] = await Promise.all([
     prisma.obligacion.findMany({ select: SELECCION_OBLIGACION }),
     // Sólo las de esta persona: el plan se calcula para una, y traer el resto sería leer
@@ -280,7 +337,12 @@ async function calcular(
       ingreso: dia(datos.fechaIngreso) ?? persona.fechaIngreso ?? persona.creadaEn,
       areaDesde,
       cargoDesde,
-      gruposDesde: persona.gruposInteres,
+      // **P16 · la pertenencia NUEVA también para los grupos.** El generador resuelve el
+      // alcance `GRUPO_INTERES` con esta lista y con el `desde` de cada membresía; pasarle las
+      // vigentes de antes haría que marcar un grupo no moviera el número, y el popup volvería
+      // a prometer tareas que no se crean. Cuando el formulario no trajo la lista, las
+      // vigentes de antes SON las de después.
+      gruposDesde: planGrupos?.vigentesResultantes ?? persona.gruposInteres,
     },
   ];
 
@@ -304,6 +366,8 @@ async function calcular(
     desglose,
     asignadas: totalDelDesglose(desglose),
     pendientesDelAreaAnterior,
+    planGrupos,
+    pendientesDeGruposRetirados,
   };
 }
 
@@ -331,6 +395,38 @@ export async function preverPertenencia(
       desglose: r.desglose,
       frases: frasesDelDesglose(r.desglose),
       pendientesDelAreaAnterior: r.pendientesDelAreaAnterior,
+      pendientesDeGruposRetirados: r.pendientesDeGruposRetirados,
+    };
+  });
+}
+
+export interface ResultadoGrupos extends Resultado {
+  /// Los ids de los grupos a los que la persona pertenece **hoy** (`hasta IS NULL`). El
+  /// derivado no está: no tiene filas, su pertenencia se calcula.
+  grupos: number[];
+}
+
+/// **Las membresías vigentes de una persona, pedidas aparte.**
+///
+/// Fuera del censo por lo mismo que los contactos de emergencia, aunque el motivo sea otro: la
+/// pantalla de personas lee 90 filas y las manda enteras al navegador. Sumarle a cada una sus
+/// membresías es una consulta más por fila —o un `include` que multiplica el payload— para un
+/// dato que sólo mira quien abre la pestaña Grupos de una persona concreta.
+export async function leerGruposDePersona(personaId: number): Promise<ResultadoGrupos> {
+  return ejecutar<ResultadoGrupos>(async () => {
+    await autorConPermiso('personas:administrar');
+    exigirId(personaId, 'la persona');
+
+    const miembros = await prisma.miembroGrupoInteres.findMany({
+      where: { personaId, hasta: null },
+      select: { grupoId: true },
+      orderBy: { grupoId: 'asc' },
+    });
+
+    return {
+      ok: true,
+      mensaje: `${miembros.length} grupo(s) de interés.`,
+      grupos: miembros.map((m) => m.grupoId),
     };
   });
 }
@@ -433,6 +529,10 @@ export async function guardarPertenencia(
     // para que el contacto quede con el mismo `registroId` —el correo— que los demás campos
     // de la persona y una sola consulta a la bitácora cuente la historia completa.
     for (const a of planContactos?.anotaciones ?? []) anotar(a.campo, a.anterior, a.nuevo);
+    // Lo mismo con los grupos: las frases las redactó `planificarGrupos`, y entran por el
+    // mismo `anotar` para que el alta de una membresía y el cambio de área de la misma persona
+    // queden bajo el mismo `registroId` —el correo— y una sola consulta cuente la historia.
+    for (const a of r.planGrupos?.anotaciones ?? []) anotar(a.campo, a.anterior, a.nuevo);
 
     // ── P14 · TODO en una transacción ──────────────────────────────────────────────────
     await prisma.$transaction(
@@ -481,6 +581,30 @@ export async function guardarPertenencia(
           }
           for (const c of planContactos.crear) {
             await tx.contactoEmergencia.create({ data: { personaId, ...c } });
+          }
+        }
+
+        if (r.planGrupos !== null) {
+          // **Se CIERRA, no se borra.** `MiembroGrupoInteres.hasta` existe para que «quién
+          // estaba en Desarrolladores en marzo» siga teniendo respuesta: un `delete` acá
+          // dejaría esa pregunta sin contestar y además borraría el `desde` con el que el
+          // generador calculó el piso de los periodos que ya se asignaron. Es deliberadamente
+          // lo contrario del retiro de un contacto de emergencia, que sí es físico porque esa
+          // tabla no tiene columna de baja.
+          for (const m of r.planGrupos.cerrar) {
+            await tx.miembroGrupoInteres.update({ where: { id: m.id }, data: { hasta: m.hasta } });
+          }
+          for (const m of r.planGrupos.crear) {
+            // La llave `@@unique([grupoId, personaId])` significa que una membresía cerrada
+            // ocupa el lugar de la nueva: volver a marcar un grupo del que alguien salió no
+            // puede ser un `create`, tiene que reabrir esa fila. Se reabre con el `desde` de
+            // hoy, que es lo que P16 pide — la pertenencia arranca ahora, no cuando arrancó la
+            // anterior.
+            await tx.miembroGrupoInteres.upsert({
+              where: { grupoId_personaId: { grupoId: m.grupoId, personaId } },
+              create: { grupoId: m.grupoId, personaId, desde: m.desde },
+              update: { desde: m.desde, hasta: null },
+            });
           }
         }
 
@@ -533,6 +657,15 @@ export async function guardarPertenencia(
           'asignados y hay que reasignarlos o anularlos con motivo.',
       );
     }
+    if (r.pendientesDeGruposRetirados > 0) {
+      // P13 → P4 · salir de un grupo no es haber cumplido lo que ese grupo pedía. Se dicen
+      // por el mismo motivo que los del área: callarlos deja a alguien respondiendo por algo
+      // a lo que ya no pertenece, y eso es lo que un auditor levanta.
+      partes.push(
+        `Quedaron ${r.pendientesDeGruposRetirados} pendiente(s) de grupo(s) del que se ` +
+          'retiró: siguen asignados y hay que reasignarlos o anularlos con motivo.',
+      );
+    }
 
     return {
       ok: true,
@@ -541,6 +674,7 @@ export async function guardarPertenencia(
       desglose: r.desglose,
       frases: frasesDelDesglose(r.desglose),
       pendientesDelAreaAnterior: r.pendientesDelAreaAnterior,
+      pendientesDeGruposRetirados: r.pendientesDeGruposRetirados,
     };
   });
 }

@@ -29,6 +29,7 @@ import Pestanas, { type Pestana } from '@/app/components/sgsi/Pestanas';
 import {
   guardarPertenencia,
   leerContactosEmergencia,
+  leerGruposDePersona,
   preverPertenencia,
   type DatosPertenencia,
 } from '@/app/sig/acciones/personas-edicion';
@@ -97,11 +98,18 @@ type Contactos = ContactoPropuesto[] | null;
 
 const FILA_VACIA: ContactoPropuesto = { nombre: '', parentesco: '', telefono: '' };
 
-/// `contactos` va `undefined` en la previsión y cuando la pestaña nunca se abrió: la acción
-/// lee esa ausencia como «el formulario no trajo la lista», no como «vaciala».
-function aDatos(f: Formulario, contactos: Contactos): DatosPertenencia {
+/// Los ids de los grupos de interés marcados, o `null` mientras no se sabe. **No están en
+/// `PersonaFila` a propósito**: el censo son 90 filas que viajan enteras al navegador, y
+/// sumarle a cada una sus membresías infla ese payload por un dato que sólo mira quien abre la
+/// pestaña Grupos de una persona. Se piden con `leerGruposDePersona` al abrir la pestaña.
+type Grupos = number[] | null;
+
+/// `contactos` y `grupos` van `undefined` en la previsión y cuando la pestaña nunca se abrió:
+/// la acción lee esa ausencia como «el formulario no trajo la lista», no como «vaciala».
+function aDatos(f: Formulario, contactos: Contactos, grupos: Grupos): DatosPertenencia {
   return {
     ...(contactos !== null && { contactosEmergencia: contactos }),
+    ...(grupos !== null && { gruposInteres: grupos }),
     areaId: idONull(f.areaId),
     cargoId: idONull(f.cargoId),
     areaDesde: oNull(f.areaDesde),
@@ -198,6 +206,47 @@ export default function PopupPersona({
   const agregarContacto = () =>
     setContactos((previo) => [...(previo ?? []), { ...FILA_VACIA }]);
 
+  // P10 · las membresías se piden al abrir la pestaña, igual que los contactos y por la misma
+  // razón de fondo: no inflar el payload del censo con un dato que casi nadie mira.
+  const [grupos, setGrupos] = useState<Grupos>(null);
+  const [errorGrupos, setErrorGrupos] = useState<string | null>(null);
+  const pedidoDeGrupos = useRef(false);
+
+  useEffect(() => {
+    if (seccion !== 'grupos') return;
+    if (!administra) return;
+    if (grupos !== null || pedidoDeGrupos.current) return;
+
+    let vigente = true;
+    pedidoDeGrupos.current = true;
+    void leerGruposDePersona(persona.id)
+      .then((r) => {
+        if (!vigente) return;
+        if (!r.ok) {
+          setErrorGrupos(r.mensaje);
+          return;
+        }
+        setGrupos(r.grupos);
+      })
+      .finally(() => {
+        pedidoDeGrupos.current = false;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [seccion, administra, persona.id, grupos]);
+
+  /// Marcar y desmarcar. El derivado nunca llega acá: su casilla está deshabilitada, y si
+  /// llegara igual la acción lo rechaza en el servidor.
+  const alternarGrupo = (grupoId: number) =>
+    setGrupos((previo) =>
+      previo === null
+        ? previo
+        : previo.includes(grupoId)
+          ? previo.filter((g) => g !== grupoId)
+          : [...previo, grupoId],
+    );
+
   // **P3 · la previsión bajo los dos `select`.** Se pide al servidor y no se calcula acá: la
   // cuenta la hace el mismo código que va a guardar (`calcular()`), así que el número de
   // antes no puede diferir del de después. Calcularla en el cliente sería una segunda cuenta.
@@ -230,6 +279,15 @@ export default function PopupPersona({
         areaDesde: oNull(areaDesde),
         cargoDesde: oNull(cargoDesde),
         fechaIngreso: oNull(fechaIngreso),
+        // **P16 · los grupos también mueven el número.** La membresía es el tercer término
+        // del piso y el alcance `GRUPO_INTERES` dirige obligaciones a quienes pertenecen: si
+        // la previsión no los mirara, marcar un grupo no cambiaría el «se le asignarán N» y
+        // el popup volvería a prometer un número distinto del que la transacción crea.
+        //
+        // `grupos` es su propio estado y su identidad sólo cambia cuando la lista cambia, así
+        // que entra al arreglo de dependencias tal cual — sin desarmarlo en primitivas como
+        // hay que hacer con `f`, que es un objeto con once campos.
+        ...(grupos !== null && { gruposInteres: grupos }),
       })
         .then((r) => {
           if (!vigente) return;
@@ -243,13 +301,13 @@ export default function PopupPersona({
       vigente = false;
       clearTimeout(t);
     };
-  }, [administra, persona.id, areaId, cargoId, areaDesde, cargoDesde, fechaIngreso]);
+  }, [administra, persona.id, areaId, cargoId, areaDesde, cargoDesde, fechaIngreso, grupos]);
 
   const guardar = async () => {
     setGuardando(true);
     setError(null);
     setMensaje(null);
-    const r = await guardarPertenencia(persona.id, aDatos(f, contactos));
+    const r = await guardarPertenencia(persona.id, aDatos(f, contactos, grupos));
     setGuardando(false);
     if (!r.ok) {
       setError(r.mensaje);
@@ -290,10 +348,9 @@ export default function PopupPersona({
           >
             Cerrar
           </button>
-          {/* Guardar aparece donde hay algo que guardar. Licencias y Grupos todavía no
-              escriben nada, así que ahí un botón habilitado prometería un cambio que no
-              ocurre. */}
-          {administra && (seccion === 'base' || seccion === 'contactos') && (
+          {/* Guardar aparece donde hay algo que guardar. Licencias no escribe nada, así que
+              ahí un botón habilitado prometería un cambio que no ocurre. */}
+          {administra && seccion !== 'licencias' && (
             <button
               type="button"
               onClick={guardar}
@@ -586,13 +643,28 @@ export default function PopupPersona({
               obligaciones y para reportar; el acceso a la aplicación lo dan —sólo— los grupos
               del Directorio Activo.
             </p>
+            {errorGrupos !== null && (
+              <p className="text-11_5" style={{ color: 'var(--hf-danger-text)' }}>
+                {errorGrupos}
+              </p>
+            )}
+            {administra && grupos === null && errorGrupos === null && (
+              <p className="text-11_5 text-muted">Cargando los grupos de esta persona…</p>
+            )}
             {catalogos.gruposInteres.map((g) => (
               <div key={g.id} className="flex items-start gap-2 border-t border-hairline pt-2">
                 <input
                   type="checkbox"
-                  // P10 · «Todos» va marcado y deshabilitado: su pertenencia se calcula.
-                  checked={g.derivado}
-                  disabled
+                  // P10 · «Todos» va marcado y deshabilitado: su pertenencia se calcula, no se
+                  // guarda. Los demás reflejan la pertenencia REAL —las membresías vigentes—
+                  // y no «lo que el catálogo trae»: una casilla que muestra otra cosa que lo
+                  // guardado hace que quien la mira crea que ya arregló algo.
+                  checked={g.derivado || (grupos?.includes(g.id) ?? false)}
+                  // Mientras la lista no llegó no se puede marcar: la acción recibe el
+                  // conjunto COMPLETO, y mandarlo a medias desmarcaría lo que todavía no se
+                  // sabe que estaba marcado.
+                  disabled={g.derivado || !administra || grupos === null}
+                  onChange={() => alternarGrupo(g.id)}
                   aria-label={g.nombre}
                   className="mt-0.5"
                 />
@@ -613,10 +685,18 @@ export default function PopupPersona({
                 </div>
               </div>
             ))}
-            <PendienteDeConstruir
-              que="Marcar y desmarcar los grupos no derivados"
-              por="Al desmarcar, los pendientes de ese grupo se listan y no se borran, igual que al cambiar de área."
-            />
+            {/* P13 → P4 · lo que pasa al desmarcar se dice ANTES de desmarcar. Quien saca a
+                alguien de un grupo tiene que saber que las tareas que ese grupo le generó
+                siguen abiertas: no se cierran ni se anulan, porque salir de un grupo no es
+                haber cumplido lo que el grupo pedía. */}
+            <p className="text-11 text-muted [text-wrap:pretty]">
+              Al desmarcar un grupo, la membresía se <strong>cierra con fecha</strong> —no se
+              borra, porque quién pertenecía en marzo es una pregunta de auditoría— y los
+              pendientes que ese grupo generó <strong>siguen asignados</strong>: se informan al
+              guardar, y hay que reasignarlos o anularlos con motivo.
+            </p>
+
+            <Avisos error={error} mensaje={mensaje} frases={frases} />
           </div>
         )}
       </Pestanas>
@@ -624,9 +704,10 @@ export default function PopupPersona({
   );
 }
 
-/// El resultado del guardado. Vive en un componente porque las dos pestañas que guardan —la
-/// base y la de contactos— tienen que mostrar lo mismo: quien guarda desde Contactos también
-/// necesita leer si la transacción le asignó tareas.
+/// El resultado del guardado. Vive en un componente porque las tres pestañas que guardan —la
+/// base, la de contactos y la de grupos— tienen que mostrar lo mismo: quien guarda desde
+/// Grupos también necesita leer si la transacción le asignó tareas y cuántos pendientes le
+/// quedaron abiertos del grupo que acaba de desmarcar.
 function Avisos({
   error,
   mensaje,
