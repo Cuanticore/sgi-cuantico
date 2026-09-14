@@ -30,6 +30,7 @@
 // `GRUPO_INTERES` y nadie lo clasifica, falla `tsc`, no un `it`.
 import type { AlcanceObligacion } from '@prisma/client';
 
+import { decidirAlcancePorGrupo, type GrupoOfrecido } from '../alcance-grupo';
 import {
   activosAlcanzados as activosDeGeneracion,
   resolverAlcance,
@@ -240,6 +241,79 @@ describe('NIVEL_ACTIVO sigue sin resolver, y los dos lados lo dicen igual', () =
 
   it('y la previsión no cuenta ningún activo', () => {
     expect(activosDePrevision({ ...ENTRADA, alcance: 'NIVEL_ACTIVO' }, INVENTARIO)).toEqual([]);
+  });
+});
+
+describe('REQ-SIG-15 P11 · el grupo derivado se guarda como TODOS, y por eso resuelve a todos', () => {
+  /// El catálogo del selector: «Todos» derivado y un grupo con membresías de verdad. `GRUPO`
+  /// es el mismo id que usan las membresías del censo de arriba, para que la comparación sea
+  /// de la REGLA y no de los datos.
+  const CATALOGO: GrupoOfrecido[] = [
+    { id: 50, nombre: 'Todos', derivado: true },
+    { id: GRUPO, nombre: 'Desarrolladores', derivado: false },
+  ];
+
+  const ACTIVAS = CENSO.filter((p) => p.activa)
+    .map((p) => p.id)
+    .sort((a, b) => a - b);
+
+  // **La prueba que justifica que la traducción exista.** Elegir «Todos» NO guarda
+  // `GRUPO_INTERES` con su id: guarda `TODOS` sin destino. Y acá se ve por qué —las dos
+  // aserciones de abajo son el mismo grupo con los dos alcances, y dan conjuntos opuestos.
+  it('elegir «Todos» produce el alcance que alcanza a toda persona activa', () => {
+    const { destino } = decidirAlcancePorGrupo(50, CATALOGO);
+    expect(destino).toEqual({ alcance: 'TODOS' });
+
+    const { destinatarios, rechazo } = resolverAlcance(
+      { ...OBLIGACION, ...destino!, alcanceGrupoInteresId: undefined },
+      CENSO,
+      INVENTARIO,
+    );
+    expect(rechazo).toBeNull();
+    expect([...new Set(destinatarios.map((x) => x.personaId))].sort((a, b) => a - b)).toEqual(
+      ACTIVAS,
+    );
+    expect(
+      personasAlcanzadas({ ...ENTRADA, ...destino!, alcanceGrupoInteresId: undefined }, CENSO)
+        .map((p) => p.id)
+        .sort((a, b) => a - b),
+    ).toEqual(ACTIVAS);
+  });
+
+  // El modo de falla que la traducción evita, fijado en una prueba para que nadie «complete»
+  // el destino del derivado creyendo que queda más prolijo. El grupo derivado NO tiene filas
+  // de membresía —su pertenencia se calcula— así que un `GRUPO_INTERES` apuntándole resuelve
+  // CERO personas: la obligación quedaría creada, activa y sin generar nada, que es
+  // indistinguible de «ya estaba todo generado». Es el modo de falla exacto de `NIVEL_ACTIVO`.
+  it('el mismo grupo como GRUPO_INTERES no alcanzaría a nadie, en los dos lados igual', () => {
+    const comoGrupo = { alcance: 'GRUPO_INTERES' as const, alcanceGrupoInteresId: 50 };
+    expect(resolverAlcance({ ...OBLIGACION, ...comoGrupo }, CENSO, INVENTARIO).destinatarios).toEqual(
+      [],
+    );
+    expect(personasAlcanzadas({ ...ENTRADA, ...comoGrupo }, CENSO)).toEqual([]);
+  });
+
+  // Y el grupo real sigue resolviendo lo suyo por las dos vías: la traducción del selector le
+  // devuelve el alcance por grupo con su id, y los dos lados coinciden en las personas.
+  it('un grupo no derivado resuelve sus miembros vigentes, y los dos lados coinciden', () => {
+    const { destino } = decidirAlcancePorGrupo(GRUPO, CATALOGO);
+    expect(destino).toEqual({ alcance: 'GRUPO_INTERES', alcanceGrupoInteresId: GRUPO });
+
+    const deGeneracion = [
+      ...new Set(
+        resolverAlcance({ ...OBLIGACION, ...destino! }, CENSO, INVENTARIO).destinatarios.map(
+          (x) => x.personaId,
+        ),
+      ),
+    ].sort((a, b) => a - b);
+    const dePrevision = personasAlcanzadas({ ...ENTRADA, ...destino! }, CENSO)
+      .map((p) => p.id)
+      .sort((a, b) => a - b);
+
+    // Los miembros vigentes y activos del censo son 1 y 2: la 5 también es miembro, pero está
+    // inactiva y ninguno de los dos lados la cuenta.
+    expect(deGeneracion).toEqual([1, 2]);
+    expect(dePrevision).toEqual([1, 2]);
   });
 });
 

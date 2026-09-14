@@ -32,6 +32,9 @@ export default async function ObligacionesPage() {
       alcanceArea: { select: { nombre: true } },
       alcanceCargo: { select: { nombre: true } },
       alcancePersona: { select: { nombre: true } },
+      // REQ-SIG-15 P11 · sin esto la columna mostraba el valor crudo del enum,
+      // «GRUPO_INTERES», en cuanto se creara la primera obligación por grupo.
+      alcanceGrupoInteres: { select: { nombre: true } },
       responsableSeguimiento: { select: { nombre: true } },
     },
   });
@@ -73,7 +76,8 @@ export default async function ObligacionesPage() {
   // «Id del contenido»—, así que había que abrir otra pantalla, buscar la clave primaria y
   // transcribirla. Un dígito equivocado creaba la obligación sobre el contenido de otro sin
   // que nada avisara, porque el id existía.
-  const [contenidos, personas, cargos, areas, activos, tiposDeActivo] = await Promise.all([
+  // prettier-ignore
+  const [contenidos, personas, cargos, areas, activos, tiposDeActivo, gruposDeInteres] = await Promise.all([
     prisma.contenidoSig.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -82,7 +86,23 @@ export default async function ObligacionesPage() {
     prisma.persona.findMany({
       where: { activa: true },
       // El área y el cargo viajan porque la previsión resuelve el alcance con ellos.
-      select: { id: true, nombre: true, areaId: true, cargoId: true, activa: true },
+      select: {
+        id: true,
+        nombre: true,
+        areaId: true,
+        cargoId: true,
+        activa: true,
+        // REQ-SIG-15 P11 · las membresías VIGENTES, con la misma regla que la generación
+        // (`hasta: null`). Sin esto la previsión del alcance por grupo contaría **cero
+        // personas** para cualquier grupo: el censo llegaría sin `gruposDesde` y
+        // `personasAlcanzadas` no tendría con qué filtrar. Un cero silencioso en el cuadro
+        // «esto es lo que va a generar» es peor que un error — se lee como «ese grupo está
+        // vacío» y no como «la pantalla no preguntó».
+        gruposInteres: {
+          where: { hasta: null },
+          select: { grupoId: true, desde: true },
+        },
+      },
       orderBy: { nombre: 'asc' },
     }),
     prisma.cargoResponsable.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
@@ -116,6 +136,14 @@ export default async function ObligacionesPage() {
       },
       orderBy: { nombre: 'asc' },
     }),
+    // REQ-SIG-15 P11 · los grupos de interés ACTIVOS, «Todos» incluido. `derivado` viaja
+    // porque es lo que decide qué se guarda: elegir el derivado persiste `alcance: 'TODOS'`
+    // sin destino, y cualquier otro `GRUPO_INTERES` con su id (`lib/sig/alcance-grupo.ts`).
+    prisma.grupoInteres.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, derivado: true },
+      orderBy: { orden: 'asc' },
+    }),
   ]);
 
   const datos: ObligacionFila[] = filas.map((o) => ({
@@ -129,6 +157,7 @@ export default async function ObligacionesPage() {
       o.alcancePersona?.nombre,
       o.alcanceCargo?.nombre,
       o.alcanceArea?.nombre,
+      o.alcanceGrupoInteres?.nombre,
     ),
     periodicidad: PERIODICIDAD[o.periodicidad] ?? o.periodicidad,
     plazoDias: o.plazoDias,
@@ -187,7 +216,13 @@ export default async function ObligacionesPage() {
                 activa: x.activa,
                 areaId: x.areaId,
                 cargoId: x.cargoId,
+                // Lo que hace que la previsión del alcance por grupo dé el número real y no
+                // cero. La forma es la misma que arma `lib/sig/trabajos.ts` para la
+                // generación, a propósito: si las dos contaran distinto, el cuadro «esto es
+                // lo que va a generar» prometería algo que la corrida no cumple.
+                gruposDesde: x.gruposInteres,
               })),
+              gruposDeInteres,
             }}
           />
         </div>
@@ -206,10 +241,15 @@ function textoAlcance(
   persona: string | undefined,
   cargo: string | undefined,
   area: string | undefined,
+  grupo: string | undefined,
 ): string {
+  // REQ-SIG-15 P11 · «Todas las personas» ya no se OFRECE en el formulario, pero se sigue
+  // LEYENDO: es lo que se guarda al elegir el grupo derivado «Todos», y las obligaciones que
+  // ya usaban `TODOS` no se migraron. El texto se queda tal cual por eso.
   if (alcance === 'TODOS') return 'Todas las personas';
   if (persona) return `Persona · ${persona}`;
   if (cargo) return `Cargo · ${cargo}`;
   if (area) return `Área · ${area}`;
+  if (grupo) return `Grupo · ${grupo}`;
   return alcance;
 }

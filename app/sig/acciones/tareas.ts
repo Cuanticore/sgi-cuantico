@@ -999,6 +999,12 @@ export async function crearObligacion(datos: DatosObligacion): Promise<Resultado
           alcanceActivoId: datos.alcanceActivoId ?? null,
           alcanceTipoActivoId: datos.alcanceTipoActivoId ?? null,
           alcanceNivelActivoId: datos.alcanceNivelActivoId ?? null,
+          // REQ-SIG-15 P11. **Faltaba, y el tipo no lo notaba**: `DatosObligacion` ya lo
+          // declaraba y `validarDatosObligacion` ya lo contaba como destino, así que una
+          // obligación por grupo pasaba todas las guardas y se creaba con la columna en
+          // `null` — `alcance: 'GRUPO_INTERES'` sin grupo. El generador no le habría dirigido
+          // nada a nadie, en silencio, que es el mismo modo de falla que `NIVEL_ACTIVO` tuvo.
+          alcanceGrupoInteresId: datos.alcanceGrupoInteresId ?? null,
           periodicidad: datos.periodicidad,
           fechaInicio: datos.fechaInicio,
           plazoDias: datos.plazoDias,

@@ -28,14 +28,38 @@ import {
   type AlcanceObligacion,
 } from '@/lib/sig/prevision';
 import { esAlcancePorActivo } from '@/lib/sig/generacion';
+import { decidirAlcancePorGrupo, type GrupoOfrecido } from '@/lib/sig/alcance-grupo';
 
-/// Los alcances que esta pantalla puede OFRECER, derivados del enum con la exclusion
-/// escrita. Era una union a mano con los mismos seis valores, y por eso `NIVEL_ACTIVO`
-/// nunca se noto que faltaba. Excluido a proposito: la resolucion de ese alcance no esta
-/// decidida —ver el rechazo en `resolverAlcance`—, y ofrecerlo crearia obligaciones que no
-/// generan nada.
-type Alcance = Exclude<AlcanceObligacion, 'NIVEL_ACTIVO'>;
+/// Los alcances que esta pantalla puede OFRECER, derivados del enum con las exclusiones
+/// escritas. Era una union a mano con los mismos seis valores, y por eso `NIVEL_ACTIVO`
+/// nunca se noto que faltaba.
+///
+/// `NIVEL_ACTIVO` esta excluido a proposito: la resolucion de ese alcance no esta decidida
+/// —ver el rechazo en `resolverAlcance`—, y ofrecerlo crearia obligaciones que no generan
+/// nada.
+///
+/// **`TODOS` esta excluido por otro motivo, y el valor del enum NO se borra.** REQ-SIG-15 P11:
+/// «Todas las personas» y el grupo derivado «Todos» del selector de grupos producen
+/// exactamente el mismo conjunto, y dos entradas al mismo conjunto es como alguien crea la
+/// misma obligacion dos veces sin darse cuenta. Asi que la pantalla deja de OFRECERLO, pero
+/// `TODOS` sigue siendo lo que se PERSISTE al elegir el grupo derivado —ver
+/// `lib/sig/alcance-grupo.ts`—, sigue siendo lo que resuelven el generador y la prevision, y
+/// las obligaciones que ya lo usan no se migran. Borrarlo del enum romperia las tres cosas.
+type Alcance = Exclude<AlcanceObligacion, 'NIVEL_ACTIVO' | 'TODOS'>;
 type Periodicidad = 'UNICA' | 'DIARIA' | 'SEMANAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+
+/// Las columnas de alcance tal como van a quedar guardadas. Existe porque en el alcance por
+/// grupo **lo elegido y lo persistido no son lo mismo**: elegir «Todos» guarda `TODOS` sin
+/// destino. La prevision y el guardado leen de acá, y por eso no pueden decir cosas distintas.
+interface ColumnasDeAlcance {
+  alcance: AlcanceObligacion;
+  alcancePersonaId?: number;
+  alcanceCargoId?: number;
+  alcanceAreaId?: number;
+  alcanceActivoId?: number;
+  alcanceTipoActivoId?: number;
+  alcanceGrupoInteresId?: number;
+}
 
 export interface CatalogosObligacion {
   contenidos: { id: number; codigo: string; titulo: string; tipo: string; procedimientoOrigen: string | null }[];
@@ -47,6 +71,11 @@ export interface CatalogosObligacion {
   /// texto libre.
   activos: { id: number; codigo: string; nombre: string; tipo: string; sinPropietario: boolean }[];
   tiposDeActivo: { id: number; nombre: string; cuantos: number }[];
+  /// REQ-SIG-15 P11 · los grupos de interés ACTIVOS, «Todos» incluido. Es lo que hace posible
+  /// dirigir una obligación a un conjunto que no coincide con un área ni con un cargo: sin
+  /// esto, «codificación segura» había que asignarla nombrando a las personas una por una, y
+  /// quien entrara después no la recibía.
+  gruposDeInteres: GrupoOfrecido[];
   /// El inventario con tipo y propietario: lo que la prevision necesita para contar los
   /// activos alcanzados y cuantos van a caer en el responsable de seguimiento.
   inventario: ActivoDelInventario[];
@@ -65,7 +94,10 @@ const PERIODICIDADES: { valor: Periodicidad; etiqueta: string }[] = [
 ];
 
 const ALCANCES: { valor: Alcance; etiqueta: string; ayuda: string }[] = [
-  { valor: 'TODOS', etiqueta: 'Todas las personas', ayuda: 'Toda la organización' },
+  // P11 · ocupa el lugar que tenía «Todas las personas». No es un reemplazo de nombre: acá
+  // abajo se elige un grupo de la lista, y el grupo derivado «Todos» es el que cubre a toda la
+  // organización. Una sola puerta al mismo conjunto.
+  { valor: 'GRUPO_INTERES', etiqueta: 'Un grupo de interés', ayuda: 'Quienes pertenezcan a él' },
   { valor: 'AREA', etiqueta: 'Un área', ayuda: 'Quienes pertenezcan a ella' },
   { valor: 'CARGO', etiqueta: 'Un cargo', ayuda: 'Quienes lo ocupen, en cualquier área' },
   { valor: 'PERSONA', etiqueta: 'Una persona', ayuda: 'Sólo a ella' },
@@ -76,13 +108,72 @@ const ALCANCES: { valor: Alcance; etiqueta: string; ayuda: string }[] = [
   { valor: 'ACTIVO', etiqueta: 'Un activo', ayuda: 'Solo ese, a su propietario' },
 ];
 
+/// Qué se ofrece debajo del alcance, y cómo se llama la opción vacía.
+///
+/// Era una cadena de seis ternarios para la lista y otra de cinco para el rótulo: dos lugares
+/// que hay que tocar al agregar un alcance, y nada obliga a tocar los dos. Acá es **un
+/// `switch` exhaustivo sobre `Alcance`**, así que el día que se ofrezca un alcance nuevo el
+/// compilador exige su lista y su rótulo juntos, en vez de caer al `else` de las personas.
+function destinosDe(
+  alcance: Alcance,
+  catalogos: CatalogosObligacion,
+): { rotulo: string; opciones: { id: number; nombre: string }[] } {
+  switch (alcance) {
+    case 'GRUPO_INTERES':
+      return {
+        rotulo: 'Elegir el grupo de interés…',
+        opciones: catalogos.gruposDeInteres.map((g) => ({
+          id: g.id,
+          // El derivado se anuncia en la propia opción: es la que alcanza a TODA la
+          // organización, y elegirla sin saberlo es la diferencia entre doce asignaciones al
+          // año y cuatrocientas ocho. Es la misma razón por la que el tipo de activo muestra
+          // su conteo — la cifra que decide va en la opción, no en la previsión de después.
+          nombre: g.derivado ? `${g.nombre} — toda persona activa` : g.nombre,
+        })),
+      };
+    case 'AREA':
+      return { rotulo: 'Elegir el área…', opciones: catalogos.areas };
+    case 'CARGO':
+      return { rotulo: 'Elegir el cargo…', opciones: catalogos.cargos };
+    case 'ACTIVO':
+      return {
+        rotulo: 'Elegir el activo…',
+        opciones: catalogos.activos.map((a) => ({
+          id: a.id,
+          // El código va primero: es como se nombra un activo en el inventario y en una
+          // auditoría, y hay activos con nombres parecidos.
+          nombre: `${a.codigo} · ${a.nombre}${a.sinPropietario ? ' — sin propietario' : ''}`,
+        })),
+      };
+    case 'TIPO_ACTIVO':
+      return {
+        rotulo: 'Elegir el tipo de activo…',
+        opciones: catalogos.tiposDeActivo.map((t) => ({
+          id: t.id,
+          // El conteo va en la opción porque es la cifra que decide: elegir un tipo con 180
+          // activos vigentes crea 180 asignaciones por periodo, y eso hay que saberlo ANTES
+          // de elegirlo, no después en la previsión.
+          nombre: `${t.nombre} — ${t.cuantos} activo(s) vigente(s)`,
+        })),
+      };
+    case 'PERSONA':
+      return { rotulo: 'Elegir la persona…', opciones: catalogos.personas };
+  }
+}
+
 export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObligacion }) {
   const [abierto, setAbierto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
   const [contenidoId, setContenidoId] = useState('');
-  const [alcance, setAlcance] = useState<Alcance>('TODOS');
+  // El arranque es el alcance por grupo, SIN grupo elegido. Era `TODOS`, que dejó de
+  // ofrecerse: un formulario que arranca en un estado que el selector no muestra no tiene
+  // ninguna opción marcada y no se entiende. Y el default tiene una consecuencia: `TODOS`
+  // no pedía destino, así que el formulario nacía completo y se podía guardar de una —
+  // «toda la organización» era lo que pasaba si nadie elegía nada. Ahora hay que elegir el
+  // grupo, y si ese grupo es «Todos» es porque alguien lo decidió.
+  const [alcance, setAlcance] = useState<Alcance>('GRUPO_INTERES');
   const [destinoId, setDestinoId] = useState('');
   const [periodicidad, setPeriodicidad] = useState<Periodicidad>('MENSUAL');
   const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().slice(0, 10));
@@ -93,24 +184,45 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
 
   const contenido = catalogos.contenidos.find((c) => c.id === Number(contenidoId)) ?? null;
 
+  /// **Lo que se va a guardar, decidido UNA vez.** La previsión y el guardado leen de acá, y
+  /// por eso no pueden contradecirse — que es la propiedad que sostiene el cuadro «esto es lo
+  /// que va a generar»: si la previsión contara sobre un alcance y el `create` escribiera
+  /// otro, el número de la pantalla sería una promesa que la generación no cumple.
+  ///
+  /// P11 es el primer alcance donde lo elegido y lo persistido **no son lo mismo**: elegir el
+  /// grupo derivado «Todos» guarda `alcance: 'TODOS'` sin destino. La traducción la decide
+  /// `lib/sig/alcance-grupo.ts`, que está probado; acá sólo se aplica.
+  const persistido: ColumnasDeAlcance = useMemo(() => {
+    const id = Number(destinoId) || undefined;
+    if (alcance === 'GRUPO_INTERES') {
+      const { destino } = decidirAlcancePorGrupo(Number(destinoId), catalogos.gruposDeInteres);
+      // Sin grupo elegido todavía se previene con el alcance por grupo y sin destino: así la
+      // previsión dice «falta elegir a quién alcanza» en vez de contar a toda la organización,
+      // que es lo que haría si acá se cayera a `TODOS` por defecto.
+      return destino ?? { alcance: 'GRUPO_INTERES' };
+    }
+    return {
+      alcance,
+      alcancePersonaId: alcance === 'PERSONA' ? id : undefined,
+      alcanceCargoId: alcance === 'CARGO' ? id : undefined,
+      alcanceAreaId: alcance === 'AREA' ? id : undefined,
+      alcanceActivoId: alcance === 'ACTIVO' ? id : undefined,
+      alcanceTipoActivoId: alcance === 'TIPO_ACTIVO' ? id : undefined,
+    };
+  }, [alcance, destinoId, catalogos.gruposDeInteres]);
+
   // La previsión se recalcula con cada tecla, como el panel de riesgos: el punto es ver el
   // efecto de la decisión mientras se toma, no después de guardarla.
   // Los dos alcances por activo cambian la unidad de la prevision y el texto de la ayuda.
   // Cuarta copia del mismo predicado, ahora importada. A esta le faltaba `NIVEL_ACTIVO`
   // igual que a la de `prevision.ts`.
-  const porActivo = esAlcancePorActivo(alcance);
+  const porActivo = esAlcancePorActivo(persistido.alcance);
 
   const prevision = useMemo(
     () =>
       preverGeneracion(
         {
-          alcance,
-          alcancePersonaId: alcance === 'PERSONA' ? Number(destinoId) || undefined : undefined,
-          alcanceCargoId: alcance === 'CARGO' ? Number(destinoId) || undefined : undefined,
-          alcanceAreaId: alcance === 'AREA' ? Number(destinoId) || undefined : undefined,
-          alcanceActivoId: alcance === 'ACTIVO' ? Number(destinoId) || undefined : undefined,
-          alcanceTipoActivoId:
-            alcance === 'TIPO_ACTIVO' ? Number(destinoId) || undefined : undefined,
+          ...persistido,
           periodicidad,
           fechaInicio: new Date(`${fechaInicio}T00:00:00.000Z`),
           plazoDias: Number(plazoDias),
@@ -119,7 +231,7 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
         new Date(),
         catalogos.inventario,
       ),
-    [alcance, destinoId, periodicidad, fechaInicio, plazoDias, catalogos.censo, catalogos.inventario],
+    [persistido, periodicidad, fechaInicio, plazoDias, catalogos.censo, catalogos.inventario],
   );
 
   const listo =
@@ -128,39 +240,17 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
     prevision.problemas.length === 0 &&
     fechaInicio !== '';
 
-  const destinos =
-    alcance === 'AREA'
-      ? catalogos.areas
-      : alcance === 'CARGO'
-        ? catalogos.cargos
-        : alcance === 'ACTIVO'
-          ? catalogos.activos.map((a) => ({
-              id: a.id,
-              // El código va primero: es como se nombra un activo en el inventario y en
-              // una auditoría, y hay activos con nombres parecidos.
-              nombre: `${a.codigo} · ${a.nombre}${a.sinPropietario ? ' — sin propietario' : ''}`,
-            }))
-          : alcance === 'TIPO_ACTIVO'
-            ? catalogos.tiposDeActivo.map((t) => ({
-                id: t.id,
-                // El conteo va en la opción porque es la cifra que decide: elegir un tipo
-                // con 180 activos vigentes crea 180 asignaciones por periodo, y eso hay
-                // que saberlo ANTES de elegirlo, no después en la previsión.
-                nombre: `${t.nombre} — ${t.cuantos} activo(s) vigente(s)`,
-              }))
-            : catalogos.personas;
+  const destinos = destinosDe(alcance, catalogos);
 
   async function guardar() {
     setGuardando(true);
     setError(null);
     const r = await crearObligacion({
       contenidoId: Number(contenidoId),
-      alcance,
-      alcancePersonaId: alcance === 'PERSONA' ? Number(destinoId) : undefined,
-      alcanceCargoId: alcance === 'CARGO' ? Number(destinoId) : undefined,
-      alcanceAreaId: alcance === 'AREA' ? Number(destinoId) : undefined,
-      alcanceActivoId: alcance === 'ACTIVO' ? Number(destinoId) : undefined,
-      alcanceTipoActivoId: alcance === 'TIPO_ACTIVO' ? Number(destinoId) : undefined,
+      // Las mismas columnas que la previsión acaba de contar, sin volver a derivarlas: era la
+      // segunda copia de los cinco ternarios, y el día que las dos se separaran la pantalla
+      // habría prometido un número y guardado otro alcance.
+      ...persistido,
       periodicidad,
       fechaInicio: new Date(`${fechaInicio}T00:00:00.000Z`),
       plazoDias: Number(plazoDias),
@@ -259,33 +349,27 @@ export default function NuevaObligacion({ catalogos }: { catalogos: CatalogosObl
               );
             })}
           </div>
-          {alcance !== 'TODOS' && (
-            <select
-              value={destinoId}
-              onChange={(e) => setDestinoId(e.target.value)}
-              className="entrada-campo mt-1"
-            >
-              <option value="">
-                {alcance === 'AREA'
-                  ? 'Elegir el área…'
-                  : alcance === 'CARGO'
-                    ? 'Elegir el cargo…'
-                    : alcance === 'ACTIVO'
-                      ? 'Elegir el activo…'
-                      : alcance === 'TIPO_ACTIVO'
-                        ? 'Elegir el tipo de activo…'
-                        : 'Elegir la persona…'}
+          {/* El selector de destino ya no se esconde para ningún alcance. La condición era
+              `alcance !== 'TODOS'`, porque «Todas las personas» era la única opción sin
+              destino; ahora TODOS no se ofrece —P11— y los seis alcances que quedan exigen
+              elegir algo. Elegir «toda la organización» es elegir el grupo «Todos» de esta
+              misma lista. */}
+          <select
+            value={destinoId}
+            onChange={(e) => setDestinoId(e.target.value)}
+            className="entrada-campo mt-1"
+          >
+            <option value="">{destinos.rotulo}</option>
+            {destinos.opciones.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre}
               </option>
-              {destinos.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nombre}
-                </option>
-              ))}
-            </select>
-          )}
+            ))}
+          </select>
           <span className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
             El alcance se resuelve <strong className="font-semibold">al generar cada periodo</strong>,
-            no ahora: quien entre al área el mes que viene recibe la tarea de ese mes.
+            no ahora: quien entre al área —o al grupo de interés— el mes que viene recibe la
+            tarea de ese mes.
           </span>
         </div>
 

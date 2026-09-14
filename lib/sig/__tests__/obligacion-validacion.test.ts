@@ -124,6 +124,52 @@ describe('R4 · exactamente un destino', () => {
   });
 });
 
+describe('REQ-SIG-15 P11 · el alcance por grupo de interés', () => {
+  // El módulo ya lo aceptaba —`columnaDe` lo lista y el conteo de destinos lo incluye—, pero
+  // no había **ni una** aserción encima: la guarda más nueva era la única sin prueba, y el
+  // comentario de cabecera del módulo la nombra como el caso donde la union a mano se paga.
+  it('GRUPO_INTERES con su grupo pasa', () => {
+    expect(
+      validarDatosObligacion({
+        ...BASE,
+        alcance: 'GRUPO_INTERES',
+        alcanceCargoId: undefined,
+        alcanceGrupoInteresId: 4,
+      }),
+    ).toEqual([]);
+  });
+
+  it('GRUPO_INTERES sin grupo se rechaza', () => {
+    expect(
+      validarDatosObligacion({ ...BASE, alcance: 'GRUPO_INTERES', alcanceCargoId: undefined }),
+    ).toContain('el alcance exige exactamente un destino');
+  });
+
+  // Es el error que el selector de P11 no puede cometer —`decidirAlcancePorGrupo` devuelve una
+  // cosa o la otra— pero la acción es invocable desde el navegador, así que la guarda tiene
+  // que estar del lado del servidor igual.
+  it('GRUPO_INTERES con el destino de otro alcance se rechaza', () => {
+    expect(
+      validarDatosObligacion({ ...BASE, alcance: 'GRUPO_INTERES', alcanceCargoId: 10 }),
+    ).toContain('el alcance GRUPO_INTERES exige su propio destino, no el de otro alcance');
+  });
+
+  // **La regla que impide la obligación duplicada.** El grupo derivado «Todos» se guarda como
+  // `alcance: 'TODOS'` SIN id; si además llevara el id del grupo habría dos representaciones
+  // de «todo el mundo» en la base, y la lista mostraría dos obligaciones que alcanzan al mismo
+  // conjunto sin que nada las relacione.
+  it('TODOS con el id del grupo derivado se rechaza', () => {
+    expect(
+      validarDatosObligacion({
+        ...BASE,
+        alcance: 'TODOS',
+        alcanceCargoId: undefined,
+        alcanceGrupoInteresId: 1,
+      }),
+    ).toContain('el alcance TODOS no lleva destino');
+  });
+});
+
 describe('NIVEL_ACTIVO se rechaza al crear, no al generar', () => {
   // Una obligación que nunca va a producir nada no debería poder guardarse.
   it('nombra el requerimiento que falta', () => {
