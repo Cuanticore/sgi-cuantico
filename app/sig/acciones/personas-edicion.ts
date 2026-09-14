@@ -38,6 +38,11 @@ import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/db';
 import { registrar, type Cambio } from '@/lib/sgsi/bitacora';
+import {
+  planificarContactos,
+  type ContactoGuardado,
+  type ContactoPropuesto,
+} from '@/lib/sig/contactos';
 import { planificarGeneracion, type AsignacionACrear } from '@/lib/sig/generacion';
 import {
   desglosarPorOrigen,
@@ -64,6 +69,13 @@ export interface DatosPertenencia {
   correoPersonal?: string | null;
   ciudad?: string | null;
   direccion?: string | null;
+  /// **P9.2 · los contactos de emergencia, la lista entera.** Llega completa y se cruza con
+  /// la guardada: el orden de este arreglo es el orden de llamada.
+  ///
+  /// `undefined` significa «el formulario no trajo la lista» y **no** «la vaciaron»: la
+  /// previsión y la pestaña de datos base guardan sin abrir Contactos, y si la ausencia se
+  /// leyera como lista vacía, guardar el área de alguien le borraría a quién llamar.
+  contactosEmergencia?: ContactoPropuesto[];
   /// **P27 · el motivo se exige donde la decisión tiene consecuencia**, y editar un teléfono
   /// no es una de esas. Opcional acá; obligatorio en bloqueo, desbloqueo, anulación y
   /// reasignación. Pedirlo para corregir un teléfono convierte el campo en un trámite y lo
@@ -323,6 +335,36 @@ export async function preverPertenencia(
   });
 }
 
+export interface ResultadoContactos extends Resultado {
+  contactos: ContactoGuardado[];
+}
+
+/// **P9.3 · los contactos de emergencia se piden aparte y nunca viajan con el censo.**
+///
+/// La pantalla de personas lee 36 filas con `findMany` y las manda enteras al navegador de
+/// quien la abre, tenga o no `personas:administrar`. Un contacto de emergencia es dato
+/// personal de un TERCERO que nunca autorizó nada: si viajara en ese payload, estaría en el
+/// navegador de todo el censo, y el permiso que lo protege no habría protegido nada.
+///
+/// Por eso es una acción propia, con su propio `autorConPermiso`, que el popup llama recién
+/// cuando alguien abre la pestaña Contactos.
+export async function leerContactosEmergencia(personaId: number): Promise<ResultadoContactos> {
+  return ejecutar<ResultadoContactos>(async () => {
+    await autorConPermiso('personas:administrar');
+    exigirId(personaId, 'la persona');
+
+    const contactos = await prisma.contactoEmergencia.findMany({
+      where: { personaId },
+      // El orden de llamada, que es el dato: «a quién se llama primero». El `id` desempata
+      // para que dos contactos con el mismo orden no salgan hoy en un orden y mañana en otro.
+      orderBy: [{ orden: 'asc' }, { id: 'asc' }],
+      select: { id: true, nombre: true, parentesco: true, telefono: true, orden: true },
+    });
+
+    return { ok: true, mensaje: `${contactos.length} contacto(s) de emergencia.`, contactos };
+  });
+}
+
 export async function guardarPertenencia(
   personaId: number,
   datos: DatosPertenencia,
@@ -337,6 +379,26 @@ export async function guardarPertenencia(
     const r = await calcular(personaId, datos);
     if (!r.ok) return { ok: false, mensaje: r.mensaje, ...VACIO };
     const { persona } = r;
+
+    // **P9.2 · el plan de los contactos de emergencia, decidido antes de abrir nada.** El
+    // módulo puro dice qué se crea, qué se actualiza, qué se retira y cómo se anota; acá sólo
+    // se ejecuta. Si trae errores no se guarda ni la mitad: una lista de a quién llamar
+    // guardada por partes es peor que la que estaba, porque parece completa.
+    const propuestos = datos.contactosEmergencia;
+    const planContactos =
+      propuestos === undefined
+        ? null
+        : planificarContactos(
+            await prisma.contactoEmergencia.findMany({
+              where: { personaId },
+              orderBy: [{ orden: 'asc' }, { id: 'asc' }],
+              select: { id: true, nombre: true, parentesco: true, telefono: true, orden: true },
+            }),
+            propuestos,
+          );
+    if (planContactos !== null && planContactos.errores.length > 0) {
+      return { ok: false, mensaje: planContactos.errores.join('; ') + '.', ...VACIO };
+    }
 
     // P26 · **cada campo que cambia escribe su propia fila.** Una fila «se editó la persona»
     // no responde qué cambió, que es la única pregunta que alguien le hace a la bitácora. Y
@@ -367,6 +429,10 @@ export async function guardarPertenencia(
     }
     if (datos.ciudad !== undefined) anotar('ciudad', persona.ciudad, datos.ciudad);
     if (datos.direccion !== undefined) anotar('dirección', persona.direccion, datos.direccion);
+    // Las frases las redactó el módulo puro; acá sólo se pasan al mismo `anotar` que el resto,
+    // para que el contacto quede con el mismo `registroId` —el correo— que los demás campos
+    // de la persona y una sola consulta a la bitácora cuente la historia completa.
+    for (const a of planContactos?.anotaciones ?? []) anotar(a.campo, a.anterior, a.nuevo);
 
     // ── P14 · TODO en una transacción ──────────────────────────────────────────────────
     await prisma.$transaction(
@@ -389,6 +455,34 @@ export async function guardarPertenencia(
             direccion: datos.direccion,
           },
         });
+
+        if (planContactos !== null) {
+          // **El retiro es un borrado físico, por precedente.** `ContactoEmergencia` no tiene
+          // columna de baja lógica, y así se resuelven en este repositorio las colecciones
+          // hijas que se editan como conjunto: `app/sig/acciones/tareas.ts:847` borra el
+          // `itemVerificacion` que `planificarItems` sacó del plan, y
+          // `app/sig/acciones/ciclos.ts:106` borra el `pasoDeColaborador` al desmarcarlo. En
+          // los dos casos lo que sobrevive al borrado es la fila de bitácora, escrita en la
+          // misma transacción: el invariante 2 se sostiene porque el rastro queda, no porque
+          // la fila se quede vacía ocupando lugar.
+          for (const id of planContactos.retirar) {
+            await tx.contactoEmergencia.delete({ where: { id } });
+          }
+          for (const a of planContactos.actualizar) {
+            await tx.contactoEmergencia.update({
+              where: { id: a.id },
+              data: {
+                nombre: a.nombre,
+                parentesco: a.parentesco,
+                telefono: a.telefono,
+                orden: a.orden,
+              },
+            });
+          }
+          for (const c of planContactos.crear) {
+            await tx.contactoEmergencia.create({ data: { personaId, ...c } });
+          }
+        }
 
         if (cambios.length > 0) await registrar(tx, autor, cambios);
 

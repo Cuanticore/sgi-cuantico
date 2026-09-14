@@ -22,15 +22,17 @@
 //   · **No otorga permisos con los grupos de interés** (P12). El acceso lo siguen dando —sólo—
 //     los grupos del Directorio.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Popup from '@/app/components/sgsi/Popup';
 import Pestanas, { type Pestana } from '@/app/components/sgsi/Pestanas';
 import {
   guardarPertenencia,
+  leerContactosEmergencia,
   preverPertenencia,
   type DatosPertenencia,
 } from '@/app/sig/acciones/personas-edicion';
+import type { ContactoPropuesto } from '@/lib/sig/contactos';
 import type { PersonaFila } from './Personas.client';
 
 export interface CatalogosDelPopup {
@@ -87,8 +89,19 @@ function desdeLaFila(p: PersonaFila): Formulario {
 const oNull = (v: string): string | null => (v.trim() === '' ? null : v.trim());
 const idONull = (v: string): number | null => (v === '' ? null : Number(v));
 
-function aDatos(f: Formulario): DatosPertenencia {
+/// **P9.3 · los contactos NO están en `PersonaFila`.** Son dato personal de un tercero y no
+/// pueden viajar en el payload del censo, que llega al navegador de cualquiera que abra la
+/// pantalla. Se piden con `leerContactosEmergencia` al abrir la pestaña, y hasta que llegan
+/// esto vale `null` — que es «todavía no se sabe», distinto de «no tiene ninguno».
+type Contactos = ContactoPropuesto[] | null;
+
+const FILA_VACIA: ContactoPropuesto = { nombre: '', parentesco: '', telefono: '' };
+
+/// `contactos` va `undefined` en la previsión y cuando la pestaña nunca se abrió: la acción
+/// lee esa ausencia como «el formulario no trajo la lista», no como «vaciala».
+function aDatos(f: Formulario, contactos: Contactos): DatosPertenencia {
   return {
+    ...(contactos !== null && { contactosEmergencia: contactos }),
     areaId: idONull(f.areaId),
     cargoId: idONull(f.cargoId),
     areaDesde: oNull(f.areaDesde),
@@ -129,6 +142,61 @@ export default function PopupPersona({
 
   const campo = <K extends keyof Formulario>(k: K, v: Formulario[K]) =>
     setF((previo) => ({ ...previo, [k]: v }));
+
+  // P9.3 · la lista se pide al servidor recién cuando alguien abre la pestaña, y una sola vez
+  // por popup: pedirla de nuevo en cada cambio de pestaña pisaría lo que se está editando.
+  const [contactos, setContactos] = useState<Contactos>(null);
+  const [errorContactos, setErrorContactos] = useState<string | null>(null);
+  // Un pedido en vuelo. Es una referencia y no estado porque nadie lo mira en pantalla —
+  // «cargando» se deduce de que todavía no hay lista ni error— y porque marcarlo como estado
+  // obligaría a un `setState` sincrónico dentro del efecto, que es una cascada de renders.
+  const pedidoDeContactos = useRef(false);
+
+  useEffect(() => {
+    if (seccion !== 'contactos') return;
+    // Sin el permiso no se piden: la acción los negaría igual, y un viaje al servidor para
+    // que conteste que no es un viaje que haga falta hacer.
+    if (!administra) return;
+    if (contactos !== null || pedidoDeContactos.current) return;
+
+    let vigente = true;
+    pedidoDeContactos.current = true;
+    void leerContactosEmergencia(persona.id)
+      .then((r) => {
+        if (!vigente) return;
+        if (!r.ok) {
+          setErrorContactos(r.mensaje);
+          return;
+        }
+        // Se quedan los cuatro campos que la pantalla edita. El `orden` no se copia: la
+        // posición en este arreglo ES el orden, y arrastrar los dos invita a que discrepen.
+        setContactos(
+          r.contactos.map((c) => ({
+            id: c.id,
+            nombre: c.nombre,
+            parentesco: c.parentesco,
+            telefono: c.telefono,
+          })),
+        );
+      })
+      .finally(() => {
+        pedidoDeContactos.current = false;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [seccion, administra, persona.id, contactos]);
+
+  const filaContacto = (i: number, parche: Partial<ContactoPropuesto>) =>
+    setContactos((previo) =>
+      previo === null ? previo : previo.map((c, j) => (j === i ? { ...c, ...parche } : c)),
+    );
+
+  const quitarContacto = (i: number) =>
+    setContactos((previo) => (previo === null ? previo : previo.filter((_, j) => j !== i)));
+
+  const agregarContacto = () =>
+    setContactos((previo) => [...(previo ?? []), { ...FILA_VACIA }]);
 
   // **P3 · la previsión bajo los dos `select`.** Se pide al servidor y no se calcula acá: la
   // cuenta la hace el mismo código que va a guardar (`calcular()`), así que el número de
@@ -181,7 +249,7 @@ export default function PopupPersona({
     setGuardando(true);
     setError(null);
     setMensaje(null);
-    const r = await guardarPertenencia(persona.id, aDatos(f));
+    const r = await guardarPertenencia(persona.id, aDatos(f, contactos));
     setGuardando(false);
     if (!r.ok) {
       setError(r.mensaje);
@@ -189,6 +257,10 @@ export default function PopupPersona({
     }
     setMensaje(r.mensaje);
     setFrases(r.frases);
+    // Los contactos recién creados ya tienen id en la base y acá no. Guardar de nuevo sin
+    // recargarlos los mandaría otra vez sin id, y la acción los crearía duplicados. Volver a
+    // `null` hace que el efecto los pida de nuevo con los ids puestos.
+    if (contactos !== null) setContactos(null);
   };
 
   const pestanas: readonly Pestana<Seccion>[] = [
@@ -218,7 +290,10 @@ export default function PopupPersona({
           >
             Cerrar
           </button>
-          {administra && seccion === 'base' && (
+          {/* Guardar aparece donde hay algo que guardar. Licencias y Grupos todavía no
+              escriben nada, así que ahí un botón habilitado prometería un cambio que no
+              ocurre. */}
+          {administra && (seccion === 'base' || seccion === 'contactos') && (
             <button
               type="button"
               onClick={guardar}
@@ -369,30 +444,7 @@ export default function PopupPersona({
               />
             </div>
 
-            {error && (
-              <p className="text-12" style={{ color: 'var(--hf-danger-text)' }}>
-                {error}
-              </p>
-            )}
-            {mensaje && (
-              <div
-                className="rounded-campo border px-3 py-2"
-                style={{ background: '#e6efe9', borderColor: '#0b5c44' }}
-              >
-                <p className="text-12_5 font-semibold" style={{ color: '#0b5c44' }}>
-                  {mensaje}
-                </p>
-                {frases.length > 0 && (
-                  <ul className="mt-1 flex flex-col gap-0.5">
-                    {frases.map((x) => (
-                      <li key={x} className="text-11_5" style={{ color: '#0b5c44' }}>
-                        · {x}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            <Avisos error={error} mensaje={mensaje} frases={frases} />
 
             {/* R9 · el panel de reasignación, ahora como pie de esta pestaña. */}
             <div className="border-t border-hairline-strong pt-3">{pieDeDatosBase}</div>
@@ -407,10 +459,123 @@ export default function PopupPersona({
         )}
 
         {seccion === 'contactos' && (
-          <PendienteDeConstruir
-            que="Los datos de contacto y los contactos de emergencia"
-            por="El contacto de emergencia es dato personal de un tercero que nunca autorizó nada, así que entra al inventario de tratamientos y sólo lo ve quien administra personas."
-          />
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Campo
+                etiqueta="Teléfono"
+                valor={f.telefono}
+                onCambiar={(v) => campo('telefono', v)}
+                deshabilitado={!administra}
+              />
+              <Campo
+                etiqueta="Correo personal"
+                tipo="email"
+                valor={f.correoPersonal}
+                onCambiar={(v) => campo('correoPersonal', v)}
+                deshabilitado={!administra}
+                nota="El del Directorio no se edita acá: éste es por dónde se la ubica si pierde el acceso."
+              />
+              <Campo
+                etiqueta="Ciudad"
+                valor={f.ciudad}
+                onCambiar={(v) => campo('ciudad', v)}
+                deshabilitado={!administra}
+              />
+              <Campo
+                etiqueta="Dirección"
+                valor={f.direccion}
+                onCambiar={(v) => campo('direccion', v)}
+                deshabilitado={!administra}
+              />
+            </div>
+
+            <div className="border-t border-hairline-strong pt-3">
+              <p className="text-12_5 font-semibold text-primary">Contactos de emergencia</p>
+              {/* P9.2 · por qué se recoge tan poco, dicho donde se está recogiendo. La nota no
+                  es un descargo legal: es lo que evita que alguien agregue una columna de
+                  documento «por si acaso». */}
+              <p className="mt-0.5 text-10_5 text-faint [text-wrap:pretty]">
+                Nombre, parentesco y teléfono: nada más. Es dato personal de alguien que nunca
+                autorizó nada, y para llamar en una emergencia no hace falta su correo, ni su
+                dirección, ni su documento. Sólo lo ve quien tiene{' '}
+                <code>personas:administrar</code>, y no sale en el censo ni en ninguna
+                exportación. El orden de la lista es el orden en que se llama.
+              </p>
+
+              {!administra && (
+                <p className="mt-2 text-11_5 text-muted [text-wrap:pretty]">
+                  No se muestran: leerlos exige <code>personas:administrar</code>.
+                </p>
+              )}
+
+              {/* «Cargando» se deduce: no hay lista y tampoco hay error todavía. Un estado
+                  aparte para decir lo mismo podría quedar desfasado de los otros dos. */}
+              {administra && contactos === null && errorContactos === null && (
+                <p className="mt-2 text-12 text-muted">Cargando…</p>
+              )}
+
+              {administra && errorContactos !== null && (
+                <p className="mt-2 text-12" style={{ color: 'var(--hf-danger-text)' }}>
+                  {errorContactos}
+                </p>
+              )}
+
+              {administra && contactos !== null && (
+                <div className="mt-3 flex flex-col gap-2">
+                  {contactos.length === 0 && (
+                    <p className="text-12 text-muted">
+                      No hay ninguno cargado. Sin contacto de emergencia, ante un accidente no
+                      hay a quién llamar.
+                    </p>
+                  )}
+                  {contactos.map((c, i) => (
+                    <div
+                      // El índice es la identidad de la FILA mientras se edita: un contacto
+                      // nuevo todavía no tiene id, y usar el nombre como llave haría que el
+                      // campo perdiera el foco en cada letra.
+                      key={i}
+                      className="grid grid-cols-[1.5rem_1fr_1fr_1fr_2rem] items-end gap-2 border-t border-hairline pt-2"
+                    >
+                      <span className="pb-2 text-12_5 font-semibold text-muted">{i + 1}</span>
+                      <Campo
+                        etiqueta="Nombre"
+                        valor={c.nombre}
+                        onCambiar={(v) => filaContacto(i, { nombre: v })}
+                      />
+                      <Campo
+                        etiqueta="Parentesco"
+                        valor={c.parentesco}
+                        onCambiar={(v) => filaContacto(i, { parentesco: v })}
+                      />
+                      <Campo
+                        etiqueta="Teléfono"
+                        valor={c.telefono}
+                        onCambiar={(v) => filaContacto(i, { telefono: v })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => quitarContacto(i)}
+                        aria-label={`Quitar el contacto ${i + 1}`}
+                        title="Quitar"
+                        className="mb-1 rounded-campo border border-border-field bg-surface px-2 py-2 text-12_5 text-muted"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={agregarContacto}
+                    className="self-start rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5 text-secondary"
+                  >
+                    + Agregar contacto
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <Avisos error={error} mensaje={mensaje} frases={frases} />
+          </div>
         )}
 
         {seccion === 'grupos' && (
@@ -456,6 +621,48 @@ export default function PopupPersona({
         )}
       </Pestanas>
     </Popup>
+  );
+}
+
+/// El resultado del guardado. Vive en un componente porque las dos pestañas que guardan —la
+/// base y la de contactos— tienen que mostrar lo mismo: quien guarda desde Contactos también
+/// necesita leer si la transacción le asignó tareas.
+function Avisos({
+  error,
+  mensaje,
+  frases,
+}: {
+  error: string | null;
+  mensaje: string | null;
+  frases: string[];
+}) {
+  return (
+    <>
+      {error !== null && (
+        <p className="text-12" style={{ color: 'var(--hf-danger-text)' }}>
+          {error}
+        </p>
+      )}
+      {mensaje !== null && (
+        <div
+          className="rounded-campo border px-3 py-2"
+          style={{ background: '#e6efe9', borderColor: '#0b5c44' }}
+        >
+          <p className="text-12_5 font-semibold" style={{ color: '#0b5c44' }}>
+            {mensaje}
+          </p>
+          {frases.length > 0 && (
+            <ul className="mt-1 flex flex-col gap-0.5">
+              {frases.map((x) => (
+                <li key={x} className="text-11_5" style={{ color: '#0b5c44' }}>
+                  · {x}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
