@@ -34,6 +34,7 @@ import {
   type DatosPertenencia,
 } from '@/app/sig/acciones/personas-edicion';
 import type { ContactoPropuesto } from '@/lib/sig/contactos';
+import LicenciasPersona from './LicenciasPersona';
 import type { PersonaFila } from './Personas.client';
 
 export interface CatalogosDelPopup {
@@ -508,11 +509,11 @@ export default function PopupPersona({
           </div>
         )}
 
+        {/* §3.2 · la pestaña LEE y no escribe (D-2). Las dos consultas de Graph degradan por
+            separado (P8) y esa lógica vive en su propio archivo: acá adentro habría convertido
+            los cuatro estados de este popup en diez. */}
         {seccion === 'licencias' && (
-          <PendienteDeConstruir
-            que="Las licencias del tenant"
-            por="Lee dos consultas de Graph que el consentimiento vigente ya permite (D-2), y cada una degrada por separado: una lista vacía y un 403 no se ven igual nunca."
-          />
+          <LicenciasPersona personaId={persona.id} administra={administra} />
         )}
 
         {seccion === 'contactos' && (
@@ -744,17 +745,6 @@ function Avisos({
         </div>
       )}
     </>
-  );
-}
-
-/// Lo que todavía no está, dicho con lo que va a hacer cuando esté. Un panel vacío se lee
-/// como un defecto; uno que dice qué falta y por qué importa, no.
-function PendienteDeConstruir({ que, por }: { que: string; por: string }) {
-  return (
-    <div className="rounded-campo border border-dashed border-border-field px-3 py-3">
-      <p className="text-12_5 font-medium text-secondary">{que} · todavía no está construido</p>
-      <p className="mt-0.5 text-11_5 text-muted [text-wrap:pretty]">{por}</p>
-    </div>
   );
 }
 

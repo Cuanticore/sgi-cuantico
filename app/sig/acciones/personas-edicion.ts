@@ -38,6 +38,15 @@ import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/db';
 import { registrar, type Cambio } from '@/lib/sgsi/bitacora';
+import { leerLicencias } from '@/lib/sgsi/graph-licencias';
+import {
+  anomaliasDeLicencia,
+  inventarioDeSoftware,
+  nombresComerciales,
+  resumirSkus,
+  PREFIJO_PARAMETRO_SKU,
+  type LicenciasDeLaPantalla,
+} from '@/lib/sgsi/licencias';
 import {
   planificarContactos,
   type ContactoGuardado,
@@ -52,7 +61,13 @@ import {
   type ObligacionDelDesglose,
   type RenglonDelDesglose,
 } from '@/lib/sig/pertenencias';
-import { autorConPermiso, ejecutar, exigirId, type Resultado } from '@/app/sgsi/acciones/sesion';
+import {
+  autorConPermiso,
+  DatoInvalidoError,
+  ejecutar,
+  exigirId,
+  type Resultado,
+} from '@/app/sgsi/acciones/sesion';
 
 export interface DatosPertenencia {
   areaId: number | null;
@@ -458,6 +473,89 @@ export async function leerContactosEmergencia(personaId: number): Promise<Result
     });
 
     return { ok: true, mensaje: `${contactos.length} contacto(s) de emergencia.`, contactos };
+  });
+}
+
+export interface ResultadoLicencias extends Resultado {
+  /// **Las dos consultas, cada una con su propio resultado** (P8). Ausente cuando ni siquiera
+  /// se llegó a preguntar —sin sesión, sin permiso o sin `oid`—, que no es lo mismo que una
+  /// consulta que se hizo y falló.
+  licencias?: LicenciasDeLaPantalla;
+}
+
+/// **Las licencias de una persona. LEE Y NO ESCRIBE** (REQ-SIG-15 §3.2, D-2).
+///
+/// Asignar y quitar licencias se sigue haciendo en el portal de Microsoft: la escritura
+/// exigiría `LicenseAssignment.ReadWrite.All` sobre todo el tenant, pelea con la licenciación
+/// por grupo, y quitar una licencia de Exchange arranca el reloj de 30 días para el borrado
+/// del buzón — una consecuencia que no puede vivir detrás de una casilla en un popup del SIG.
+///
+/// Lo que aporta sin escribir nada es lo que hoy no existe en ninguna parte: el inventario de
+/// software por persona que A.5.9 pide, y los dos cruces que el portal no puede hacer porque no
+/// sabe quién salió de la organización ni a quién se le está exigiendo una tarea (P7).
+///
+/// **P8 · cada consulta degrada por separado.** Los dos `ResultadoGraph` viajan enteros a la
+/// pantalla: si el inventario del tenant responde 403, la lista de la persona se muestra igual
+/// y lo único que falta es el contexto del tenant, dicho con el nombre del recurso y del
+/// permiso. Degradar las dos porque una falló pierde información que sí se tiene.
+export async function leerLicenciasDePersona(personaId: number): Promise<ResultadoLicencias> {
+  return ejecutar<ResultadoLicencias>(async () => {
+    await autorConPermiso('personas:administrar');
+    exigirId(personaId, 'la persona');
+
+    const persona = await prisma.persona.findUnique({
+      where: { id: personaId },
+      select: { oid: true, activa: true },
+    });
+    if (!persona) throw new DatoInvalidoError('Esa persona no está en el censo.');
+
+    // Los pendientes ABIERTOS, que es el segundo término del cruce «sin licencia y con
+    // tareas». Se cuentan acá y no se reciben del cliente: el popup ya trae un conteo en la
+    // fila, pero un número que viaja al navegador y vuelve es un número que se puede editar.
+    const [pendientes, filasDeParametro] = await Promise.all([
+      prisma.asignacion.count({ where: { personaId, estado: 'PENDIENTE' } }),
+      // P6 · el nombre comercial sale de la tabla de parámetros, editable sin despliegue.
+      prisma.parametro.findMany({
+        where: { clave: { startsWith: PREFIJO_PARAMETRO_SKU } },
+        select: { clave: true, valor: true },
+      }),
+    ]);
+    const comerciales = nombresComerciales(filasDeParametro);
+
+    // Fuera de cualquier transacción de Prisma, que es la regla P10 de REQ-SIG-13. Acá es
+    // trivial cumplirla —esta acción no escribe nada— y se dice igual para que siga siendo
+    // cierto si alguien le agrega una escritura mañana.
+    const { persona: deLaPersona, tenant } = await leerLicencias(persona.oid);
+
+    // El `map` sobre la rama `ok` es lo que impide afirmar una anomalía sobre una pregunta sin
+    // responder: fuera de esta rama no hay lista de la que sacarla.
+    const licencias: LicenciasDeLaPantalla = {
+      persona: deLaPersona.ok
+        ? {
+            ok: true,
+            datos: (() => {
+              const renglones = inventarioDeSoftware(deLaPersona.datos, comerciales);
+              return {
+                renglones,
+                anomalias: anomaliasDeLicencia(renglones, { activa: persona.activa, pendientes }),
+              };
+            })(),
+          }
+        : deLaPersona,
+      tenant: tenant.ok ? { ok: true, datos: resumirSkus(tenant.datos, comerciales) } : tenant,
+    };
+
+    // El mensaje dice qué se pudo leer y qué no. «Se leyeron las licencias» a secas taparía
+    // justamente el caso que P8 protege.
+    const partes = [
+      licencias.persona.ok
+        ? `${licencias.persona.datos.renglones.length} licencia(s) de la persona`
+        : 'no se pudo leer la lista de la persona',
+      licencias.tenant.ok
+        ? `${licencias.tenant.datos.length} SKU del tenant`
+        : 'no se pudo leer el inventario del tenant',
+    ];
+    return { ok: true, mensaje: `${partes[0]}; ${partes[1]}.`, licencias };
   });
 }
 

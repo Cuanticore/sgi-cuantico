@@ -15,13 +15,8 @@ import 'server-only';
 
 import { prisma } from '@/lib/db';
 import { OBJECT_ID_GRUPO_SIG } from '@/lib/sgsi/permisos';
-import {
-  clasificarRecurso,
-  clasificarToken,
-  variablesQueFaltan,
-  type FalloGraph,
-  type ResultadoGraph,
-} from '@/lib/sgsi/graph-fallo';
+import { consultarGraph } from '@/lib/sgsi/graph-consulta';
+import type { FalloGraph, ResultadoGraph } from '@/lib/sgsi/graph-fallo';
 import { esColaboradorDeLaOrganizacion, type UsuarioDeGraph } from '@/lib/sgsi/graph-usuario';
 
 export type { FalloGraph, ResultadoGraph };
@@ -38,73 +33,10 @@ export interface PersonaDirectorio {
 const PERMISO_USUARIOS = 'User.Read.All';
 const PERMISO_MIEMBROS = 'GroupMember.Read.All';
 
-/// Token de aplicación para Graph.
-///
-/// Estaba escrito tres veces palabra por palabra. Una credencial que se pide en tres
-/// lugares es una credencial que mañana se arregla en dos.
-async function tokenDeGraph(): Promise<ResultadoGraph<string>> {
-  const faltan = variablesQueFaltan(process.env as Record<string, string | undefined>);
-  if (faltan.length > 0) {
-    return { ok: false, fallo: { causa: 'SIN_CONFIGURAR', faltan } };
-  }
-  try {
-    const res = await fetch(
-      `https://login.microsoftonline.com/${process.env.SHAREPOINT_TENANT_ID}/oauth2/v2.0/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: process.env.SHAREPOINT_CLIENT_ID as string,
-          client_secret: process.env.SHAREPOINT_CLIENT_SECRET as string,
-          scope: 'https://graph.microsoft.com/.default',
-        }),
-      },
-    );
-    if (!res.ok) {
-      // El cuerpo del endpoint de token trae `error` y `error_description`, y ahí está la
-      // diferencia entre un secreto vencido y un tenant equivocado. Tirarlo obligaba a
-      // reproducir el fallo con curl para averiguar lo que la respuesta ya decía.
-      const cuerpo = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        error_description?: string;
-      };
-      return {
-        ok: false,
-        fallo: clasificarToken(res.status, cuerpo.error ?? cuerpo.error_description ?? ''),
-      };
-    }
-    const cuerpo = (await res.json()) as { access_token?: string };
-    if (!cuerpo.access_token) {
-      return { ok: false, fallo: clasificarToken(res.status, 'respuesta sin access_token') };
-    }
-    return { ok: true, datos: cuerpo.access_token };
-  } catch (e) {
-    return { ok: false, fallo: { causa: 'SIN_RED', detalle: mensajeDe(e) } };
-  }
-}
-
-/// Una consulta a Graph con el token ya resuelto. Concentra la clasificación del fallo
-/// para que cada endpoint no la repita —y no la repita distinto.
-async function consultarGraph<T>(
-  url: string,
-  recurso: string,
-  permiso: string,
-): Promise<ResultadoGraph<T>> {
-  const token = await tokenDeGraph();
-  if (!token.ok) return token;
-  try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token.datos}` } });
-    if (!res.ok) return { ok: false, fallo: clasificarRecurso(res.status, recurso, permiso) };
-    return { ok: true, datos: (await res.json()) as T };
-  } catch (e) {
-    return { ok: false, fallo: { causa: 'SIN_RED', detalle: mensajeDe(e) } };
-  }
-}
-
-function mensajeDe(e: unknown): string {
-  return e instanceof Error ? e.message : 'error desconocido';
-}
+/// El token y la llamada a Graph viven en `graph-consulta.ts` desde que apareció el
+/// segundo consumidor —las licencias de REQ-SIG-15—. Es la misma razón que este módulo ya
+/// llevaba escrita: una credencial que se pide en tres lugares es una credencial que mañana
+/// se arregla en dos.
 
 async function desdeGraph(): Promise<PersonaDirectorio[] | null> {
   const r = await consultarGraph<{ value?: { displayName?: string; userPrincipalName?: string }[] }>(

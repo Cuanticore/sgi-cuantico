@@ -311,6 +311,19 @@ Hoy la aplicación **lee** el Directorio con la misma registración que usa para
 
 **Nada de licencias en esta tabla, y es deliberado.** No se pide `Organization.Read.All`: las dos consultas de §3.2 responden con lo que ya está concedido. Lo que sí hay que hacer al construir es **anotar en este documento qué permiso las habilitó** —el consentimiento vigente incluye lectura de directorio, y de ahí sale— para que dentro de un año, si alguien recorta permisos y la pestaña se cae, el diagnóstico esté escrito y no haya que redescubrirlo. Y no se pide `LicenseAssignment.ReadWrite.All`, porque la pestaña no escribe (D-2).
 
+### 7.1 · Qué permiso habilita cada consulta de licencias (deuda de D-2, pagada al construir)
+
+Esto es la anotación que el párrafo anterior pide. **No se concedió nada nuevo**: las dos consultas salen de la lectura de directorio que la registración de `SHAREPOINT_CLIENT_ID` ya tiene, la misma con la que `/users` alimenta el censo. Se deja escrito para que un recorte de permisos futuro tenga diagnóstico y no haya que redescubrirlo.
+
+| Consulta | Permiso de APLICACIÓN que la habilita | De dónde sale hoy |
+|---|---|---|
+| `GET /users/{oid}/licenseDetails` | **`User.Read.All`** — o `Directory.Read.All`, que lo cubre | Ya concedido: es el mismo permiso con el que `leerDirectorioCompleto` lee `/users` (`lib/sgsi/directorio.ts`, constante `PERMISO_USUARIOS`) |
+| `GET /subscribedSkus` | **`Organization.Read.All`** — o `Directory.Read.All`, que lo cubre | Ya concedido por la vía de `Directory.Read.All` del consentimiento de directorio. **No se pidió `Organization.Read.All` por separado** y no hace falta pedirlo mientras el consentimiento de directorio siga vigente |
+
+Los dos nombres están en el código, en `lib/sgsi/graph-licencias.ts` (`PERMISO_LICENCIAS_DE_USUARIO` y `PERMISO_SKUS_DEL_TENANT`), y son los que el mensaje de un 403 cita textualmente: quien vea el error lee qué falta sin salir de la pantalla.
+
+**Lo que hay que mirar el día que la pestaña se caiga con 403.** El recorte más probable no es el de `User.Read.All` —lo sostiene el censo entero y su caída se ve en toda la aplicación, no en esta pestaña— sino el de `Directory.Read.All`: si alguien lo reemplaza por el `User.Read.All` acotado, `/users/{oid}/licenseDetails` sigue respondiendo y **`/subscribedSkus` empieza a dar 403**. Ese es exactamente el caso que P8 mantiene legible: la lista de la persona se sigue viendo y el bloque del tenant nombra el recurso y el permiso. La respuesta correcta ahí es conceder `Organization.Read.All`, que es el permiso mínimo para esa sola consulta, y no volver a abrir `Directory.Read.All`.
+
 **Dos cosas que verificar al conceder, y de las que el desarrollo no puede responder solo:**
 
 1. **Que la aplicación no pueda tocar cuentas privilegiadas.** Microsoft restringe que una aplicación con estos permisos modifique usuarios con roles administrativos, pero la restricción y su alcance hay que **comprobarlos en el consentimiento**, no darlos por ciertos desde acá. Si no alcanza, se acota con Administrative Units. Es la contrapartida de D-7: una sola registración concentra la capacidad de publicar documentos y de deshabilitar cuentas, así que el alcance de la segunda tiene que estar comprobado.

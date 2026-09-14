@@ -10,6 +10,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
 import { seedEscalas } from './seeds/escalas';
+import { seedLicencias } from './seeds/licencias';
 import { seedMagerit } from './seeds/magerit';
 import { seedObligaciones } from './seeds/obligaciones';
 import { seedIso, seedControlAmenaza } from './seeds/iso';
@@ -27,6 +28,13 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 async function main(): Promise<void> {
   console.log('Sembrando escalas, umbrales y parámetros…');
   await seedEscalas(prisma);
+
+  // REQ-SIG-15 P6 · los nombres comerciales de los SKU. Van a la misma tabla `Parametro` que
+  // acaba de sembrar `seedEscalas`, y son editables sin desplegar: un SKU que falte se muestra
+  // con su código crudo, que es la señal de que la organización compró un producto nuevo.
+  console.log('Sembrando los nombres comerciales de las licencias (REQ-SIG-15)…');
+  const skus = await seedLicencias(prisma);
+  console.log(`  ${skus} SKU de uso general de Microsoft 365.`);
 
   console.log('Sembrando áreas, catálogos y taxonomía MAGERIT…');
   await seedMagerit(prisma);
