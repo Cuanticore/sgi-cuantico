@@ -33,6 +33,7 @@
 
 import type { Metadata } from 'next';
 
+import { firmarConEnlace } from '@/app/sig/acciones/enlace-firma';
 import { fechaCorta } from '@/lib/sig/correos';
 import { vistaDelEnlace } from '@/lib/sig/vista-enlace-publico';
 import PanelPublico from './PanelPublico';
@@ -74,10 +75,15 @@ export default async function Page({ params }: { params: Promise<{ token: string
       )}
 
       {vista.clase === 'PARA_FIRMAR' && (
-        // Task 8 · cuando `firmarConEnlace(token, datos)` exista en
-        // `app/sig/acciones/enlace-firma.ts`, se pasa acá como `firmar={firmarConEnlace}` y esta
-        // pantalla no cambia en nada más.
-        <PanelPublico token={token} nombre={vista.nombre} documento={vista.documento} />
+        // Task 8 · el enganche. `firmarConEnlace` revalida del lado del servidor todo lo que esta
+        // pantalla comprueba —y las puertas que la pantalla no puede comprobar: el estado del
+        // enlace, el documento de identidad y el tope de intentos—. La pantalla ayuda; no decide.
+        <PanelPublico
+          token={token}
+          nombre={vista.nombre}
+          documento={vista.documento}
+          firmar={firmarConEnlace}
+        />
       )}
     </main>
   );

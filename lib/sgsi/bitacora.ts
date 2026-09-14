@@ -24,6 +24,17 @@ export interface Cambio {
   /// Required for exceptions: a degradation or frequency off the parameterisation, a
   /// threat added or removed, an overridden treatment. Optional for ordinary edits.
   motivo?: string | null;
+  /// **REQ-SIG-19 · el origen de red de la operación, cuando el sistema lo vio.**
+  ///
+  /// Ausente en la inmensa mayoría de los cambios, y ausente a propósito: quien edita un riesgo
+  /// llegó con una sesión corporativa autenticada, y ahí la atribución la sostiene la sesión.
+  /// **La firma por enlace no tiene sesión**, así que la IP es uno de los pocos rastros
+  /// verificables que quedan de dónde vino el acto, y el mismo dato que el acta guarda en su
+  /// numeral 4. Se escribe en la columna `ip` —que el esquema tiene— y no dentro del `motivo`,
+  /// para que se pueda consultar sin leer texto libre.
+  ///
+  /// `undefined` y `null` son lo mismo: la aplicación no registra una IP que no vio.
+  ip?: string | null;
 }
 
 /// Renders a value for the log. Nulls become the word, so a blank cell in the trail is
@@ -53,6 +64,7 @@ export async function registrar(
       valorAnterior: texto(c.anterior),
       valorNuevo: texto(c.nuevo),
       motivo: c.motivo ?? null,
+      ip: c.ip ?? null,
       usuario,
     })),
   });
