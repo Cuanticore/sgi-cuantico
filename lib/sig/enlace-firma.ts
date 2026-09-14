@@ -162,8 +162,8 @@ export function estadoDelEnlace(e: EnlaceParaEvaluar, ahora: Date): EstadoDelEnl
 /// frases parecidas escritas en dos lugares terminan distinguiéndose en la primera corrección de
 /// estilo, y ahí vuelve el oráculo.
 export const FRASE_ENLACE_NO_DISPONIBLE =
-  'Este enlace no está disponible. Si tenías que firmar un documento, escribí a quien te envió ' +
-  'la solicitud para que te haga llegar uno nuevo.';
+  'Este enlace no está disponible. Si tenía un documento pendiente de firma, escriba a quien le ' +
+  'envió la solicitud para que le haga llegar uno nuevo.';
 
 /// Si el estado se le puede contar a quien abrió el enlace.
 ///
