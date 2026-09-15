@@ -21,6 +21,15 @@
 // LA COLUMNA «PLAN» Y LA TARJETA SIN PLAN degradan con elegancia mientras la Fase 4
 // (`lib/sgsi/deuda-planes.ts`) no exista: `tarjetas.sinPlan` es `null`, no `0`, y las filas en
 // banda Crítico muestran «Fase 4» en vez de inventar un «pendiente» o un «✓» que nadie calculó.
+//
+// EL ORDEN (criterio §14.12, segunda mitad) es peor residual por defecto —el orden que ya
+// existía— o criticidad (RTO), reusando sin cambios `ordenarPorCriticidad` de
+// `lib/sgsi/analisis-riesgos.ts`. Vive en estado LOCAL, no en la URL: a diferencia de los seis
+// filtros de `FiltrosAnalisis`, el orden no cambia QUÉ filas se muestran, solo en qué
+// secuencia — meterlo en ese tipo cerrado y probado mezclaría dos preguntas distintas
+// («¿cuáles activos?» vs. «¿en qué orden?») en un solo contrato. Reordenar nunca cambia
+// `filas.length` ni las tarjetas: ambas siguen leyendo el mismo arreglo de `filasAnalisis`,
+// solo se le aplica `ordenarPorCriticidad` encima cuando corresponde.
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -34,17 +43,24 @@ import {
   consultaDeFiltrosAnalisis,
   filasAnalisis,
   filtrosAnalisisDesdeUrl,
+  ordenarPorCriticidad,
   parametrosDeFiltrosAnalisis,
   tarjetasAnalisis,
   type ActivoAnalizable,
   type CatalogosFiltroAnalisis,
   type EstadoPlanActivo,
   type FiltrosAnalisis,
+  type MapaRtoPorCriticidad,
 } from '@/lib/sgsi/analisis-riesgos';
 import { construirResolverDeuda, type AccionPlanParaDeuda } from '@/lib/sgsi/deuda-planes';
 import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
 import { colorDeNivelValor } from '@/lib/sgsi/valoracion-figura';
 import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
+
+/// Criterio §14.12 (segunda mitad) · las dos secuencias que esta pantalla ofrece. `'residual'`
+/// es el orden que ya existía y sigue siendo el predeterminado; `'criticidad'` reusa
+/// `ordenarPorCriticidad` sin escribir un segundo comparador.
+type OrdenAnalisis = 'residual' | 'criticidad';
 
 export interface PantallaAnalisisRiesgosProps {
   activos: ActivoAnalizable[];
@@ -59,6 +75,11 @@ export interface PantallaAnalisisRiesgosProps {
   accionesParaDeuda: AccionPlanParaDeuda[];
   /// La franja nombrada (tarea 4.17), ya resuelta con antigüedad.
   sinPlan: FilaFranjaSinPlan[];
+  /// Criterio §14.12 (segunda mitad) · `codigo → rtoMinutos` de `CriticidadNegocio`, plano —
+  /// la pantalla arma acá el `MapaRtoPorCriticidad` que `ordenarPorCriticidad` necesita, un
+  /// `Map` no cruza el límite servidor→cliente como prop. Opcional con default `[]` para no
+  /// romper a quien todavía no lo provee.
+  criticidadesRto?: { codigo: string; rtoMinutos: number | null }[];
 }
 
 export default function PantallaAnalisisRiesgos({
@@ -70,6 +91,7 @@ export default function PantallaAnalisisRiesgos({
   personas,
   accionesParaDeuda,
   sinPlan,
+  criticidadesRto = [],
 }: PantallaAnalisisRiesgosProps) {
   const router = useRouter();
   const parametros = useSearchParams();
@@ -115,6 +137,18 @@ export default function PantallaAnalisisRiesgos({
   const tarjetas = useMemo(
     () => tarjetasAnalisis(datos, filtros, resolverDeuda),
     [datos, filtros, resolverDeuda],
+  );
+
+  // Criterio §14.12 (segunda mitad) · el orden es local, no un filtro: no cambia `filas`, solo
+  // en qué secuencia se muestran las mismas filas ya filtradas (ver comentario de cabecera).
+  const [orden, setOrden] = useState<OrdenAnalisis>('residual');
+  const rtoPorCriticidad: MapaRtoPorCriticidad = useMemo(
+    () => new Map(criticidadesRto.map((c) => [c.codigo, c.rtoMinutos])),
+    [criticidadesRto],
+  );
+  const filasOrdenadas = useMemo(
+    () => (orden === 'criticidad' ? ordenarPorCriticidad(filas, rtoPorCriticidad) : filas),
+    [filas, orden, rtoPorCriticidad],
   );
   // El total SIN filtrar, para el encabezado — que diga «37 de 299» siempre, no lo que el
   // filtro actual dejó ver.
@@ -219,9 +253,21 @@ export default function PantallaAnalisisRiesgos({
       <section className="mt-5 rounded-tarjeta border border-border-default bg-surface p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-15 font-bold text-primary">Activos en análisis</h2>
-          <p className="text-11_5 text-faint">{filas.length} activos · orden por peor residual</p>
+          <div className="flex items-baseline gap-3">
+            <p className="text-11_5 text-faint">
+              {filas.length} activos ·{' '}
+              {orden === 'residual' ? 'orden por peor residual' : 'orden por criticidad (RTO)'}
+            </p>
+            <Select
+              etiqueta="Orden"
+              valor={orden}
+              opciones={['residual', 'criticidad']}
+              rotulos={{ residual: 'Peor residual', criticidad: 'Criticidad (RTO)' }}
+              onChange={(v) => setOrden(v as OrdenAnalisis)}
+            />
+          </div>
         </div>
-        {filas.length === 0 ? (
+        {filasOrdenadas.length === 0 ? (
           <p className="parrafo mt-4 text-12_5 text-muted">
             Ningún activo cumple esta combinación de filtros.
           </p>
@@ -244,7 +290,7 @@ export default function PantallaAnalisisRiesgos({
                 </tr>
               </thead>
               <tbody>
-                {filas.map((f) => (
+                {filasOrdenadas.map((f) => (
                   <tr key={f.codigo} className="border-b border-hairline-faint">
                     <td className="py-1.5 pr-3">
                       <span className="inline-flex items-center gap-1.5">

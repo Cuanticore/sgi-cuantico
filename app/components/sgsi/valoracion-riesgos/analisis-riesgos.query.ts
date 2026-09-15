@@ -20,6 +20,12 @@ import 'server-only';
 // LA CRITICIDAD (columna «Criticidad», P9) viaja como el código de `CriticidadNegocio`
 // (C1..C5) o `null` cuando el activo todavía no fue clasificado — ver el encabezado de
 // `lib/sgsi/analisis-riesgos.ts`.
+//
+// EL RTO POR CRITICIDAD (criterio §14.12, segunda mitad) viaja como una lista plana de pares
+// `{ codigo, rtoMinutos }`, no como el `ReadonlyMap` que `ordenarPorCriticidad` espera: un
+// `Map` no cruza el límite servidor→cliente como prop serializable, así que la pantalla arma
+// el mapa del lado del cliente con estos mismos datos crudos — el mismo criterio que
+// `accionesParaDeuda` ya sigue para `construirResolverDeuda`.
 
 import { prisma } from '@/lib/db';
 import { valorActivo } from '@/lib/sgsi/formulas';
@@ -50,10 +56,14 @@ export interface DatosPaginaAnalisis {
   /// `FranjaSinPlan.tsx` necesita, para que el prop cruce el límite servidor→cliente como
   /// datos planos.
   sinPlan: FilaFranjaSinPlan[];
+  /// Criterio §14.12 (segunda mitad) · `codigo → rtoMinutos` de `CriticidadNegocio`, plano —
+  /// la pantalla arma el `MapaRtoPorCriticidad` que `ordenarPorCriticidad` (`lib/sgsi/
+  /// analisis-riesgos.ts`) necesita para el orden alternativo por criticidad.
+  criticidadesRto: { codigo: string; rtoMinutos: number | null }[];
 }
 
 export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
-  const [activosVigentes, umbrales, parametro, deuda] = await Promise.all([
+  const [activosVigentes, umbrales, parametro, deuda, criticidades] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -86,6 +96,10 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
     prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
     prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } }),
     leerDeudaPlanes(),
+    prisma.criticidadNegocio.findMany({
+      where: { activo: true },
+      select: { codigo: true, rtoMinutos: true },
+    }),
   ]);
 
   // El mismo default que `lib/sgsi/riesgos.ts`, el inventario y la Valoración: un activo
@@ -157,6 +171,7 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
       diasPendiente: f.diasPendiente,
       escalado: f.escalado,
     })),
+    criticidadesRto: criticidades.map((c) => ({ codigo: c.codigo, rtoMinutos: c.rtoMinutos })),
   };
 }
 

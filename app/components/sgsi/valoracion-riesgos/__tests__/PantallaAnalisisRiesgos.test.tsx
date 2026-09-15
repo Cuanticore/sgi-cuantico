@@ -14,7 +14,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import PantallaAnalisisRiesgos from '../PantallaAnalisisRiesgos';
 import type { ActivoAnalizable } from '@/lib/sgsi/analisis-riesgos';
 import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
@@ -181,6 +181,90 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
     );
     expect(screen.getByText(/1 activo con riesgo residual Crítico/)).toBeInTheDocument();
     expect(screen.getByLabelText('sin plan')).toBeInTheDocument();
+  });
+});
+
+describe('REQ-SIG-20 §14.12 (segunda mitad) · elegir «criticidad» reordena por RTO', () => {
+  const activosCriticidad: ActivoAnalizable[] = [
+    activo({
+      codigo: 'TEC-GEN-0001',
+      criticidad: 'C3',
+      valor: 5,
+      riesgos: [
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '25', residual: '25', obsoleto: false },
+      ],
+    }),
+    activo({
+      codigo: 'TEC-GEN-0002',
+      criticidad: 'C1',
+      valor: 5,
+      riesgos: [
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '15', residual: '15', obsoleto: false },
+      ],
+    }),
+    activo({
+      codigo: 'TEC-GEN-0003',
+      criticidad: null,
+      valor: 4,
+      riesgos: [
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '8', residual: '8', obsoleto: false },
+      ],
+    }),
+    activo({
+      codigo: 'TEC-GEN-0004',
+      criticidad: 'C5',
+      valor: 4,
+      riesgos: [
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '3', residual: '3', obsoleto: false },
+      ],
+    }),
+  ];
+
+  // C1 (10 min) es el más exigente; C5 no tiene SLA (rtoMinutos null) igual que un activo sin
+  // criticidad declarada — los dos van al final, estables por código.
+  const CRITICIDADES_RTO = [
+    { codigo: 'C1', rtoMinutos: 10 },
+    { codigo: 'C2', rtoMinutos: 240 },
+    { codigo: 'C3', rtoMinutos: 1440 },
+    { codigo: 'C4', rtoMinutos: 4320 },
+    { codigo: 'C5', rtoMinutos: null },
+  ];
+
+  function codigosEnDom(): (string | null)[] {
+    return screen.getAllByRole('link', { name: /^TEC-GEN-000\d$/ }).map((a) => a.textContent);
+  }
+
+  it('reordena por RTO ascendente, deja sin-criticidad/sin-SLA al final, y no cambia el conteo', () => {
+    render(
+      <PantallaAnalisisRiesgos
+        activos={activosCriticidad}
+        bandas={BANDAS}
+        umbral={4}
+        procesos={['Gestión Tecnológica']}
+        propietarios={['Chief Operating Officer']}
+        personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[]}
+        criticidadesRto={CRITICIDADES_RTO}
+      />,
+    );
+
+    // Orden por defecto: peor residual descendente — sigue siendo el que ya existía.
+    expect(codigosEnDom()).toEqual(['TEC-GEN-0001', 'TEC-GEN-0002', 'TEC-GEN-0003', 'TEC-GEN-0004']);
+    expect(screen.getByText('4 activos · orden por peor residual')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: /Orden/i }), { target: { value: 'criticidad' } });
+
+    // Orden por criticidad: RTO ascendente (C1 = 10 primero), TEC-GEN-0003 (sin criticidad) y
+    // TEC-GEN-0004 (C5, sin SLA) comparten `rtoMinutos: null` y van al final, en orden estable
+    // por código — reusa `ordenarPorCriticidad` sin un segundo comparador.
+    expect(codigosEnDom()).toEqual(['TEC-GEN-0002', 'TEC-GEN-0001', 'TEC-GEN-0003', 'TEC-GEN-0004']);
+    expect(screen.getByText('4 activos · orden por criticidad (RTO)')).toBeInTheDocument();
+
+    // Reordenar NO cambia qué filas se muestran, solo el orden: la tarjeta EN ANÁLISIS sigue
+    // contando 4, igual que antes de cambiar el orden.
+    const tarjetaEnAnalisis = screen.getByRole('button', { name: /EN ANÁLISIS/ });
+    expect(within(tarjetaEnAnalisis).getByText('4')).toBeInTheDocument();
   });
 });
 
