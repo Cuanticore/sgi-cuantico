@@ -1,6 +1,6 @@
 ```yaml
 schema: gentle-ai.verify-result/v1
-evidence_revision: sha256:749cd06d000000000000000000000000000000000000000000000000000000
+evidence_revision: sha256:bd47dd9f0656ca0bff56be53b7fdfd1ea225c91d7a2dda5cf50f4e3720300a17
 verdict: pass_with_warnings
 blockers: 0
 critical_findings: 0
@@ -13,6 +13,16 @@ build_command: npx tsc --noEmit -p tsconfig.json
 build_exit_code: 0
 build_output_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 ```
+
+> `evidence_revision` = `sha256(git rev-parse 749cd06)`, es decir el sha256 de
+> `749cd06389763ae3fc6f8156909dcbda27492ac1`, que es la revision contra la que se corrio
+> esta verificacion. Reproducible con:
+> `git rev-parse 749cd06 | tr -d '
+' | sha256sum`
+>
+> El valor anterior estaba fabricado -el sha del commit rellenado con ceros, y con 62
+> caracteres en vez de 64-. El despachador nativo lo rechazo, que es para lo que existe
+> esa validacion.
 
 ## Verification Report
 
