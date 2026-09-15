@@ -143,10 +143,42 @@ export async function eficaciaPorAmenaza(
   return eficacia;
 }
 
+/// Qué riesgos puede marcar obsoletos una corrida, según su alcance.
+///
+/// En una corrida COMPLETA, «no volvió a entrar en alcance» significa «ya no aplica», y
+/// marcarlo obsoleto es exactamente lo correcto. En una corrida de UN SOLO ACTIVO significa
+/// algo muy distinto: los riesgos de los demás activos tampoco entraron —nadie los miró— y
+/// tratar esa ausencia como evidencia vaciaría el análisis entero. De ahí que el alcance
+/// sea un parámetro explícito y no una condición suelta dentro del ciclo.
+///
+/// `activoId` en `null` es la corrida completa.
+export function riesgosParaObsoletar<
+  T extends { activoId: number; amenazaId: number; obsoleto: boolean },
+>(existentes: readonly T[], enAlcance: ReadonlySet<string>, activoId: number | null): T[] {
+  return existentes.filter(
+    (r) =>
+      !r.obsoleto &&
+      !enAlcance.has(`${r.activoId}|${r.amenazaId}`) &&
+      (activoId === null || r.activoId === activoId),
+  );
+}
+
+/// El alcance de una corrida de `generarRiesgos`.
+export interface AlcanceGeneracion {
+  /// Recalcular UN activo en vez del inventario completo. La parametrización global —
+  /// umbral, eficacias, escalas— se lee igual: lo que cambia es sobre cuántos activos se
+  /// aplica, no con qué reglas.
+  activoId?: number;
+}
+
 /// Brings the risk set in line with the current inventory and parameterisation, then
 /// recalculates. Never deletes: a risk that leaves the scope is marked obsolete, and one
 /// that returns is reactivated with its previous valuation intact.
-export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoRiesgos> {
+export async function generarRiesgos(
+  prisma: PrismaClient,
+  alcance: AlcanceGeneracion = {},
+): Promise<DiagnosticoRiesgos> {
+  const activoId = alcance.activoId ?? null;
   const umbralParam = await prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } });
   const umbral = Number(umbralParam?.valor ?? 4);
 
@@ -154,7 +186,7 @@ export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoR
   const delta = Number(deltaParam?.valor ?? 0.05);
 
   const activos = await prisma.activo.findMany({
-    where: { activo: true },
+    where: { activo: true, ...(activoId === null ? {} : { id: activoId }) },
     include: { valores: { include: { dimension: true, valor: true } } },
   });
 
@@ -300,10 +332,11 @@ export async function generarRiesgos(prisma: PrismaClient): Promise<DiagnosticoR
     await prisma.riesgoCalculo.createMany({ data: snapshots });
   }
 
-  // Out of scope now: marked obsolete, never deleted.
-  const fuera = existentes.filter(
-    (r) => !enAlcance.has(`${r.activoId}|${r.amenazaId}`) && !r.obsoleto,
-  );
+  // Out of scope now: marked obsolete, never deleted. `existentes` se lee SIEMPRE entero
+  // —hace falta para `claveExistente` y para numerar el próximo `R-xxxx` sin chocar con un
+  // código ya usado por otro activo—, así que el alcance lo aplica el barrido y no la
+  // consulta.
+  const fuera = riesgosParaObsoletar(existentes, enAlcance, activoId);
   for (const r of fuera) {
     await prisma.riesgo.update({
       where: { id: r.id },
