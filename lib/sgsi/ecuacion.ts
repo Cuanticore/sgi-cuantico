@@ -19,15 +19,23 @@
 //
 // PASO 5 Y LA RELEVANCIA QUE HOY NO EXISTE (Open Item 6, tasks.md): los 272 pares de
 // `ControlAmenaza` tienen `relevanciaId` en null — ninguna amenaza tiene un control
-// principal designado. `eficaciaAmenaza` (madurez.ts) ya degrada con elegancia a la media
-// simple cuando no hay principal (esPrincipal siempre false), así que este módulo no
-// necesita una rama especial para ese caso: solo expone `sinRelevanciaAsignada` para que
-// la pantalla muestre el aviso. Asignar relevancia (REQ-SIG-21) no cambia esta función,
-// cambia sus datos de entrada.
+// principal designado. `desglosarEficaciaAmenaza` (madurez.ts) degrada con elegancia a la
+// media simple cuando no hay principal (esPrincipal siempre false), así que este módulo no
+// necesita una rama especial para ese caso.
+//
+// REQ-SIG-21 §7: lo que este módulo SÍ agrega es decir con qué regla se calculó. El paso 5
+// ya no expone sólo el número: expone `desgloseEficacia.agregacion` con el reparto por
+// clase (principal / secundario / complementario), la media de cada una, su aporte y si el
+// techo del principal llegó a actuar. Mientras no haya relevancias asignadas eso viaja con
+// `regla: 'media-simple'` y la pantalla muestra el aviso, igual que antes.
 
 import Decimal from 'decimal.js';
 import { calcularRiesgo, impactoDimension, valorActivo, type ValoresDimension } from './formulas';
-import { eficaciaAmenaza, eficaciaDeNivel } from './madurez';
+import {
+  desglosarEficaciaAmenaza,
+  eficaciaDeNivel,
+  type DesgloseEficaciaAmenaza,
+} from './madurez';
 
 export type DimensionRiesgo = 'D' | 'I' | 'C';
 
@@ -65,8 +73,12 @@ export interface DesgloseEficacia {
   principal: { codigo?: string; eficaciaNivel: number; techo: number } | null;
   /// True cuando ningún control de la lista tiene relevancia asignada: la media pasa a
   /// ser simple (MET-SIG-01 v2) y el techo del principal no interviene porque no hay
-  /// principal que declarar. REQ-SIG-21 es quien corrige esto — acá solo se avisa.
+  /// principal que declarar. Es el estado de las 57 amenazas de hoy.
   sinRelevanciaAsignada: boolean;
+  /// REQ-SIG-21 §7 · con qué regla se calculó, el reparto por clase con su media y su
+  /// aporte, y si el techo llegó a actuar. La pantalla muestra esto en lugar de dejar al
+  /// lector adivinar qué fórmula produjo el número.
+  agregacion: DesgloseEficaciaAmenaza;
 }
 
 export interface EntradaEcuacion {
@@ -132,11 +144,13 @@ export function resolverEcuacion(entrada: EntradaEcuacion): EcuacionResuelta {
   });
 
   const aplicables = entrada.controles;
+  // Una sola llamada a la agregación: de acá salen la eficacia, el reparto por clase y el
+  // techo que muestra la pantalla. Que el paso 5 y su desglose no puedan discrepar es el
+  // mismo motivo por el que el paso 7 llama a `calcularRiesgo` en vez de multiplicar.
+  const agregacion = desglosarEficaciaAmenaza(aplicables, delta);
   const eficacia = entrada.excepcionMadurez
     ? eficaciaDeNivel(entrada.excepcionMadurez.nivel)
-    : aplicables.length === 0
-      ? null
-      : eficaciaAmenaza(aplicables, delta);
+    : agregacion.eficacia;
 
   // La única llamada que produce impacto/inherente/residual — exactamente la que
   // `generarRiesgos` usa para escribir la fila de `Riesgo`. Un residual desconocido se
@@ -163,6 +177,7 @@ export function resolverEcuacion(entrada: EntradaEcuacion): EcuacionResuelta {
               }
             : null,
           sinRelevanciaAsignada: aplicables.every((c) => c.relevancia === null),
+          agregacion,
         };
 
   return {

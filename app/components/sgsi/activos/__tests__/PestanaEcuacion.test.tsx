@@ -56,13 +56,16 @@ describe('PestanaEcuacion — solo lectura, siete pasos (D3, tarea 2.3)', () => 
     ).toBeInTheDocument();
   });
 
-  it('sin controles con relevancia asignada, el paso 5 avisa "sin relevancia asignada" y no ofrece desglose', () => {
+  it('sin controles con relevancia asignada, el paso 5 dice que calculó con la media simple v2', () => {
     renderPestana();
 
+    // REQ-SIG-21 §7 · la pantalla dice CON QUÉ REGLA se calculó. Es el estado de las 57
+    // amenazas de hoy, y sin este aviso la brecha de conformidad es invisible.
     expect(screen.getByText(/sin relevancia asignada/i)).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /desglose principal/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/media simple \(MET-SIG-01 v2\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/media ponderada acotada \(v3 §7\.4\)/i)).toBeInTheDocument();
+    // Sin principal no hay reparto por clase que mostrar.
+    expect(screen.queryByText(/PRINCIPAL/)).not.toBeInTheDocument();
   });
 
   it('copiar como texto deja las siete pasos en el portapapeles', async () => {
@@ -81,8 +84,8 @@ describe('PestanaEcuacion — solo lectura, siete pasos (D3, tarea 2.3)', () => 
   });
 });
 
-describe('PestanaEcuacion — el paso 5 expande cuando hay relevancia asignada', () => {
-  it('con un control principal declarado, ofrece el desglose y lo muestra al abrirlo', () => {
+describe('PestanaEcuacion — el desglose por clase cuando hay relevancia asignada (REQ-SIG-21 §7)', () => {
+  function renderConRelevancia() {
     const ecuacion = resolverEcuacion({
       valores: { D: 5, I: 5, C: 4 },
       degradaciones: { D: '1.00', I: '0', C: '0' },
@@ -101,11 +104,51 @@ describe('PestanaEcuacion — el paso 5 expande cuando hay relevancia asignada',
         catalogos={CATALOGOS as Catalogos}
       />,
     );
+    return ecuacion;
+  }
 
-    const boton = screen.getByRole('button', { name: /ver desglose principal/i });
-    fireEvent.click(boton);
+  it('muestra el reparto por clase con su media y su aporte, y el criterio de cada una', () => {
+    renderConRelevancia();
 
+    expect(screen.getByText(/Media ponderada acotada por el control principal/i)).toBeInTheDocument();
+    expect(screen.getByText('PRINCIPAL')).toBeInTheDocument();
+    expect(screen.getByText('COMPLEMENTARIO')).toBeInTheDocument();
+    // Sin secundarios, el presupuesto se renormaliza y la pantalla lo dice en las dos
+    // clases presentes: 70/10 pasa a 87.5/12.5.
+    expect(screen.getAllByText(/renormalizado/i)).toHaveLength(2);
+    expect(screen.getByText(/87,5% \(nominal 70%, renormalizado\)/)).toBeInTheDocument();
+    // El criterio de cada clase va en pantalla, para poder discutir una clasificación sin
+    // abrir el .docx.
+    expect(screen.getByText(/Sin este control la amenaza no se contiene/i)).toBeInTheDocument();
+  });
+
+  it('cuando el techo actúa, lo dice y nombra al principal como la única palanca', () => {
+    renderConRelevancia();
+
+    // Principal en L2 (50 %) y un complementario en L4: la bruta renormalizada llega a
+    // 87.5 % × 0.5 + 12.5 % × 0.95 = 56.25 %, y el techo la corta a 55 %.
+    expect(screen.getByText(/El techo actúa/i)).toBeInTheDocument();
+    expect(screen.getByText(/Subir el control\s+principal es lo único que mueve este riesgo/i)).toBeInTheDocument();
+  });
+
+  it('el detalle control por control sigue disponible', () => {
+    renderConRelevancia();
+
+    fireEvent.click(screen.getByRole('button', { name: /ver el detalle control por control/i }));
     expect(screen.getByText(/A\.8\.20 · Principal · principal/)).toBeInTheDocument();
-    expect(screen.getByText(/Techo del principal/)).toBeInTheDocument();
+  });
+
+  it('el texto copiable dice con qué regla salió el número', async () => {
+    const escribir = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: escribir } });
+
+    renderConRelevancia();
+    fireEvent.click(screen.getByRole('button', { name: /copiar como texto/i }));
+    expect(await screen.findByText('✓ Copiado')).toBeInTheDocument();
+
+    const copiado = escribir.mock.calls[0][0] as string;
+    expect(copiado).toContain('principal ·');
+    expect(copiado).toContain('techo del principal');
+    expect(copiado).toContain('ACTÚA');
   });
 });

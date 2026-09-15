@@ -26,7 +26,7 @@ import {
   type SalidaRiesgo,
   type ValoresDimension,
 } from './formulas';
-import { eficaciaAmenaza, eficaciaDeNivel } from './madurez';
+import { eficaciaAmenaza, eficaciaDeNivel, type ControlAgregable } from './madurez';
 
 /// One `RiesgoCalculo` row, ready for `createMany`. `entrada` is JSON so the four decimals
 /// can be traced back to exactly what produced them — the same shape `calcularRiesgo`
@@ -89,6 +89,9 @@ export interface DiagnosticoRiesgos {
   activosEnAnalisis: number;
   riesgosGenerados: number;
   riesgosObsoletos: number;
+  /// Amenazas cuya eficacia quedó DESCONOCIDA. Desde REQ-SIG-21 eso cubre dos casos: la
+  /// amenaza sin ningún control mapeado, y la que sólo tiene controles sin evaluar —
+  /// «sin evaluar» no es L0, así que no queda ninguno que promediar.
   amenazasSinControles: number;
   residualSinCalcular: number;
 }
@@ -110,7 +113,7 @@ export async function eficaciaPorAmenaza(
     },
   });
 
-  const porAmenaza = new Map<number, { nivel: number | null; peso: number; esPrincipal: boolean }[]>();
+  const porAmenaza = new Map<number, ControlAgregable[]>();
   for (const p of pares) {
     // A control marked "no aplica" is excluded from its own average; PARCIAL counts.
     if (p.control.soa === 'NO') continue;
@@ -119,6 +122,10 @@ export async function eficaciaPorAmenaza(
     // weight 1 and no principal, which makes the weighted mean a plain mean and leaves the
     // δ cap inert. That is MET-SIG-01 v2, and it is the honest interim — the alternative
     // was returning null and rendering every residual risk "sin calcular".
+    //
+    // REQ-SIG-21: a control with no level declared is NOT fed as an L0 — `eficaciaAmenaza`
+    // drops it, the same way `metricasMadurez` already dropped it from every mean. The
+    // pair is still pushed: the aggregator needs to see it to count it as «sin evaluar».
     lista.push({
       nivel: p.control.actual?.nivel ?? null,
       peso: p.relevancia?.peso ?? 1,
@@ -127,6 +134,8 @@ export async function eficaciaPorAmenaza(
     porAmenaza.set(p.amenazaId, lista);
   }
 
+  // A threat whose every control is unevaluated comes back null — unknown, not zero —
+  // and its residual stays «sin calcular», which is already supported downstream.
   for (const [amenazaId, controles] of porAmenaza) {
     if (controles.length > 0) eficacia.set(amenazaId, eficaciaAmenaza(controles, delta));
   }

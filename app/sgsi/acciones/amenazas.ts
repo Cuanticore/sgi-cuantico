@@ -20,6 +20,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
+import { validarDesignacionPrincipal } from '@/lib/sgsi/madurez';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
 
@@ -129,7 +130,7 @@ export async function asociarControl(
 
     const [amenaza, control] = await Promise.all([
       prisma.amenaza.findUnique({ where: { codigo: codigoAmenaza } }),
-      prisma.control.findUnique({ where: { codigo: codigoControl } }),
+      prisma.control.findUnique({ where: { codigo: codigoControl }, include: { actual: true } }),
     ]);
     if (!amenaza) throw new Error(`No existe la amenaza ${codigoAmenaza}.`);
     if (!control) throw new Error(`No existe el control ${codigoControl}.`);
@@ -153,18 +154,21 @@ export async function asociarControl(
     if (relevancia) {
       const fila = await prisma.relevanciaControl.findUnique({ where: { nombre: relevancia } });
       if (!fila) throw new Error(`Relevancia desconocida: «${relevancia}».`);
-      // Exactly one Principal per threat, per MET-SIG-01 §7.4. Two of them make the δ cap
-      // ambiguous — it would be capped by whichever row the query happened to return first.
+      // Exactly one Principal per threat, per MET-SIG-01 §7.4 — two make the δ cap
+      // ambiguous — and never a Principal without a declared level (REQ-SIG-21 §8): its
+      // cap would be 0 + δ and would flatten the whole threat. Both rules live in
+      // `validarDesignacionPrincipal`, so this action and the next refuse identically.
       if (fila.esPrincipal) {
         const yaHay = await prisma.controlAmenaza.count({
           where: { amenazaId: amenaza.id, relevancia: { esPrincipal: true } },
         });
-        if (yaHay > 0) {
-          return {
-            ok: false,
-            mensaje: `${amenaza.codigo} ya tiene un control Principal, y cada amenaza tiene exactamente uno. Pasá el actual a Complementario antes de nombrar otro.`,
-          };
-        }
+        const errores = validarDesignacionPrincipal({
+          codigoAmenaza: amenaza.codigo,
+          codigoControl: control.codigo,
+          nivelActual: control.actual?.nivel ?? null,
+          yaHayOtroPrincipal: yaHay > 0,
+        });
+        if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
       }
       relevanciaId = fila.id;
       nombreRelevancia = fila.nombre;
@@ -212,7 +216,7 @@ export async function cambiarRelevancia(
 
     const [amenaza, control] = await Promise.all([
       prisma.amenaza.findUnique({ where: { codigo: codigoAmenaza } }),
-      prisma.control.findUnique({ where: { codigo: codigoControl } }),
+      prisma.control.findUnique({ where: { codigo: codigoControl }, include: { actual: true } }),
     ]);
     if (!amenaza || !control) throw new Error('La amenaza o el control ya no existen.');
 
@@ -226,6 +230,8 @@ export async function cambiarRelevancia(
     if (relevancia) {
       const fila = await prisma.relevanciaControl.findUnique({ where: { nombre: relevancia } });
       if (!fila) throw new Error(`Relevancia desconocida: «${relevancia}».`);
+      // Las mismas dos reglas que el alta, con la misma función pura: exactamente un
+      // Principal por amenaza, y nunca un Principal sin nivel declarado (REQ-SIG-21 §8).
       if (fila.esPrincipal) {
         const otro = await prisma.controlAmenaza.count({
           where: {
@@ -234,12 +240,13 @@ export async function cambiarRelevancia(
             relevancia: { esPrincipal: true },
           },
         });
-        if (otro > 0) {
-          return {
-            ok: false,
-            mensaje: `${amenaza.codigo} ya tiene otro control Principal. Cada amenaza tiene exactamente uno.`,
-          };
-        }
+        const errores = validarDesignacionPrincipal({
+          codigoAmenaza: amenaza.codigo,
+          codigoControl: control.codigo,
+          nivelActual: control.actual?.nivel ?? null,
+          yaHayOtroPrincipal: otro > 0,
+        });
+        if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
       }
       relevanciaId = fila.id;
     }

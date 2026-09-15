@@ -142,8 +142,10 @@ describe('eficacia agregada de una amenaza, MET-SIG-01 §7.4', () => {
       { nivel: 5, peso: 3, esPrincipal: true },
       { nivel: 2, peso: 1, esPrincipal: false },
     ];
-    // Ponderada = (3×1 + 1×0.5) / 4 = 0.875, techo = 1 + 0.05. Gana la ponderada.
-    expect(eficaciaAmenaza(controles)).toBeCloseTo(0.875, 10);
+    // REQ-SIG-21 §4: sin secundarios, el presupuesto se renormaliza sobre las clases
+    // PRESENTES — 70/10 pasa a 87.5/12.5, no queda un 20 % huérfano. Bruta =
+    // 0.875×1 + 0.125×0.5 = 0.9375, techo = 1 + 0.05. Gana la bruta.
+    expect(eficaciaAmenaza(controles)).toBeCloseTo(0.9375, 10);
   });
 
   it('descarta la composición probabilística', () => {
@@ -157,8 +159,10 @@ describe('eficacia agregada de una amenaza, MET-SIG-01 §7.4', () => {
     expect(eficaciaAmenaza(controles)).toBeLessThan(0.96);
   });
 
-  it('sin controles la eficacia es cero', () => {
-    expect(eficaciaAmenaza([])).toBe(0);
+  it('sin controles la eficacia es DESCONOCIDA, no cero', () => {
+    // REQ-SIG-21 §8 · desconocido no es cero: escribir cero haría que toda matriz residual
+    // saliera idéntica a la inherente, que es el defecto que este dominio ya pagó una vez.
+    expect(eficaciaAmenaza([])).toBeNull();
   });
 });
 

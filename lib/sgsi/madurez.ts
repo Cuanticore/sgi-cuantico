@@ -146,33 +146,265 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
   };
 }
 
-/// Aggregated efficacy of the controls that mitigate one threat, per MET-SIG-01
-/// section 7.4: a weighted mean capped by the principal control.
+// ---------------------------------------------------------------------------------------
+// EFICACIA AGREGADA POR AMENAZA (MET-SIG-01 §7.4 · REQ-SIG-21)
+// ---------------------------------------------------------------------------------------
+
+/// Un control mitigando una amenaza, con lo único que la agregación necesita: su nivel de
+/// madurez actual, el peso del catálogo `RelevanciaControl` (3/2/1) y si es el principal.
+export interface ControlAgregable {
+  nivel: number | null;
+  peso: number;
+  esPrincipal: boolean;
+}
+
+/// Las tres clases de relevancia de §7.4, en el orden en que reparten presupuesto.
+/// El catálogo las nombra Principal / Complementario / De apoyo (pesos 3 / 2 / 1);
+/// acá se las identifica por su papel en la fórmula, no por su etiqueta.
+export type ClaseRelevancia = 'principal' | 'secundario' | 'complementario';
+
+export const CLASES_RELEVANCIA: readonly ClaseRelevancia[] = [
+  'principal',
+  'secundario',
+  'complementario',
+];
+
+/// Presupuesto fijo por clase (REQ-SIG-21 §4). Reemplaza a la normalización por CANTIDAD
+/// de controles: con pesos 3/2/1 normalizados por cantidad, agregar controles de apoyo
+/// diluía al principal, así que una amenaza bien documentada era la más difícil de marcar
+/// como descontrolada. Con presupuesto fijo el principal aporta siempre el 70 %, tenga la
+/// amenaza tres controles o nueve.
+export const PRESUPUESTO_CLASE: Readonly<Record<ClaseRelevancia, number>> = {
+  principal: 0.7,
+  secundario: 0.2,
+  complementario: 0.1,
+};
+
+/// La clase sale del catálogo, no de una lista de nombres: `esPrincipal` es la marca que
+/// `RelevanciaControl` ya declara, y entre las otras dos manda el peso (Complementario 2,
+/// De apoyo 1). Así el día que el catálogo cambie de nombres la fórmula sigue en pie.
+export function claseDeControl(control: ControlAgregable): ClaseRelevancia {
+  if (control.esPrincipal) return 'principal';
+  return control.peso >= 2 ? 'secundario' : 'complementario';
+}
+
+/// Lo que una clase aportó a la eficacia bruta. `presupuesto` es el nominal renormalizado
+/// sobre las clases PRESENTES: una amenaza sin complementarios reparte 77.8 / 22.2, no
+/// 70 / 20 dejando un 10 % perdido. Repartir el presupuesto huérfano entre las otras
+/// premiaría no clasificar.
+export interface AporteClase {
+  clase: ClaseRelevancia;
+  presupuestoNominal: number;
+  presupuesto: number;
+  controles: number;
+  /// Media de eficacia DENTRO de la clase.
+  media: number;
+  /// presupuesto × media.
+  aporte: number;
+}
+
+/// Con qué regla se calculó la eficacia de la amenaza. `ponderada-acotada` es MET-SIG-01
+/// v3 §7.4; `media-simple` es la v2 que la v3 reemplaza y que sigue operando mientras la
+/// amenaza no tenga principal designado.
+export type ReglaEficacia = 'ponderada-acotada' | 'media-simple';
+
+export interface DesgloseEficaciaAmenaza {
+  regla: ReglaEficacia;
+  /// Una fila por clase presente, en orden principal → secundario → complementario.
+  /// Vacío en la regla `media-simple`: ahí no hay clases que desglosar.
+  clases: AporteClase[];
+  /// La media antes del techo. Null cuando la eficacia es desconocida.
+  bruta: number | null;
+  /// e(principal) + δ. Null cuando no hay principal designado.
+  techo: number | null;
+  /// True solo cuando el techo efectivamente recortó la bruta — el momento en que la
+  /// regla gana su sueldo.
+  techoActua: boolean;
+  /// El resultado. Null cuando es DESCONOCIDA: sin controles, sin controles evaluados, o
+  /// con un error de datos que haría ambiguo el techo. Desconocida nunca es cero.
+  eficacia: number | null;
+  /// Controles con nivel declarado, los únicos que entran a la media.
+  evaluados: number;
+  /// Controles mapeados que nadie evaluó todavía. Quedan FUERA de la media.
+  sinEvaluar: number;
+  /// Por qué la eficacia quedó desconocida pese a haber controles, en castellano y para
+  /// mostrar. Null cuando no hay error de datos.
+  error: string | null;
+}
+
+/// Eficacia agregada de los controles que mitigan una amenaza, MET-SIG-01 §7.4 con los
+/// presupuestos de REQ-SIG-21 §4:
 ///
-///     e(t) = MIN( sum(wi * ei) / sum(wi) , e_principal + delta )
+///     e_bruta(t) = 0.70·media(principal) + 0.20·media(secundarios) + 0.10·media(complementarios)
+///     e(t)       = MIN( e_bruta , e_principal + δ )
 ///
-/// The cap is the essential part of the rule. If the principal control of an
-/// information leak is data-loss prevention and it sits at L2, the efficacy of that
-/// threat cannot exceed 55%, however mature the policies, the awareness and the
-/// network are. It only bites when the principal is weak.
+/// EL TECHO NO ES OPCIONAL, y esta es la razón escrita. Los presupuestos por clase meten
+/// un PISO INCONDICIONAL del 30 %: con el principal en L0 —el control no existe— la bruta
+/// todavía lee 28 %, porque las otras dos clases aportan su presupuesto pase lo que pase.
+/// Sin el techo, 70/20/10 reintroduce por otra puerta el mismo enmascaramiento que la
+/// media simple producía. Con techo, ese mismo caso da 5 % y el residual vuelve a rozar el
+/// inherente, que es la verdad. El techo solo actúa cuando el principal está débil; cuando
+/// está fuerte no interviene.
 ///
-/// Probabilistic composition — one minus the product of the complements — is expressly
-/// ruled out: four controls at L3 would yield 99.995%. MAGERIT efficacy is not an
-/// independent probability of blocking but a degree of implementation quality, and
-/// controls operated by the same organisation share failure modes.
-export function eficaciaAmenaza(
-  controles: readonly { nivel: number | null; peso: number; esPrincipal: boolean }[],
+/// SIN PRINCIPAL DESIGNADO NO HAY REGLA v3. La amenaza cae a la media ponderada por peso
+/// sin techo —MET-SIG-01 v2, la media simple mientras todos los pesos valgan 1— y la
+/// pantalla lo dice. Esa rama es la que hoy calcula las 57 amenazas: los 272 pares de
+/// `ControlAmenaza` siguen con `relevanciaId` en null, así que este módulo entrega los
+/// mismos números que antes hasta que alguien asigne la primera relevancia.
+///
+/// «SIN EVALUAR» NO ES L0 (§8). Un control aplicable que nadie puntuó es un juicio
+/// pendiente, no un cero: `metricasMadurez` ya lo excluye de sus promedios y acá se hace
+/// lo mismo. Meterlo como cero escribiría en cada media una decisión que nunca se tomó.
+/// Si al excluirlos la amenaza se queda sin controles evaluados, su eficacia es null y el
+/// residual queda «sin calcular» — el estado honesto.
+///
+/// La composición probabilística —uno menos el producto de los complementos— está
+/// expresamente descartada: cuatro controles en L3 arrojarían 99,995 %. La eficacia
+/// MAGERIT no es una probabilidad independiente de bloqueo sino un grado de calidad de
+/// implantación, y los controles que opera la misma organización comparten modos de fallo.
+export function desglosarEficaciaAmenaza(
+  controles: readonly ControlAgregable[],
   delta = 0.05,
-): number {
-  if (controles.length === 0) return 0;
+): DesgloseEficaciaAmenaza {
+  const sinEvaluar = controles.filter((c) => c.nivel === null).length;
+  const evaluados = controles.filter((c) => c.nivel !== null);
 
-  const sumaPesos = controles.reduce((a, c) => a + c.peso, 0);
-  if (sumaPesos === 0) return 0;
-  const ponderada =
-    controles.reduce((a, c) => a + c.peso * eficaciaDeNivel(c.nivel), 0) / sumaPesos;
+  const vacio = {
+    clases: [] as AporteClase[],
+    bruta: null,
+    techo: null,
+    techoActua: false,
+    eficacia: null,
+    evaluados: evaluados.length,
+    sinEvaluar,
+  };
 
-  const principal = controles.find((c) => c.esPrincipal);
-  if (!principal) return ponderada;
+  // Un principal sin nivel no puede degradar la amenaza a v2 en silencio: su techo sería
+  // 0 + δ = 5 % y aplastaría la eficacia entera por un dato que nadie cargó. Se declara
+  // desconocida, y designarlo se rechaza antes (`validarDesignacionPrincipal`).
+  const principalesDeclarados = controles.filter((c) => c.esPrincipal);
+  if (principalesDeclarados.length > 1) {
+    return {
+      ...vacio,
+      regla: 'ponderada-acotada',
+      error:
+        'La amenaza tiene más de un control Principal designado: el techo de §7.4 quedaría ' +
+        'definido por el que la consulta devuelva primero. Es un error de datos, no un caso ' +
+        'a promediar.',
+    };
+  }
+  const principal = principalesDeclarados[0] ?? null;
+  if (principal && principal.nivel === null) {
+    return {
+      ...vacio,
+      regla: 'ponderada-acotada',
+      error:
+        'El control Principal de la amenaza no tiene nivel de madurez declarado: su techo ' +
+        'sería 0 + δ y aplastaría la eficacia con una evaluación que nunca se hizo.',
+    };
+  }
 
-  return Math.min(ponderada, eficaciaDeNivel(principal.nivel) + delta);
+  if (evaluados.length === 0) {
+    return { ...vacio, regla: principal ? 'ponderada-acotada' : 'media-simple', error: null };
+  }
+
+  // ---- Rama v2: sin principal designado, media ponderada por peso y sin techo. -------
+  // Es la fórmula anterior, intacta: mientras los 272 pares sigan sin relevancia todos
+  // los pesos valen 1 y esto es exactamente el AVERAGE del libro.
+  if (!principal) {
+    const sumaPesos = evaluados.reduce((a, c) => a + c.peso, 0);
+    if (sumaPesos === 0) return { ...vacio, regla: 'media-simple', error: null };
+    const ponderada =
+      evaluados.reduce((a, c) => a + c.peso * eficaciaDeNivel(c.nivel), 0) / sumaPesos;
+    return {
+      regla: 'media-simple',
+      clases: [],
+      bruta: ponderada,
+      techo: null,
+      techoActua: false,
+      eficacia: ponderada,
+      evaluados: evaluados.length,
+      sinEvaluar,
+      error: null,
+    };
+  }
+
+  // ---- Rama v3: media DENTRO de cada clase, después combinación por presupuesto. -----
+  const presentes = CLASES_RELEVANCIA.map((clase) => ({
+    clase,
+    miembros: evaluados.filter((c) => claseDeControl(c) === clase),
+  })).filter((g) => g.miembros.length > 0);
+
+  const presupuestoTotal = presentes.reduce((a, g) => a + PRESUPUESTO_CLASE[g.clase], 0);
+
+  const clases: AporteClase[] = presentes.map((g) => {
+    const presupuesto = PRESUPUESTO_CLASE[g.clase] / presupuestoTotal;
+    const mediaClase = media(g.miembros.map((c) => eficaciaDeNivel(c.nivel)));
+    return {
+      clase: g.clase,
+      presupuestoNominal: PRESUPUESTO_CLASE[g.clase],
+      presupuesto,
+      controles: g.miembros.length,
+      media: mediaClase,
+      aporte: presupuesto * mediaClase,
+    };
+  });
+
+  const bruta = clases.reduce((a, c) => a + c.aporte, 0);
+
+  // El techo, tal cual estaba: MIN( bruta , e(principal) + δ ).
+  const techo = eficaciaDeNivel(principal.nivel) + delta;
+  const eficacia = Math.min(bruta, techo);
+
+  return {
+    regla: 'ponderada-acotada',
+    clases,
+    bruta,
+    techo,
+    techoActua: eficacia < bruta,
+    eficacia,
+    evaluados: evaluados.length,
+    sinEvaluar,
+    error: null,
+  };
+}
+
+/// La eficacia sola, para quien no necesita el desglose. Null es DESCONOCIDA, nunca cero:
+/// sin controles mapeados, sin ninguno evaluado, o con un error de datos que haría ambiguo
+/// el techo. Escribir cero haría que toda matriz residual saliera idéntica a la inherente.
+export function eficaciaAmenaza(
+  controles: readonly ControlAgregable[],
+  delta = 0.05,
+): number | null {
+  return desglosarEficaciaAmenaza(controles, delta).eficacia;
+}
+
+/// Validación pura de designar un control como Principal de una amenaza (§4 y §8).
+/// Devuelve los mensajes de error; vacío cuando la designación es válida. La comparte la
+/// acción del servidor para que el rechazo y su motivo sean el mismo en los dos caminos
+/// de alta —asociar con relevancia y cambiar la relevancia de un par existente—.
+export function validarDesignacionPrincipal(entrada: {
+  codigoAmenaza: string;
+  codigoControl: string;
+  /// Nivel de madurez actual del control que se quiere designar.
+  nivelActual: number | null;
+  /// Si la amenaza ya tiene OTRO control Principal.
+  yaHayOtroPrincipal: boolean;
+}): string[] {
+  const errores: string[] = [];
+  if (entrada.yaHayOtroPrincipal) {
+    errores.push(
+      `${entrada.codigoAmenaza} ya tiene un control Principal, y cada amenaza tiene ` +
+        'exactamente uno. Pasá el actual a Complementario antes de nombrar otro.',
+    );
+  }
+  if (entrada.nivelActual === null) {
+    errores.push(
+      `${entrada.codigoControl} no tiene nivel de madurez declarado, así que no puede ser ` +
+        `el Principal de ${entrada.codigoAmenaza}: el techo de §7.4 quedaría en 0 + δ y ` +
+        'aplastaría la eficacia de la amenaza entera con una evaluación que nunca se hizo. ' +
+        'Evaluá el control primero.',
+    );
+  }
+  return errores;
 }

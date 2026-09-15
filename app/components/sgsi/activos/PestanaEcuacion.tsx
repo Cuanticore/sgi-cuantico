@@ -13,7 +13,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { clasificar } from '@/lib/sgsi/clasificar';
-import type { EcuacionResuelta } from '@/lib/sgsi/ecuacion';
+import type { DesgloseEficacia, EcuacionResuelta } from '@/lib/sgsi/ecuacion';
+import type { AporteClase, ClaseRelevancia } from '@/lib/sgsi/madurez';
 import type { Catalogos } from './ficha.query';
 
 interface Props {
@@ -29,6 +30,63 @@ function cifra(valor: number): string {
 
 function porcentaje(valor: number): string {
   return `${(valor * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+}
+
+/// Puntos porcentuales: lo que una clase APORTA a la eficacia, que no es su media.
+function puntos(valor: number): string {
+  return `${(valor * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })} pp`;
+}
+
+/// Rampa ORDINAL de un solo tono (REQ-SIG-21 §7): las tres clases están ordenadas, así que
+/// tres matices distintos dirían que son categorías independientes. Los tres pasos pasan
+/// `scripts/validate_palette.js --mode light --surface "#ffffff" --ordinal`.
+const TONO_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
+  principal: '#1b3a8a',
+  secundario: '#4874c2',
+  complementario: '#93b4e0',
+};
+
+const NOMBRE_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
+  principal: 'PRINCIPAL',
+  secundario: 'SECUNDARIO',
+  complementario: 'COMPLEMENTARIO',
+};
+
+const CRITERIO_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
+  principal: 'Sin este control la amenaza no se contiene. Cada amenaza tiene exactamente uno.',
+  secundario: 'Reduce la amenaza de forma sustantiva, pero no sustituye al principal.',
+  complementario: 'Ayuda por vía administrativa o cultural.',
+};
+
+/// El reparto por clase del paso 5: presupuesto, media dentro de la clase y aporte. No
+/// calcula nada — `desglosarEficaciaAmenaza` ya resolvió cada fila.
+function FilaClase({ aporte }: { aporte: AporteClase }) {
+  const renormalizado = Math.abs(aporte.presupuesto - aporte.presupuestoNominal) > 1e-9;
+  return (
+    <li className="flex flex-col gap-0.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span
+          aria-hidden
+          className="h-2.5 w-2.5 flex-none self-center rounded-[2px]"
+          style={{ backgroundColor: TONO_CLASE[aporte.clase] }}
+        />
+        <span className="font-mono text-10_5 tracking-[0.06em] text-primary">
+          {NOMBRE_CLASE[aporte.clase]}
+        </span>
+        <span className="font-mono text-10_5 text-muted">
+          {porcentaje(aporte.presupuesto)}
+          {renormalizado && ` (nominal ${porcentaje(aporte.presupuestoNominal)}, renormalizado)`}
+          {' · '}
+          {aporte.controles} {aporte.controles === 1 ? 'control' : 'controles'} · media{' '}
+          {porcentaje(aporte.media)}
+        </span>
+        <span className="ml-auto cifra text-12 text-primary">aporta {puntos(aporte.aporte)}</span>
+      </div>
+      <p className="pl-[18px] text-10_5 text-faint [text-wrap:pretty]">
+        {CRITERIO_CLASE[aporte.clase]}
+      </p>
+    </li>
+  );
 }
 
 export default function PestanaEcuacion({
@@ -58,7 +116,6 @@ export default function PestanaEcuacion({
     }
   };
 
-  const sinRelevancia = ecuacion.desgloseEficacia?.sinRelevanciaAsignada ?? false;
 
   return (
     <div
@@ -147,51 +204,12 @@ export default function PestanaEcuacion({
             </p>
           )}
 
-          {ecuacion.desgloseEficacia === null ? (
-            <p className="text-11_5 text-muted [text-wrap:pretty]">
-              Ninguna amenaza tiene controles mapeados: la eficacia es desconocida, no cero.
-            </p>
-          ) : (
-            <>
-              {sinRelevancia && (
-                <p className="text-11_5 text-warn-text [text-wrap:pretty]">
-                  Sin relevancia asignada a los controles de esta amenaza: la eficacia es la
-                  media simple y el techo del principal no opera (MET-SIG-01 v2).
-                </p>
-              )}
-
-              {!sinRelevancia && (
-                <button
-                  type="button"
-                  onClick={() => setPasoCincoAbierto((v) => !v)}
-                  className="w-fit text-11_5 font-semibold text-accent-700 underline"
-                  aria-expanded={pasoCincoAbierto}
-                >
-                  {pasoCincoAbierto
-                    ? 'Ocultar desglose principal / secundario / de apoyo'
-                    : 'Ver desglose principal / secundario / de apoyo'}
-                </button>
-              )}
-
-              {!sinRelevancia && pasoCincoAbierto && (
-                <ul className="flex flex-col gap-1">
-                  {ecuacion.desgloseEficacia.controles.map((c) => (
-                    <li key={c.codigo} className="font-mono text-11 text-secondary">
-                      {c.codigo} · {c.relevancia ?? 'sin relevancia'}
-                      {c.esPrincipal ? ' · principal' : ''} · L{c.nivel ?? '—'} ·{' '}
-                      {porcentaje(c.eficaciaNivel)}
-                    </li>
-                  ))}
-                  {ecuacion.desgloseEficacia.principal && (
-                    <li className="text-11 text-muted">
-                      Techo del principal: {porcentaje(ecuacion.desgloseEficacia.principal.eficaciaNivel)}{' '}
-                      + δ = {porcentaje(ecuacion.desgloseEficacia.principal.techo)}
-                    </li>
-                  )}
-                </ul>
-              )}
-            </>
-          )}
+          <DesgloseDelPaso5
+            desglose={ecuacion.desgloseEficacia}
+            eficacia={ecuacion.eficacia}
+            abierto={pasoCincoAbierto}
+            alternar={() => setPasoCincoAbierto((v) => !v)}
+          />
         </Paso>
 
         <Paso
@@ -218,6 +236,110 @@ export default function PestanaEcuacion({
         nunca el daño. Un impacto residual distinto sería un error de implementación.
       </p>
     </div>
+  );
+}
+
+/// REQ-SIG-21 §7 · el paso 5 dice CON QUÉ REGLA se calculó. Sin eso la diferencia entre una
+/// amenaza v2 y una v3 es invisible en pantalla, y por eso el problema lo fue durante todo
+/// el interino. Cero aritmética propia: cada cifra sale de `desglose.agregacion`, que
+/// `desglosarEficaciaAmenaza` (lib/sgsi/madurez.ts) ya resolvió.
+function DesgloseDelPaso5({
+  desglose,
+  eficacia,
+  abierto,
+  alternar,
+}: {
+  desglose: DesgloseEficacia | null;
+  eficacia: number | null;
+  abierto: boolean;
+  alternar: () => void;
+}) {
+  if (desglose === null) {
+    return (
+      <p className="text-11_5 text-muted [text-wrap:pretty]">
+        Esta amenaza no tiene controles mapeados: la eficacia es desconocida, no cero.
+      </p>
+    );
+  }
+
+  const agregacion = desglose.agregacion;
+  const sinRelevancia = desglose.sinRelevanciaAsignada;
+
+  return (
+    <>
+      {agregacion.error !== null ? (
+        <p className="text-11_5 text-warn-text [text-wrap:pretty]">
+          Eficacia sin calcular por un error de datos: {agregacion.error}
+        </p>
+      ) : agregacion.regla === 'media-simple' ? (
+        <p className="text-11_5 text-warn-text [text-wrap:pretty]">
+          {sinRelevancia
+            ? 'Sin relevancia asignada a los controles de esta amenaza'
+            : 'Sin control Principal designado en esta amenaza'}
+          : los {agregacion.evaluados} controles evaluados pesan igual y el techo del
+          principal no opera. Se calculó con la media simple (MET-SIG-01 v2); el método
+          aprobado es la media ponderada acotada (v3 §7.4).
+        </p>
+      ) : (
+        <p className="text-11_5 text-secondary [text-wrap:pretty]">
+          Media ponderada acotada por el control principal (MET-SIG-01 v3 §7.4), con el
+          presupuesto 70 / 20 / 10 de REQ-SIG-21 §4.
+        </p>
+      )}
+
+      {agregacion.sinEvaluar > 0 && (
+        <p className="text-11_5 text-muted [text-wrap:pretty]">
+          {agregacion.sinEvaluar} de {agregacion.sinEvaluar + agregacion.evaluados} controles
+          quedaron fuera de la media por no estar evaluados: «sin evaluar» es un juicio
+          pendiente, no un L0.
+        </p>
+      )}
+
+      {agregacion.regla === 'ponderada-acotada' && agregacion.error === null && (
+        <ul className="flex flex-col gap-1.5">
+          {agregacion.clases.map((c) => (
+            <FilaClase key={c.clase} aporte={c} />
+          ))}
+          {agregacion.bruta !== null && agregacion.techo !== null && (
+            <li className="text-11 text-muted [text-wrap:pretty]">
+              Media ponderada {porcentaje(agregacion.bruta)} · techo del principal{' '}
+              {porcentaje(agregacion.techo)} (eficacia del principal + δ).{' '}
+              {agregacion.techoActua ? (
+                <strong className="text-warn-text">
+                  El techo actúa: la corta a {porcentaje(eficacia ?? 0)}. Subir el control
+                  principal es lo único que mueve este riesgo.
+                </strong>
+              ) : (
+                'El techo no actúa: el principal está por encima de la media.'
+              )}
+            </li>
+          )}
+        </ul>
+      )}
+
+      <button
+        type="button"
+        onClick={alternar}
+        className="w-fit text-11_5 font-semibold text-accent-700 underline"
+        aria-expanded={abierto}
+      >
+        {abierto
+          ? 'Ocultar el detalle control por control'
+          : 'Ver el detalle control por control'}
+      </button>
+
+      {abierto && (
+        <ul className="flex flex-col gap-1">
+          {desglose.controles.map((c) => (
+            <li key={c.codigo} className="font-mono text-11 text-secondary">
+              {c.codigo} · {c.relevancia ?? 'sin relevancia'}
+              {c.esPrincipal ? ' · principal' : ''} ·{' '}
+              {c.nivel === null ? 'sin evaluar' : `L${c.nivel} · ${porcentaje(c.eficaciaNivel)}`}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -279,9 +401,24 @@ function textoPlano({
         ? ` (excepción de frecuencia: ${ecuacion.excepcionFrecuencia.justificacion ?? 'sin justificación aún'})`
         : ''),
     `5) eficacia = ${ecuacion.eficacia === null ? 'sin calcular' : porcentaje(ecuacion.eficacia)}` +
-      (ecuacion.desgloseEficacia?.sinRelevanciaAsignada
-        ? ' (sin relevancia asignada — media simple, techo no opera)'
+      (ecuacion.desgloseEficacia?.agregacion.regla === 'media-simple'
+        ? ' (sin relevancia asignada — media simple MET-SIG-01 v2, el techo no opera)'
         : ''),
+    // REQ-SIG-21 §7 · el acta del comité tiene que poder decir con qué regla salió el
+    // número, no sólo cuál fue.
+    ...(ecuacion.desgloseEficacia?.agregacion.clases ?? []).map(
+      (c) =>
+        `   ${c.clase} · ${porcentaje(c.presupuesto)} de presupuesto · ${c.controles} control(es)` +
+        ` · media ${porcentaje(c.media)} · aporta ${(c.aporte * 100).toFixed(1)} pp`,
+    ),
+    ...(ecuacion.desgloseEficacia?.agregacion.techo != null
+      ? [
+          `   techo del principal = ${porcentaje(ecuacion.desgloseEficacia.agregacion.techo)}` +
+            (ecuacion.desgloseEficacia.agregacion.techoActua
+              ? ` — ACTÚA: recorta la media ponderada de ${porcentaje(ecuacion.desgloseEficacia.agregacion.bruta ?? 0)}`
+              : ' — no actúa'),
+        ]
+      : []),
     `6) ARO residual = ARO × (1 − e) = ${
       ecuacion.aroResidual === null ? 'sin calcular' : ecuacion.aroResidual.toString()
     }`,

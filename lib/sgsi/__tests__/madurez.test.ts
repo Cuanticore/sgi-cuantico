@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   advertenciaParcialNivelAlto,
+  desglosarEficaciaAmenaza,
   eficaciaAmenaza,
   esAplicable,
   metricasMadurez,
@@ -206,16 +207,28 @@ describe('eficaciaAmenaza sin relevancia asignada', () => {
     expect(conPrincipal).toBeLessThan(plana as number);
   });
 
-  it('un control sin evaluar cuenta como eficacia 0, no se omite', () => {
-    // A null LEVEL is not the same as a missing control: the pair exists, so it belongs in
-    // the denominator. Dropping it would flatter the threat.
-    expect(eficaciaAmenaza(sinRelevancia([null, 5]))).toBeCloseTo(0.5, 6);
+  // REQ-SIG-21 §8 · ESTA PRUEBA CAMBIÓ DE SIGNO, a propósito. Antes fijaba que un control
+  // sin evaluar entraba al promedio como eficacia 0. El requerimiento lo revierte: el mismo
+  // módulo ya excluía los no evaluados en `metricasMadurez` («Sin evaluar» y «Por evaluar»
+  // son juicios pendientes, no L0) y los metía como cero acá, a una función de distancia.
+  // Excluirlos SUBE la eficacia de las amenazas físicas y BAJA su residual — el signo
+  // contrario al resto del requerimiento, y el motivo por el que hay que verlo.
+  it('un control sin evaluar queda fuera del promedio: «sin evaluar» no es L0', () => {
+    expect(eficaciaAmenaza(sinRelevancia([null, 5]))).toBeCloseTo(1, 6);
+    const d = desglosarEficaciaAmenaza(sinRelevancia([null, 5]));
+    expect(d.sinEvaluar).toBe(1);
+    expect(d.evaluados).toBe(1);
   });
 
-  it('una lista vacía da 0 — el caso «sin controles» lo decide quien llama', () => {
-    // `eficaciaPorAmenaza` never calls this with an empty list: it leaves the threat's
-    // efficacy at null instead, because unknown is not zero. This pins the boundary so the
-    // distinction stays where it belongs.
-    expect(eficaciaAmenaza([])).toBe(0);
+  it('una amenaza con TODOS sus controles sin evaluar da eficacia desconocida, no cero', () => {
+    // Criterio de aceptación 6: el residual queda «sin calcular», que es el estado honesto
+    // y ya está soportado aguas abajo.
+    expect(eficaciaAmenaza(sinRelevancia([null, null]))).toBeNull();
+  });
+
+  it('una lista vacía da null — desconocido no es cero', () => {
+    // `eficaciaPorAmenaza` deja la eficacia de la amenaza en null cuando no hay pares. Esta
+    // prueba fija el mismo contrato en la función pura, para que las dos digan lo mismo.
+    expect(eficaciaAmenaza([])).toBeNull();
   });
 });
