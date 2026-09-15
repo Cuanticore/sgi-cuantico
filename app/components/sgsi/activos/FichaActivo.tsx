@@ -347,6 +347,8 @@ interface Edicion {
   /// E2 · el nivel 3 de la jerarquía. Los grados 1 y 2 NO se editan acá porque no se
   /// guardan: los selects de la cabecera solo sirven para llegar al 3.
   nivelId: number | null;
+  /// V21 · cuántas unidades representa el activo.
+  cantidad: number;
   datosCliente: Ternario;
   datosPersonales: Ternario;
   expuestoInternet: Ternario;
@@ -937,6 +939,7 @@ export default function FichaActivo({
       datos.criticidadId = edicion.criticidadId;
     }
     if (edicion.nivelId !== baseEdicion.nivelId) datos.nivelId = edicion.nivelId;
+    if (edicion.cantidad !== baseEdicion.cantidad) datos.cantidad = edicion.cantidad;
     if (edicion.custodioId !== baseEdicion.custodioId) datos.custodioId = edicion.custodioId;
     if (edicion.ubicacionId !== baseEdicion.ubicacionId) datos.ubicacionId = edicion.ubicacionId;
     if (edicion.entornoId !== baseEdicion.entornoId) datos.entornoId = edicion.entornoId;
@@ -1338,6 +1341,7 @@ export default function FichaActivo({
         proveedorId: edicion.proveedorId,
         superiorId: edicion.superiorId,
         nivelId: edicion.nivelId,
+        cantidad: edicion.cantidad,
         datosCliente: edicion.datosCliente,
         datosPersonales: edicion.datosPersonales,
         expuestoInternet: edicion.expuestoInternet,
@@ -1858,6 +1862,7 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
       superiorId: activo.superiorId,
       criticidadId: activo.criticidadId,
       nivelId: activo.nivelId,
+      cantidad: activo.cantidad,
       datosCliente: activo.datosCliente,
       datosPersonales: activo.datosPersonales,
       expuestoInternet: activo.expuestoInternet,
@@ -1882,6 +1887,7 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
     superiorId: null,
     criticidadId: null,
     nivelId: null,
+    cantidad: 1,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
     expuestoInternet: 'POR_DEFINIR',
@@ -2078,6 +2084,27 @@ function DatosGenerales({
           </div>
           <DetalleCriticidad nivel={criticidadElegida} />
         </div>
+      </Campo>
+
+      {/* V21 · la cantidad existía en la base y viajaba a esta pantalla desde siempre, pero
+          no se dibujaba en ningún lado: nadie podía verla ni corregirla. Va acá, entre los
+          datos generales, porque es una propiedad del activo y no de su valoración. */}
+      <Campo etiqueta="CANTIDAD">
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={edicion.cantidad}
+          aria-label="Cantidad de unidades del activo"
+          title="Cuántas unidades representa este registro. Un activo es uno salvo que se diga otra cosa; «12 portátiles del mismo modelo» es una fila con cantidad 12."
+          onChange={(e) => {
+            // Nunca por debajo de uno: un activo que existe no puede ser cero, y el campo
+            // vacío mientras se tipea tampoco puede escribirse como NaN.
+            const n = Number(e.target.value);
+            onEditar('cantidad', !Number.isFinite(n) || n < 1 ? 1 : Math.floor(n));
+          }}
+          className="w-full rounded-campo border border-border-field bg-surface px-2 py-[7px] text-12_5 font-medium text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+        />
       </Campo>
 
       {sospechoso && (

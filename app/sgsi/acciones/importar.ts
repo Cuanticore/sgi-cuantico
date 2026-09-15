@@ -28,7 +28,7 @@ import {
 } from '@/lib/sgsi/plantilla';
 import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
-import { encabezadoDeMatriz, hojasDelLibro } from '@/lib/sgsi/consolidado-libro';
+import { conteoDeCodigos, encabezadoDeMatriz, hojasDelLibro } from '@/lib/sgsi/consolidado-libro';
 import { escribirPlan, planificarCarga, type PlanDeCarga } from '@/lib/sgsi/consolidado-carga';
 import type { CatalogosConsolidado } from '@/lib/sgsi/consolidado-lectura';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
@@ -36,6 +36,7 @@ import { autorConPermiso, ejecutar, type Resultado } from './sesion';
 /// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
 /// Batch entry: each line, or each `;`-separated fragment, becomes one evidence entry.
 import type ExcelJS from 'exceljs';
+import type { Prisma } from '@prisma/client';
 
 /// Something wrong with the FILE, not with the code: a message the person can act on.
 class PlantillaError extends Error {}
@@ -212,6 +213,49 @@ async function abrir(datos: FormData): Promise<string[][]> {
   return matriz;
 }
 
+/// La rama Nivel 1 → Nivel 2 → Nivel 3 del libro, resuelta al id del GRADO 3.
+///
+/// E1 · es una jerarquia de verdad, no tres columnas sueltas: cada grado se busca DENTRO de
+/// su padre, asi que dos ramas distintas pueden tener un «Ambientes» cada una sin
+/// confundirse. Se reutiliza lo que ya exista y solo se crea lo que falta — dos activos de
+/// la misma rama no pueden fabricar dos jerarquias paralelas.
+///
+/// `null` cuando la rama esta incompleta. Un activo sin nivel 3 queda «sin ubicar», que es
+/// un estado legitimo del inventario; inventarle un grado 3 llamado como su grado 2 seria
+/// escribir una afirmacion que nadie hizo.
+async function idDeNivel3(
+  tx: Prisma.TransactionClient,
+  n1: string,
+  n2: string,
+  n3: string,
+): Promise<number | null> {
+  const nombres = [n1.trim(), n2.trim(), n3.trim()];
+  if (nombres.some((n) => n === '')) return null;
+
+  let padreId: number | null = null;
+  for (let grado = 1; grado <= 3; grado++) {
+    const nombre = nombres[grado - 1];
+    // Anotados a mano: sin esto TypeScript entra en un ciclo de inferencia — el tipo de la
+    // consulta depende de `padreId` y `padreId` se reasigna con el resultado.
+    const existente: { id: number } | null = await tx.nivelActivo.findFirst({
+      where: { grado, nombre, padreId },
+      select: { id: true },
+    });
+    if (existente) {
+      padreId = existente.id;
+      continue;
+    }
+    const creado: { id: number } = await tx.nivelActivo.create({
+      // `clase` solo va en el grado 1: un grado 2 o 3 la hereda de su raiz, y guardarla otra
+      // vez permitiria que un hijo contradijera a su padre.
+      data: { grado, nombre, padreId },
+      select: { id: true },
+    });
+    padreId = creado.id;
+  }
+  return padreId;
+}
+
 async function leer(datos: FormData): Promise<{ filas: FilaLeida[]; resueltas: FilaResuelta[] }> {
   const [matriz, catalogo] = await Promise.all([abrir(datos), catalogos()]);
   const lectura = leerFilas(matriz, catalogo);
@@ -284,7 +328,13 @@ async function planDelConsolidado(
   const diagnostico = diagnosticoDeFormato(
     encabezadoDeMatriz(wb),
     wb.worksheets.map((w) => w.name),
+    conteoDeCodigos(wb),
   );
+  // `ALTAS` tiene la forma del consolidado pero sus filas llegan sin codigo: son activos
+  // que se inventarian por primera vez, no un inventario que sustituya al cargado. Se
+  // devuelve `null` para que caiga al camino ADITIVO, que emite cada codigo desde
+  // `ContadorCodigo` — y, sobre todo, que no vacia `activo` antes de escribir.
+  if (diagnostico.formato === 'ALTAS') return null;
   if (diagnostico.formato === 'HISTORICO') return null;
   if (diagnostico.formato === 'CONSOLIDADO_INCOMPLETO') {
     throw new PlantillaError(
@@ -566,6 +616,7 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
     const porValor = new Map(escala.map((e) => [e.valor, e.id]));
 
     const codigos: string[] = [];
+    const pendientesDeSuperior: { id: number; superior: string }[] = [];
 
     // One transaction for the whole batch. Half an inventory looks plausible and hides
     // what is missing, and the counters would already have moved for the rows that made
@@ -608,6 +659,11 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
             datosCliente: f.datosCliente,
             datosPersonales: f.datosPersonales,
             expuestoInternet: f.expuestoInternet,
+            cantidad: f.cantidad,
+            // E2 · el activo apunta al NIVEL 3 y a ningun otro grado. La rama se crea de
+            // arriba hacia abajo reutilizando lo que ya exista, porque dos activos de la
+            // misma rama no pueden fabricar dos jerarquias paralelas.
+            nivelId: await idDeNivel3(tx, f.n1, f.n2, f.n3),
           },
         });
 
@@ -630,6 +686,23 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
 
         await registrarAlta(tx, autor, 'activo', codigo);
         codigos.push(codigo);
+        if (f.superior !== null) pendientesDeSuperior.push({ id: activo.id, superior: f.superior });
+      }
+
+      // SEGUNDA PASADA · el superior, cuando todo el lote ya existe. Un activo puede
+      // declarar como superior a otro que viene mas abajo en la misma hoja, asi que
+      // resolverlo sobre la marcha fallaria por orden de filas y no por el dato.
+      //
+      // El libro apunta por el codigo QUE EL TRAE —el heredado—, no por el que se acaba de
+      // emitir: el que llena la hoja no puede conocer un codigo que todavia no existe.
+      for (const p of pendientesDeSuperior) {
+        const destino = await tx.activo.findFirst({
+          where: { OR: [{ codigoHeredado: p.superior }, { codigo: p.superior }] },
+          select: { id: true },
+        });
+        if (destino && destino.id !== p.id) {
+          await tx.activo.update({ where: { id: p.id }, data: { superiorId: destino.id } });
+        }
       }
     }, {
       // Prisma's default interactive-transaction timeout is 5 s, and this loop runs four

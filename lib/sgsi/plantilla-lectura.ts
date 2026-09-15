@@ -35,6 +35,12 @@ export const LEGACY_FORSIG12: Record<string, string> = {
   'Valor en Disponibilidad': 'valorD',
   'Valor en Integridad': 'valorI',
   'Valor en Confidencialidad': 'valorC',
+  // V21 · tres columnas que el V19 no traia y que el mapeo viejo dejaba caer en silencio.
+  'Cantidad': 'cantidad',
+  'Nivel 1': 'n1',
+  'Nivel 2': 'n2',
+  'Nivel 3': 'n3',
+  'Depende del activo superior': 'superior',
 };
 
 /// Valores legacy que el workbook original escribe de otra forma a los del catálogo
@@ -110,6 +116,17 @@ export interface FilaResuelta extends FilaLeida {
   valorD: number;
   valorI: number;
   valorC: number;
+  /// V21 · cuantas unidades representa la fila. 1 cuando el libro no lo dice: un activo
+  /// sin cantidad declarada es uno, no cero.
+  cantidad: number;
+  /// V21 · la rama de la jerarquia tal como la escribio el libro. Se resuelve a `nivelId`
+  /// —el grado 3— al escribir; los grados 1 y 2 existen para poder llegar ahi.
+  n1: string;
+  n2: string;
+  n3: string;
+  /// V21 · el codigo del activo del que depende, TAL COMO LO ESCRIBIO EL LIBRO. Se resuelve
+  /// en una segunda pasada, cuando todos los activos del lote ya existen.
+  superior: string | null;
 }
 
 /// "[D] Datos / Información" and a bare "[D]" mean the same catalogue entry, so the code in
@@ -117,6 +134,20 @@ export interface FilaResuelta extends FilaLeida {
 export function entreCorchetes(v: string): string {
   const m = /^(\[[^\]]+\])/.exec(v.trim());
   return m ? m[1] : v.trim();
+}
+
+/// La cantidad de la columna V21, saneada. Menor a uno, vacia o no numerica -> 1.
+export function cantidadDeTexto(v: string): number {
+  const n = Number(v.trim().replace(',', '.'));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.floor(n);
+}
+
+/// El codigo del activo superior tal como lo escribio el libro. Vacio -> `null`: «sin
+/// superior» es la respuesta normal, no un dato faltante.
+export function superiorDeTexto(v: string): string | null {
+  const t = v.trim();
+  return t === '' ? null : t;
 }
 
 export function aTernario(v: string): Ternario {
@@ -300,6 +331,14 @@ export function leerFilas(
         valorD,
         valorI,
         valorC,
+        // V21 · «1» cuando el libro no dice cantidad: un activo sin cantidad declarada es
+        // uno, no cero. Un texto que no es numero tampoco es cero — es una celda mal
+        // escrita, y suponer uno es la lectura conservadora.
+        cantidad: cantidadDeTexto(capturar('cantidad')),
+        n1: capturar('n1'),
+        n2: capturar('n2'),
+        n3: capturar('n3'),
+        superior: superiorDeTexto(capturar('superior')),
       });
     }
   }

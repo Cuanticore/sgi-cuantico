@@ -122,6 +122,9 @@ export interface DatosGenerales {
   superiorId?: number | null;
   /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
   criticidadId?: number | null;
+  /// V21 · cuántas unidades representa el activo. Viajaba desde la base a la ficha y no se
+  /// dibujaba en ninguna pantalla: el dato existía y nadie podía verlo ni corregirlo.
+  cantidad?: number;
   /// E2 · el NIVEL 3 de la jerarquía, el más específico. Los grados 1 y 2 no se guardan:
   /// se derivan subiendo por `padreId`. Que acá solo entre un grado 3 es lo que impide que
   /// un activo quede colgado de media rama.
@@ -244,6 +247,7 @@ export async function guardarDatosGenerales(
         'superiorId',
         'criticidadId',
         'nivelId',
+        'cantidad',
         'datosCliente',
         'datosPersonales',
         'expuestoInternet',
@@ -408,6 +412,8 @@ export interface ActivoNuevo {
   /// E2 · el nivel 3 de la jerarquía. Viaja en el alta para que un activo creado desde la
   /// ficha no nazca «sin ubicar» habiendo elegido su rama en la pantalla.
   nivelId?: number | null;
+  /// V21 · cuántas unidades representa el activo. 1 cuando no se declara.
+  cantidad?: number;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -517,6 +523,7 @@ export async function crearActivo(
           proveedorId: datos.proveedorId ?? null,
           superiorId: datos.superiorId ?? null,
           nivelId: datos.nivelId ?? null,
+          cantidad: datos.cantidad !== undefined && datos.cantidad >= 1 ? Math.floor(datos.cantidad) : 1,
           datosCliente: datos.datosCliente ?? 'POR_DEFINIR',
           datosPersonales: datos.datosPersonales ?? 'POR_DEFINIR',
           expuestoInternet: datos.expuestoInternet ?? 'POR_DEFINIR',

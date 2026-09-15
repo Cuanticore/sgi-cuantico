@@ -43,6 +43,17 @@ export const COLUMNAS_PLANTILLA: ColumnaPlantilla[] = [
   { clave: 'valorD', encabezado: 'Valor en Disponibilidad', ancho: 20, obligatoria: true },
   { clave: 'valorI', encabezado: 'Valor en Integridad', ancho: 20, obligatoria: true },
   { clave: 'valorC', encabezado: 'Valor en Confidencialidad', ancho: 20, obligatoria: true },
+  // ── Lo que el FOR-SIG-12 V21 agrego, AL FINAL y no intercalado ────────────────────────
+  //
+  // El camino no-legacy lee esta plantilla POR POSICION, asi que meter una columna en el
+  // medio correria todas las de la derecha en cada archivo ya descargado. Agregadas al
+  // final, una plantilla vieja sigue alineando sus diecisiete primeras columnas y estas
+  // llegan vacias, que es exactamente lo que esa plantilla queria decir.
+  { clave: 'cantidad', encabezado: 'Cantidad', ancho: 12, obligatoria: false },
+  { clave: 'n1', encabezado: 'Nivel 1', ancho: 20, obligatoria: false },
+  { clave: 'n2', encabezado: 'Nivel 2', ancho: 20, obligatoria: false },
+  { clave: 'n3', encabezado: 'Nivel 3', ancho: 24, obligatoria: false },
+  { clave: 'superior', encabezado: 'Depende del activo superior', ancho: 24, obligatoria: false },
 ];
 
 /// The columns the preview table shows. The full seventeen do not fit in a popup, and
