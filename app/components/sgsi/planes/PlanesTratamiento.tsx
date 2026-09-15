@@ -330,6 +330,10 @@ export default function PlanesTratamiento({
                 return (
                   <tr
                     key={a.codigo}
+                    // Ancla por código: la ficha del activo enlaza el plan que cubre un
+                    // riesgo como /sgsi/planes#PT-001, y sin esto ese enlace dejaba a la
+                    // persona en la cabecera de una lista de noventa y tres filas.
+                    id={a.codigo}
                     onClick={() => setEditando(a.codigo)}
                     onKeyDown={(e) => {
                       if (e.target !== e.currentTarget) return;

@@ -30,9 +30,16 @@ export interface Nivel {
 ///
 /// El recorrido corta si vuelve a pisar un id ya visto. Un ciclo en la jerarquía no debería
 /// existir, pero si existiera, colgar la pantalla sería peor que dibujarlo mal.
-export function cadenaDeNivel(nivelId: number, niveles: readonly Nivel[]): Nivel[] {
+///
+/// Genérica en la forma del nivel y no atada a `Nivel`: para subir por la jerarquía sólo
+/// hacen falta `id` y `padreId`, y exigir el resto obligaría a cada pantalla a arrastrar
+/// campos que no usa —`clase`, `activo`— sólo para poder preguntar por la cadena.
+export function cadenaDeNivel<T extends { id: number; padreId: number | null }>(
+  nivelId: number,
+  niveles: readonly T[],
+): T[] {
   const porId = new Map(niveles.map((n) => [n.id, n]));
-  const cadena: Nivel[] = [];
+  const cadena: T[] = [];
   const vistos = new Set<number>();
   let actual = porId.get(nivelId);
   while (actual !== undefined && !vistos.has(actual.id)) {

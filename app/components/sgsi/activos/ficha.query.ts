@@ -25,6 +25,7 @@ import 'server-only';
 // it costs less than a second query and lets the type select recompute the list live.
 
 import { prisma } from '@/lib/db';
+import { parsearOrigen } from '@/lib/sgsi/origen-plan';
 
 /// D, I and C. The other two dimensions of MAGERIT — Autenticidad and Trazabilidad —
 /// exist in `dimension` with `activa = false`; the model in force values three.
@@ -73,6 +74,23 @@ export interface NivelCriticidad {
   nombre: string;
   rtoMinutos: number | null;
   rpoMinutos: number | null;
+  /// Qué exige el nivel en términos de arquitectura («réplica síncrona», «respaldo diario»).
+  /// Viaja a la ficha para que el nivel se explique JUNTO al select que lo elige, y no en
+  /// un `title` que hay que descubrir pasando el mouse. Nullable en la base: un nivel sin
+  /// describir se pinta solo con su RTO/RPO antes que con un texto inventado.
+  descripcion: string | null;
+}
+
+/// E1 · un nodo de la jerarquía del inventario (`NivelActivo`). Es una jerarquía de verdad,
+/// no tres columnas sueltas: el `padreId` es lo que impide que un nivel 2 aparezca bajo una
+/// raíz que no le corresponde.
+export interface NivelJerarquia {
+  id: number;
+  /// 1, 2 o 3. El activo solo puede apuntar a uno de grado 3.
+  grado: number;
+  nombre: string;
+  /// Nulo solo en grado 1.
+  padreId: number | null;
 }
 
 export interface NivelDegradacion {
@@ -206,6 +224,10 @@ export interface ActivoFicha {
   /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual. `null`
   /// para todo activo que FOR-SIG-12 columna 26 todavía no clasificó.
   criticidadId: number | null;
+  /// E2 · apunta al NIVEL 3 de la jerarquía, el más específico. Los grados 1 y 2 se derivan
+  /// subiendo por `padreId` — guardar los tres sería guardar lo derivable y permitiría que
+  /// un activo dijera estar en una rama mientras su nivel 3 cuelga de otra.
+  nivelId: number | null;
   datosCliente: Ternario;
   datosPersonales: Ternario;
   expuestoInternet: Ternario;
@@ -215,6 +237,24 @@ export interface ActivoFicha {
   /// Threats removed from this asset by hand, so the sheet can keep them off the live
   /// list and offer the undo the handoff asks for instead of showing them as active.
   amenazasExcluidas: AmenazaExcluida[];
+  /// Los planes activos que ya cubren riesgos de este activo, por amenaza. Vacío cuando
+  /// ninguno: la ficha ofrece crearlo en vez de afirmar que existe.
+  planes: PlanDeAmenaza[];
+}
+
+/// REQ-SIG-20 §7.2 · un plan de tratamiento ACTIVO que ya cubre un riesgo de este activo.
+///
+/// El vínculo plan↔riesgo no es una columna: la unidad del plan sigue siendo el CONTROL, y
+/// de qué activo y qué amenaza nació viaja en el prefijo verificable de `AccionPlan.origen`
+/// (`lib/sgsi/origen-plan.ts`). Por eso acá se parsea en vez de consultarse: un plan creado
+/// por otro camino no trae el prefijo y, con razón, no cubre a nadie.
+export interface PlanDeAmenaza {
+  /// La amenaza que el plan cubre EN ESTE ACTIVO.
+  amenazaCodigo: string;
+  /// `AccionPlan.codigo`, PT-001 — con el que se lo busca en /sgsi/planes.
+  codigo: string;
+  accion: string;
+  estado: string;
 }
 
 /// One row of the "activo superior" search popup.
@@ -251,6 +291,11 @@ export interface Catalogos {
   proveedores: OpcionCatalogo[];
   /// REQ-SIG-20 §11 (P9) · los cinco niveles fijos, en orden C1..C5.
   criticidades: NivelCriticidad[];
+  /// E1/E2 · la jerarquía de tres grados, plana y entera. Viaja completa porque los tres
+  /// selects de la ficha se encadenan en el cliente —elegir el nivel 1 filtra el 2, y el 2
+  /// filtra el 3— y hacerlo con un viaje al servidor por cada paso sería pedirle a la red
+  /// lo que ya cabe en memoria: son decenas de filas, no miles.
+  niveles: NivelJerarquia[];
   escalaValor: NivelValor[];
   escalaDegradacion: NivelDegradacion[];
   escalaFrecuencia: NivelFrecuencia[];
@@ -288,6 +333,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     entornos,
     proveedores,
     criticidades,
+    niveles,
     escalaValor,
     escalaDegradacion,
     escalaFrecuencia,
@@ -308,6 +354,13 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     prisma.entorno.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.proveedor.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.criticidadNegocio.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
+    // Los tres grados de una vez. `orden` primero porque la jerarquía tiene un orden
+    // declarado por quien la administra, y el nombre solo desempata.
+    prisma.nivelActivo.findMany({
+      where: { activo: true },
+      orderBy: [{ grado: 'asc' }, { orden: 'asc' }, { nombre: 'asc' }],
+      select: { id: true, grado: true, nombre: true, padreId: true },
+    }),
     prisma.escalaValor.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaDegradacion.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaFrecuencia.findMany({ orderBy: { orden: 'asc' } }),
@@ -368,6 +421,13 @@ export async function cargarCatalogos(): Promise<Catalogos> {
       nombre: c.nombre,
       rtoMinutos: c.rtoMinutos,
       rpoMinutos: c.rpoMinutos,
+      descripcion: c.descripcion,
+    })),
+    niveles: niveles.map((n) => ({
+      id: n.id,
+      grado: n.grado,
+      nombre: n.nombre,
+      padreId: n.padreId,
     })),
     escalaValor: escalaValor.map((e) => ({ id: e.id, valor: e.valor, etiqueta: e.etiqueta })),
     escalaDegradacion: escalaDegradacion.map((d) => ({
@@ -551,6 +611,28 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
   const vivos = activo.riesgos.filter((r) => !r.obsoleto);
   const excluidos = activo.riesgos.filter((r) => r.obsoleto);
 
+  // REQ-SIG-20 §7.2 · qué riesgos de este activo ya tienen plan. Se traen TODAS las
+  // acciones activas y se filtran en memoria: el vínculo vive dentro del texto de `origen`,
+  // así que no hay índice que consultar, y son decenas de filas — no las 2256 de riesgos.
+  // Una acción sin el prefijo no cubre nada y `parsearOrigen` devuelve null, que es
+  // justamente el caso de los planes nacidos desde la pantalla de controles.
+  const acciones = await prisma.accionPlan.findMany({
+    where: { activa: true },
+    select: { codigo: true, accion: true, estado: true, origen: true },
+    orderBy: { codigo: 'asc' },
+  });
+  const planes: PlanDeAmenaza[] = [];
+  for (const a of acciones) {
+    const origen = parsearOrigen(a.origen);
+    if (origen === null || origen.activoCodigo !== activo.codigo) continue;
+    planes.push({
+      amenazaCodigo: origen.amenazaCodigo,
+      codigo: a.codigo,
+      accion: a.accion,
+      estado: a.estado,
+    });
+  }
+
   return {
     id: activo.id,
     codigo: activo.codigo,
@@ -567,6 +649,7 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
     proveedorId: activo.proveedorId,
     superiorId: activo.superiorId,
     criticidadId: activo.criticidadId,
+    nivelId: activo.nivelId,
     datosCliente: activo.datosCliente,
     datosPersonales: activo.datosPersonales,
     expuestoInternet: activo.expuestoInternet,
@@ -576,6 +659,7 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
       amenazaId: r.amenazaId,
       codigoRiesgo: r.codigo,
     })),
+    planes,
     riesgos: vivos.map((r) => ({
       codigo: r.codigo,
       amenazaId: r.amenazaId,

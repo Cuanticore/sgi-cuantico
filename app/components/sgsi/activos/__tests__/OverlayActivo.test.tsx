@@ -77,6 +77,7 @@ const CATALOGOS: Catalogos = {
   entornos: [],
   proveedores: [],
   criticidades: [],
+  niveles: [],
   escalaValor: [
     { id: 5, valor: 5, etiqueta: '5 — Muy Alto' },
     { id: 4, valor: 4, etiqueta: '4 — Alto' },
@@ -125,6 +126,7 @@ function activo(codigo: string): ActivoFicha {
     proveedorId: null,
     superiorId: null,
     criticidadId: null,
+    nivelId: null,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
     expuestoInternet: 'POR_DEFINIR',
@@ -132,6 +134,7 @@ function activo(codigo: string): ActivoFicha {
     valores: { D: 5, I: 5, C: 5 },
     riesgos: [],
     amenazasExcluidas: [],
+    planes: [],
   };
 }
 
