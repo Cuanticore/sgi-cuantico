@@ -401,16 +401,28 @@ left to the user/orchestrator, not decided here.
 
 ## Phase 5: Pruebas, ajuste y verificación (2.0d)
 
-- [ ] 5.1 Full regression: `npm test` (all suites pass, baseline 89/1743 preserved plus this
-      change's new suites), `npx tsc --noEmit -p tsconfig.json` (0 errors — `next.config.js` has
-      `ignoreBuildErrors: true`, so this step is not optional), `npm run lint` (0 errors, ≤5
-      preexisting warnings, no new ones).
-- [ ] 5.2 `node scripts/validate_palette.js` — the value/band chips in the new lists (3.10, 4.6)
-      and tabs (2.3) validate against the approved ordinal ramp. Proposal Criterion 10 is now
-      checkable because this script exists (written 2026-09-14, commit `1087f7a`).
-- [ ] 5.3 Walk all 15 acceptance criteria in `docs/handoff_sig/proceso-valoracion-de-riesgos.md`
-      §14 against the shipped change; record pass/fail per item in the PR description, including
-      the 722-vs-725 finding from 1.9.
-- [ ] 5.4 Confirm the deploy gate matches the proposal's Rollback Plan: preflight + backup ahead
-      of `prisma migrate deploy`; the migration stays additive/nullable so a revert never
-      requires a schema rollback, only a data restore if recalculation touched data.
+- [x] 5.1 Full regression: `npm test` (105 suites / 1899 tests, all pass), `npx tsc --noEmit
+      -p tsconfig.json` (0 errors), `npm run lint` (0 errors, 5 preexisting warnings, no new
+      ones), `npm run build` (compiles). 46 migrations apply clean on a fresh DB. Re-run
+      independently in the verify pass: `npx jest --silent` (105/1899 green, exit 0) and
+      `npx tsc --noEmit -p tsconfig.json` (exit 0, empty output). Evidence:
+      `verify-report.md`.
+- [x] 5.2 `node scripts/validate_palette.js "#93b4e0,#6c95d4,#4874c2,#2b52b8,#1b3a8a,#0c2461"
+      --mode light --surface "#ffffff" --ordinal` → ALL CHECKS PASS (lightness monotone,
+      adjacent ΔL, light-end contrast 2.13:1, single hue 9°). Evidence: `verify-report.md`.
+- [x] 5.3 Walked all 15 acceptance criteria in
+      `docs/handoff_sig/proceso-valoracion-de-riesgos.md` §14 against the shipped change.
+      13/15 PASS, 2/15 NO PASA as literally worded (criterion 2's asserted 725 non-obsolete
+      risks vs. the actual 722 — root cause independently re-derived: `TEC-APP-0016` resolves
+      to `[S]`/`[dir]` via a pre-existing, already-reviewed importer rule, not a fresh data
+      slip; and criterion 12's second half — `ordenarPorCriticidad` exists and is tested but
+      is never wired to a reachable UI sort control). 0/15 NO VERIFICABLE. Full matrix,
+      per-row evidence, and the additional cross-cutting findings (dead
+      `excepcionFrecuencia`/`excepcionDegradacion` actions, the deploy-gate ordering gap) are
+      in `verify-report.md`.
+- [x] 5.4 Confirmed the deploy gate does NOT match the proposal's Rollback Plan as written:
+      `.github/workflows/deploy.yml` runs `prisma migrate deploy` at line 209 and the step
+      titled "Backup after a successful deploy" at line 226 — the backup runs after, not
+      before. A daily cron backup exists as a fallback recovery point (up to 24h lag). Low
+      practical risk for this specific additive/nullable migration, but a real gap against
+      the written plan — not resolved, not touched, flagged in `verify-report.md`.
