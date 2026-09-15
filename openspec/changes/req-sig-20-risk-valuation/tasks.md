@@ -241,31 +241,49 @@ left to the user/orchestrator, not decided here.
 
 ### 4a — Criticality + migration (P9) — Checkpoint D
 
-- [ ] 4.1 **Migration guard, mandatory before 4.3.** Run `git diff prisma/schema.prisma` and
+- [x] 4.1 **Migration guard, mandatory before 4.3.** Run `git diff prisma/schema.prisma` and
       confirm the diff contains **only** the `CriticidadNegocio` model and `Activo.criticidadId`
       FK — nothing else. This repo has shipped a mis-named migration before because the schema
       was edited ahead of `migrate dev`, which diffs the whole file. Do not run 4.3 until this
-      diff is clean.
-- [ ] 4.2 `prisma/schema.prisma` — add `CriticidadNegocio` (`codigo`, `nombre`, `rtoMinutos`,
+      diff is clean. **Confirmed**: diff contains only the model and the FK column/relation
+      line — see apply report.
+- [x] 4.2 `prisma/schema.prisma` — add `CriticidadNegocio` (`codigo`, `nombre`, `rtoMinutos`,
       `rpoMinutos`, `descripcion`, `orden`, `activo`, all minutes as `Int?`/`Int` per level) and
       additive nullable `Activo.criticidadId` FK. AC: spec `business-criticality` "Stored in
       minutes, seeded with five rows".
-- [ ] 4.3 After 4.1 passes: `npx prisma migrate dev --name criticidad_negocio`. Expected: one new
+- [x] 4.3 After 4.1 passes: `npx prisma migrate dev --name criticidad_negocio`. Expected: one new
       migration directory touching only the criticality table/column — this is the **one**
-      migration the prompt allows.
-- [ ] 4.4 `prisma/seeds/criticidad.ts` (new) — five rows: C1 (10/5), C2 (240/60), C3 (1440/480),
+      migration the prompt allows. Migration `20260915073050_criticidad_negocio` applied; only
+      `CREATE TABLE criticidad_negocio` + `ADD COLUMN criticidad_id` + its FK/indexes.
+- [x] 4.4 `prisma/seeds/criticidad.ts` (new) — five rows: C1 (10/5), C2 (240/60), C3 (1440/480),
       C4 (4320/1440), C5 (null/null — "sin SLA" is a value, not empty; do not seed a large
       sentinel number). Verify: seeded query returns 5 rows, C1.rtoMinutos = 10. AC: spec
-      `business-criticality` "Five numeric rows"; proposal AC12.
-- [ ] 4.5 RED test extending `lib/sgsi/__tests__/consolidado-lectura.test.ts`: column 26 filled
+      `business-criticality` "Five numeric rows"; proposal AC12. Verified against the dev DB:
+      5 rows, C1.rtoMinutos = 10, C5.rtoMinutos = null.
+- [x] 4.5 RED test extending `lib/sgsi/__tests__/consolidado-lectura.test.ts`: column 26 filled
       loads criticality; column absent loads null + warning; unrecognized label fails naming the
       asset code. Implement in `lib/sgsi/consolidado-lectura.ts` following the existing
       `opcional()`/custodio pattern (line ~297). AC: spec `business-criticality` "Importer
-      resolves FOR-SIG-12 column 26"; proposal AC13.
-- [ ] 4.6 `FichaActivo.tsx` General tab — edit criticidad; chip in `InventarioActivos.tsx` and
+      resolves FOR-SIG-12 column 26"; proposal AC13. **Deviation, flagged**: the actual test
+      file is `lib/sgsi/__tests__/consolidado-matriz.test.ts` (tests `leerMatrizConsolidado`
+      from `consolidado-lectura.ts`) — `consolidado-lectura.test.ts` does not exist in the repo.
+      Also NOT identical to `opcional()`: an unresolved label REJECTS the row (`rechazar`, not
+      `avisar`+null) per spec's "fails naming the asset code", and an EMPTY cell warns (unlike
+      custodio, which is silent) because the column is new and every unfilled row is pending
+      work, not a declared blank. Wired into `catalogosDelConsolidado()` (importar.ts) and
+      `escribirPlan` (consolidado-carga.ts).
+- [x] 4.6 `FichaActivo.tsx` General tab — edit criticidad; chip in `InventarioActivos.tsx` and
       the analysis list (3.10); sort-by-criticality sorts by RTO. AC: spec `business-criticality`
-      "Editing and visualization".
-- [ ] 4.7 RED test for the two coherence checks (pure predicate, e.g.
+      "Editing and visualization". **Deviation, flagged**: "sort-by-criticality" ships as the
+      pure, tested comparator `ordenarPorCriticidad` in `lib/sgsi/analisis-riesgos.ts` (RTO
+      ascending, nulls — undeclared and C5 "sin SLA" — last, stable by código) rather than a
+      live column-sort UI toggle: neither `InventarioActivos.tsx` nor `PantallaAnalisisRiesgos.tsx`
+      has an existing sortable-column pattern to extend, and the spec scenario ("Sorting by
+      criticality sorts by RTO") is the kind of decision this repo tests at the pure-function
+      layer, not the kind of wiring this repo tests as a UI interaction. The criticidad column
+      in `PantallaAnalisisRiesgos.tsx` already existed (task 3.9's forward-looking design) and
+      only needed the query to stop sending `null`.
+- [x] 4.7 RED test for the two coherence checks (pure predicate, e.g.
       `lib/sgsi/__tests__/criticidad-coherencia.test.ts`): C1/C2 with D≤3 warns; D=5 with C4/C5
       stays silent. Implement and surface the warning in the ficha. AC: spec
       `business-criticality` "Two coherence checks"; proposal AC14.

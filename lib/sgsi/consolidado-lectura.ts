@@ -58,6 +58,9 @@ export const COLUMNAS_MATRIZ = {
   valorD: 21,
   valorI: 22,
   valorC: 23,
+  /// REQ-SIG-20 §11 (P9) · «Criticidad de negocio (RTO/RPO)», después de «Nivel del
+  /// activo» (columna 25, que tampoco se lee — ver la nota arriba).
+  criticidad: 26,
 } as const;
 
 /// La cabecera de la «Matriz de Activos» vive en la fila 7 y los datos arrancan en la 8.
@@ -72,6 +75,9 @@ export interface CatalogosConsolidado {
   entornos: { id: number; nombre: string }[];
   proveedores: { id: number; nombre: string }[];
   escala: { valor: number; etiqueta: string }[];
+  /// REQ-SIG-20 §11 (P9) · el catálogo `CriticidadNegocio` contra el que resuelve la
+  /// columna 26.
+  criticidades: { id: number; codigo: string; nombre: string }[];
 }
 
 /// Una fila que pasó todos los controles, resuelta a ids y lista para escribir.
@@ -102,6 +108,10 @@ export interface FilaConsolidado {
   valorD: number;
   valorI: number;
   valorC: number;
+  /// REQ-SIG-20 §11 (P9, D-3) · declarada por el negocio en la columna 26, nunca derivada
+  /// del residual. `null` cuando el libro no la trae — que es «todavía no clasificado»,
+  /// no un valor por defecto.
+  criticidadId: number | null;
 }
 
 export interface AvisoFila {
@@ -337,6 +347,35 @@ export function leerMatrizConsolidado(
     const entornoId = opcional('entorno', catalogos.entornos, 'Entorno');
     const proveedorId = opcional('proveedor', catalogos.proveedores, 'Proveedor');
 
+    // ── La criticidad de negocio (columna 26, §11 · P9) ───────────────────────────────
+    //
+    // Distinta de `opcional()`: acá un vacío SÍ avisa —la columna es nueva y el libro
+    // todavía no la trae para nadie, así que cada fila sin diligenciar es trabajo
+    // pendiente, no un dato declarado como el custodio ausente (H-20)— y una etiqueta que
+    // NO resuelve RECHAZA la fila en vez de cargarla nula: inventar un nulo para un valor
+    // mal escrito ocultaría el error, y a diferencia de un cargo, esta columna no tiene un
+    // "no aplica" legítimo que distinguir de una etiqueta rota.
+    let criticidadId: number | null = null;
+    let criticidadValida = true;
+    const textoCriticidad = col(COLUMNAS_MATRIZ.criticidad);
+    if (textoCriticidad === '') {
+      avisar('Falta la criticidad de negocio (columna 26): se carga sin ella.');
+    } else {
+      // Acepta el nombre solo («Crítica continua»), el código solo («C1») o el código
+      // seguido del nombre tal como lo ofrece el desplegable («C1 · Crítica continua»).
+      const prefijo = textoCriticidad.split(/[·\-–—:]/)[0].trim();
+      const encontrada =
+        catalogos.criticidades.find((c) => igual(c.nombre, textoCriticidad)) ??
+        catalogos.criticidades.find((c) => igual(c.codigo, textoCriticidad)) ??
+        catalogos.criticidades.find((c) => igual(c.codigo, prefijo));
+      if (encontrada) {
+        criticidadId = encontrada.id;
+      } else {
+        rechazar(`Criticidad de negocio desconocida: «${textoCriticidad}».`);
+        criticidadValida = false;
+      }
+    }
+
     // Una cantidad ilegible no vale rechazar un activo entero: el esquema ya trae 1 por
     // defecto y el dato que importa —qué activo es— está completo.
     const textoCantidad = col(COLUMNAS_MATRIZ.cantidad);
@@ -358,7 +397,8 @@ export function leerMatrizConsolidado(
       subtipo &&
       valorD !== undefined &&
       valorI !== undefined &&
-      valorC !== undefined
+      valorC !== undefined &&
+      criticidadValida
     ) {
       filas.push({
         fila: numero,
@@ -384,6 +424,7 @@ export function leerMatrizConsolidado(
         valorD,
         valorI,
         valorC,
+        criticidadId,
       });
     }
   }

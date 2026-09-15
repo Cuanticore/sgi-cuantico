@@ -643,6 +643,30 @@ enum EstadoSoa {
   @@map("estado_soa")
 }
 
+/// La criticidad de negocio (RTO/RPO), declarada por el negocio en FOR-SIG-12 columna 26 —
+/// NUNCA derivada del peor residual (REQ-SIG-20 §11, D-3 cerrada). Calcularla del residual
+/// diría que un activo es crítico PORQUE está mal protegido, que es exactamente al revés:
+/// esto es cuánta interrupción tolera el negocio, decidido antes de mirar cómo está protegido.
+///
+/// RTO/RPO en MINUTOS, nunca texto: «≤ 4 h» es presentación, 240 es el dato — sin eso no se
+/// puede ordenar ni comparar. `null` en C5 es «sin SLA», un valor declarado, no una ausencia:
+/// nunca se siembra con un centinela grande, porque eso ordenaría a los activos sin acuerdo
+/// de nivel de servicio como si fueran los más tolerantes del inventario.
+model CriticidadNegocio {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique // C1..C5
+  nombre      String  @unique
+  rtoMinutos  Int?    @map("rto_minutos")
+  rpoMinutos  Int?    @map("rpo_minutos")
+  descripcion String?
+  orden       Int
+  activo      Boolean @default(true)
+
+  activos Activo[]
+
+  @@map("criticidad_negocio")
+}
+
 model Activo {
   id             Int     @id @default(autoincrement())
   /// AAA-TTT-NNNN. System generated, immutable and never reused. Nullable only while
@@ -674,6 +698,10 @@ model Activo {
   /// dice quien lo tiene en la mano. Al inactivar una persona sus activos quedan listados
   /// para reasignar, igual que sus tareas.
   personaId      Int?    @map("persona_id")
+  /// REQ-SIG-20 §11 (P9, D-3) · declarada por el negocio, nunca derivada del residual.
+  /// `null` para los 299 activos hasta que FOR-SIG-12 columna 26 se diligencie — no es un
+  /// valor por defecto inventado, es que la clasificación todavía no existe.
+  criticidadId   Int?    @map("criticidad_id")
 
   datosCliente     Ternario @default(POR_DEFINIR) @map("datos_cliente")
   datosPersonales  Ternario @default(POR_DEFINIR) @map("datos_personales")
@@ -702,6 +730,7 @@ model Activo {
   eventosAfectado     ActivoAfectado[]
   nivel               NivelActivo?        @relation(fields: [nivelId], references: [id])
   persona             Persona?            @relation("ActivoCustodioPersona", fields: [personaId], references: [id])
+  criticidad          CriticidadNegocio?  @relation(fields: [criticidadId], references: [id])
   dependenciasDe      DependenciaActivo[] @relation("DependenciaBase")
   dependenciasHacia   DependenciaActivo[] @relation("DependenciaDestino")
   despliegues         Despliegue[]        @relation("DespliegueActivo")

@@ -91,6 +91,9 @@ export interface ActivoVista {
   /// trae tambien cualquier dimension que se active despues de D, I y C.
   valores: Readonly<Record<string, number | null>>;
   riesgos: RiesgoDeActivo[];
+  /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual. `null`
+  /// para todo activo que FOR-SIG-12 columna 26 todavía no clasificó.
+  criticidad: { codigo: string; nombre: string } | null;
 }
 
 /// A row of `escala_valor`: "4 — Alto".
@@ -163,14 +166,15 @@ type Agrupacion =
 /// diez columnas y agregar una que esta vacia en 299 de 299 activos costaria ancho sin decir
 /// nada (REQ-SIG-18 §7.5).
 function columnas(conPersona: boolean): string {
-  const base = '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 92px';
+  const base = '150px minmax(170px, 0.85fr) 168px 168px 126px 126px 126px 74px 104px 92px 96px';
   return conPersona ? `${base} 150px` : base;
 }
 
 /// 1304px of columns plus the row's 68px of padding. The handoff marks an insufficient
-/// min-width as the rule that caused repeated defects.
+/// min-width as the rule that caused repeated defects. +96px for the CRITICIDAD column
+/// (REQ-SIG-20 §11, P9).
 function anchoMinimo(conPersona: boolean): number {
-  return conPersona ? 1522 : 1372;
+  return conPersona ? 1618 : 1468;
 }
 
 export default function InventarioActivos({
@@ -752,6 +756,7 @@ export default function InventarioActivos({
             </div>
             <div>NIVEL</div>
             <div className="text-right">RIESGOS</div>
+            <div>CRITICIDAD</div>
             {verPersona && <div>CUSTODIO PERSONA</div>}
           </div>
 
@@ -966,6 +971,19 @@ function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
           <span className="text-[var(--hf-text-placeholder)]">sin generar</span>
         ) : (
           <span className="tabular-nums text-primary">{a.riesgos.length}</span>
+        )}
+      </div>
+
+      <div>
+        {a.criticidad === null ? (
+          <span className="text-11 text-[var(--hf-text-placeholder)]">sin clasificar</span>
+        ) : (
+          <span
+            className="inline-block rounded-badge border border-border-default bg-subtle px-2 py-0.5 text-11 font-semibold text-secondary-soft"
+            title={a.criticidad.nombre}
+          >
+            {a.criticidad.codigo}
+          </span>
         )}
       </div>
 

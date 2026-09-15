@@ -27,11 +27,16 @@
 // y la tarjeta SIN PLAN muestran un estado explícito de «aún no determinado» en vez de asumir
 // que no hay plan. Ver `tasks.md`, Open Items, y el reporte de la Fase 3b.
 //
-// LA CRITICIDAD (columna «Criticidad», P9) tampoco existe todavía — `Activo.criticidadId` es
-// la migración de la tarea 4.2. No es una derivación con riesgo de duplicarse, así que no
-// necesita una interfaz: viaja como `criticidad: string | null`, hoy siempre `null`, y la
-// pantalla la muestra como «—». Cuando la Fase 4 la traiga, la consulta del servidor solo
-// tiene que dejar de mandar `null`.
+// LA CRITICIDAD (columna «Criticidad», P9) viaja como `criticidad: string | null` — el código
+// de `CriticidadNegocio` (C1..C5), nunca su `id`: el código es el contrato con el negocio y el
+// `id` un detalle de la base. `null` es «todavía no clasificado». No es una derivación con
+// riesgo de duplicarse, así que no necesita una interfaz propia como `ResolverDeudaPlan`; la
+// consulta del servidor (`analisis-riesgos.query.ts`) la trae de `Activo.criticidad.codigo`.
+// `compararPorCriticidad`, más abajo, ordena por RTO —no alfabéticamente por código— contra un
+// mapa `{ codigo → rtoMinutos }` que la pantalla arma desde `CriticidadNegocio`: un activo sin
+// criticidad declarada y un C5 «sin SLA» comparten `rtoMinutos: null` (sin límite de tiempo) y
+// van al final, aunque signifiquen cosas distintas — uno es trabajo pendiente, el otro una
+// decisión — porque para efectos de ORDEN los dos son «sin urgencia de recuperación».
 
 import { clasificar } from './clasificar';
 import { SIN_ASIGNAR } from './inventario-filtros';
@@ -263,6 +268,34 @@ function compararPorResidual(x: FilaAnalisis, y: FilaAnalisis): number {
   const ny = y.peorResidual?.nivel ?? -1;
   if (nx !== ny) return ny - nx;
   return x.codigo.localeCompare(y.codigo, 'es');
+}
+
+/// `criticidad.codigo → rtoMinutos`, la proyección de `CriticidadNegocio` que
+/// `ordenarPorCriticidad` necesita. `null` es C5 («sin SLA») — un valor declarado, no una
+/// ausencia — y también lo que devuelve `.get()` para un código que el mapa no trae.
+export type MapaRtoPorCriticidad = ReadonlyMap<string, number | null>;
+
+/// Reordena las filas por criticidad, siguiendo el RTO en minutos —no el código— de menor a
+/// mayor: el nivel más exigente (RTO más corto) primero. Un activo sin criticidad declarada
+/// y un C5 "sin SLA" comparten `rtoMinutos: null` y van al final, en orden estable por
+/// código — significan cosas distintas (trabajo pendiente vs. decisión), pero ninguno de los
+/// dos tiene un tiempo de recuperación que ordenar contra los demás.
+export function ordenarPorCriticidad(
+  filas: readonly FilaAnalisis[],
+  rtoPorCodigo: MapaRtoPorCriticidad,
+): FilaAnalisis[] {
+  const rtoDe = (f: FilaAnalisis): number | null =>
+    f.criticidad === null ? null : (rtoPorCodigo.get(f.criticidad) ?? null);
+
+  return [...filas].sort((x, y) => {
+    const rx = rtoDe(x);
+    const ry = rtoDe(y);
+    if (rx === null && ry === null) return x.codigo.localeCompare(y.codigo, 'es');
+    if (rx === null) return 1;
+    if (ry === null) return -1;
+    if (rx !== ry) return rx - ry;
+    return x.codigo.localeCompare(y.codigo, 'es');
+  });
 }
 
 /// Las filas de la lista: un renglón por activo en análisis que cumple los seis filtros,

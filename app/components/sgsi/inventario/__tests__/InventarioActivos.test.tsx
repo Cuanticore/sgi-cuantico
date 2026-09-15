@@ -78,6 +78,7 @@ function activo(p: Partial<ActivoVista> & { codigo: string }): ActivoVista {
     nivel2: null,
     nivel3: null,
     riesgos: [],
+    criticidad: null,
     ...p,
     D,
     I,

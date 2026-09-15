@@ -17,9 +17,9 @@ import 'server-only';
 // aritmética que la ficha, el inventario y la Ecuación usan, nunca una copia— porque no existe
 // una columna `valor` en la base (invariante 1: lo derivable se calcula, no se almacena).
 //
-// LA CRITICIDAD (columna «Criticidad», P9/Fase 4) no tiene de dónde salir todavía:
-// `Activo.criticidadId` es la migración de la tarea 4.2. Viaja `null` a propósito — ver el
-// encabezado de `lib/sgsi/analisis-riesgos.ts`.
+// LA CRITICIDAD (columna «Criticidad», P9) viaja como el código de `CriticidadNegocio`
+// (C1..C5) o `null` cuando el activo todavía no fue clasificado — ver el encabezado de
+// `lib/sgsi/analisis-riesgos.ts`.
 
 import { prisma } from '@/lib/db';
 import { valorActivo } from '@/lib/sgsi/formulas';
@@ -51,6 +51,10 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
         area: { select: { nombre: true } },
         propietario: { select: { nombre: true } },
         persona: { select: { nombre: true, correo: true } },
+        // REQ-SIG-20 §11 (P9, Fase 4) · declarada por el negocio, nunca derivada del
+        // residual. Viaja el código (C1..C5), no el nombre: es lo que la pantalla y el
+        // filtro comparan.
+        criticidad: { select: { codigo: true } },
         valores: {
           select: { dimension: { select: { codigo: true } }, valor: { select: { valor: true } } },
         },
@@ -92,8 +96,8 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
       codigo: a.codigo ?? '(sin código)',
       nombre: a.nombre,
       valor: valorActivo({ D, I, C }).toNumber(),
-      // REQ-SIG-20 Fase 4 (business-criticality, tarea 4.2/4.6) — todavía no hay columna.
-      criticidad: null,
+      // REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
+      criticidad: a.criticidad?.codigo ?? null,
       proceso: a.area.nombre,
       propietario: a.propietario?.nombre ?? null,
       persona: a.persona?.nombre ?? null,

@@ -10,6 +10,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
 import { seedEscalas } from './seeds/escalas';
+import { seedCriticidad } from './seeds/criticidad';
 import { seedLicencias } from './seeds/licencias';
 import { seedMagerit } from './seeds/magerit';
 import { seedObligaciones } from './seeds/obligaciones';
@@ -38,6 +39,13 @@ async function main(): Promise<void> {
 
   console.log('Sembrando áreas, catálogos y taxonomía MAGERIT…');
   await seedMagerit(prisma);
+
+  // REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual. Cinco
+  // niveles fijos, no un catálogo curable desde la app: cambia el número y cambia el
+  // significado de la columna 26 de FOR-SIG-12.
+  console.log('Sembrando la criticidad de negocio (REQ-SIG-20 §11)…');
+  const niveles = await seedCriticidad(prisma);
+  console.log(`  ${niveles} niveles de criticidad.`);
 
   // REQ-SIG-17 · va DESPUÉS de seedMagerit, que es quien siembra áreas y cargos: los
   // destinos de alcance de las 27 obligaciones se resuelven contra esos dos catálogos.

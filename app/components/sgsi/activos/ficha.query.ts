@@ -63,6 +63,18 @@ export interface NivelValor {
   etiqueta: string;
 }
 
+/// REQ-SIG-20 §11 (P9) · un nivel del catálogo `CriticidadNegocio`. `rtoMinutos`/
+/// `rpoMinutos` viajan como número, no como texto: «≤ 4 h» es presentación y el minuto es
+/// el dato — es lo que permite ordenar por criticidad y compararla, nunca leerla de vuelta.
+/// `null` en cualquiera de los dos es C5, «sin SLA», un valor declarado y no una ausencia.
+export interface NivelCriticidad {
+  id: number;
+  codigo: string;
+  nombre: string;
+  rtoMinutos: number | null;
+  rpoMinutos: number | null;
+}
+
 export interface NivelDegradacion {
   id: number;
   nombre: string;
@@ -191,6 +203,9 @@ export interface ActivoFicha {
   entornoId: number | null;
   proveedorId: number | null;
   superiorId: number | null;
+  /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual. `null`
+  /// para todo activo que FOR-SIG-12 columna 26 todavía no clasificó.
+  criticidadId: number | null;
   datosCliente: Ternario;
   datosPersonales: Ternario;
   expuestoInternet: Ternario;
@@ -234,6 +249,8 @@ export interface Catalogos {
   ubicaciones: OpcionCatalogo[];
   entornos: OpcionCatalogo[];
   proveedores: OpcionCatalogo[];
+  /// REQ-SIG-20 §11 (P9) · los cinco niveles fijos, en orden C1..C5.
+  criticidades: NivelCriticidad[];
   escalaValor: NivelValor[];
   escalaDegradacion: NivelDegradacion[];
   escalaFrecuencia: NivelFrecuencia[];
@@ -270,6 +287,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     ubicaciones,
     entornos,
     proveedores,
+    criticidades,
     escalaValor,
     escalaDegradacion,
     escalaFrecuencia,
@@ -289,6 +307,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     prisma.ubicacion.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.entorno.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.proveedor.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
+    prisma.criticidadNegocio.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
     prisma.escalaValor.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaDegradacion.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaFrecuencia.findMany({ orderBy: { orden: 'asc' } }),
@@ -343,6 +362,13 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre })),
     entornos: entornos.map((e) => ({ id: e.id, nombre: e.nombre })),
     proveedores: proveedores.map((p) => ({ id: p.id, nombre: p.nombre })),
+    criticidades: criticidades.map((c) => ({
+      id: c.id,
+      codigo: c.codigo,
+      nombre: c.nombre,
+      rtoMinutos: c.rtoMinutos,
+      rpoMinutos: c.rpoMinutos,
+    })),
     escalaValor: escalaValor.map((e) => ({ id: e.id, valor: e.valor, etiqueta: e.etiqueta })),
     escalaDegradacion: escalaDegradacion.map((d) => ({
       id: d.id,
@@ -540,6 +566,7 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
     entornoId: activo.entornoId,
     proveedorId: activo.proveedorId,
     superiorId: activo.superiorId,
+    criticidadId: activo.criticidadId,
     datosCliente: activo.datosCliente,
     datosPersonales: activo.datosPersonales,
     expuestoInternet: activo.expuestoInternet,

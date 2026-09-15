@@ -15,6 +15,7 @@ import {
   SIN_ASIGNAR,
   filasAnalisis,
   filtrosAnalisisDesdeUrl,
+  ordenarPorCriticidad,
   parametrosDeFiltrosAnalisis,
   tarjetasAnalisis,
   type ActivoAnalizable,
@@ -246,5 +247,48 @@ describe('§5.3 · URL ⇄ filtros', () => {
     const { filtros, avisos } = filtrosAnalisisDesdeUrl(new URLSearchParams('proceso=Inexistente'), CATALOGOS);
     expect(filtros.proceso).toBe(FILTROS_ANALISIS_VACIOS.proceso);
     expect(avisos[0]).toContain('Inexistente');
+  });
+});
+
+// ─── REQ-SIG-20 §11 (P9, tarea 4.6) · «sorting by criticality sorts by RTO» ────────────
+//
+// El código de criticidad (C1..C5) NO es el orden: es un identificador. Ordenar por RTO es
+// justo lo contrario de ordenar alfabéticamente por código — coinciden hoy porque C1..C5 se
+// numeraron en el mismo sentido que el RTO, pero la prueba tiene que fallar si alguien
+// ordena por el string en vez del minuto, y no solo "dar la casualidad" de que ambos
+// caminos producen el mismo resultado con datos bien numerados.
+describe('§11 · ordenarPorCriticidad sigue el RTO, no el código', () => {
+  const RTO_POR_CODIGO = new Map<string, number | null>([
+    ['C1', 10],
+    ['C2', 240],
+    ['C3', 1440],
+    ['C4', 4320],
+    ['C5', null], // sin SLA
+  ]);
+
+  function fila(codigo: string, criticidad: string | null) {
+    return filasAnalisis(
+      datos([activo({ codigo, criticidad, riesgos: [] })]),
+      FILTROS_ANALISIS_VACIOS,
+    )[0];
+  }
+
+  it('el más exigente (menor RTO) va primero, aunque su código no sea alfabéticamente el primero', () => {
+    // C3 y C2 en orden alfabético inverso a su RTO: si el comparador mirara el código en vez
+    // del minuto, esta prueba fallaría.
+    const filas = [fila('TEC-GEN-0003', 'C3'), fila('TEC-GEN-0001', 'C1'), fila('TEC-GEN-0002', 'C2')];
+    const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.criticidad);
+    expect(orden).toEqual(['C1', 'C2', 'C3']);
+  });
+
+  it('C5 (sin SLA, rtoMinutos null) y un activo sin criticidad declarada van al final', () => {
+    const filas = [
+      fila('TEC-GEN-0005', 'C5'),
+      fila('TEC-GEN-0001', 'C1'),
+      fila('TEC-GEN-0000', null),
+    ];
+    const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.codigo);
+    expect(orden[0]).toBe('TEC-GEN-0001'); // C1, el más exigente
+    expect(orden.slice(1)).toEqual(['TEC-GEN-0000', 'TEC-GEN-0005']); // orden estable por código
   });
 });

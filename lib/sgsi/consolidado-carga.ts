@@ -449,6 +449,9 @@ export async function escribirPlan(
         datosCliente: f.datosCliente,
         datosPersonales: f.datosPersonales,
         expuestoInternet: f.expuestoInternet,
+        // REQ-SIG-20 §11 (P9) · declarada por el negocio en la columna 26. `null` cuando el
+        // libro no la trae, y ese `null` es correcto: es «todavía no clasificado».
+        criticidadId: f.criticidadId,
         // `Activo.nivelId` apunta SÓLO al grado 3; los grados 1 y 2 se derivan subiendo.
         nivelId,
       },

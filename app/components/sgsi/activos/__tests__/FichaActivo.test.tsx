@@ -55,6 +55,10 @@ const CATALOGOS: Catalogos = {
   ubicaciones: [],
   entornos: [],
   proveedores: [],
+  criticidades: [
+    { id: 1, codigo: 'C1', nombre: 'Crítica continua', rtoMinutos: 10, rpoMinutos: 5 },
+    { id: 4, codigo: 'C4', nombre: 'Estándar', rtoMinutos: 4320, rpoMinutos: 1440 },
+  ],
   escalaValor: [
     { id: 5, valor: 5, etiqueta: '5 — Muy Alto' },
     { id: 4, valor: 4, etiqueta: '4 — Alto' },
@@ -112,6 +116,7 @@ function activo(codigo: string, valor: number): ActivoFicha {
     entornoId: null,
     proveedorId: null,
     superiorId: null,
+    criticidadId: null,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
     expuestoInternet: 'POR_DEFINIR',
@@ -182,6 +187,34 @@ describe('REQ-SIG-20 §3.1 · gating por umbral (D-2, D-5)', () => {
   });
 });
 
+describe('REQ-SIG-20 §11.3 (tarea 4.7) · aviso de coherencia criticidad/disponibilidad', () => {
+  it('C1 con D = 3 muestra el aviso, sin bloquear el guardado', () => {
+    render(
+      <FichaActivo
+        activo={{ ...activo('TEC-GEN-0010', 3), criticidadId: 1 }}
+        catalogos={CATALOGOS}
+        amenazas={AMENAZAS}
+        navegacion={{ codigos: ['TEC-GEN-0010'] }}
+      />,
+    );
+    expect(screen.getByText(/exige una recuperación rápida/)).toBeInTheDocument();
+    // No hay ningún control deshabilitado por el aviso: D17 dice «avisa, no bloquea».
+    expect(screen.getByLabelText('Nombre del activo')).toBeEnabled();
+  });
+
+  it('D = 5 con C4 no muestra ningún aviso: son declaraciones distintas y compatibles', () => {
+    render(
+      <FichaActivo
+        activo={{ ...activo('TEC-GEN-0011', 5), criticidadId: 4 }}
+        catalogos={CATALOGOS}
+        amenazas={AMENAZAS}
+        navegacion={{ codigos: ['TEC-GEN-0011'] }}
+      />,
+    );
+    expect(screen.queryByText(/exige una recuperación rápida/)).not.toBeInTheDocument();
+  });
+});
+
 describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
   const CATALOGOS_CON_DOS_DEGRADACIONES: Catalogos = {
     ...CATALOGOS,
@@ -241,6 +274,7 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       entornoId: null,
       proveedorId: null,
       superiorId: null,
+      criticidadId: null,
       datosCliente: 'POR_DEFINIR',
       datosPersonales: 'POR_DEFINIR',
       expuestoInternet: 'POR_DEFINIR',

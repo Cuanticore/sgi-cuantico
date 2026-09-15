@@ -236,7 +236,7 @@ async function leer(datos: FormData): Promise<{ filas: FilaLeida[]; resueltas: F
 /// del área y la `abreviatura` del tipo: `ContadorCodigo` se indexa por (área, tipo), y la
 /// serie del código viene como texto (§5.7).
 async function catalogosDelConsolidado(): Promise<CatalogosConsolidado> {
-  const [tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala] =
+  const [tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala, criticidades] =
     await Promise.all([
       prisma.tipoMagerit.findMany({
         where: { activo: true },
@@ -260,8 +260,16 @@ async function catalogosDelConsolidado(): Promise<CatalogosConsolidado> {
         orderBy: { orden: 'asc' },
         select: { valor: true, etiqueta: true },
       }),
+      // REQ-SIG-20 §11 (P9) · contra qué resuelve la columna 26. Los niveles retirados NO
+      // entran a propósito: `CriticidadNegocio` es un catálogo fijo de cinco filas, no un
+      // desplegable curable, así que no hay un "retirado" legítimo que preservar aquí como
+      // sí lo hay para cargos o proveedores.
+      prisma.criticidadNegocio.findMany({
+        where: { activo: true },
+        select: { id: true, codigo: true, nombre: true },
+      }),
     ]);
-  return { tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala };
+  return { tipos, subtipos, areas, cargos, ubicaciones, entornos, proveedores, escala, criticidades };
 }
 
 /// El plan del consolidado, o `null` si este libro no es el consolidado.

@@ -91,6 +91,7 @@ import {
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
 import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
 import { resolverEcuacion, type EcuacionResuelta } from '@/lib/sgsi/ecuacion';
+import { esCriticidadSospechosa } from '@/lib/sgsi/criticidad-coherencia';
 import type { Catalogo } from '@/lib/sgsi/catalogos';
 import PopupCatalogo from '@/app/components/sgsi/parametros/PopupCatalogo';
 import PopupControlesAmenaza from './PopupControlesAmenaza';
@@ -333,6 +334,8 @@ interface Edicion {
   entornoId: number | null;
   proveedorId: number | null;
   superiorId: number | null;
+  /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
+  criticidadId: number | null;
   datosCliente: Ternario;
   datosPersonales: Ternario;
   expuestoInternet: Ternario;
@@ -858,6 +861,9 @@ export default function FichaActivo({
     if (edicion.propietarioId !== baseEdicion.propietarioId) {
       datos.propietarioId = edicion.propietarioId;
     }
+    if (edicion.criticidadId !== baseEdicion.criticidadId) {
+      datos.criticidadId = edicion.criticidadId;
+    }
     if (edicion.custodioId !== baseEdicion.custodioId) datos.custodioId = edicion.custodioId;
     if (edicion.ubicacionId !== baseEdicion.ubicacionId) datos.ubicacionId = edicion.ubicacionId;
     if (edicion.entornoId !== baseEdicion.entornoId) datos.entornoId = edicion.entornoId;
@@ -1319,6 +1325,7 @@ export default function FichaActivo({
             superior={
               edicion.superiorId === null ? null : (porId.activo.get(edicion.superiorId) ?? null)
             }
+            valorD={valores.D}
             onEditar={editar}
             onBuscarSuperior={() => {
               setBusqueda('');
@@ -1613,6 +1620,7 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
       entornoId: activo.entornoId,
       proveedorId: activo.proveedorId,
       superiorId: activo.superiorId,
+      criticidadId: activo.criticidadId,
       datosCliente: activo.datosCliente,
       datosPersonales: activo.datosPersonales,
       expuestoInternet: activo.expuestoInternet,
@@ -1635,6 +1643,7 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
     entornoId: null,
     proveedorId: null,
     superiorId: null,
+    criticidadId: null,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
     expuestoInternet: 'POR_DEFINIR',
@@ -1726,15 +1735,23 @@ function DatosGenerales({
   edicion,
   catalogos,
   superior,
+  valorD,
   onEditar,
   onBuscarSuperior,
 }: {
   edicion: Edicion;
   catalogos: Catalogos;
   superior: ActivoBreve | null;
+  /// La disponibilidad EN VIVO (lo que se está editando, no solo lo guardado): la
+  /// comprobación de coherencia (§11.3) tiene que reaccionar al mismo tiempo que la
+  /// persona mueve el select de D, no solo después de guardar.
+  valorD: number;
   onEditar: <K extends keyof Edicion>(campo: K, valor: Edicion[K]) => void;
   onBuscarSuperior: () => void;
 }) {
+  const criticidadElegida = catalogos.criticidades.find((c) => c.id === edicion.criticidadId) ?? null;
+  const sospechoso = esCriticidadSospechosa(criticidadElegida?.codigo ?? null, valorD);
+
   return (
     <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-x-5 gap-y-3.5 rounded-[9px] border border-border-default bg-subtle px-[18px] py-4">
       <Campo etiqueta="PROCESO O ÁREA">
@@ -1805,6 +1822,28 @@ function DatosGenerales({
           />
         </ConCatalogo>
       </Campo>
+
+      <Campo etiqueta="CRITICIDAD DE NEGOCIO">
+        <SelectCampo
+          valor={edicion.criticidadId}
+          onChange={(v) => onEditar('criticidadId', v)}
+          opciones={catalogos.criticidades.map((c) => ({ id: c.id, nombre: `${c.codigo} · ${c.nombre}` }))}
+          vacio="— sin clasificar —"
+          titulo="Cuánta interrupción tolera el negocio (RTO/RPO), declarada en FOR-SIG-12 columna 26. Nunca se calcula del riesgo residual."
+        />
+      </Campo>
+
+      {sospechoso && (
+        <div className="col-span-full flex flex-col gap-1 rounded-campo border border-warn-border bg-warn-100 px-3 py-2">
+          <span className="text-11 leading-relaxed text-warn-text [text-wrap:pretty]">
+            {/* REQ-SIG-20 §11.3 · avisa, no bloquea (D17): una criticidad exigente con
+                disponibilidad baja es una de las dos declaraciones equivocada. */}
+            <strong>{criticidadElegida?.codigo}</strong> exige una recuperación rápida y la
+            disponibilidad (D) está en <strong>{valorD}</strong>: revisá si la valoración o la
+            criticidad están al día. Esto no bloquea el guardado.
+          </span>
+        </div>
+      )}
 
       <div className="col-span-full flex flex-col gap-1 border-t border-hairline-strong pt-[11px]">
         <span className="etiqueta-campo text-9">ACTIVO SUPERIOR</span>

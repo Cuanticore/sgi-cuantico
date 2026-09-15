@@ -241,7 +241,15 @@ export default function PantallaAnalisisRiesgos({
                         {f.valor}
                       </span>
                     </td>
-                    <td className="px-2 py-1.5 text-faint">{f.criticidad ?? '—'}</td>
+                    <td className="px-2 py-1.5">
+                      {f.criticidad === null ? (
+                        <span className="text-faint">sin clasificar</span>
+                      ) : (
+                        <span className="inline-block rounded-badge border border-border-default bg-subtle px-2 py-0.5 font-mono text-11 font-semibold text-secondary-soft">
+                          {f.criticidad}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-2 py-1.5 text-secondary">{f.proceso}</td>
                     <td className="px-2 py-1.5 text-secondary">{f.propietario ?? '—'}</td>
                     <td className="px-2 py-1.5 text-secondary">{f.persona ?? '—'}</td>

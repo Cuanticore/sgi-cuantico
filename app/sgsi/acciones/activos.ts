@@ -115,6 +115,8 @@ export interface DatosGenerales {
   entornoId?: number | null;
   proveedorId?: number | null;
   superiorId?: number | null;
+  /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
+  criticidadId?: number | null;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -139,6 +141,7 @@ export async function guardarDatosGenerales(
     idOpcional(datos.entornoId, 'el entorno');
     idOpcional(datos.proveedorId, 'el proveedor');
     idOpcional(datos.superiorId, 'el activo superior');
+    idOpcional(datos.criticidadId, 'la criticidad de negocio');
 
     const escritos = await prisma.$transaction(async (tx) => {
       const activo = await tx.activo.findFirst({ where: { codigo: codigoActivo } });
@@ -168,6 +171,7 @@ export async function guardarDatosGenerales(
         'entornoId',
         'proveedorId',
         'superiorId',
+        'criticidadId',
         'datosCliente',
         'datosPersonales',
         'expuestoInternet',

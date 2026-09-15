@@ -43,6 +43,10 @@ const CATALOGOS: CatalogosConsolidado = {
     { valor: 3, etiqueta: '3 — Medio' },
     { valor: 2, etiqueta: '2 — Bajo' },
   ],
+  criticidades: [
+    { id: 70, codigo: 'C1', nombre: 'Crítica continua' },
+    { id: 71, codigo: 'C2', nombre: 'Crítica' },
+  ],
 };
 
 /// Una fila de la hoja, por número de columna (1-based) como la ve la persona en Excel.
@@ -52,7 +56,7 @@ function hoja(...filas: Record<number, string>[]): string[][] {
   for (let i = 0; i < 7; i++) matriz.push([]); // filas 1..7: títulos y cabecera
   for (const f of filas) {
     const celdas: string[] = [];
-    for (let c = 1; c <= 25; c++) celdas.push(f[c] ?? '');
+    for (let c = 1; c <= 26; c++) celdas.push(f[c] ?? '');
     matriz.push(celdas);
   }
   return matriz;
@@ -84,6 +88,7 @@ const SANA: Record<number, string> = {
   23: '5 — Muy Alto',
   24: '5',
   25: 'Muy Alto',
+  26: 'Crítica continua',
 };
 
 const con = (cambios: Record<number, string>) => ({ ...SANA, ...cambios });
@@ -300,6 +305,51 @@ describe('la valoración', () => {
     const { filas } = leer(con({ 24: '0', 25: 'Irrelevante' }));
     expect(filas[0]).not.toHaveProperty('valorDerivado');
     expect(filas[0].valorC).toBe(5);
+  });
+});
+
+// ─── La criticidad de negocio (columna 26, REQ-SIG-20 §11 · P9) ───────────────────────
+//
+// D-3 cerrada: la declara el negocio, nunca se deriva del residual. La columna es
+// NULABLE —igual que el custodio— pero a diferencia del custodio, un vacío DECLARADO
+// todavía no existe para esta columna nueva: toda fila sin diligenciar avisa, porque
+// FOR-SIG-12 no trae la columna hoy y el vacío es trabajo pendiente, no una respuesta.
+// Y una etiqueta que no está en el catálogo RECHAZA la fila nombrando el código: a
+// diferencia de un cargo, inventar un nulo para un valor mal escrito ocultaría el error
+// en vez de pedir que se corrija.
+
+describe('la criticidad de negocio (columna 26, P9)', () => {
+  it('la columna llena, por nombre, carga la criticidad declarada', () => {
+    const { filas, avisos, rechazadas } = leer(con({ 26: 'Crítica continua' }));
+    expect(rechazadas).toEqual([]);
+    expect(avisos).toEqual([]);
+    expect(filas[0].criticidadId).toBe(70);
+  });
+
+  it('la columna llena, por código, también resuelve', () => {
+    const { filas } = leer(con({ 26: 'C2' }));
+    expect(filas[0].criticidadId).toBe(71);
+  });
+
+  it('el código seguido de su nombre («C1 · Crítica continua») resuelve por el código', () => {
+    const { filas, rechazadas } = leer(con({ 26: 'C1 · Crítica continua' }));
+    expect(rechazadas).toEqual([]);
+    expect(filas[0].criticidadId).toBe(70);
+  });
+
+  it('la columna vacía carga null y avisa: el vacío todavía no es un dato declarado', () => {
+    const { filas, avisos } = leer(con({ 26: '' }));
+    expect(filas[0].criticidadId).toBeNull();
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0].mensaje).toContain('criticidad');
+  });
+
+  it('una etiqueta no reconocida RECHAZA la fila nombrando el código del activo', () => {
+    const { filas, rechazadas } = leer(con({ 26: 'C9 · Inventada' }));
+    expect(filas).toHaveLength(0);
+    expect(rechazadas).toHaveLength(1);
+    expect(rechazadas[0].codigo).toBe('SIG-DAT-0030');
+    expect(rechazadas[0].mensaje).toContain('C9 · Inventada');
   });
 });
 

@@ -31,6 +31,8 @@ export default async function InventarioPage() {
         subtipo: { select: { codigo: true, nombre: true } },
         propietario: { select: { nombre: true } },
         custodio: { select: { nombre: true } },
+        // REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
+        criticidad: { select: { codigo: true, nombre: true } },
         // REQ-SIG-18 §7.5 · el custodio PERSONA, que no es el custodio cargo. La Tabla B de la
         // pantalla de Valoración enlaza por correo —`Persona.correo` es único y el nombre no
         // (§9)— y sin esto el clic no tenía a dónde llegar.
@@ -100,6 +102,7 @@ export default async function InventarioPage() {
       subtipo: `${a.subtipo.codigo} ${a.subtipo.nombre}`,
       propietario: a.propietario?.nombre ?? null,
       custodio: a.custodio?.nombre ?? null,
+      criticidad: a.criticidad ? { codigo: a.criticidad.codigo, nombre: a.criticidad.nombre } : null,
       persona: a.persona?.nombre ?? null,
       // El correo y no el nombre: es el identificador estable de la persona en todo el SIG y
       // dos personas pueden llamarse igual.
