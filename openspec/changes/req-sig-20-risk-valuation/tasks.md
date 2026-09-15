@@ -121,29 +121,47 @@ left to the user/orchestrator, not decided here.
 
 ## Phase 2: Trazabilidad — P7 fórmulas visibles · P8 pestaña Ecuación (3.0d) — Checkpoint B
 
-- [ ] 2.1 RED test `lib/sgsi/__tests__/ecuacion.test.ts` (new module doesn't exist yet): seven
+- [x] 2.1 RED test `lib/sgsi/__tests__/ecuacion.test.ts` (new module doesn't exist yet): seven
       steps compose `formulas.ts`/`madurez.ts`; TEC-GEN-0004 × A.24 fixture's step 7 matches
       `Riesgo.riesgoResidual` to the 4th decimal. Run: `npm test -- ecuacion` → FAIL
       (`Cannot find module '../ecuacion'`).
-- [ ] 2.2 Implement `lib/sgsi/ecuacion.ts` to pass 2.1: pure, no client re-implementation; each
+- [x] 2.2 Implement `lib/sgsi/ecuacion.ts` to pass 2.1: pure, no client re-implementation; each
       step states whether it ran under `RiesgoDegradacion`/`frecuenciaId`/`madurezId` exception
       and carries its justification. Verify: `npm test -- ecuacion` PASS. AC: spec
       `risk-equation-traceability` "Read-only Ecuación tab, seven steps", "Exception surfaces in
       its step"; proposal AC10.
-- [ ] 2.3 `app/components/sgsi/activos/PestanaEcuacion.tsx` (new) — renders the 7 steps
+- [x] 2.3 `app/components/sgsi/activos/PestanaEcuacion.tsx` (new) — renders the 7 steps
       read-only, expandable step 5 (principal/secondary/complementary) when relevance exists,
       copy-as-plain-text control. Test: clipboard (jsdom mock) holds the 7 steps as text after
-      copy. AC: spec `risk-equation-traceability` "Read-only and copyable as text".
-- [ ] 2.4 Live arithmetic beside the data (P7) — extend the Amenazas rows in `FichaActivo.tsx`:
+      copy. AC: spec `risk-equation-traceability` "Read-only and copyable as text". Wired as a
+      fourth tab ("Ecuación", threshold-gated like Amenazas/Matrices) in `FichaActivo.tsx` with
+      a threat picker reusing the `abierta` selection state, since D3's file table lists
+      `FichaActivo.tsx` as modified "for Ecuación" and Phase 3 task 3.4 already assumes an
+      internal `'ecuacion'` tab exists to alias URLs onto.
+- [x] 2.4 Live arithmetic beside the data (P7) — extend the Amenazas rows in `FichaActivo.tsx`:
       `valor × degradación = impacto_d` per dimension with parenthesized operands,
       `impacto = max(...)`, frequency/ARO, `inherente`, efficacy with "sin relevancia asignada"
       warning beside it, `residual`. Integration test: combo change updates the parenthesized
       value and every dependent figure before any save call fires. AC: spec
-      `risk-equation-traceability` "Live arithmetic beside the data".
-- [ ] 2.5 Single-arithmetic audit — grep `FichaActivo.tsx` and `PestanaEcuacion.tsx` for any
+      `risk-equation-traceability` "Live arithmetic beside the data". Done by making `filas`
+      call `resolverEcuacion` (2.2) instead of `calcularRiesgo`/`eficaciaAmenaza` directly —
+      both the row's live arithmetic and the Ecuación tab now read the same `f.ecuacion` object.
+- [x] 2.5 Single-arithmetic audit — grep `FichaActivo.tsx` and `PestanaEcuacion.tsx` for any
       independent recompute of impact/inherent/residual; task closes only when every displayed
       figure traces to a `formulas.ts`/`ecuacion.ts` call. AC: spec `risk-equation-traceability`
-      "Single arithmetic source"; proposal AC11.
+      "Single arithmetic source"; proposal AC11. Evidence: `grep -n "calcularRiesgo(\|
+      eficaciaAmenaza(\|impactoAcumulado(\|impactoDimension(\|riesgoPotencial(\|aroResidual(\|
+      riesgoResidual(\|eficaciaDeNivel(" app/components/sgsi/activos/FichaActivo.tsx
+      app/components/sgsi/activos/PestanaEcuacion.tsx` → zero matches; both files import only
+      `resolverEcuacion` from `lib/sgsi/ecuacion` (plus `clasificar`/`clasificarZona` for
+      banding, which is not arithmetic). One PRE-EXISTING, untouched-by-Phase-2 exception
+      found and flagged, not silently resolved: `FichaActivo.tsx:3681`
+      (`clasificar(new Decimal(b.medio).times(c.vecesAno), catalogos.bandasRiesgo)` inside
+      `MatrizActivo`) computes a matrix CELL's representative point (band midpoint × frequency
+      column) for coloring the pre-existing matrices grid — it is not any individual risk's
+      impacto/inherente/residual and predates this task; left as-is because rewriting a
+      pre-existing, untouched screen is out of this task's scope, but recorded here per the
+      "don't resolve contradictions silently" rule.
 
 ## Phase 3: El camino — P3 overlay URL · P4 página nueva (5.0d)
 

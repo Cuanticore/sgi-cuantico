@@ -5,13 +5,14 @@
 // Matrices quedan visibles y deshabilitadas, con el motivo al pasar por encima. Un activo
 // que sí alcanza el umbral sigue calculando y mostrando sus amenazas con normalidad.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import FichaActivo, {
   type ActivoFicha,
   type AmenazaCatalogo,
   type Catalogos,
   type Navegacion,
 } from '../FichaActivo';
+import { guardarTratamiento } from '@/app/sgsi/acciones/riesgos';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }),
@@ -178,5 +179,123 @@ describe('REQ-SIG-20 §3.1 · gating por umbral (D-2, D-5)', () => {
       .getByText('Resumen del activo', { selector: 'span' })
       .closest('button')!;
     expect(botonResumen).not.toBeDisabled();
+  });
+});
+
+describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
+  const CATALOGOS_CON_DOS_DEGRADACIONES: Catalogos = {
+    ...CATALOGOS,
+    escalaDegradacion: [
+      { id: 1, nombre: 'Muy alta', factor: '1.00', lectura: null },
+      { id: 2, nombre: 'Media', factor: '0.50', lectura: null },
+    ],
+  };
+
+  const AMENAZA_CON_CONTROLES: AmenazaCatalogo = {
+    id: 1,
+    codigo: 'A.24',
+    nombre: 'Denegación de servicio',
+    grupo: 'Grupo A',
+    nota: null,
+    frecuenciaId: 1,
+    degradacion: { D: 1, I: 1, C: 1 },
+    tipos: [1],
+    controles: [
+      {
+        codigo: 'A.8.20',
+        nombre: 'Protección contra DoS',
+        nivel: 3,
+        soa: 'si',
+        peso: 1,
+        esPrincipal: false,
+        // Las 272 filas de `ControlAmenaza` tienen `relevanciaId` en null hoy (Open Item 6).
+        relevancia: null,
+        evidencia: '',
+      },
+      {
+        codigo: 'A.8.6',
+        nombre: 'Gestión de la capacidad',
+        nivel: 3,
+        soa: 'si',
+        peso: 1,
+        esPrincipal: false,
+        relevancia: null,
+        evidencia: '',
+      },
+    ],
+  };
+
+  function activoConValores(codigo: string, valores: { D: number; I: number; C: number }): ActivoFicha {
+    return {
+      id: 1,
+      codigo,
+      codigoHeredado: null,
+      nombre: `Activo ${codigo}`,
+      descripcion: null,
+      areaId: 1,
+      tipoId: 1,
+      subtipoId: 1,
+      propietarioId: null,
+      custodioId: null,
+      ubicacionId: null,
+      entornoId: null,
+      proveedorId: null,
+      superiorId: null,
+      datosCliente: 'POR_DEFINIR',
+      datosPersonales: 'POR_DEFINIR',
+      expuestoInternet: 'POR_DEFINIR',
+      cantidad: 1,
+      valores,
+      riesgos: [],
+      amenazasExcluidas: [],
+    };
+  }
+
+  it('cambiar el combo de degradación actualiza el paréntesis y el impacto en vivo, antes de guardar', () => {
+    render(
+      <FichaActivo
+        activo={activoConValores('TEC-GEN-0004', { D: 5, I: 3, C: 2 })}
+        catalogos={CATALOGOS_CON_DOS_DEGRADACIONES}
+        amenazas={[AMENAZA_CON_CONTROLES]}
+        navegacion={{ codigos: ['TEC-GEN-0004'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    // Abrir la fila — la aritmética en vivo está en el detalle expandido.
+    fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
+
+    // El impacto arranca en 5 — lo pone la dimensión D (5 × 1.00), que hoy es la mayor.
+    expect(screen.getByText('D: (5 × 1) = 5')).toBeInTheDocument();
+    expect(screen.getByText('impacto = max(…) = 5')).toBeInTheDocument();
+
+    // Bajar la degradación de D a Media (factor 0.50).
+    fireEvent.change(screen.getByLabelText('Degradación en Disponibilidad de A.24'), {
+      target: { value: '2' },
+    });
+
+    // El paréntesis de D y el impacto máximo se actualizan los dos: ahora I (3 × 1.00 = 3)
+    // manda, no D (5 × 0.50 = 2.5) — la prueba de que "impacto = max(...)" recalcula en vivo.
+    expect(screen.getByText('D: (5 × 0.5) = 2,5')).toBeInTheDocument();
+    expect(screen.getByText('impacto = max(…) = 3')).toBeInTheDocument();
+
+    // Y nada de esto disparó ninguna acción de guardado: es un what-if, no una escritura.
+    expect(guardarTratamiento).not.toHaveBeenCalled();
+  });
+
+  it('sin relevancia asignada en los controles, el paso 5 avisa junto a la eficacia (Open Item 6)', () => {
+    render(
+      <FichaActivo
+        activo={activoConValores('TEC-GEN-0005', { D: 5, I: 5, C: 5 })}
+        catalogos={CATALOGOS_CON_DOS_DEGRADACIONES}
+        amenazas={[AMENAZA_CON_CONTROLES]}
+        navegacion={{ codigos: ['TEC-GEN-0005'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
+
+    expect(screen.getByText(/Sin relevancia asignada/)).toBeInTheDocument();
   });
 });

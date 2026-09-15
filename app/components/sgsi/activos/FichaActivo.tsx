@@ -89,17 +89,12 @@ import {
   type DecisionTratamiento,
 } from '@/app/sgsi/acciones/riesgos';
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
-import {
-  calcularRiesgo,
-  Decimal,
-  entraAlAnalisis,
-  valorActivo,
-  type ValoresDimension,
-} from '@/lib/sgsi/formulas';
-import { eficaciaAmenaza } from '@/lib/sgsi/madurez';
+import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
+import { resolverEcuacion, type EcuacionResuelta } from '@/lib/sgsi/ecuacion';
 import type { Catalogo } from '@/lib/sgsi/catalogos';
 import PopupCatalogo from '@/app/components/sgsi/parametros/PopupCatalogo';
 import PopupControlesAmenaza from './PopupControlesAmenaza';
+import PestanaEcuacion from './PestanaEcuacion';
 import type {
   ActivoBreve,
   ActivoFicha,
@@ -115,7 +110,7 @@ import type {
 
 export type { ActivoFicha, AmenazaCatalogo, Catalogos, Navegacion };
 
-export type Pestana = 'valoracion' | 'amenazas' | 'resumen';
+export type Pestana = 'valoracion' | 'amenazas' | 'resumen' | 'ecuacion';
 
 interface Props {
   /// Null in creation mode. There is no separate creation screen in v2.1: the sheet
@@ -430,6 +425,12 @@ interface FilaAmenaza {
   frecuenciaResidual: number | null;
   residual: number | null;
   bandaResidual: BandaEnPosicion | null;
+  /// The seven-step resolution (D3, REQ-SIG-20 tarea 2.2) that produced `impacto`,
+  /// `riesgo`, `eficacia` and `residual` above. The live arithmetic in this row and the
+  /// Ecuación tab both read this SAME object — there is no second calculation of any of
+  /// these figures anywhere in this file (spec risk-equation-traceability, "Single
+  /// arithmetic source").
+  ecuacion: EcuacionResuelta;
 }
 
 export default function FichaActivo({
@@ -646,22 +647,8 @@ export default function FichaActivo({
           }));
         const aplicables = controles.filter((c) => c.soa !== 'no');
 
-        // UNKNOWN, not zero. With no control mapped to the threat there is nothing to
-        // average, and a zero here would make the residual equal the inherent.
-        const eficacia =
-          aplicables.length === 0
-            ? null
-            : eficaciaAmenaza(
-                aplicables.map((c) => ({
-                  nivel: c.nivel,
-                  peso: c.peso,
-                  esPrincipal: c.esPrincipal,
-                })),
-                catalogos.deltaTechoEficacia,
-              );
-
         // The group's average CMM level, which is what the expanded card leads with. It
-        // is NOT what drives the residual: the efficacy above is the weighted mean capped
+        // is NOT what drives the residual: the efficacy below is the weighted mean capped
         // by the principal control (MET-SIG-01 §7.4), and the two differ on purpose. A
         // control with no assessment has no level to average in.
         const conNivel = aplicables
@@ -670,12 +657,34 @@ export default function FichaActivo({
         const madurezGrupo =
           conNivel.length === 0 ? null : conNivel.reduce((a, b) => a + b, 0) / conNivel.length;
 
-        const salida = calcularRiesgo({
+        // THE ONE ARITHMETIC PATH (D3, REQ-SIG-20 tarea 2.2, spec risk-equation-
+        // traceability "Single arithmetic source"). Every figure below — impacto,
+        // inherente, eficacia, residual — comes out of `resolverEcuacion`, which only
+        // composes `lib/sgsi/formulas.ts` and `lib/sgsi/madurez.ts`. Nothing in this file
+        // multiplies a degradation or averages an efficacy on its own; the Ecuación tab
+        // renders this SAME object, so the two screens cannot disagree.
+        const ecuacion = resolverEcuacion({
           valores,
           degradaciones: factores,
+          excepcionesDegradacion: {
+            ...(desviada.D ? { D: justificacion.D } : {}),
+            ...(desviada.I ? { I: justificacion.I } : {}),
+            ...(desviada.C ? { C: justificacion.C } : {}),
+          },
           aro,
-          eficacia: eficacia ?? 0,
+          justificacionFrecuencia: frecuenciaDesviada
+            ? (justFrec[amenaza.codigo] ?? '')
+            : undefined,
+          controles: aplicables.map((c) => ({
+            codigo: c.codigo,
+            nivel: c.nivel,
+            peso: c.peso,
+            esPrincipal: c.esPrincipal,
+            relevancia: c.relevancia,
+          })),
+          deltaTechoEficacia: catalogos.deltaTechoEficacia,
         });
+        const eficacia = ecuacion.eficacia;
 
         // CLASSIFY FROM THE DECIMAL, NARROW ONLY FOR DISPLAY.
         //
@@ -685,14 +694,14 @@ export default function FichaActivo({
         // worse, match no band at all and render with the fallback colour of the lowest one.
         // (The matrices screen narrows both sides with the same `Number()`, so its error
         // cancels; here only one side was narrowed.)
-        const impactoExacto = salida.impacto;
-        const riesgoExacto = salida.riesgoPotencial;
+        const impactoExacto = ecuacion.impacto;
+        const riesgoExacto = ecuacion.inherente;
         const impacto = impactoExacto.toNumber();
         const riesgo = riesgoExacto.toNumber();
         // The residual side stays null while the efficacy is unknown, exactly as
         // lib/sgsi/riesgos.ts leaves it in the database.
-        const frecuenciaResidual = eficacia === null ? null : salida.frecuenciaResidual.toNumber();
-        const residualExacto = eficacia === null ? null : salida.riesgoResidual;
+        const frecuenciaResidual = ecuacion.aroResidual === null ? null : ecuacion.aroResidual.toNumber();
+        const residualExacto = ecuacion.residual;
         const residual = residualExacto === null ? null : residualExacto.toNumber();
         const bandaResidual =
           residualExacto === null
@@ -778,6 +787,7 @@ export default function FichaActivo({
           frecuenciaResidual,
           residual,
           bandaResidual,
+          ecuacion,
         };
       }),
     [
@@ -1212,6 +1222,7 @@ export default function FichaActivo({
       bloqueada: !entra,
     },
     { clave: 'resumen', label: 'Resumen del activo', meta: 'matrices', bloqueada: !entra },
+    { clave: 'ecuacion', label: 'Ecuación', meta: 'solo lectura', bloqueada: !entra },
   ];
 
   return (
@@ -1515,6 +1526,15 @@ export default function FichaActivo({
 
       {pestana === 'resumen' && (
         <TabResumen filas={filas} catalogos={catalogos} entra={entra} />
+      )}
+
+      {pestana === 'ecuacion' && (
+        <TabEcuacion
+          filas={filas}
+          seleccionada={abierta}
+          onSeleccionar={(codigo) => setAbierta(codigo)}
+          catalogos={catalogos}
+        />
       )}
 
       <FranjaInferior
@@ -2930,8 +2950,35 @@ function DetalleAmenaza({
               {cifra(f.frecuenciaResidual ?? 0)} veces/año. La eficacia es la media
               ponderada por relevancia con techo en el control principal, no la del nivel
               promedio.
+              {f.ecuacion.desgloseEficacia?.sinRelevanciaAsignada && (
+                <>
+                  {' '}
+                  <strong className="text-warn-text">Sin relevancia asignada</strong>: hoy es
+                  media simple y el techo del principal no opera.
+                </>
+              )}
             </span>
           )}
+        </div>
+      </div>
+
+      {/* P7 (D3, REQ-SIG-20 tarea 2.4) · la aritmética en vivo, al lado del dato que la
+          produce — no en un tooltip. Cada operando cambia con el combo antes de guardar
+          (spec risk-equation-traceability, "Live arithmetic beside the data"), y viene del
+          MISMO `f.ecuacion` que ya resolvió el paso 5 arriba y el residual más abajo: no
+          hay una segunda cuenta acá. */}
+      <div className="flex flex-col gap-1.5 rounded-[8px] border border-border-default bg-surface px-3.5 py-3">
+        <span className="etiqueta-campo text-9">ARITMÉTICA — MET-SIG-01 §7</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-11_5 text-secondary">
+          {f.ecuacion.impactosPorDimension.map((p) => (
+            <span key={p.dimension}>
+              {p.dimension}: ({p.valor} × {p.degradacion.toString()}) = {cifra(p.impacto.toNumber())}
+            </span>
+          ))}
+          <span>impacto = max(…) = {cifra(f.ecuacion.impacto.toNumber())}</span>
+          <span>
+            frecuencia = {cifra(f.aro)}/año → inherente = {cifra(f.ecuacion.inherente.toNumber())}
+          </span>
         </div>
       </div>
 
@@ -3083,6 +3130,10 @@ function DetalleAmenaza({
                 </div>
                 <span className="text-11 text-faint">
                   inherente {cifra(f.riesgo)} · {f.bandaRiesgo?.nombre ?? 'sin banda'}
+                </span>
+                <span className="font-mono text-10_5 text-faint">
+                  residual = impacto × (ARO × (1 − e)) = {cifra(f.impacto)} × (
+                  {cifra(f.aro)} × (1 − {porcentaje(f.eficacia ?? 0)})) = {cifra(f.residual)}
                 </span>
               </>
             )}
@@ -3382,6 +3433,72 @@ function GrillaControles({
 // ===========================================================================
 // Tab 3 · Resumen
 // ===========================================================================
+
+/// P8 (D3, REQ-SIG-20 tarea 2.3) · una amenaza a la vez, de solo lectura. La edición sigue
+/// viviendo en Amenazas — acá se entiende el número que esa pestaña ya mostró, nunca se
+/// cambia nada, y no hay ninguna escritura: ni una fila de bitácora por visitarla.
+function TabEcuacion({
+  filas,
+  seleccionada,
+  onSeleccionar,
+  catalogos,
+}: {
+  filas: FilaAmenaza[];
+  seleccionada: string | null;
+  onSeleccionar: (codigo: string) => void;
+  catalogos: Catalogos;
+}) {
+  const codigoActivo = seleccionada ?? filas[0]?.amenaza.codigo ?? null;
+  const fila = filas.find((f) => f.amenaza.codigo === codigoActivo) ?? null;
+
+  if (filas.length === 0) {
+    return (
+      <div className="px-8 pt-6 pb-[46px]">
+        <p className="text-12_5 text-muted [text-wrap:pretty]">
+          Este activo no tiene amenazas en el análisis todavía.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 px-8 pt-6 pb-[46px]">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-16 font-bold text-primary">Ecuación del riesgo</h2>
+        <p className="max-w-[86ch] text-12_5 text-muted [text-wrap:pretty]">
+          Las siete pasos de MET-SIG-01 §7 para la amenaza elegida, resueltas por{' '}
+          <code className="font-mono text-11">lib/sgsi/ecuacion.ts</code> — las mismas que ya
+          mueven la fila en Amenazas, no un segundo cálculo.
+        </p>
+      </div>
+
+      <label className="flex max-w-sm flex-col gap-1.5">
+        <span className="etiqueta-campo text-9">AMENAZA</span>
+        <select
+          value={codigoActivo ?? ''}
+          aria-label="Elegir la amenaza para ver su ecuación"
+          onChange={(e) => onSeleccionar(e.target.value)}
+          className="w-full rounded-campo border border-border-field bg-surface px-2.5 py-[7px] text-12_5 font-medium text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+        >
+          {filas.map((f) => (
+            <option key={f.amenaza.codigo} value={f.amenaza.codigo}>
+              {f.amenaza.codigo} — {f.amenaza.nombre}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {fila && (
+        <PestanaEcuacion
+          codigoAmenaza={fila.amenaza.codigo}
+          nombreAmenaza={fila.amenaza.nombre}
+          ecuacion={fila.ecuacion}
+          catalogos={catalogos}
+        />
+      )}
+    </div>
+  );
+}
 
 function TabResumen({
   filas,
