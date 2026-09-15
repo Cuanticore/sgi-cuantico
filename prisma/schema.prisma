@@ -736,6 +736,8 @@ model Activo {
   despliegues         Despliegue[]        @relation("DespliegueActivo")
   desplieguesServidor Despliegue[]        @relation("DespliegueServidor")
   sistemas            Sistema[]           @relation("SistemaActivo")
+  /// Las cuentas del dominio que este activo encarna, cuando es de tipo `[P] Personal`.
+  personasDelActivo   ActivoPersona[]
 
   @@index([areaId])
   @@index([tipoId])
@@ -1107,6 +1109,9 @@ model Persona {
   asignaciones             Asignacion[]                   @relation("AsignacionPersona")
   ejecucionesRegistradas   EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
   activosACargo            Activo[]                       @relation("ActivoCustodioPersona")
+  /// Los activos `[P] Personal` que esta cuenta ENCARNA. Distinto de `activosACargo`, que
+  /// son los que custodia.
+  activosQueEncarna        ActivoPersona[]
   productosResponsable     Producto[]                     @relation("ProductoResponsable")
   sistemasPropietario      Sistema[]                      @relation("SistemaPropietario")
   sistemasTecnico          Sistema[]                      @relation("SistemaResponsableTecnico")
@@ -3429,6 +3434,38 @@ enum ClaseNivel {
 /// cualquier combinacion se puede escribir. Aca el nivel 2 pertenece a un nivel 1 y el 3 a
 /// un 2. Sin eso, «agrupar por niveles» produce arboles imposibles y el mapa tecnologico no
 /// se puede dibujar.
+/// Qué cuentas del dominio ENCARNA un activo de tipo `[P] Personal`.
+///
+/// **No es `Activo.personaId`, y confundirlos sería el error caro.** Ese campo dice quién
+/// TIENE el activo en la mano —el custodio persona: quién carga el portátil—. Acá la
+/// persona no custodia nada: el activo **es** la persona. «Personal de soporte» con
+/// cantidad 4 es un activo del inventario cuya sustancia son cuatro cuentas concretas, y
+/// hasta ahora el sistema no tenía dónde escribir cuáles.
+///
+/// N:M porque la cantidad del activo puede ser mayor que uno. Un activo con cantidad 4 y
+/// una sola cuenta atada no es un error del esquema —la clasificación puede ir a medias—
+/// pero la ficha lo dice: cuatro unidades declaradas, una identificada.
+///
+/// `onDelete: Cascade` sobre el activo porque esto es un VÍNCULO, no un hecho histórico:
+/// cuando el activo desaparece de verdad —sólo pasa en la carga completa del consolidado,
+/// que vacía la tabla— no queda nada que preservar. Sobre la persona es `RESTRICT`: quien
+/// sale de la organización se inactiva, nunca se borra, porque sus registros sostienen una
+/// auditoría.
+model ActivoPersona {
+  activoId  Int      @map("activo_id")
+  personaId Int      @map("persona_id")
+  /// Desde cuándo esta cuenta forma parte del activo. Para que «quién era el personal de
+  /// soporte en marzo» siga teniendo respuesta cuando el equipo rote.
+  desde     DateTime @default(now()) @db.Date
+
+  activo  Activo  @relation(fields: [activoId], references: [id], onDelete: Cascade)
+  persona Persona @relation(fields: [personaId], references: [id])
+
+  @@id([activoId, personaId])
+  @@index([personaId])
+  @@map("activo_persona")
+}
+
 model NivelActivo {
   id      Int         @id @default(autoincrement())
   grado   Int

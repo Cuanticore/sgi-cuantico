@@ -29,7 +29,7 @@
 // rama de "residual desconocido" de abajo es una red de seguridad para el día en que una
 // amenaza quede sin ningún control mapeado, no el caso común de hoy.
 
-import { construirSnapshotCalculo } from '../riesgos';
+import { construirSnapshotCalculo, riesgosParaObsoletar } from '../riesgos';
 import { calcularRiesgo, type EntradaRiesgo } from '../formulas';
 
 const ENTRADA_CONOCIDA: EntradaRiesgo = {
@@ -82,5 +82,62 @@ describe('construirSnapshotCalculo (D4, tarea 1.8)', () => {
     // Y NO son los mismos números que la primera entrada — si lo fueran, la función
     // estaría ignorando su argumento de entrada.
     expect(fila!.impacto).not.toBe(calcularRiesgo(ENTRADA_CONOCIDA).impacto.toString());
+  });
+});
+
+// ===========================================================================
+// El alcance del barrido de obsoletos — la decisión que hace posible recalcular UN activo
+// ===========================================================================
+//
+// `generarRiesgos` marca obsoleto todo riesgo que no volvió a entrar en alcance durante la
+// corrida. Eso es correcto en una corrida COMPLETA, donde «no entró» significa «ya no
+// aplica». En una corrida de un solo activo significa otra cosa muy distinta: los riesgos
+// de los otros 297 activos tampoco entraron —nadie los miró— y marcarlos obsoletos
+// vaciaría el análisis entero de un plumazo.
+//
+// Por eso el alcance del barrido es una decisión con nombre propio y prueba propia, y no
+// una condición suelta dentro del ciclo.
+
+const EXISTENTES = [
+  { id: 1, activoId: 10, amenazaId: 100, obsoleto: false },
+  { id: 2, activoId: 10, amenazaId: 200, obsoleto: false },
+  { id: 3, activoId: 99, amenazaId: 100, obsoleto: false },
+  { id: 4, activoId: 99, amenazaId: 200, obsoleto: false },
+];
+
+describe('riesgosParaObsoletar · corrida completa', () => {
+  it('marca lo que quedó fuera de alcance, sea del activo que sea', () => {
+    const enAlcance = new Set(['10|100', '99|100']);
+    const fuera = riesgosParaObsoletar(EXISTENTES, enAlcance, null);
+    expect(fuera.map((r) => r.id)).toEqual([2, 4]);
+  });
+
+  it('no vuelve a marcar lo que ya estaba obsoleto', () => {
+    const yaObsoleto = [{ id: 5, activoId: 10, amenazaId: 300, obsoleto: true }];
+    expect(riesgosParaObsoletar(yaObsoleto, new Set<string>(), null)).toEqual([]);
+  });
+});
+
+describe('riesgosParaObsoletar · corrida de un solo activo', () => {
+  it('NO toca los riesgos de los demás activos, aunque no estén en alcance', () => {
+    // Solo se recalculó el activo 10, y de sus dos riesgos solo uno sigue aplicando.
+    const enAlcance = new Set(['10|100']);
+    const fuera = riesgosParaObsoletar(EXISTENTES, enAlcance, 10);
+
+    // El 2 sale de alcance y se marca. El 3 y el 4 son de OTRO activo: nadie los miró en
+    // esta corrida, y no haberlos mirado no es evidencia de que sobren.
+    expect(fuera.map((r) => r.id)).toEqual([2]);
+  });
+
+  it('un activo cuyos riesgos siguen todos en alcance no marca ninguno', () => {
+    const enAlcance = new Set(['10|100', '10|200']);
+    expect(riesgosParaObsoletar(EXISTENTES, enAlcance, 10)).toEqual([]);
+  });
+
+  it('recalcular un activo sin riesgos vigentes no arrastra a nadie más', () => {
+    // El caso extremo: el activo 10 bajó del umbral y no generó ni un par. Sus dos riesgos
+    // salen; los de los otros activos siguen intactos.
+    const fuera = riesgosParaObsoletar(EXISTENTES, new Set<string>(), 10);
+    expect(fuera.map((r) => r.id)).toEqual([1, 2]);
   });
 });

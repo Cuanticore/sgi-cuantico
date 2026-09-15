@@ -9,6 +9,7 @@
 
 import type ExcelJS from 'exceljs';
 import type { HojasConsolidado } from './consolidado-carga';
+import type { ConteoDeCodigos } from './consolidado';
 
 /// Aplana una celda a texto.
 ///
@@ -99,6 +100,31 @@ export function hojasDelLibro(wb: ExcelJS.Workbook): HojasConsolidado | null {
     grafoAristas: grafoAristas ? matrizDeHoja(grafoAristas, ANCHOS.grafoAristas) : [],
   };
 }
+
+/// Cuántas filas de la «Matriz de Activos» traen código y cuántas no.
+///
+/// Es lo único que distingue un consolidado —que SUSTITUYE al inventario— de una hoja de
+/// altas, porque las dos tienen exactamente la misma forma. Una fila cuenta cuando tiene
+/// nombre: una fila en blanco en medio de la hoja no es un activo sin código.
+export function conteoDeCodigos(wb: ExcelJS.Workbook): ConteoDeCodigos {
+  const hoja = hojaPorNombre(wb, NOMBRES_DE_HOJA.matriz);
+  if (!hoja) return { conCodigo: 0, sinCodigo: 0 };
+
+  let conCodigo = 0;
+  let sinCodigo = 0;
+  for (let f = 8; f <= hoja.rowCount; f++) {
+    const fila = hoja.getRow(f);
+    const nombre = textoDeCelda(fila.getCell(COLUMNA_NOMBRE).value).trim();
+    if (nombre === '') continue;
+    if (textoDeCelda(fila.getCell(COLUMNA_CODIGO).value).trim() === '') sinCodigo++;
+    else conCodigo++;
+  }
+  return { conCodigo, sinCodigo };
+}
+
+/// Las dos columnas que `conteoDeCodigos` mira, con el número que la persona ve en Excel.
+const COLUMNA_CODIGO = 2;
+const COLUMNA_NOMBRE = 6;
 
 /// La fila de encabezado de la «Matriz de Activos» (fila 7), para el diagnóstico de formato.
 export function encabezadoDeMatriz(wb: ExcelJS.Workbook): string[] {

@@ -27,7 +27,7 @@ import type { EstadoAccion, TipoAccion, VerificacionEficacia } from '@prisma/cli
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { elegirControlParaPlan, fechaObjetivoPlan, type ControlParaPlan } from '@/lib/sgsi/deuda-planes';
-import { formatearOrigen } from '@/lib/sgsi/origen-plan';
+import { formatearOrigen, origenCubreRiesgo, parsearOrigen } from '@/lib/sgsi/origen-plan';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -644,6 +644,30 @@ export async function registrarPlanCritico(
       }
     }
     if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
+
+    // UN PLAN POR RIESGO. La deduplicación de abajo es por CONTROL, y no alcanza: dos
+    // controles distintos de la misma amenaza aceptarían dos planes para el mismo riesgo, y
+    // entonces «el plan de este riesgo» dejaría de ser una cosa que se pueda señalar — ni
+    // la ficha ni la deuda de planes sabrían a cuál se refieren. Se devuelve el que ya
+    // existe, con el mismo `ok: true` que la deduplicación por control: encontrarlo no es un
+    // error, es la respuesta.
+    const activas = await prisma.accionPlan.findMany({
+      where: { activa: true },
+      select: { codigo: true, origen: true },
+      orderBy: { codigo: 'asc' },
+    });
+    const cubre = activas.find((a) => {
+      const o = parsearOrigen(a.origen);
+      return o !== null && origenCubreRiesgo(o, datos);
+    });
+    if (cubre) {
+      return {
+        ok: true,
+        mensaje: `${datos.activoCodigo} × ${datos.amenazaCodigo} ya tiene un plan: ${cubre.codigo}. No se crea un segundo.`,
+        codigo: cubre.codigo,
+        cambios: 0,
+      };
+    }
 
     if (datos.controlId !== null) {
       const existente = await prisma.accionPlan.findFirst({

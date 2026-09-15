@@ -202,6 +202,31 @@ describe('diagnosticoDeFormato', () => {
     expect(d.faltantes).toEqual([]);
   });
 
+  // ── La hoja de ALTAS: misma forma, sin códigos ──────────────────────────────────────
+  //
+  // El V21 tiene las tres hojas y las columnas del consolidado, pero 93 de sus 94 filas
+  // llegan sin código. Cargarla como consolidado no agregaria 94 activos: vaciaria `activo`
+  // —y con el sus riesgos, valoraciones, dependencias y despliegues— para dejar 94.
+
+  it('la misma forma, pero con la mayoria de las filas sin codigo, es un ALTA', () => {
+    const d = diagnosticoDeFormato(CAB_V19, HOJAS_V19, { conCodigo: 1, sinCodigo: 93 });
+    expect(d.formato).toBe('ALTAS');
+  });
+
+  it('un consolidado de verdad sigue siendo consolidado aunque traiga alguna fila nueva', () => {
+    const d = diagnosticoDeFormato(CAB_V19, HOJAS_V19, { conCodigo: 297, sinCodigo: 2 });
+    expect(d.formato).toBe('CONSOLIDADO');
+  });
+
+  it('sin el conteo se comporta como antes: consolidado', () => {
+    expect(diagnosticoDeFormato(CAB_V19, HOJAS_V19).formato).toBe('CONSOLIDADO');
+  });
+
+  it('el empate se resuelve hacia CONSOLIDADO, que es el formato declarado por la forma', () => {
+    const d = diagnosticoDeFormato(CAB_V19, HOJAS_V19, { conCodigo: 50, sinCodigo: 50 });
+    expect(d.formato).toBe('CONSOLIDADO');
+  });
+
   it('sin las hojas del consolidado es el histórico, y eso está bien', () => {
     const d = diagnosticoDeFormato(['Código', 'Nombre del activo'], ['Matriz de Activos']);
     expect(d.formato).toBe('HISTORICO');

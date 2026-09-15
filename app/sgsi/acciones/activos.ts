@@ -9,8 +9,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
+import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
+import {
+  codigoDebeReemitirse,
+  formatearCodigoActivo,
+  reemplazarActivoEnOrigen,
+} from '@/lib/sgsi/codigo-activo';
 import {
   cargarActivo,
   cargarAmenazas,
@@ -117,6 +122,13 @@ export interface DatosGenerales {
   superiorId?: number | null;
   /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
   criticidadId?: number | null;
+  /// V21 · cuántas unidades representa el activo. Viajaba desde la base a la ficha y no se
+  /// dibujaba en ninguna pantalla: el dato existía y nadie podía verlo ni corregirlo.
+  cantidad?: number;
+  /// E2 · el NIVEL 3 de la jerarquía, el más específico. Los grados 1 y 2 no se guardan:
+  /// se derivan subiendo por `padreId`. Que acá solo entre un grado 3 es lo que impide que
+  /// un activo quede colgado de media rama.
+  nivelId?: number | null;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -129,7 +141,7 @@ export async function guardarDatosGenerales(
   codigoActivo: string,
   datos: DatosGenerales,
   motivo?: string,
-): Promise<Resultado> {
+): Promise<Resultado & { codigoNuevo?: string }> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('activo:valorar');
     idOpcional(datos.areaId, 'el proceso o área');
@@ -142,6 +154,7 @@ export async function guardarDatosGenerales(
     idOpcional(datos.proveedorId, 'el proveedor');
     idOpcional(datos.superiorId, 'el activo superior');
     idOpcional(datos.criticidadId, 'la criticidad de negocio');
+    idOpcional(datos.nivelId, 'el nivel 3 de la jerarquía');
 
     const escritos = await prisma.$transaction(async (tx) => {
       const activo = await tx.activo.findFirst({ where: { codigo: codigoActivo } });
@@ -159,6 +172,67 @@ export async function guardarDatosGenerales(
         }
       }
 
+      // E2 · el activo apunta al nivel 3 y a ningún otro grado. La llave foránea no puede
+      // decirlo —no sabe de grados— así que lo dice el servidor: aceptar acá un grado 1 o 2
+      // dejaría al activo en media rama y a la jerarquía diciendo dos cosas distintas.
+      if (datos.nivelId !== undefined && datos.nivelId !== null) {
+        const nivel = await tx.nivelActivo.findUnique({ where: { id: datos.nivelId } });
+        if (!nivel || !nivel.activo) throw new Error('El nivel elegido no existe o está inactivo.');
+        if (nivel.grado !== 3) {
+          throw new Error(
+            `El activo se ubica en un nivel 3, el más específico. «${nivel.nombre}» es de grado ${nivel.grado}.`,
+          );
+        }
+      }
+
+      // REEMISIÓN DEL CÓDIGO. Mover un activo de proceso cambia lo que su código DICE, y
+      // un `TEC-…` dentro de Gestión Estratégica es una etiqueta que miente. Se reemite
+      // contra el contador del par (área, tipo) DESTINO — el mismo mecanismo del alta, así
+      // que el número nunca se reusa y el que el activo dejó atrás queda retirado.
+      //
+      // Lo que esto obliga a arreglar en la misma transacción está abajo: el código viejo
+      // tiene que seguir llevando a este activo, o la reemisión es una pérdida de historia
+      // disfrazada de corrección.
+      let codigoNuevo: string | null = null;
+      const areaFinal = datos.areaId ?? activo.areaId;
+      if (datos.areaId !== undefined || datos.tipoId !== undefined) {
+        const [areaAntes, areaDespues, tipoAntes, tipoDespues] = await Promise.all([
+          tx.area.findUnique({ where: { id: activo.areaId } }),
+          tx.area.findUnique({ where: { id: areaFinal } }),
+          tx.tipoMagerit.findUnique({ where: { id: activo.tipoId } }),
+          tx.tipoMagerit.findUnique({ where: { id: tipoFinal } }),
+        ]);
+        if (!areaDespues || !tipoDespues) throw new Error('El proceso o el tipo elegido no existe.');
+        if (!areaDespues.prefijo?.trim()) {
+          throw new Error(
+            `El proceso ${areaDespues.nombre} no tiene prefijo de codificación asignado, así que no se puede emitir un código. Asignáselo antes de mover el activo.`,
+          );
+        }
+
+        const antes = {
+          prefijoArea: areaAntes?.prefijo ?? '',
+          abreviaturaTipo: tipoAntes?.abreviatura ?? '',
+        };
+        const despues = {
+          prefijoArea: areaDespues.prefijo,
+          abreviaturaTipo: tipoDespues.abreviatura,
+        };
+
+        if (activo.codigo !== null && codigoDebeReemitirse(antes, despues)) {
+          const contador = await tx.contadorCodigo.upsert({
+            where: { areaId_tipoId: { areaId: areaDespues.id, tipoId: tipoDespues.id } },
+            update: { ultimoValor: { increment: 1 } },
+            create: { areaId: areaDespues.id, tipoId: tipoDespues.id, ultimoValor: 1 },
+          });
+          if (contador.ultimoValor > 9999) {
+            throw new Error(
+              `Se agotó el espacio de numeración para ${despues.prefijoArea}-${despues.abreviaturaTipo}.`,
+            );
+          }
+          codigoNuevo = formatearCodigoActivo(despues, contador.ultimoValor);
+        }
+      }
+
       const campos: (keyof DatosGenerales)[] = [
         'nombre',
         'descripcion',
@@ -172,28 +246,73 @@ export async function guardarDatosGenerales(
         'proveedorId',
         'superiorId',
         'criticidadId',
+        'nivelId',
+        'cantidad',
         'datosCliente',
         'datosPersonales',
         'expuestoInternet',
       ];
 
-      const total = await registrar(
-        tx,
-        autor,
-        campos
-          .filter((campo) => datos[campo] !== undefined)
-          .map((campo) => ({
-            tabla: 'activo',
-            registroId: activo.codigo ?? String(activo.id),
-            campo,
-            anterior: activo[campo as keyof typeof activo],
-            nuevo: datos[campo],
-            motivo: motivo ?? null,
-          })),
-      );
+      // Todo este guardado se registra bajo la identidad CON LA QUE EL ACTIVO QUEDA. Junto
+      // al renglón `codigo` —que guarda el anterior y el nuevo— eso es lo que deja la
+      // historia caminable: desde el código actual se llega al anterior, y desde el
+      // anterior (buscando `campo = 'codigo'`, `valorAnterior = <viejo>`) se llega al que
+      // lo reemplazó. La bitácora es append-only: acá no se reescribe ni un renglón previo,
+      // se agrega el eslabón que los une.
+      const registroId = codigoNuevo ?? activo.codigo ?? String(activo.id);
+      const cambios: Cambio[] = campos
+        .filter((campo) => datos[campo] !== undefined)
+        .map((campo) => ({
+          tabla: 'activo',
+          registroId,
+          campo,
+          anterior: activo[campo as keyof typeof activo],
+          nuevo: datos[campo],
+          motivo: motivo ?? null,
+        }));
 
-      await tx.activo.update({ where: { id: activo.id }, data: datos });
-      return { total, cambioClasificacion: datos.tipoId !== undefined && datos.tipoId !== activo.tipoId };
+      if (codigoNuevo !== null) {
+        cambios.push({
+          tabla: 'activo',
+          registroId,
+          campo: 'codigo',
+          anterior: activo.codigo,
+          nuevo: codigoNuevo,
+          motivo:
+            motivo ??
+            'El activo cambió de proceso o de tipo, así que su código se reemitió con el siguiente consecutivo del par destino. El código anterior queda retirado y no se reasigna.',
+        });
+      }
+
+      const total = await registrar(tx, autor, cambios);
+
+      await tx.activo.update({
+        where: { id: activo.id },
+        data: codigoNuevo === null ? datos : { ...datos, codigo: codigoNuevo },
+      });
+
+      // Lo único que ata un plan a su riesgo es texto: el prefijo verificable de
+      // `AccionPlan.origen`. Sin reapuntarlo, reemitir el código dejaría a TODOS los planes
+      // del activo sin cubrir nada —`origenCubreRiesgo` compara por código— y el activo
+      // aparecería «sin plan» en el mismo instante, con el reloj de la deuda en cero.
+      if (codigoNuevo !== null && activo.codigo !== null) {
+        const activas = await tx.accionPlan.findMany({
+          where: { activa: true },
+          select: { id: true, origen: true },
+        });
+        for (const a of activas) {
+          const reapuntado = reemplazarActivoEnOrigen(a.origen, activo.codigo, codigoNuevo);
+          if (reapuntado !== null) {
+            await tx.accionPlan.update({ where: { id: a.id }, data: { origen: reapuntado } });
+          }
+        }
+      }
+      return {
+        total,
+        cambioClasificacion: datos.tipoId !== undefined && datos.tipoId !== activo.tipoId,
+        codigoNuevo,
+        codigoAnterior: activo.codigo,
+      };
     });
 
     // Only the type decides which threats apply, so only a type change needs the risk
@@ -207,14 +326,136 @@ export async function guardarDatosGenerales(
         ' El código del activo no cambia: es inmutable, y el cambio queda en la bitácora.';
     }
 
+    // La ficha tiene que saber que el activo ya no vive en la URL donde está parada.
+    const reemision =
+      escritos.codigoNuevo === null
+        ? ''
+        : ` El proceso o el tipo cambió, así que el código se reemitió: ${escritos.codigoAnterior} → ${escritos.codigoNuevo}.` +
+          ' El anterior queda retirado, no se reasigna, y sigue llevando a este activo.';
+
     revalidarSgsi();
     return {
       ok: true,
       mensaje:
         escritos.total === 0
           ? 'No había cambios que guardar.'
-          : `Se guardaron ${escritos.total} campos.${nota}`,
+          : `Se guardaron ${escritos.total} campos.${reemision}${nota}`,
       cambios: escritos.total,
+      codigoNuevo: escritos.codigoNuevo ?? undefined,
+    };
+  });
+}
+
+/// Vuelve a correr el cálculo de riesgos SOBRE ESTE ACTIVO, sin esperar a que alguien lo
+/// edite.
+///
+/// POR QUÉ HACE FALTA UN BOTÓN. Las filas de `Riesgo` están persistidas y solo se
+/// regeneran cuando una escritura las dispara: guardar una valoración, cambiar el tipo,
+/// tocar un control. Pero el cálculo depende además de cosas que se cambian en OTRA
+/// pantalla y no disparan nada — el umbral, las escalas, las relevancias de los controles.
+/// Después de mover una de esas, lo guardado y la parametrización dicen cosas distintas y
+/// nadie se entera. Esto es lo que cierra esa brecha.
+///
+/// ALCANCE: UN ACTIVO. La parametrización que se lee es la global —umbral, eficacias,
+/// escalas—; lo que se acota es sobre cuántos activos se aplica. El barrido de obsoletos va
+/// acotado con ella (`riesgosParaObsoletar`): sin eso, recalcular un activo marcaría
+/// obsoletos los riesgos de los otros 297 por el solo hecho de no haberlos mirado.
+///
+/// No escribe bitácora: no cambia ninguna decisión de nadie. Recalcula lo derivable a
+/// partir de datos que ya estaban, que es justamente lo que este sistema recalcula al leer
+/// en todo lo demás.
+export async function recalcularRiesgosDelActivo(codigoActivo: string): Promise<Resultado> {
+  return ejecutar(async () => {
+    await autorConPermiso('activo:valorar');
+
+    const activo = await prisma.activo.findFirst({ where: { codigo: codigoActivo } });
+    if (!activo) return { ok: false, mensaje: `No existe el activo ${codigoActivo}.` };
+    if (!activo.activo) {
+      return {
+        ok: false,
+        mensaje: `${codigoActivo} está dado de baja: sus riesgos no se recalculan.`,
+      };
+    }
+
+    const d = await generarRiesgos(prisma, { activoId: activo.id });
+    revalidarSgsi();
+
+    const fuera = d.riesgosObsoletos
+      ? ` ${d.riesgosObsoletos} salieron del alcance y quedaron marcados obsoletos, no borrados.`
+      : '';
+    const sinCalcular = d.residualSinCalcular
+      ? ` ${d.residualSinCalcular} quedaron con el residual sin calcular: su eficacia es desconocida, que no es cero.`
+      : '';
+
+    return {
+      ok: true,
+      mensaje:
+        d.riesgosGenerados === 0
+          ? `${codigoActivo} no alcanza el umbral de valoración, así que no genera riesgos.${fuera}`
+          : `Se recalcularon ${d.riesgosGenerados} riesgos de ${codigoActivo}.${fuera}${sinCalcular}`,
+    };
+  });
+}
+
+/// Ata o desata una cuenta del dominio a un activo `[P] Personal`.
+///
+/// **No es el custodio.** `Activo.personaId` dice quién TIENE el activo en la mano; esto
+/// dice de quién está HECHO el activo. Un «Personal de soporte» con cantidad 4 es un activo
+/// cuya sustancia son cuatro cuentas concretas, y hasta ahora no había dónde escribir
+/// cuáles.
+///
+/// NO SE EXIGE QUE EL TIPO SEA `[P]`, y es deliberado: el tipo MAGERIT se edita en la misma
+/// pantalla, y un activo puede estar reclasificándose mientras alguien ata su primera
+/// cuenta. Bloquearlo acá convertiría un orden de tecleo en un error. La ficha muestra la
+/// sección sólo para `[P]`, que es donde la guía corresponde.
+///
+/// NO SE EXIGE QUE LA CANTIDAD ALCANCE. Atar cinco cuentas a un activo de cantidad 4 es una
+/// contradicción que hay que VER, no una que haya que impedir: la ficha la señala y deja
+/// que la persona decida cuál de los dos números está mal. «Avisa, no bloquea» (D17).
+export async function vincularCuentaAlActivo(
+  codigoActivo: string,
+  personaId: number,
+  vincular: boolean,
+): Promise<Resultado> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('activo:valorar');
+    exigirId(personaId, 'la persona');
+
+    const [activo, persona] = await Promise.all([
+      prisma.activo.findFirst({ where: { codigo: codigoActivo } }),
+      prisma.persona.findUnique({ where: { id: personaId } }),
+    ]);
+    if (!activo) return { ok: false, mensaje: `No existe el activo ${codigoActivo}.` };
+    if (!persona) return { ok: false, mensaje: 'La persona elegida no existe.' };
+
+    await prisma.$transaction(async (tx) => {
+      if (vincular) {
+        await tx.activoPersona.upsert({
+          where: { activoId_personaId: { activoId: activo.id, personaId } },
+          update: {},
+          create: { activoId: activo.id, personaId },
+        });
+      } else {
+        await tx.activoPersona.deleteMany({ where: { activoId: activo.id, personaId } });
+      }
+
+      await registrar(tx, autor, [
+        {
+          tabla: 'activo_persona',
+          registroId: activo.codigo ?? String(activo.id),
+          campo: 'cuenta del dominio',
+          anterior: vincular ? null : persona.correo,
+          nuevo: vincular ? persona.correo : null,
+        },
+      ]);
+    });
+
+    revalidarSgsi();
+    return {
+      ok: true,
+      mensaje: vincular
+        ? `${persona.correo} quedó atada a ${codigoActivo}.`
+        : `${persona.correo} ya no forma parte de ${codigoActivo}.`,
     };
   });
 }
@@ -231,6 +472,11 @@ export interface ActivoNuevo {
   entornoId?: number | null;
   proveedorId?: number | null;
   superiorId?: number | null;
+  /// E2 · el nivel 3 de la jerarquía. Viaja en el alta para que un activo creado desde la
+  /// ficha no nazca «sin ubicar» habiendo elegido su rama en la pantalla.
+  nivelId?: number | null;
+  /// V21 · cuántas unidades representa el activo. 1 cuando no se declara.
+  cantidad?: number;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -266,6 +512,22 @@ export async function crearActivo(
     idOpcional(datos.entornoId, 'el entorno');
     idOpcional(datos.proveedorId, 'el proveedor');
     idOpcional(datos.superiorId, 'el activo superior');
+    idOpcional(datos.nivelId, 'el nivel 3 de la jerarquía');
+
+    // E2 · la misma regla que en la edición: el activo se ubica en un nivel 3 y en ningún
+    // otro grado. La llave foránea no sabe de grados, así que lo dice el servidor.
+    if (datos.nivelId !== undefined && datos.nivelId !== null) {
+      const nivel = await prisma.nivelActivo.findUnique({ where: { id: datos.nivelId } });
+      if (!nivel || !nivel.activo) {
+        return { ok: false, mensaje: 'El nivel elegido no existe o está inactivo.' };
+      }
+      if (nivel.grado !== 3) {
+        return {
+          ok: false,
+          mensaje: `El activo se ubica en un nivel 3, el más específico. «${nivel.nombre}» es de grado ${nivel.grado}.`,
+        };
+      }
+    }
 
     const [area, tipo, subtipo] = await Promise.all([
       prisma.area.findUnique({ where: { id: datos.areaId } }),
@@ -323,6 +585,8 @@ export async function crearActivo(
           entornoId: datos.entornoId ?? null,
           proveedorId: datos.proveedorId ?? null,
           superiorId: datos.superiorId ?? null,
+          nivelId: datos.nivelId ?? null,
+          cantidad: datos.cantidad !== undefined && datos.cantidad >= 1 ? Math.floor(datos.cantidad) : 1,
           datosCliente: datos.datosCliente ?? 'POR_DEFINIR',
           datosPersonales: datos.datosPersonales ?? 'POR_DEFINIR',
           expuestoInternet: datos.expuestoInternet ?? 'POR_DEFINIR',

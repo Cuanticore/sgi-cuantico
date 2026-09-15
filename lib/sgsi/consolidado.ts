@@ -136,23 +136,46 @@ export function esConsolidadoV19(
 /// Un archivo que trae las hojas del consolidado NO es un archivo histórico. Si le falta
 /// algo, la respuesta correcta es parar y decir QUÉ falta — no elegir el otro camino, que
 /// para ese archivo es el destructivo.
-export type FormatoLibro = 'CONSOLIDADO' | 'CONSOLIDADO_INCOMPLETO' | 'HISTORICO';
+/// `ALTAS` es el formato que el V21 estrenó: tiene la FORMA del consolidado —sus hojas y
+/// sus columnas— pero sus filas llegan SIN CÓDIGO. No es un inventario que sustituya al
+/// que está cargado: son activos que se inventarían por primera vez.
+///
+/// La diferencia no es cosmética. La carga del consolidado **vacía** `activo` y todo lo que
+/// cuelga de él —riesgos, valoraciones, dependencias, despliegues— antes de escribir,
+/// porque V19 SUSTITUÍA al inventario migrado. Con una hoja de 94 filas eso no carga 94
+/// activos: borra los que hay y deja 94.
+export type FormatoLibro = 'CONSOLIDADO' | 'CONSOLIDADO_INCOMPLETO' | 'ALTAS' | 'HISTORICO';
 
 export interface DiagnosticoFormato {
   formato: FormatoLibro;
   /// Lo que falta para ser el consolidado, con el nombre que la persona ve en el archivo.
-  /// Vacío cuando el formato es `CONSOLIDADO` o `HISTORICO`.
+  /// Vacío cuando el formato es `CONSOLIDADO`, `ALTAS` o `HISTORICO`.
   faltantes: string[];
+}
+
+/// Cuántas filas de datos traen código y cuántas no. Es lo único que distingue un
+/// consolidado de una hoja de altas, porque las dos tienen la misma forma.
+export interface ConteoDeCodigos {
+  conCodigo: number;
+  sinCodigo: number;
 }
 
 export function diagnosticoDeFormato(
   filaEncabezado: readonly string[],
   nombresDeHoja: readonly string[],
+  codigos?: ConteoDeCodigos,
 ): DiagnosticoFormato {
   const columnasQueFaltan = COLUMNAS_PROPIAS.filter((c) => !contiene(filaEncabezado, c));
   const hojasQueFaltan = HOJAS_NECESARIAS.filter((h) => !contiene(nombresDeHoja, h));
 
   if (columnasQueFaltan.length === 0 && hojasQueFaltan.length === 0) {
+    // LA ASIMETRÍA ES DELIBERADA. Equivocarse hacia `ALTAS` en un consolidado de verdad
+    // agrega activos duplicados: molesto, visible y reversible. Equivocarse al revés borra
+    // el inventario con sus riesgos y sus valoraciones. Ante la duda, no se borra — así que
+    // basta que la MAYORÍA de las filas venga sin código para tratar la hoja como un alta.
+    if (codigos !== undefined && codigos.sinCodigo > codigos.conCodigo) {
+      return { formato: 'ALTAS', faltantes: [] };
+    }
     return { formato: 'CONSOLIDADO', faltantes: [] };
   }
 

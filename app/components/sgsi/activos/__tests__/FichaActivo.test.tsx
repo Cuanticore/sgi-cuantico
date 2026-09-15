@@ -78,8 +78,30 @@ const CATALOGOS: Catalogos = {
   entornos: [],
   proveedores: [],
   criticidades: [
-    { id: 1, codigo: 'C1', nombre: 'Crítica continua', rtoMinutos: 10, rpoMinutos: 5 },
-    { id: 4, codigo: 'C4', nombre: 'Estándar', rtoMinutos: 4320, rpoMinutos: 1440 },
+    {
+      id: 1,
+      codigo: 'C1',
+      nombre: 'Crítica continua',
+      rtoMinutos: 10,
+      rpoMinutos: 5,
+      descripcion: 'Multi-región activo-activo, o conmutación automática probada.',
+    },
+    {
+      id: 4,
+      codigo: 'C4',
+      nombre: 'Estándar',
+      rtoMinutos: 4320,
+      rpoMinutos: 1440,
+      descripcion: 'Respaldo diario, restauración bajo demanda.',
+    },
+  ],
+  // E1 · una rama completa: raíz → nivel 2 → nivel 3. Es lo mínimo para que los tres
+  // selects de la cabecera se encadenen de verdad y no sólo se dibujen.
+  personas: [],
+  niveles: [
+    { id: 10, grado: 1, nombre: 'PRODUCTOS', padreId: null },
+    { id: 20, grado: 2, nombre: 'MINTRACE', padreId: 10 },
+    { id: 30, grado: 3, nombre: 'Ambientes', padreId: 20 },
   ],
   escalaValor: [
     { id: 5, valor: 5, etiqueta: '5 — Muy Alto' },
@@ -139,6 +161,7 @@ function activo(codigo: string, valor: number): ActivoFicha {
     proveedorId: null,
     superiorId: null,
     criticidadId: null,
+    nivelId: null,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
     expuestoInternet: 'POR_DEFINIR',
@@ -146,6 +169,8 @@ function activo(codigo: string, valor: number): ActivoFicha {
     valores: { D: valor, I: valor, C: valor },
     riesgos: [],
     amenazasExcluidas: [],
+    planes: [],
+    cuentas: [],
   };
 }
 
@@ -297,6 +322,7 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       proveedorId: null,
       superiorId: null,
       criticidadId: null,
+      nivelId: null,
       datosCliente: 'POR_DEFINIR',
       datosPersonales: 'POR_DEFINIR',
       expuestoInternet: 'POR_DEFINIR',
@@ -304,6 +330,8 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       valores,
       riesgos: [],
       amenazasExcluidas: [],
+      planes: [],
+      cuentas: [],
     };
   }
 
@@ -354,6 +382,92 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
 
     expect(screen.getByText(/Sin relevancia asignada/)).toBeInTheDocument();
   });
+
+  // REQ-SIG-20 §7.2 · el plan del riesgo, desde la amenaza. El vínculo plan↔riesgo no es
+  // una columna: lo resuelve el servidor leyendo el prefijo de `AccionPlan.origen` y llega
+  // en `activo.planes`. Acá se fija lo que decide la pantalla: con plan enlaza al plan
+  // concreto; sin plan ofrece crearlo SOLO desde la banda Crítico, que es la que obliga a
+  // planificar. Nunca las dos cosas a la vez.
+  //
+  // Los mismos dos controles, en L0 en vez de L3: sin eficacia que reste, el residual se
+  // queda pegado al inherente (5 × 12 = 60) y cae en banda Crítico.
+  const AMENAZA_CRITICA: AmenazaCatalogo = {
+    ...AMENAZA_CON_CONTROLES,
+    controles: AMENAZA_CON_CONTROLES.controles.map((c) => ({ ...c, nivel: 0 })),
+  };
+
+  it('en banda Crítico y sin plan, ofrece crearlo', () => {
+    render(
+      <FichaActivo
+        activo={activoConValores('TEC-GEN-0006', { D: 5, I: 5, C: 5 })}
+        catalogos={CATALOGOS_CON_DOS_DEGRADACIONES}
+        amenazas={[AMENAZA_CRITICA]}
+        navegacion={{ codigos: ['TEC-GEN-0006'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
+
+    expect(screen.getByRole('button', { name: '+ Crear plan de acción' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Ver plan/ })).not.toBeInTheDocument();
+  });
+
+  it('fuera de la banda Crítico no ofrece registrar plan, ni apagado', () => {
+    // Los controles en L3 dejan el residual en 6 — banda Bajo. Este riesgo no exige plan,
+    // así que no se ofrece: un botón deshabilitado invitaría a preguntarse qué falta para
+    // encenderlo, y no falta nada.
+    render(
+      <FichaActivo
+        activo={activoConValores('TEC-GEN-0008', { D: 5, I: 5, C: 5 })}
+        catalogos={CATALOGOS_CON_DOS_DEGRADACIONES}
+        amenazas={[AMENAZA_CON_CONTROLES]}
+        navegacion={{ codigos: ['TEC-GEN-0008'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
+
+    expect(screen.queryByRole('button', { name: '+ Crear plan de acción' })).not.toBeInTheDocument();
+  });
+
+  it('un plan que ya existe se enseña aunque el riesgo ya no sea Crítico', () => {
+    const conPlan: ActivoFicha = {
+      ...activoConValores('TEC-GEN-0007', { D: 5, I: 5, C: 5 }),
+      planes: [
+        {
+          amenazaCodigo: 'A.24',
+          codigo: 'PT-001',
+          accion: 'Segunda región en espera tibia',
+          estado: 'EN_CURSO',
+        },
+      ],
+    };
+
+    render(
+      <FichaActivo
+        activo={conPlan}
+        catalogos={CATALOGOS_CON_DOS_DEGRADACIONES}
+        amenazas={[AMENAZA_CON_CONTROLES]}
+        navegacion={{ codigos: ['TEC-GEN-0007'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
+
+    // Con los controles en L3 el residual es 6 — banda Bajo — y el enlace aparece igual:
+    // puede haber bajado justamente porque el plan funcionó, y esconderlo ahí dejaría sin
+    // rastro al plan que lo logró.
+    // El ancla lleva hasta la fila del plan; sin ella el enlace dejaba a la persona en la
+    // cabecera de una lista de noventa y tres.
+    const enlace = screen.getByRole('link', { name: /Ver plan PT-001/ });
+    expect(enlace).toHaveAttribute('href', '/sgsi/planes#PT-001');
+    expect(
+      screen.queryByRole('button', { name: '+ Crear plan de acción' }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de sesión', () => {
@@ -398,6 +512,7 @@ describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de 
       proveedorId: null,
       superiorId: null,
       criticidadId: null,
+      nivelId: null,
       datosCliente: 'POR_DEFINIR',
       datosPersonales: 'POR_DEFINIR',
       expuestoInternet: 'POR_DEFINIR',
@@ -423,6 +538,8 @@ describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de 
         },
       ],
       amenazasExcluidas: [],
+      planes: [],
+      cuentas: [],
     };
   }
 
