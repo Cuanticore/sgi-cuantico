@@ -117,6 +117,10 @@ export interface DatosGenerales {
   superiorId?: number | null;
   /// REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
   criticidadId?: number | null;
+  /// E2 · el NIVEL 3 de la jerarquía, el más específico. Los grados 1 y 2 no se guardan:
+  /// se derivan subiendo por `padreId`. Que acá solo entre un grado 3 es lo que impide que
+  /// un activo quede colgado de media rama.
+  nivelId?: number | null;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -142,6 +146,7 @@ export async function guardarDatosGenerales(
     idOpcional(datos.proveedorId, 'el proveedor');
     idOpcional(datos.superiorId, 'el activo superior');
     idOpcional(datos.criticidadId, 'la criticidad de negocio');
+    idOpcional(datos.nivelId, 'el nivel 3 de la jerarquía');
 
     const escritos = await prisma.$transaction(async (tx) => {
       const activo = await tx.activo.findFirst({ where: { codigo: codigoActivo } });
@@ -159,6 +164,19 @@ export async function guardarDatosGenerales(
         }
       }
 
+      // E2 · el activo apunta al nivel 3 y a ningún otro grado. La llave foránea no puede
+      // decirlo —no sabe de grados— así que lo dice el servidor: aceptar acá un grado 1 o 2
+      // dejaría al activo en media rama y a la jerarquía diciendo dos cosas distintas.
+      if (datos.nivelId !== undefined && datos.nivelId !== null) {
+        const nivel = await tx.nivelActivo.findUnique({ where: { id: datos.nivelId } });
+        if (!nivel || !nivel.activo) throw new Error('El nivel elegido no existe o está inactivo.');
+        if (nivel.grado !== 3) {
+          throw new Error(
+            `El activo se ubica en un nivel 3, el más específico. «${nivel.nombre}» es de grado ${nivel.grado}.`,
+          );
+        }
+      }
+
       const campos: (keyof DatosGenerales)[] = [
         'nombre',
         'descripcion',
@@ -172,6 +190,7 @@ export async function guardarDatosGenerales(
         'proveedorId',
         'superiorId',
         'criticidadId',
+        'nivelId',
         'datosCliente',
         'datosPersonales',
         'expuestoInternet',
@@ -215,6 +234,57 @@ export async function guardarDatosGenerales(
           ? 'No había cambios que guardar.'
           : `Se guardaron ${escritos.total} campos.${nota}`,
       cambios: escritos.total,
+    };
+  });
+}
+
+/// Vuelve a correr el cálculo de riesgos SOBRE ESTE ACTIVO, sin esperar a que alguien lo
+/// edite.
+///
+/// POR QUÉ HACE FALTA UN BOTÓN. Las filas de `Riesgo` están persistidas y solo se
+/// regeneran cuando una escritura las dispara: guardar una valoración, cambiar el tipo,
+/// tocar un control. Pero el cálculo depende además de cosas que se cambian en OTRA
+/// pantalla y no disparan nada — el umbral, las escalas, las relevancias de los controles.
+/// Después de mover una de esas, lo guardado y la parametrización dicen cosas distintas y
+/// nadie se entera. Esto es lo que cierra esa brecha.
+///
+/// ALCANCE: UN ACTIVO. La parametrización que se lee es la global —umbral, eficacias,
+/// escalas—; lo que se acota es sobre cuántos activos se aplica. El barrido de obsoletos va
+/// acotado con ella (`riesgosParaObsoletar`): sin eso, recalcular un activo marcaría
+/// obsoletos los riesgos de los otros 297 por el solo hecho de no haberlos mirado.
+///
+/// No escribe bitácora: no cambia ninguna decisión de nadie. Recalcula lo derivable a
+/// partir de datos que ya estaban, que es justamente lo que este sistema recalcula al leer
+/// en todo lo demás.
+export async function recalcularRiesgosDelActivo(codigoActivo: string): Promise<Resultado> {
+  return ejecutar(async () => {
+    await autorConPermiso('activo:valorar');
+
+    const activo = await prisma.activo.findFirst({ where: { codigo: codigoActivo } });
+    if (!activo) return { ok: false, mensaje: `No existe el activo ${codigoActivo}.` };
+    if (!activo.activo) {
+      return {
+        ok: false,
+        mensaje: `${codigoActivo} está dado de baja: sus riesgos no se recalculan.`,
+      };
+    }
+
+    const d = await generarRiesgos(prisma, { activoId: activo.id });
+    revalidarSgsi();
+
+    const fuera = d.riesgosObsoletos
+      ? ` ${d.riesgosObsoletos} salieron del alcance y quedaron marcados obsoletos, no borrados.`
+      : '';
+    const sinCalcular = d.residualSinCalcular
+      ? ` ${d.residualSinCalcular} quedaron con el residual sin calcular: su eficacia es desconocida, que no es cero.`
+      : '';
+
+    return {
+      ok: true,
+      mensaje:
+        d.riesgosGenerados === 0
+          ? `${codigoActivo} no alcanza el umbral de valoración, así que no genera riesgos.${fuera}`
+          : `Se recalcularon ${d.riesgosGenerados} riesgos de ${codigoActivo}.${fuera}${sinCalcular}`,
     };
   });
 }
