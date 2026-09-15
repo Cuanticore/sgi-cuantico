@@ -9,8 +9,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
+import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
+import {
+  codigoDebeReemitirse,
+  formatearCodigoActivo,
+  reemplazarActivoEnOrigen,
+} from '@/lib/sgsi/codigo-activo';
 import {
   cargarActivo,
   cargarAmenazas,
@@ -133,7 +138,7 @@ export async function guardarDatosGenerales(
   codigoActivo: string,
   datos: DatosGenerales,
   motivo?: string,
-): Promise<Resultado> {
+): Promise<Resultado & { codigoNuevo?: string }> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('activo:valorar');
     idOpcional(datos.areaId, 'el proceso o área');
@@ -177,6 +182,54 @@ export async function guardarDatosGenerales(
         }
       }
 
+      // REEMISIÓN DEL CÓDIGO. Mover un activo de proceso cambia lo que su código DICE, y
+      // un `TEC-…` dentro de Gestión Estratégica es una etiqueta que miente. Se reemite
+      // contra el contador del par (área, tipo) DESTINO — el mismo mecanismo del alta, así
+      // que el número nunca se reusa y el que el activo dejó atrás queda retirado.
+      //
+      // Lo que esto obliga a arreglar en la misma transacción está abajo: el código viejo
+      // tiene que seguir llevando a este activo, o la reemisión es una pérdida de historia
+      // disfrazada de corrección.
+      let codigoNuevo: string | null = null;
+      const areaFinal = datos.areaId ?? activo.areaId;
+      if (datos.areaId !== undefined || datos.tipoId !== undefined) {
+        const [areaAntes, areaDespues, tipoAntes, tipoDespues] = await Promise.all([
+          tx.area.findUnique({ where: { id: activo.areaId } }),
+          tx.area.findUnique({ where: { id: areaFinal } }),
+          tx.tipoMagerit.findUnique({ where: { id: activo.tipoId } }),
+          tx.tipoMagerit.findUnique({ where: { id: tipoFinal } }),
+        ]);
+        if (!areaDespues || !tipoDespues) throw new Error('El proceso o el tipo elegido no existe.');
+        if (!areaDespues.prefijo?.trim()) {
+          throw new Error(
+            `El proceso ${areaDespues.nombre} no tiene prefijo de codificación asignado, así que no se puede emitir un código. Asignáselo antes de mover el activo.`,
+          );
+        }
+
+        const antes = {
+          prefijoArea: areaAntes?.prefijo ?? '',
+          abreviaturaTipo: tipoAntes?.abreviatura ?? '',
+        };
+        const despues = {
+          prefijoArea: areaDespues.prefijo,
+          abreviaturaTipo: tipoDespues.abreviatura,
+        };
+
+        if (activo.codigo !== null && codigoDebeReemitirse(antes, despues)) {
+          const contador = await tx.contadorCodigo.upsert({
+            where: { areaId_tipoId: { areaId: areaDespues.id, tipoId: tipoDespues.id } },
+            update: { ultimoValor: { increment: 1 } },
+            create: { areaId: areaDespues.id, tipoId: tipoDespues.id, ultimoValor: 1 },
+          });
+          if (contador.ultimoValor > 9999) {
+            throw new Error(
+              `Se agotó el espacio de numeración para ${despues.prefijoArea}-${despues.abreviaturaTipo}.`,
+            );
+          }
+          codigoNuevo = formatearCodigoActivo(despues, contador.ultimoValor);
+        }
+      }
+
       const campos: (keyof DatosGenerales)[] = [
         'nombre',
         'descripcion',
@@ -196,23 +249,66 @@ export async function guardarDatosGenerales(
         'expuestoInternet',
       ];
 
-      const total = await registrar(
-        tx,
-        autor,
-        campos
-          .filter((campo) => datos[campo] !== undefined)
-          .map((campo) => ({
-            tabla: 'activo',
-            registroId: activo.codigo ?? String(activo.id),
-            campo,
-            anterior: activo[campo as keyof typeof activo],
-            nuevo: datos[campo],
-            motivo: motivo ?? null,
-          })),
-      );
+      // Todo este guardado se registra bajo la identidad CON LA QUE EL ACTIVO QUEDA. Junto
+      // al renglón `codigo` —que guarda el anterior y el nuevo— eso es lo que deja la
+      // historia caminable: desde el código actual se llega al anterior, y desde el
+      // anterior (buscando `campo = 'codigo'`, `valorAnterior = <viejo>`) se llega al que
+      // lo reemplazó. La bitácora es append-only: acá no se reescribe ni un renglón previo,
+      // se agrega el eslabón que los une.
+      const registroId = codigoNuevo ?? activo.codigo ?? String(activo.id);
+      const cambios: Cambio[] = campos
+        .filter((campo) => datos[campo] !== undefined)
+        .map((campo) => ({
+          tabla: 'activo',
+          registroId,
+          campo,
+          anterior: activo[campo as keyof typeof activo],
+          nuevo: datos[campo],
+          motivo: motivo ?? null,
+        }));
 
-      await tx.activo.update({ where: { id: activo.id }, data: datos });
-      return { total, cambioClasificacion: datos.tipoId !== undefined && datos.tipoId !== activo.tipoId };
+      if (codigoNuevo !== null) {
+        cambios.push({
+          tabla: 'activo',
+          registroId,
+          campo: 'codigo',
+          anterior: activo.codigo,
+          nuevo: codigoNuevo,
+          motivo:
+            motivo ??
+            'El activo cambió de proceso o de tipo, así que su código se reemitió con el siguiente consecutivo del par destino. El código anterior queda retirado y no se reasigna.',
+        });
+      }
+
+      const total = await registrar(tx, autor, cambios);
+
+      await tx.activo.update({
+        where: { id: activo.id },
+        data: codigoNuevo === null ? datos : { ...datos, codigo: codigoNuevo },
+      });
+
+      // Lo único que ata un plan a su riesgo es texto: el prefijo verificable de
+      // `AccionPlan.origen`. Sin reapuntarlo, reemitir el código dejaría a TODOS los planes
+      // del activo sin cubrir nada —`origenCubreRiesgo` compara por código— y el activo
+      // aparecería «sin plan» en el mismo instante, con el reloj de la deuda en cero.
+      if (codigoNuevo !== null && activo.codigo !== null) {
+        const activas = await tx.accionPlan.findMany({
+          where: { activa: true },
+          select: { id: true, origen: true },
+        });
+        for (const a of activas) {
+          const reapuntado = reemplazarActivoEnOrigen(a.origen, activo.codigo, codigoNuevo);
+          if (reapuntado !== null) {
+            await tx.accionPlan.update({ where: { id: a.id }, data: { origen: reapuntado } });
+          }
+        }
+      }
+      return {
+        total,
+        cambioClasificacion: datos.tipoId !== undefined && datos.tipoId !== activo.tipoId,
+        codigoNuevo,
+        codigoAnterior: activo.codigo,
+      };
     });
 
     // Only the type decides which threats apply, so only a type change needs the risk
@@ -226,14 +322,22 @@ export async function guardarDatosGenerales(
         ' El código del activo no cambia: es inmutable, y el cambio queda en la bitácora.';
     }
 
+    // La ficha tiene que saber que el activo ya no vive en la URL donde está parada.
+    const reemision =
+      escritos.codigoNuevo === null
+        ? ''
+        : ` El proceso o el tipo cambió, así que el código se reemitió: ${escritos.codigoAnterior} → ${escritos.codigoNuevo}.` +
+          ' El anterior queda retirado, no se reasigna, y sigue llevando a este activo.';
+
     revalidarSgsi();
     return {
       ok: true,
       mensaje:
         escritos.total === 0
           ? 'No había cambios que guardar.'
-          : `Se guardaron ${escritos.total} campos.${nota}`,
+          : `Se guardaron ${escritos.total} campos.${reemision}${nota}`,
       cambios: escritos.total,
+      codigoNuevo: escritos.codigoNuevo ?? undefined,
     };
   });
 }
@@ -301,6 +405,9 @@ export interface ActivoNuevo {
   entornoId?: number | null;
   proveedorId?: number | null;
   superiorId?: number | null;
+  /// E2 · el nivel 3 de la jerarquía. Viaja en el alta para que un activo creado desde la
+  /// ficha no nazca «sin ubicar» habiendo elegido su rama en la pantalla.
+  nivelId?: number | null;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -336,6 +443,22 @@ export async function crearActivo(
     idOpcional(datos.entornoId, 'el entorno');
     idOpcional(datos.proveedorId, 'el proveedor');
     idOpcional(datos.superiorId, 'el activo superior');
+    idOpcional(datos.nivelId, 'el nivel 3 de la jerarquía');
+
+    // E2 · la misma regla que en la edición: el activo se ubica en un nivel 3 y en ningún
+    // otro grado. La llave foránea no sabe de grados, así que lo dice el servidor.
+    if (datos.nivelId !== undefined && datos.nivelId !== null) {
+      const nivel = await prisma.nivelActivo.findUnique({ where: { id: datos.nivelId } });
+      if (!nivel || !nivel.activo) {
+        return { ok: false, mensaje: 'El nivel elegido no existe o está inactivo.' };
+      }
+      if (nivel.grado !== 3) {
+        return {
+          ok: false,
+          mensaje: `El activo se ubica en un nivel 3, el más específico. «${nivel.nombre}» es de grado ${nivel.grado}.`,
+        };
+      }
+    }
 
     const [area, tipo, subtipo] = await Promise.all([
       prisma.area.findUnique({ where: { id: datos.areaId } }),
@@ -393,6 +516,7 @@ export async function crearActivo(
           entornoId: datos.entornoId ?? null,
           proveedorId: datos.proveedorId ?? null,
           superiorId: datos.superiorId ?? null,
+          nivelId: datos.nivelId ?? null,
           datosCliente: datos.datosCliente ?? 'POR_DEFINIR',
           datosPersonales: datos.datosPersonales ?? 'POR_DEFINIR',
           expuestoInternet: datos.expuestoInternet ?? 'POR_DEFINIR',

@@ -552,7 +552,55 @@ export async function cargarAmenazas(): Promise<AmenazaCatalogo[]> {
   });
 }
 
+/// Un código RETIRADO sigue llevando a su activo.
+///
+/// Cuando un activo cambia de proceso su código se reemite, y todo lo ya emitido —actas,
+/// informes, el propio libro V19, un enlace que alguien guardó— sigue citando el anterior.
+/// La bitácora es la que sabe: el guardado que reemitió dejó un renglón `campo = 'codigo'`
+/// con el viejo en `valorAnterior` y el nuevo en `valorNuevo`. Se camina esa cadena hacia
+/// adelante —un activo puede haberse mudado más de una vez— hasta llegar al código que hoy
+/// existe.
+///
+/// No se guarda ningún índice de códigos previos: sería duplicar lo que la bitácora ya
+/// registra, y una segunda fuente de verdad sobre la identidad del activo es exactamente lo
+/// que no queremos tener.
+async function resolverCodigoRetirado(codigo: string): Promise<string | null> {
+  const vistos = new Set<string>([codigo]);
+  let actual = codigo;
+
+  // Un tope: la cadena es cortísima en la práctica, y un ciclo —imposible por construcción,
+  // porque los códigos no se reasignan— no puede colgar la pantalla.
+  for (let saltos = 0; saltos < 10; saltos++) {
+    const renglon = await prisma.bitacora.findFirst({
+      where: { tabla: 'activo', campo: 'codigo', valorAnterior: actual },
+      orderBy: { id: 'desc' },
+      select: { valorNuevo: true },
+    });
+    if (renglon === null) return null;
+    const siguiente = renglon.valorNuevo;
+    if (siguiente === null || vistos.has(siguiente)) return null;
+    vistos.add(siguiente);
+
+    const existe = await prisma.activo.findUnique({
+      where: { codigo: siguiente },
+      select: { codigo: true },
+    });
+    if (existe !== null) return siguiente;
+    actual = siguiente;
+  }
+  return null;
+}
+
 export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> {
+  const vigente = await prisma.activo.findUnique({
+    where: { codigo },
+    select: { id: true },
+  });
+  if (vigente === null) {
+    const reemplazo = await resolverCodigoRetirado(codigo);
+    if (reemplazo !== null) return cargarActivo(reemplazo);
+  }
+
   const activo = await prisma.activo.findUnique({
     where: { codigo },
     include: {

@@ -74,6 +74,7 @@ import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  crearActivo,
   darDeBajaActivo,
   guardarDatosGenerales,
   guardarValoracion,
@@ -1159,16 +1160,14 @@ export default function FichaActivo({
   // NOT NULL on `riesgo_degradacion.justificacion` exists to prevent.
   const impedimentos: string[] = [];
 
-  // Creation mode. There is no `crearActivo` action: the code is assigned by the system at
-  // creation, from the (area, type) counter, and no action in this repository hands one
-  // out. Saving here would either invent a code or write an asset without one, so the
-  // button stays disabled and says why instead of pretending.
-  if (nuevo) {
-    impedimentos.push(
-      'Todavía no se puede crear un activo desde esta ficha: falta la acción que asigna el código AAA-TTT-NNNN y crea la fila. Los datos de esta pantalla no se pierden, pero tampoco se guardan.',
-    );
-  }
-
+  // El alta SÍ existe: `crearActivo` emite el código contra `ContadorCodigo` dentro de su
+  // propia transacción. El impedimento que vivía acá —«falta la acción que asigna el
+  // código»— dejó de ser cierto cuando esa acción se escribió, y desde entonces era lo
+  // único que impedía crear un activo desde esta pantalla.
+  //
+  // El código de la cabecera es una PREVISUALIZACIÓN: el definitivo lo emite el servidor, y
+  // puede diferir si alguien más creó un activo del mismo par (área, tipo) mientras esta
+  // ficha estaba abierta. Por eso no se manda desde acá.
   if (edicion.nombre.trim() === '') impedimentos.push('El nombre del activo está vacío.');
   if (nuevo && edicion.propietarioId === null) {
     impedimentos.push('Un activo nuevo requiere propietario.');
@@ -1316,7 +1315,48 @@ export default function FichaActivo({
   /// del riesgo) abre el diálogo de notas en vez de guardar directo — spec `end-of-
   /// session-notes`, "Single save dialog with a mandatory notes field". Sin ellos, el
   /// resto del guardado no tiene por qué esperar ningún diálogo.
+  /// El alta. El código NO viaja: lo emite `crearActivo` contra el contador, dentro de su
+  /// transacción. Mandarlo desde acá sería mandar la previsualización, y dos pestañas
+  /// abiertas sobre el mismo par (área, tipo) previsualizan el mismo número.
+  const crear = (): void => {
+    if (impedimentos.length > 0) return;
+    setSync('guardando');
+    setAviso(null);
+
+    iniciarGuardado(async () => {
+      const r = await crearActivo({
+        nombre: edicion.nombre.trim(),
+        descripcion: edicion.descripcion.trim() === '' ? null : edicion.descripcion.trim(),
+        areaId: edicion.areaId,
+        tipoId: edicion.tipoId,
+        subtipoId: edicion.subtipoId,
+        // Los dos son obligatorios en creación y los impedimentos ya lo garantizaron.
+        custodioId: edicion.custodioId!,
+        propietarioId: edicion.propietarioId,
+        ubicacionId: edicion.ubicacionId,
+        entornoId: edicion.entornoId,
+        proveedorId: edicion.proveedorId,
+        superiorId: edicion.superiorId,
+        nivelId: edicion.nivelId,
+        datosCliente: edicion.datosCliente,
+        datosPersonales: edicion.datosPersonales,
+        expuestoInternet: edicion.expuestoInternet,
+        valores,
+      });
+
+      setAviso({ ok: r.ok, texto: r.mensaje });
+      setSync(r.ok ? 'sincronizado' : 'limpio');
+      // La ficha de creación no tiene a dónde volver: se navega al activo recién creado,
+      // que ya tiene código y por lo tanto URL propia.
+      if (r.ok && r.codigo) router.push(`/sgsi/inventario/${r.codigo}`);
+    });
+  };
+
   const guardar = (): void => {
+    if (nuevo) {
+      crear();
+      return;
+    }
     if (activo === null || impedimentos.length > 0 || plan.pendientes === 0) return;
     if (plan.sesionRiesgos.length > 0) {
       setDialogoNotas(true);
