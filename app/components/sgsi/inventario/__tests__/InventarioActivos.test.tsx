@@ -24,6 +24,7 @@ jest.mock('next/navigation', () => ({
     push: () => {},
   }),
   useSearchParams: () => new URLSearchParams(consulta),
+  usePathname: () => '/sgsi/inventario',
 }));
 
 jest.mock('@/app/sgsi/acciones/activos', () => ({
@@ -110,6 +111,7 @@ function pintar() {
       bandas={BANDAS}
       umbralValoracion={4}
       dimensiones={DIMENSIONES}
+      sinPlan={[]}
     />,
   );
 }

@@ -5,14 +5,14 @@
 // Matrices quedan visibles y deshabilitadas, con el motivo al pasar por encima. Un activo
 // que sí alcanza el umbral sigue calculando y mostrando sus amenazas con normalidad.
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import FichaActivo, {
   type ActivoFicha,
   type AmenazaCatalogo,
   type Catalogos,
   type Navegacion,
 } from '../FichaActivo';
-import { guardarTratamiento } from '@/app/sgsi/acciones/riesgos';
+import { guardarSesionRiesgo, guardarTratamiento } from '@/app/sgsi/acciones/riesgos';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }),
@@ -25,8 +25,7 @@ jest.mock('@/app/sgsi/acciones/activos', () => ({
 }));
 
 jest.mock('@/app/sgsi/acciones/riesgos', () => ({
-  excepcionDegradacion: jest.fn(),
-  excepcionFrecuencia: jest.fn(),
+  guardarSesionRiesgo: jest.fn(),
   guardarTratamiento: jest.fn(),
   quitarAmenazaDelActivo: jest.fn(),
   restaurarAmenaza: jest.fn(),
@@ -43,6 +42,29 @@ jest.mock('@/app/components/sgsi/parametros/PopupCatalogo', () => ({
 jest.mock('../PopupControlesAmenaza', () => ({
   __esModule: true,
   default: () => null,
+}));
+
+// Mismo motivo (REQ-SIG-20 §7, tarea 4.16): `PopupPlanCritico` importa `app/sgsi/acciones/
+// plan.ts`, que también arrastra `next/cache`. Acá SÍ se observa qué props recibe — la
+// cola de críticos (tarea 4.16) es justo lo que se prueba en el describe de abajo — pero
+// el componente real nunca se monta, para no arrastrar esa infraestructura de servidor.
+jest.mock('../PopupPlanCritico', () => ({
+  __esModule: true,
+  default: ({
+    activoCodigo,
+    amenazaCodigo,
+    onCerrar,
+  }: {
+    activoCodigo: string;
+    amenazaCodigo: string;
+    onCerrar: () => void;
+    onRegistrado?: (codigo: string) => void;
+  }) => (
+    <div>
+      <span>{`PopupPlanCritico: ${activoCodigo} · ${amenazaCodigo}`}</span>
+      <button onClick={onCerrar}>cerrar-critico</button>
+    </div>
+  ),
 }));
 
 const CATALOGOS: Catalogos = {
@@ -331,5 +353,179 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
     fireEvent.click(screen.getByText('A.24').closest('[role="button"]')!);
 
     expect(screen.getByText(/Sin relevancia asignada/)).toBeInTheDocument();
+  });
+});
+
+describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de sesión', () => {
+  const CATALOGOS_SESION: Catalogos = {
+    ...CATALOGOS,
+    escalaDegradacion: [
+      { id: 1, nombre: 'Muy alta', factor: '1.00', lectura: null },
+      { id: 2, nombre: 'Media', factor: '0.50', lectura: null },
+    ],
+    escalaFrecuencia: [
+      { id: 1, nombre: 'Alta — mensual', corto: 'Alta', vecesAno: '12' },
+      { id: 2, nombre: 'Media — trimestral', corto: 'Media', vecesAno: '4' },
+    ],
+  };
+
+  const AMENAZA_R0001: AmenazaCatalogo = {
+    id: 1,
+    codigo: 'A.24',
+    nombre: 'Denegación de servicio',
+    grupo: 'Grupo A',
+    nota: null,
+    frecuenciaId: 1,
+    degradacion: { D: 1, I: 1, C: 1 },
+    tipos: [1],
+    controles: [],
+  };
+
+  function activoConRiesgo(): ActivoFicha {
+    return {
+      id: 1,
+      codigo: 'TEC-GEN-0004',
+      codigoHeredado: null,
+      nombre: 'Activo TEC-GEN-0004',
+      descripcion: null,
+      areaId: 1,
+      tipoId: 1,
+      subtipoId: 1,
+      propietarioId: null,
+      custodioId: null,
+      ubicacionId: null,
+      entornoId: null,
+      proveedorId: null,
+      superiorId: null,
+      criticidadId: null,
+      datosCliente: 'POR_DEFINIR',
+      datosPersonales: 'POR_DEFINIR',
+      expuestoInternet: 'POR_DEFINIR',
+      cantidad: 1,
+      valores: { D: 5, I: 5, C: 5 },
+      riesgos: [
+        {
+          codigo: 'R-0001',
+          amenazaId: 1,
+          impacto: null,
+          riesgoPotencial: null,
+          frecuenciaResidual: null,
+          riesgoResidual: null,
+          frecuenciaId: null,
+          madurezId: null,
+          tratamientoId: null,
+          estadoId: null,
+          responsableId: null,
+          observacion: null,
+          justificacion: null,
+          origen: 'PARAMETRIZACION',
+          degradacion: [],
+        },
+      ],
+      amenazasExcluidas: [],
+    };
+  }
+
+  const mockGuardarSesionRiesgo = guardarSesionRiesgo as jest.Mock;
+
+  beforeEach(() => {
+    mockGuardarSesionRiesgo.mockReset();
+    mockGuardarSesionRiesgo.mockResolvedValue({
+      ok: true,
+      mensaje: 'Se guardaron 2 campos de R-0001, con la nota registrada.',
+      cambios: 2,
+    });
+  });
+
+  it('dos cambios de sesión abren un único diálogo con las dos filas; nota vacía no confirma (spec "Dialog lists the pending changes", "Empty note blocks the save")', async () => {
+    render(
+      <FichaActivo
+        activo={activoConRiesgo()}
+        catalogos={CATALOGOS_SESION}
+        amenazas={[AMENAZA_R0001]}
+        navegacion={{ codigos: ['TEC-GEN-0004'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    // Dos cambios de sesión: una degradación y una frecuencia. Ninguno pide su propia
+    // justificación — spec "Changes accumulate without prompting": no aparece ningún
+    // diálogo por campo acá, sólo al guardar.
+    fireEvent.change(screen.getByLabelText('Degradación en Disponibilidad de A.24'), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByLabelText('Frecuencia esperada de A.24'), {
+      target: { value: '2' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Guardar 2 cambios/ }));
+
+    expect(screen.getByText('Notas de la sesión')).toBeInTheDocument();
+    expect(screen.getByText(/Degradación D — A\.24/)).toBeInTheDocument();
+    expect(screen.getByText(/Frecuencia — A\.24/)).toBeInTheDocument();
+
+    // Nota vacía: confirmar queda deshabilitado y no llama a guardarSesionRiesgo — el
+    // único bloqueo deliberado de D17 en este cambio.
+    const confirmar = screen.getByRole('button', { name: 'Confirmar y guardar' });
+    expect(confirmar).toBeDisabled();
+    fireEvent.click(confirmar);
+    expect(mockGuardarSesionRiesgo).not.toHaveBeenCalled();
+
+    fireEvent.change(
+      screen.getByLabelText('Notas — qué cambió en la realidad y por qué'),
+      { target: { value: 'Ajuste tras revisión de servidores' } },
+    );
+    expect(confirmar).toBeEnabled();
+    fireEvent.click(confirmar);
+
+    // El diálogo se cierra apenas se confirma, sin esperar la respuesta del servidor.
+    expect(screen.queryByText('Notas de la sesión')).not.toBeInTheDocument();
+
+    await waitFor(() => expect(mockGuardarSesionRiesgo).toHaveBeenCalledTimes(1));
+    expect(mockGuardarSesionRiesgo).toHaveBeenCalledWith(
+      'R-0001',
+      { degradacion: { D: 2 }, frecuenciaId: 2 },
+      'Ajuste tras revisión de servidores',
+    );
+  });
+
+  it('residual crítico abre el popup prellenado sin condicionar el guardado (D4, tarea 4.16 — spec "Save succeeds, popup opens")', async () => {
+    mockGuardarSesionRiesgo.mockResolvedValue({
+      ok: true,
+      mensaje: 'Se guardó 1 campo de R-0001, con la nota registrada.',
+      cambios: 1,
+      critico: { activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'A.24' },
+    });
+
+    render(
+      <FichaActivo
+        activo={activoConRiesgo()}
+        catalogos={CATALOGOS_SESION}
+        amenazas={[AMENAZA_R0001]}
+        navegacion={{ codigos: ['TEC-GEN-0004'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Frecuencia esperada de A.24'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar 1 cambio/ }));
+    fireEvent.change(
+      screen.getByLabelText('Notas — qué cambió en la realidad y por qué'),
+      { target: { value: 'Sube la frecuencia' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar y guardar' }));
+
+    // D17: el guardado en sí no espera nada del popup — YA se llamó a guardarSesionRiesgo
+    // apenas se confirmó la nota. El popup crítico es una consecuencia, no una condición.
+    await waitFor(() => expect(mockGuardarSesionRiesgo).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText('PopupPlanCritico: TEC-GEN-0004 · A.24'),
+    ).toBeInTheDocument();
+
+    // Cerrar sin registrar saca el crítico de la cola — no queda ningún popup pendiente.
+    fireEvent.click(screen.getByRole('button', { name: 'cerrar-critico' }));
+    expect(screen.queryByText('PopupPlanCritico: TEC-GEN-0004 · A.24')).not.toBeInTheDocument();
   });
 });

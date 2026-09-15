@@ -234,6 +234,251 @@ export async function guardarTratamiento(
   });
 }
 
+const DIMENSIONES_SESION: readonly DimensionRiesgo[] = ['D', 'I', 'C'];
+const BANDA_CRITICA = 'Crítico';
+
+/// El borrador que `FichaActivo.tsx` acumula mientras se edita (REQ-SIG-20 §10, D5): solo
+/// las tres cosas que hoy piden su propia justificación por campo. Una clave AUSENTE
+/// significa "sin cambio esta sesión"; presente con `null` significa "vuelve a heredar".
+export interface BorradorSesionRiesgo {
+  /// Solo las dimensiones tocadas. Ausente = sin cambio; `null` = vuelve a heredar la
+  /// parametrización de la amenaza; un id = la excepción elegida.
+  degradacion?: Partial<Record<DimensionRiesgo, number | null>>;
+  /// Ausente = sin cambio; `null` = vuelve a heredar la frecuencia de la amenaza.
+  frecuenciaId?: number | null;
+  /// Ausente = sin cambio; `null` = quita la excepción de madurez del riesgo (D5, primer
+  /// escritor de `Riesgo.madurezId`).
+  madurezId?: number | null;
+}
+
+export interface ResultadoSesionRiesgo extends Resultado {
+  /// Presente solo cuando el guardado deja el residual en banda Crítico (D4, tarea 4.16):
+  /// los datos mínimos para que la ficha abra `PopupPlanCritico` prellenado. El guardado ya
+  /// tuvo éxito cuando esto se calcula — D17 exige el plan, nunca bloquea el guardado que lo
+  /// dispara (spec `critical-risk-treatment-plan`, "Save succeeds, popup opens").
+  critico?: { activoCodigo: string; amenazaCodigo: string };
+}
+
+/// D5 (REQ-SIG-20 §10, tarea 4.14) · el guardado de fin de sesión de UN riesgo: degradación
+/// (D/I/C), frecuencia y madurez del riesgo se consolidan acá bajo UNA sola nota
+/// obligatoria — la única excepción deliberada a D17 en este cambio (spec
+/// `end-of-session-notes`, "Note-less save fails"). Reemplaza, para estos tres campos, el
+/// camino de `excepcionDegradacion`/`excepcionFrecuencia` (que siguen existiendo, cada una
+/// con su propia justificación por campo, para quien las llame directamente) por un único
+/// guardado con una única narrativa.
+///
+/// LA NOTA SE VALIDA ANTES DE TOCAR PRISMA. No es una optimización: es lo que hace cierto
+/// que un guardado sin nota escribe CERO filas — ni de datos ni de `Bitacora` — porque la
+/// función nunca llega a abrir una consulta.
+///
+/// Un cambio real de N campos produce EXACTAMENTE N filas de `Bitacora`, todas con la misma
+/// nota como `motivo`, en UNA sola `$transaction` (invariante 7). La nota también queda en
+/// `Riesgo.justificacion` cuando algo cambió — nunca cuando no cambió nada.
+///
+/// Después de escribir, `generarRiesgos` recalcula (D4: recompute + snapshot de
+/// `RiesgoCalculo`, tarea 1.8) y la respuesta dice si el residual quedó en banda Crítico.
+export async function guardarSesionRiesgo(
+  codigoRiesgo: string,
+  borrador: BorradorSesionRiesgo,
+  nota: string,
+): Promise<ResultadoSesionRiesgo> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('riesgo:tratar');
+
+    // El único bloqueo deliberado de D17 en este cambio: sin nota no se escribe nada, y se
+    // rechaza ANTES de la primera consulta — cero lecturas de más, cero escrituras.
+    const razon = normalizar(nota);
+    if (razon === null) {
+      return {
+        ok: false,
+        mensaje:
+          'Las notas son obligatorias para guardar: sin ellas la excepción no se puede almacenar y no se escribe ningún cambio.',
+      };
+    }
+
+    const riesgo = await prisma.riesgo.findUnique({
+      where: { codigo: codigoRiesgo },
+      include: {
+        activo: { select: { codigo: true } },
+        amenaza: {
+          include: {
+            frecuencia: true,
+            degradacion: { include: { dimension: true, degradacion: true } },
+          },
+        },
+        degradacion: { include: { dimension: true, degradacion: true } },
+        frecuencia: true,
+        madurez: true,
+      },
+    });
+    if (!riesgo) return { ok: false, mensaje: `No existe el riesgo ${codigoRiesgo}.` };
+    if (!(await activoEnAnalisis(riesgo.activoId))) {
+      return { ok: false, mensaje: FUERA_DE_ANALISIS };
+    }
+
+    const dimensiones = borrador.degradacion
+      ? await prisma.dimension.findMany({
+          where: { codigo: { in: DIMENSIONES_SESION as string[] } },
+        })
+      : [];
+    const dimPorCodigo = new Map(dimensiones.map((d) => [d.codigo, d]));
+    const baseDegPorDim = new Map(riesgo.amenaza.degradacion.map((b) => [b.dimension.codigo, b]));
+    const ovDegPorDim = new Map(riesgo.degradacion.map((o) => [o.dimension.codigo, o]));
+
+    const entradas: Cambio[] = [];
+    const escriturasDegradacion: { dimensionId: number; degradacionId: number | null }[] = [];
+
+    for (const d of DIMENSIONES_SESION) {
+      if (!borrador.degradacion || !(d in borrador.degradacion)) continue;
+      const destino = borrador.degradacion[d] ?? null;
+      const dim = dimPorCodigo.get(d);
+      if (!dim) return { ok: false, mensaje: `Dimensión desconocida: ${d}.` };
+
+      let nombreDestino: string | null = null;
+      if (destino !== null) {
+        const escala = await prisma.escalaDegradacion.findUnique({ where: { id: destino } });
+        if (!escala) {
+          return { ok: false, mensaje: `La degradación elegida para ${d} no está en la escala.` };
+        }
+        nombreDestino = escala.nombre;
+      }
+
+      const base = baseDegPorDim.get(d);
+      const heredada = `hereda ${base?.degradacion.nombre ?? 'No aplica'} de ${riesgo.amenaza.codigo}`;
+      const previa = ovDegPorDim.get(d);
+      const anteriorTexto = previa?.degradacion.nombre ?? heredada;
+      const nuevoTexto = nombreDestino ?? heredada;
+      if (anteriorTexto === nuevoTexto) continue;
+
+      entradas.push({
+        tabla: 'riesgo_degradacion',
+        registroId: `${riesgo.codigo}/${d}`,
+        campo: `degradación en ${d} (excepción)`,
+        anterior: anteriorTexto,
+        nuevo: nuevoTexto,
+        motivo: razon,
+      });
+      escriturasDegradacion.push({ dimensionId: dim.id, degradacionId: destino });
+    }
+
+    let frecuenciaDestino: number | null | undefined;
+    if (borrador.frecuenciaId !== undefined) {
+      const destino = borrador.frecuenciaId;
+      let nombreDestino: string | null = null;
+      if (destino !== null) {
+        const escala = await prisma.escalaFrecuencia.findUnique({ where: { id: destino } });
+        if (!escala) return { ok: false, mensaje: 'La frecuencia elegida no está en la escala.' };
+        nombreDestino = escala.nombre;
+      }
+      const heredada = `hereda ${riesgo.amenaza.frecuencia.nombre}`;
+      const anteriorTexto = riesgo.frecuencia?.nombre ?? heredada;
+      const nuevoTexto = nombreDestino ?? heredada;
+      if (anteriorTexto !== nuevoTexto) {
+        entradas.push({
+          tabla: 'riesgo',
+          registroId: riesgo.codigo,
+          campo: 'frecuencia (excepción)',
+          anterior: anteriorTexto,
+          nuevo: nuevoTexto,
+          motivo: razon,
+        });
+        frecuenciaDestino = destino;
+      }
+    }
+
+    let madurezDestino: number | null | undefined;
+    if (borrador.madurezId !== undefined) {
+      const destino = borrador.madurezId;
+      let nombreDestino: string | null = null;
+      if (destino !== null) {
+        const escala = await prisma.escalaMadurez.findUnique({ where: { id: destino } });
+        if (!escala) return { ok: false, mensaje: 'La madurez elegida no está en la escala.' };
+        nombreDestino = `L${escala.nivel}`;
+      }
+      const anteriorTexto = riesgo.madurez ? `L${riesgo.madurez.nivel}` : 'hereda de los controles';
+      const nuevoTexto = nombreDestino ?? 'hereda de los controles';
+      if (anteriorTexto !== nuevoTexto) {
+        entradas.push({
+          tabla: 'riesgo',
+          registroId: riesgo.codigo,
+          campo: 'madurez del riesgo (excepción)',
+          anterior: anteriorTexto,
+          nuevo: nuevoTexto,
+          motivo: razon,
+        });
+        madurezDestino = destino;
+      }
+    }
+
+    const escritos = await prisma.$transaction(async (tx) => {
+      const total = await registrar(tx, autor, entradas);
+      if (total === 0) return total;
+
+      for (const e of escriturasDegradacion) {
+        if (e.degradacionId === null) {
+          await tx.riesgoDegradacion.deleteMany({
+            where: { riesgoId: riesgo.id, dimensionId: e.dimensionId },
+          });
+        } else {
+          await tx.riesgoDegradacion.upsert({
+            where: { riesgoId_dimensionId: { riesgoId: riesgo.id, dimensionId: e.dimensionId } },
+            update: { degradacionId: e.degradacionId, justificacion: razon },
+            create: {
+              riesgoId: riesgo.id,
+              dimensionId: e.dimensionId,
+              degradacionId: e.degradacionId,
+              justificacion: razon,
+            },
+          });
+        }
+      }
+
+      await tx.riesgo.update({
+        where: { id: riesgo.id },
+        data: {
+          ...(frecuenciaDestino !== undefined ? { frecuenciaId: frecuenciaDestino } : {}),
+          ...(madurezDestino !== undefined ? { madurezId: madurezDestino } : {}),
+          justificacion: razon,
+        },
+      });
+
+      return total;
+    });
+
+    if (escritos === 0) {
+      return { ok: true, mensaje: 'No había cambios que guardar.', cambios: 0 };
+    }
+
+    await generarRiesgos(prisma);
+    revalidarSgsi();
+
+    // D17: el guardado SIEMPRE tuvo éxito arriba. Esto solo decide si la ficha abre el
+    // popup prellenado — nunca decide si el cambio se guardó.
+    let critico: { activoCodigo: string; amenazaCodigo: string } | undefined;
+    const actualizado = await prisma.riesgo.findUnique({
+      where: { id: riesgo.id },
+      select: { riesgoResidual: true },
+    });
+    if (actualizado?.riesgoResidual != null && riesgo.activo.codigo) {
+      const bandas = await prisma.umbralRiesgo.findMany();
+      const banda = clasificar(
+        actualizado.riesgoResidual.toString(),
+        bandas.map((b) => ({ nombre: b.nombre, desde: b.desde.toString(), hasta: b.hasta.toString() })),
+      );
+      if (banda === BANDA_CRITICA) {
+        critico = { activoCodigo: riesgo.activo.codigo, amenazaCodigo: riesgo.amenaza.codigo };
+      }
+    }
+
+    return {
+      ok: true,
+      mensaje: `Se guardaron ${escritos} campos de ${codigoRiesgo}, con la nota registrada.`,
+      cambios: escritos,
+      critico,
+    };
+  });
+}
+
 /// A frequency off the threat's parameterisation, for this risk only.
 ///
 /// The frequency is an attribute of the THREAT: one judgement per threat is what keeps

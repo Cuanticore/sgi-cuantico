@@ -12,6 +12,7 @@
 import { prisma } from '@/lib/db';
 import { cadenaDeNivel, type Nivel } from '@/lib/sig/niveles';
 import type { DimensionActiva } from '@/lib/sgsi/valoracion-agregada';
+import { leerDeudaPlanes } from '@/lib/sgsi/deuda-planes-lectura';
 import InventarioActivos, {
   type ActivoVista,
   type BandaRiesgo,
@@ -21,7 +22,7 @@ import InventarioActivos, {
 export const dynamic = 'force-dynamic';
 
 export default async function InventarioPage() {
-  const [activos, escala, umbrales, parametro, niveles, dimensiones] = await Promise.all([
+  const [activos, escala, umbrales, parametro, niveles, dimensiones, deuda] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -66,6 +67,8 @@ export default async function InventarioPage() {
       orderBy: { orden: 'asc' },
       select: { codigo: true, nombre: true },
     }),
+    // REQ-SIG-20 §7.3 (tarea 4.17) — la franja nombrada y el punto ámbar de fila.
+    leerDeudaPlanes(),
   ]);
 
   // Same default as lib/sgsi/riesgos.ts: an asset enters the analysis at 4.
@@ -139,6 +142,15 @@ export default async function InventarioPage() {
 
   const dimensionesActivas: DimensionActiva[] = dimensiones;
 
+  const sinPlan = deuda.filas.map((f) => ({
+    activoCodigo: f.activoCodigo,
+    activoNombre: f.activoNombre,
+    amenazaCodigo: f.amenazaCodigo,
+    amenazaNombre: f.amenazaNombre,
+    diasPendiente: f.diasPendiente,
+    escalado: f.escalado,
+  }));
+
   return (
     <InventarioActivos
       activos={vista}
@@ -146,6 +158,7 @@ export default async function InventarioPage() {
       bandas={bandas}
       umbralValoracion={umbralValoracion}
       dimensiones={dimensionesActivas}
+      sinPlan={sinPlan}
     />
   );
 }

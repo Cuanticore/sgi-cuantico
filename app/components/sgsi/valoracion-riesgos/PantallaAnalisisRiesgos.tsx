@@ -41,8 +41,10 @@ import {
   type EstadoPlanActivo,
   type FiltrosAnalisis,
 } from '@/lib/sgsi/analisis-riesgos';
+import { construirResolverDeuda, type AccionPlanParaDeuda } from '@/lib/sgsi/deuda-planes';
 import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
 import { colorDeNivelValor } from '@/lib/sgsi/valoracion-figura';
+import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
 
 export interface PantallaAnalisisRiesgosProps {
   activos: ActivoAnalizable[];
@@ -51,6 +53,12 @@ export interface PantallaAnalisisRiesgosProps {
   procesos: string[];
   propietarios: string[];
   personas: { correo: string; nombre: string }[];
+  /// REQ-SIG-20 §7 (D4, tarea 4.10-4.11) · crudos: esta pantalla reconstruye
+  /// `ResolverDeudaPlan` con `construirResolverDeuda` porque sus filtros reescopan sin ida y
+  /// vuelta al servidor y una función no cruza ese límite.
+  accionesParaDeuda: AccionPlanParaDeuda[];
+  /// La franja nombrada (tarea 4.17), ya resuelta con antigüedad.
+  sinPlan: FilaFranjaSinPlan[];
 }
 
 export default function PantallaAnalisisRiesgos({
@@ -60,6 +68,8 @@ export default function PantallaAnalisisRiesgos({
   procesos,
   propietarios,
   personas,
+  accionesParaDeuda,
+  sinPlan,
 }: PantallaAnalisisRiesgosProps) {
   const router = useRouter();
   const parametros = useSearchParams();
@@ -95,16 +105,24 @@ export default function PantallaAnalisisRiesgos({
 
   const datos = useMemo(() => ({ activos, bandas, umbral }), [activos, bandas, umbral]);
 
-  // Sin resolutor de deuda: la Fase 4 (`lib/sgsi/deuda-planes.ts`) no existe todavía. Ver el
-  // encabezado del módulo puro.
-  const filas = useMemo(() => filasAnalisis(datos, filtros), [datos, filtros]);
-  const tarjetas = useMemo(() => tarjetasAnalisis(datos, filtros), [datos, filtros]);
+  // REQ-SIG-20 §7 (tarea 4.10-4.11) · el mismo `construirResolverDeuda` puro que
+  // `lib/sgsi/deuda-planes-lectura.ts` usa del lado del servidor, reconstruido acá sobre los
+  // `AccionPlan` crudos — la única forma de que una función cruce el límite servidor→cliente
+  // es no ser una función: viajan los datos, se reconstruye la MISMA derivación.
+  const resolverDeuda = useMemo(() => construirResolverDeuda(accionesParaDeuda), [accionesParaDeuda]);
+
+  const filas = useMemo(() => filasAnalisis(datos, filtros, resolverDeuda), [datos, filtros, resolverDeuda]);
+  const tarjetas = useMemo(
+    () => tarjetasAnalisis(datos, filtros, resolverDeuda),
+    [datos, filtros, resolverDeuda],
+  );
   // El total SIN filtrar, para el encabezado — que diga «37 de 299» siempre, no lo que el
   // filtro actual dejó ver.
   const totalEnAnalisis = useMemo(
-    () => tarjetasAnalisis(datos, FILTROS_ANALISIS_VACIOS).enAnalisis.n,
-    [datos],
+    () => tarjetasAnalisis(datos, FILTROS_ANALISIS_VACIOS, resolverDeuda).enAnalisis.n,
+    [datos, resolverDeuda],
   );
+  const sinPlanCodigos = useMemo(() => new Set(sinPlan.map((f) => f.activoCodigo)), [sinPlan]);
 
   const hayFiltros = consultaDeFiltrosAnalisis(filtros) !== '';
 
@@ -172,7 +190,7 @@ export default function PantallaAnalisisRiesgos({
         <Tarjeta
           etiqueta="SIN PLAN"
           valor={tarjetas.sinPlan === null ? '—' : String(tarjetas.sinPlan)}
-          nota={tarjetas.sinPlan === null ? 'disponible en la Fase 4' : 'vencidos'}
+          nota="residual Crítico, sin plan"
           activa={filtros.estadoPlan === 'pendiente'}
           deshabilitada={tarjetas.sinPlan === null}
           onClick={() =>
@@ -182,6 +200,10 @@ export default function PantallaAnalisisRiesgos({
             }))
           }
         />
+      </div>
+
+      <div className="mt-5">
+        <FranjaSinPlan filas={sinPlan} />
       </div>
 
       <FilaDeFiltros
@@ -225,12 +247,15 @@ export default function PantallaAnalisisRiesgos({
                 {filas.map((f) => (
                   <tr key={f.codigo} className="border-b border-hairline-faint">
                     <td className="py-1.5 pr-3">
-                      <Link
-                        href={hrefDeFila(f.codigo, filtros)}
-                        className="font-mono font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
-                      >
-                        {f.codigo}
-                      </Link>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Link
+                          href={hrefDeFila(f.codigo, filtros)}
+                          className="font-mono font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
+                        >
+                          {f.codigo}
+                        </Link>
+                        {sinPlanCodigos.has(f.codigo) && <PuntoSinPlan />}
+                      </span>
                     </td>
                     <td className="py-1.5 pr-3 text-secondary">{f.nombre}</td>
                     <td className="px-2 py-1.5 text-center">

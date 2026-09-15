@@ -11,7 +11,8 @@ import { leerAnalisisRiesgos } from '@/app/components/sgsi/valoracion-riesgos/an
 export const dynamic = 'force-dynamic';
 
 export default async function AnalisisRiesgosPage() {
-  const { activos, bandas, umbral, procesos, propietarios, personas } = await leerAnalisisRiesgos();
+  const { activos, bandas, umbral, procesos, propietarios, personas, accionesParaDeuda, sinPlan } =
+    await leerAnalisisRiesgos();
 
   return (
     <PantallaAnalisisRiesgos
@@ -21,6 +22,8 @@ export default async function AnalisisRiesgosPage() {
       procesos={procesos}
       propietarios={propietarios}
       personas={personas}
+      accionesParaDeuda={accionesParaDeuda}
+      sinPlan={sinPlan}
     />
   );
 }

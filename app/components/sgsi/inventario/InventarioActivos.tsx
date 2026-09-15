@@ -33,6 +33,7 @@ import {
 } from '@/lib/sgsi/riesgo-activo';
 import { valorActivo } from '@/lib/sgsi/formulas';
 import { CRITERIO_MAX, type DimensionActiva } from '@/lib/sgsi/valoracion-agregada';
+import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
 import {
   FILTROS_VACIOS,
   SIN_ASIGNAR,
@@ -121,6 +122,9 @@ interface Props {
   /// Las dimensiones ACTIVAS de `Dimension`, en el orden del catalogo. El filtro por dimension
   /// se arma con estas y no con tres constantes: el esquema admite cinco codigos.
   dimensiones: DimensionActiva[];
+  /// REQ-SIG-20 §7.3 (tarea 4.17) · residuales Crítico sin plan de tratamiento, ya
+  /// resueltos por `lib/sgsi/deuda-planes-lectura.ts`.
+  sinPlan: FilaFranjaSinPlan[];
 }
 
 /// The top of the valuation scale. Both the asset value and the risk-band ladder are
@@ -183,6 +187,7 @@ export default function InventarioActivos({
   bandas,
   umbralValoracion,
   dimensiones,
+  sinPlan,
 }: Props) {
   // D, I and C are edited in the grid. The override map is keyed by asset code and holds
   // only what actually moved, so an untouched dimension keeps showing the stored value.
@@ -193,6 +198,7 @@ export default function InventarioActivos({
   const [valores, setValores] = useState<Record<string, Partial<Record<'D' | 'I' | 'C', number>>>>(
     {},
   );
+  const sinPlanCodigos = useMemo(() => new Set(sinPlan.map((f) => f.activoCodigo)), [sinPlan]);
 
   // Lo que la URL puede nombrar. Un parametro con un valor que no esta en el inventario se
   // ignora y se avisa: dejar la pantalla vacia sin explicacion es peor que mostrarla entera.
@@ -714,6 +720,10 @@ export default function InventarioActivos({
         </div>
       </header>
 
+      <div className="mt-4">
+        <FranjaSinPlan filas={sinPlan} />
+      </div>
+
       {aviso && (
         <div
           className="mt-4 rounded-campo border px-4 py-2.5 text-12"
@@ -817,6 +827,7 @@ export default function InventarioActivos({
                               escala={escala}
                               onEditar={editar}
                               verPersona={verPersona}
+                              sinPlan={sinPlanCodigos.has(c.activo.codigo)}
                             />
                           ))}
                       </div>
@@ -869,9 +880,12 @@ interface RenglonProps {
   escala: NivelValor[];
   onEditar: (codigo: string, dim: 'D' | 'I' | 'C', valor: number) => void;
   verPersona: boolean;
+  /// REQ-SIG-20 §7.3 (tarea 4.17) · true cuando el activo tiene un residual Crítico sin
+  /// plan de tratamiento.
+  sinPlan: boolean;
 }
 
-function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
+function Renglon({ c, escala, onEditar, verPersona, sinPlan }: RenglonProps) {
   const a = c.activo;
   const fondo = FONDO_RENGLON[c.color];
   const nivelColor = colorDeNivel(c.valor);
@@ -915,13 +929,16 @@ function Renglon({ c, escala, onEditar, verPersona }: RenglonProps) {
       {/* The code opens the asset sheet. Only this cell is a link: the row carries D/I/C
           selects, and wrapping the whole thing would swallow their clicks. */}
       <div className="flex min-w-0 flex-col gap-px">
-        <Link
-          href={`/sgsi/inventario/${encodeURIComponent(a.codigo)}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-mono text-11_5 font-semibold text-accent-500 underline decoration-accent-border decoration-from-font underline-offset-2"
-        >
-          {a.codigo}
-        </Link>
+        <span className="flex items-center gap-1.5">
+          <Link
+            href={`/sgsi/inventario/${encodeURIComponent(a.codigo)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-11_5 font-semibold text-accent-500 underline decoration-accent-border decoration-from-font underline-offset-2"
+          >
+            {a.codigo}
+          </Link>
+          {sinPlan && <PuntoSinPlan />}
+        </span>
         <span className="font-mono text-9_5 text-[var(--hf-text-placeholder)]">
           {a.codigoHeredado ?? 'sin código heredado'}
         </span>

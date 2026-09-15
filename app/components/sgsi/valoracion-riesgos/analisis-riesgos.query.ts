@@ -23,6 +23,9 @@ import 'server-only';
 
 import { prisma } from '@/lib/db';
 import { valorActivo } from '@/lib/sgsi/formulas';
+import { leerDeudaPlanes } from '@/lib/sgsi/deuda-planes-lectura';
+import type { AccionPlanParaDeuda } from '@/lib/sgsi/deuda-planes';
+import type { FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
 import type { ActivoAnalizable } from '@/lib/sgsi/analisis-riesgos';
 import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
 
@@ -38,10 +41,19 @@ export interface DatosPaginaAnalisis {
   procesos: string[];
   propietarios: string[];
   personas: { correo: string; nombre: string }[];
+  /// REQ-SIG-20 §7 (D4, tarea 4.10-4.11) · los `AccionPlan` activos, crudos — la pantalla
+  /// reconstruye `ResolverDeudaPlan` del lado del cliente con `construirResolverDeuda`
+  /// (`lib/sgsi/deuda-planes.ts`), porque sus seis filtros reescopan sin ida y vuelta al
+  /// servidor y una función no cruza ese límite.
+  accionesParaDeuda: AccionPlanParaDeuda[];
+  /// La franja nombrada (tarea 4.17), ya resuelta con antigüedad. Sin `Date`: solo lo que
+  /// `FranjaSinPlan.tsx` necesita, para que el prop cruce el límite servidor→cliente como
+  /// datos planos.
+  sinPlan: FilaFranjaSinPlan[];
 }
 
 export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
-  const [activosVigentes, umbrales, parametro] = await Promise.all([
+  const [activosVigentes, umbrales, parametro, deuda] = await Promise.all([
     prisma.activo.findMany({
       where: { activo: true },
       orderBy: { codigo: 'asc' },
@@ -73,6 +85,7 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
     }),
     prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
     prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } }),
+    leerDeudaPlanes(),
   ]);
 
   // El mismo default que `lib/sgsi/riesgos.ts`, el inventario y la Valoración: un activo
@@ -128,7 +141,23 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
     .map(([correo, nombre]) => ({ correo, nombre }))
     .sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
 
-  return { activos, bandas, umbral, procesos, propietarios, personas };
+  return {
+    activos,
+    bandas,
+    umbral,
+    procesos,
+    propietarios,
+    personas,
+    accionesParaDeuda: deuda.acciones,
+    sinPlan: deuda.filas.map((f) => ({
+      activoCodigo: f.activoCodigo,
+      activoNombre: f.activoNombre,
+      amenazaCodigo: f.amenazaCodigo,
+      amenazaNombre: f.amenazaNombre,
+      diasPendiente: f.diasPendiente,
+      escalado: f.escalado,
+    })),
+  };
 }
 
 function unicos(xs: string[]): string[] {

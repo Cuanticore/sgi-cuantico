@@ -290,56 +290,114 @@ left to the user/orchestrator, not decided here.
 
 ### 4b — Plan debt + notes (P2, P6) — Checkpoint E
 
-- [ ] 4.8 RED test `lib/sgsi/__tests__/origen-plan.test.ts` (new module): the machine-checked
+- [x] 4.8 RED test `lib/sgsi/__tests__/origen-plan.test.ts` (new module): the machine-checked
       `origen:v1|R-0123|TEC-GEN-0004|A.24 · <rationale>` prefix formats and round-trip parses.
-- [ ] 4.9 Implement `lib/sgsi/origen-plan.ts` to pass 4.8.
-- [ ] 4.10 RED test `lib/sgsi/__tests__/deuda-planes.test.ts` (new module): "sin plan" derives
+      Found fully written and passing at apply time; reused as-is.
+- [x] 4.9 Implement `lib/sgsi/origen-plan.ts` to pass 4.8. Found fully implemented at apply
+      time (`formatearOrigen`/`parsearOrigen`/`origenCubreRiesgo`); reused as-is.
+- [x] 4.10 RED test `lib/sgsi/__tests__/deuda-planes.test.ts` (new module): "sin plan" derives
       (non-obsolete Crítico-band risk, no active `AccionPlan` matching origin via 4.9) and is
       **never stored**; age walks the `RiesgoCalculo` streak from task 1.8 against
       `CriterioAceptacion.plazoPlan`. Own the string parser for `plazoPlan`/`plazoEjecucion`
       ("N días", "No requiere" — see Open Item 5); confirm ambiguous formats with the SIG lead.
-- [ ] 4.11 Implement `lib/sgsi/deuda-planes.ts` to pass 4.10. AC: spec
-      `critical-risk-treatment-plan` "Plan pendiente state".
-- [ ] 4.12 `app/components/sgsi/activos/PopupPlanCritico.tsx` (new) — prefilled per design D4:
+      Found fully written and passing at apply time; reused as-is. Parser also accepts "N
+      meses" (real `plazoEjecucion` form, not anticipated by the open item) and returns
+      `irreconocible` for "Revisión anual" — see apply report for the full format survey.
+- [x] 4.11 Implement `lib/sgsi/deuda-planes.ts` to pass 4.10. AC: spec
+      `critical-risk-treatment-plan` "Plan pendiente state". Found fully implemented at apply
+      time; reused as-is.
+- [x] 4.12 `app/components/sgsi/activos/PopupPlanCritico.tsx` (new) — prefilled per design D4:
       control = principal of the critical threat (or lowest-maturity without relevance), tipo
       default `MITIGAR` (`ACEPTAR`/`TRANSFERIR`/`EVITAR` available), origin = triggering
       asset+threat, madurez actual→objetivo, responsable = asset owner (editable), fecha = hoy +
       `plazoEjecucion`. Test: all six fields prefilled from a fixture. AC: spec
-      `critical-risk-treatment-plan` "Popup prefill sources".
-- [ ] 4.13 `app/sgsi/acciones/plan.ts` — risk-origin prefill wiring: writes `AccionPlan.origen`
+      `critical-risk-treatment-plan` "Popup prefill sources". Found fully implemented and
+      tested at apply time; reused as-is. Fixed one real bug during apply: a synchronous
+      `setCargando(true)` inside the fetch `useEffect` tripped `react-hooks/set-state-in-effect`
+      as a lint ERROR — removed, since the state already starts `true` and the popup is meant
+      to remount (fresh key) per queued critical, never reuse its instance across items.
+- [x] 4.13 `app/sgsi/acciones/plan.ts` — risk-origin prefill wiring: writes `AccionPlan.origen`
       via 4.9's formatter; reuses existing `guardarAccion`/`crearAccionDesdeControl` dedupe, no
       parallel plan list. AC: spec `critical-risk-treatment-plan` "The unit is the control (D-4)".
-- [ ] 4.14 RED test for `guardarSesionRiesgo(codigo, borrador, nota)` in
+      Found fully implemented (`datosPrefillPlanCritico`, `registrarPlanCritico`) and covered
+      indirectly via `PopupPlanCritico.test.tsx`; reused as-is.
+- [x] 4.14 RED test for `guardarSesionRiesgo(codigo, borrador, nota)` in
       `app/sgsi/acciones/riesgos.ts`: note-less save fails with **zero** writes (data and
       `Bitacora`) — the one deliberate D17 exception; a 3-field change produces exactly 3
       `Bitacora` rows sharing the same note as `motivo`, one `$transaction`, note also written to
       `Riesgo.justificacion`. Implement: upserts exceptions + `madurezId` (D5's first writer),
       then calls `generarRiesgos`; response carries the critical-band trigger. AC: spec
       `end-of-session-notes` "One Bitacora row per changed field", "Note-less save fails";
-      proposal AC9.
-- [ ] 4.15 `FichaActivo.tsx` notes UI — changes accumulate unprompted with a running draft count
+      proposal AC9. Found fully implemented and tested at apply time (server side); reused
+      as-is. What was NOT done yet at apply time: `FichaActivo.tsx` still called the old,
+      now-deleted `excepcionDegradacion`/`excepcionFrecuencia` in its save loop — 2 of the 3
+      `tsc` errors this session fixed. See 4.15.
+- [x] 4.15 `FichaActivo.tsx` notes UI — changes accumulate unprompted with a running draft count
       («N cambios sin guardar»); one save dialog lists old→new per field plus the mandatory
       notes textarea. Integration test: three changes → dialog lists three rows; empty note
       blocks save with no partial write. AC: spec `end-of-session-notes` "Changes accumulate
-      without prompting", "Single save dialog with a mandatory notes field".
-- [ ] 4.16 Critical-save popup wiring: a save leaving residual Crítico opens 4.12 prefilled and
+      without prompting", "Single save dialog with a mandatory notes field". Implemented this
+      session: `plan.sesionRiesgos` groups pending degradación/frecuencia/madurez-del-riesgo
+      changes per risk into one `BorradorSesionRiesgo`; `guardar()` opens `DialogoNotas` (new
+      component) instead of saving directly whenever `plan.sesionRiesgos` is non-empty;
+      confirming with a non-empty note calls `guardarSesionRiesgo` once per touched risk with
+      the SAME note. Removed the old per-field justification impediments (they belonged to
+      `excepcionDegradacion`/`excepcionFrecuencia`, which this dialog replaces) — no test
+      depended on them. Draft count surfaces through the existing `plan.pendientes` counter
+      (already shown as "Guardar N cambios"), now correctly including session-field changes it
+      previously excluded. Integration tests added in `FichaActivo.test.tsx`: two changes open
+      one dialog listing both rows; empty note leaves Confirm disabled and calls nothing; a
+      filled note calls `guardarSesionRiesgo` once with the grouped borrador. **Deviation,
+      flagged**: no UI control exists yet for the risk-maturity exception
+      (`madurezRiesgoOv`/`setMadurezRiesgoOv` — declared by a prior session, never wired to an
+      `onMadurezRiesgo` handler); the grouping code supports it (untested via UI, since it is
+      unreachable), but only degradación and frecuencia are reachable from the sheet today.
+- [x] 4.16 Critical-save popup wiring: a save leaving residual Crítico opens 4.12 prefilled and
       **succeeds regardless**; closing without registering marks "plan pendiente" with a date and
       increments the SIN PLAN card (3.9). Integration test per spec
       `critical-risk-treatment-plan` "Save succeeds, popup opens" + "Close without registering".
-      AC: proposal AC7.
-- [ ] 4.17 `app/components/sgsi/planes/FranjaSinPlan.tsx` (new) — named codes (not a bare count),
+      AC: proposal AC7. Implemented this session: `colaCritica` queue (declared by a prior
+      session, never wired) now fills from every `guardarSesionRiesgo` result carrying
+      `.critico`, and `PopupPlanCritico` renders for `colaCritica[0]`, keyed by
+      `activoCodigo·amenazaCodigo` so each queued critical mounts a fresh instance. The save
+      that filled the queue already committed before the queue is touched — D17. "Plan
+      pendiente" itself is not a stored flag (see 4.11/invariant 1): it is `deuda-planes.ts`
+      deriving "no active plan covers this risk" the next time any of the three screens reads
+      it, which is exactly what already happened at apply time via 4.17's wiring. Integration
+      test added: `guardarSesionRiesgo` resolving with `.critico` opens the popup without
+      gating on it; "cerrar sin registrar" empties the queue.
+- [x] 4.17 `app/components/sgsi/planes/FranjaSinPlan.tsx` (new) — named codes (not a bare count),
       each opening via the overlay contract (3.2); max 5 + "+n más" link to the filtered
       analysis page; shows pending age; collapses to one line, never dismissible forever. Mount
       in `/sgsi/planes` via `PlanesTratamiento.tsx` (modify) and in `InventarioActivos.tsx` +
       the analysis page with the amber dot ("sin plan" on hover). AC: spec
-      `critical-risk-treatment-plan` "Named alert band in two lists"; proposal AC7, AC8.
-- [ ] 4.18 RED test: registering an `ACEPTAR` plan (justification + review date + approver from
+      `critical-risk-treatment-plan` "Named alert band in two lists"; proposal AC7, AC8. Found
+      fully implemented and wired in all three screens (`PlanesTratamiento.tsx`,
+      `InventarioActivos.tsx`, `PantallaAnalisisRiesgos.tsx`) with passing tests at apply time;
+      reused as-is.
+- [x] 4.18 RED test: registering an `ACEPTAR` plan (justification + review date + approver from
       `CriterioAceptacion.aprueba`) removes the asset from both bands. AC: spec
-      `critical-risk-treatment-plan` "ACEPTAR exits the band".
-- [ ] 4.19 Structural check: `AccionPlan` stores origin asset/threat but is filed under the
+      `critical-risk-treatment-plan` "ACEPTAR exits the band". Covered at the pure-resolver
+      layer in `deuda-planes.test.ts` (found written at apply time): `construirResolverDeuda`
+      only ever sees `{activa, origen}` — no `tipo` — so "covers regardless of tipo, including
+      ACEPTAR" is exhaustively true by the type signature, not just by example. ACEPTAR's own
+      field requirements (justificación, fecha de revisión, aprobador) are `registrarPlanCritico`
+      /`guardarAccion`'s job (`app/sgsi/acciones/plan.ts`), already enforced there; no dedicated
+      test file for that action module exists yet — flagged, not silently resolved.
+- [x] 4.19 Structural check: `AccionPlan` stores origin asset/threat but is filed under the
       existing control-based treatment-plans module; confirm no parallel per-asset/per-risk list
       was created anywhere in 4.12–4.17. AC: spec `critical-risk-treatment-plan` "Plan appears in
-      the module with its origin".
+      the module with its origin". **Evidence** (`rg "^model.*[Pp]lan" prisma/schema.prisma`):
+      only `AccionPlan`, `CeldaPlan` (pre-existing maturity-grid cell, unrelated) and
+      `PlantillaNivel` (pre-existing, unrelated) match — no new plan-shaped model exists.
+      `rg "accionPlan\."` across `app/`, `lib/`, `prisma/` outside `app/sgsi/acciones/plan.ts`
+      and `lib/sgsi/deuda-planes*.ts` returns exactly four call sites: `ShellSig.tsx` (sidebar
+      count, read-only), `app/sgsi/acciones/controles.ts` (existing control-linked action list,
+      pre-existing), `app/sgsi/planes/page.tsx` (the existing treatment-plans module page,
+      pre-existing) and `prisma/seeds/plan.ts` (seed data). `registrarPlanCritico` writes only
+      to `accionPlan` — the same table `guardarAccion`/`crearAccionDesdeControl` write to — with
+      `controlId` still the unit and `origen` carrying the triggering asset/threat as a
+      verifiable string prefix (4.9). No parallel table, no parallel list screen.
 
 ## Phase 5: Pruebas, ajuste y verificación (2.0d)
 

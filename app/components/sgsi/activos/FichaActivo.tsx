@@ -81,11 +81,11 @@ import {
   type DatosGenerales as DatosGeneralesActivo,
 } from '@/app/sgsi/acciones/activos';
 import {
-  excepcionDegradacion,
-  excepcionFrecuencia,
+  guardarSesionRiesgo,
   guardarTratamiento,
   quitarAmenazaDelActivo,
   restaurarAmenaza,
+  type BorradorSesionRiesgo,
   type DecisionTratamiento,
 } from '@/app/sgsi/acciones/riesgos';
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
@@ -95,6 +95,7 @@ import { esCriticidadSospechosa } from '@/lib/sgsi/criticidad-coherencia';
 import type { Catalogo } from '@/lib/sgsi/catalogos';
 import PopupCatalogo from '@/app/components/sgsi/parametros/PopupCatalogo';
 import PopupControlesAmenaza from './PopupControlesAmenaza';
+import PopupPlanCritico from './PopupPlanCritico';
 import PestanaEcuacion from './PestanaEcuacion';
 import type {
   ActivoBreve,
@@ -400,6 +401,14 @@ interface FilaAmenaza {
   objetivoFrecuencia: number | null;
   frecuenciaPendiente: boolean;
   justificacionFrecuencia: string;
+  /// REQ-SIG-20 §10 (D5, tarea 4.15) · la excepción de madurez del RIESGO —`Riesgo.
+  /// madurezId`, D5's first writer—, distinta de la madurez del control. `null` cuando el
+  /// riesgo hereda de los controles.
+  madurezRiesgoId: number | null;
+  madurezRiesgoDesviada: boolean;
+  /// Mismo par que `objetivoFrecuencia`: `null` = vuelve a heredar, un id = la excepción.
+  objetivoMadurezRiesgo: number | null;
+  madurezRiesgoPendiente: boolean;
   /// The treatment fields that changed against what the server sent, and whether the
   /// action will read the result as an override. With the residual uncalculated there is
   /// no band to back any decision, so ANY stored treatment is an override and
@@ -479,6 +488,13 @@ export default function FichaActivo({
     justificacionesFrecuencia(activo, amenazas),
   );
   const [madOv, setMadOv] = useState<Record<string, number>>({});
+  /// REQ-SIG-20 §10 (D5, tarea 4.15) · la excepción de madurez del RIESGO —`Riesgo.
+  /// madurezId`, distinta de `madOv` de arriba, que es la madurez del CONTROL y sigue sin
+  /// acción propia. Clave = código de amenaza; ausente = sin tocar esta sesión, `null` =
+  /// vuelve a heredar de los controles, un id = la excepción elegida. A diferencia de
+  /// `frecOv`, acá SÍ hace falta un `null` explícito: no hay ningún id de `EscalaMadurez`
+  /// que signifique por sí mismo "sin excepción".
+  const [madurezRiesgoOv, setMadurezRiesgoOv] = useState<Record<string, number | null>>({});
   const [efectos, setEfectos] = useState<Record<string, EfectoControl>>({});
   const [ctlEliminados, setCtlEliminados] = useState<string[]>([]);
   const [eliminadas, setEliminadas] = useState<Record<string, string>>({});
@@ -500,6 +516,21 @@ export default function FichaActivo({
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const [guardando, iniciarGuardado] = useTransition();
   const router = useRouter();
+
+  // REQ-SIG-20 §10 (D5, tarea 4.15) · el guardado de fin de sesión. Mientras se edita, los
+  // cambios de degradación/frecuencia/madurez del riesgo se acumulan sin pedir nada (`plan.
+  // pendientes`, más abajo, ya cuenta con ellos); al guardar, si hay al menos uno, este
+  // diálogo pide la nota ÚNICA obligatoria antes de dejar seguir — el único bloqueo
+  // deliberado de D17 en este cambio.
+  const [dialogoNotas, setDialogoNotas] = useState(false);
+  const [nota, setNota] = useState('');
+
+  // REQ-SIG-20 §7 (D4, tarea 4.16) · la cola de residuales que quedaron en banda Crítico
+  // tras el guardado — uno por amenaza — para abrir `PopupPlanCritico` uno a la vez. El
+  // guardado que la llenó YA tuvo éxito: D17 exige el plan, nunca condiciona el guardado.
+  const [colaCritica, setColaCritica] = useState<{ activoCodigo: string; amenazaCodigo: string }[]>(
+    [],
+  );
 
   /// Every mutating handler funnels through this, so the indicator can never disagree
   /// with whether something was touched.
@@ -637,6 +668,18 @@ export default function FichaActivo({
         const objetivoFrecuencia = frecuenciaDesviada ? frecuenciaId : null;
         const frecuenciaPendiente = objetivoFrecuencia !== (baseFrecOv[amenaza.codigo] ?? null);
 
+        // REQ-SIG-20 §10 (D5, tarea 4.15) · la excepción de madurez del RIESGO. Ausente en
+        // `madurezRiesgoOv` = sin tocar esta sesión, y entonces se lee lo guardado
+        // (`guardado?.madurezId`); presente (incluido `null`, "vuelve a heredar") = lo que
+        // esta sesión eligió.
+        const guardadoDelRiesgo = guardadoPorAmenaza.get(amenaza.id);
+        const madurezRiesgoBase = guardadoDelRiesgo?.madurezId ?? null;
+        const madurezRiesgoId =
+          amenaza.codigo in madurezRiesgoOv ? madurezRiesgoOv[amenaza.codigo] : madurezRiesgoBase;
+        const madurezRiesgoDesviada = madurezRiesgoId !== null;
+        const objetivoMadurezRiesgo = madurezRiesgoId;
+        const madurezRiesgoPendiente = objetivoMadurezRiesgo !== madurezRiesgoBase;
+
         // The threat's controls, minus the ones removed from this asset's group, with any
         // maturity edited on this sheet applied. A control marked as not applicable is
         // excluded from its own average: letting a single zero in is the defect the
@@ -766,6 +809,10 @@ export default function FichaActivo({
           objetivoFrecuencia,
           frecuenciaPendiente,
           justificacionFrecuencia: justFrec[amenaza.codigo] ?? '',
+          madurezRiesgoId,
+          madurezRiesgoDesviada,
+          objetivoMadurezRiesgo,
+          madurezRiesgoPendiente,
           tratamiento,
           cambiosTratamiento,
           tratamientoPendiente,
@@ -800,6 +847,7 @@ export default function FichaActivo({
       frecOv,
       justFrec,
       madOv,
+      madurezRiesgoOv,
       efectos,
       ctlEliminados,
       trat,
@@ -904,44 +952,32 @@ export default function FichaActivo({
       }
     }
 
-    const degradaciones: {
-      codigo: string;
-      codigoRiesgo: string | null;
-      dimension: Dim;
-      degradacionId: number | null;
-      justificacion: string;
-    }[] = [];
-    const frecuencias: {
-      codigo: string;
-      codigoRiesgo: string | null;
-      frecuenciaId: number | null;
-      justificacion: string;
-    }[] = [];
     const tratamientos: {
       codigo: string;
       codigoRiesgo: string | null;
       decision: DecisionTratamiento;
     }[] = [];
 
+    // REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · degradación, frecuencia y madurez del
+    // riesgo se agrupan UNA vez por riesgo tocado en un solo `BorradorSesionRiesgo` — el
+    // guardado que las escribe (`guardarSesionRiesgo`) reemplaza el camino de
+    // `excepcionDegradacion`/`excepcionFrecuencia` y pide UNA nota para todo el grupo, no
+    // una por campo (spec `end-of-session-notes`, "Changes accumulate without prompting").
+    const sesionRiesgos: {
+      codigoRiesgo: string;
+      amenazaCodigo: string;
+      borrador: BorradorSesionRiesgo;
+      cambios: { campo: string; anterior: string; nuevo: string }[];
+    }[] = [];
+
+    const nombreDegradacion = (id: number): string => porId.degradacion.get(id)?.nombre ?? `#${id}`;
+    const nombreFrecuencia = (id: number): string => porId.frecuencia.get(id)?.nombre ?? `#${id}`;
+    const nombreMadurez = (id: number): string => {
+      const nivel = catalogos.escalaMadurez.find((m) => m.id === id)?.nivel;
+      return nivel === undefined ? `#${id}` : `L${nivel}`;
+    };
+
     for (const f of filas) {
-      for (const d of DIMS) {
-        if (!f.degradacionPendiente[d]) continue;
-        degradaciones.push({
-          codigo: f.amenaza.codigo,
-          codigoRiesgo: f.codigoRiesgo,
-          dimension: d,
-          degradacionId: f.objetivoDegradacion[d],
-          justificacion: f.justificacion[d],
-        });
-      }
-      if (f.frecuenciaPendiente) {
-        frecuencias.push({
-          codigo: f.amenaza.codigo,
-          codigoRiesgo: f.codigoRiesgo,
-          frecuenciaId: f.objetivoFrecuencia,
-          justificacion: f.justificacionFrecuencia,
-        });
-      }
       if (f.tratamientoPendiente) {
         tratamientos.push({
           codigo: f.amenaza.codigo,
@@ -949,7 +985,68 @@ export default function FichaActivo({
           decision: f.cambiosTratamiento,
         });
       }
+
+      if (f.codigoRiesgo === null) continue;
+
+      const borradorDegradacion: Partial<Record<Dim, number | null>> = {};
+      let tieneDegradacion = false;
+      const cambios: { campo: string; anterior: string; nuevo: string }[] = [];
+
+      for (const d of DIMS) {
+        if (!f.degradacionPendiente[d]) continue;
+        tieneDegradacion = true;
+        borradorDegradacion[d] = f.objetivoDegradacion[d];
+        const previa = baseDegOv[f.amenaza.codigo]?.[d]?.degradacionId ?? null;
+        cambios.push({
+          campo: `Degradación ${d} — ${f.amenaza.codigo}`,
+          anterior:
+            previa === null ? `hereda de ${f.amenaza.codigo}` : nombreDegradacion(previa),
+          nuevo:
+            f.objetivoDegradacion[d] === null
+              ? `hereda de ${f.amenaza.codigo}`
+              : nombreDegradacion(f.objetivoDegradacion[d]),
+        });
+      }
+
+      if (f.frecuenciaPendiente) {
+        const previa = baseFrecOv[f.amenaza.codigo] ?? null;
+        cambios.push({
+          campo: `Frecuencia — ${f.amenaza.codigo}`,
+          anterior: previa === null ? `hereda de ${f.amenaza.codigo}` : nombreFrecuencia(previa),
+          nuevo:
+            f.objetivoFrecuencia === null
+              ? `hereda de ${f.amenaza.codigo}`
+              : nombreFrecuencia(f.objetivoFrecuencia),
+        });
+      }
+
+      if (f.madurezRiesgoPendiente) {
+        const previa = f.guardado?.madurezId ?? null;
+        cambios.push({
+          campo: `Madurez del riesgo — ${f.amenaza.codigo}`,
+          anterior: previa === null ? 'hereda de los controles' : nombreMadurez(previa),
+          nuevo:
+            f.objetivoMadurezRiesgo === null
+              ? 'hereda de los controles'
+              : nombreMadurez(f.objetivoMadurezRiesgo),
+        });
+      }
+
+      if (cambios.length === 0) continue;
+
+      sesionRiesgos.push({
+        codigoRiesgo: f.codigoRiesgo,
+        amenazaCodigo: f.amenaza.codigo,
+        borrador: {
+          ...(tieneDegradacion ? { degradacion: borradorDegradacion } : {}),
+          ...(f.frecuenciaPendiente ? { frecuenciaId: f.objetivoFrecuencia } : {}),
+          ...(f.madurezRiesgoPendiente ? { madurezId: f.objetivoMadurezRiesgo } : {}),
+        },
+        cambios,
+      });
     }
+
+    const nCambiosSesion = sesionRiesgos.reduce((n, s) => n + s.cambios.length, 0);
 
     // A removal only counts while the risk is still in the live analysis. After the save
     // it is obsolete, so it drops out of here on its own and the band moves to the
@@ -990,8 +1087,7 @@ export default function FichaActivo({
     const pendientes =
       nDatos +
       valoracion.length +
-      degradaciones.length +
-      frecuencias.length +
+      nCambiosSesion +
       tratamientos.length +
       bajasAmenaza.length +
       (baja !== null ? 1 : 0);
@@ -1001,8 +1097,8 @@ export default function FichaActivo({
       nDatos,
       clasificacion,
       valoracion,
-      degradaciones,
-      frecuencias,
+      sesionRiesgos,
+      nCambiosSesion,
       tratamientos,
       bajasAmenaza,
       bajaActivo: baja,
@@ -1023,6 +1119,10 @@ export default function FichaActivo({
     ctlEliminados,
     agregadas,
     baja,
+    porId,
+    baseDegOv,
+    baseFrecOv,
+    catalogos.escalaMadurez,
   ]);
 
   // --- Save gate ------------------------------------------------------------------
@@ -1058,21 +1158,10 @@ export default function FichaActivo({
   // Save rather than after.
 
   for (const f of filas) {
-    for (const d of DIMS) {
-      if (!f.degradacionPendiente[d] || f.justificacion[d].trim() !== '') continue;
-      impedimentos.push(
-        f.objetivoDegradacion[d] === null
-          ? `La degradación ${d} de ${f.amenaza.codigo} vuelve a la parametrización y no tiene justificación: volver a heredar también se justifica.`
-          : `La degradación ${d} de ${f.amenaza.codigo} se desvía de la parametrización y no tiene justificación.`,
-      );
-    }
-    if (f.frecuenciaPendiente && f.justificacionFrecuencia.trim() === '') {
-      impedimentos.push(
-        f.objetivoFrecuencia === null
-          ? `La frecuencia de ${f.amenaza.codigo} vuelve a la de la amenaza y no tiene justificación: volver a heredar también se justifica.`
-          : `La frecuencia de ${f.amenaza.codigo} se desvía de la parametrizada en la amenaza y no tiene justificación.`,
-      );
-    }
+    // REQ-SIG-20 §10 (D5) · degradación, frecuencia y madurez del riesgo ya NO piden su
+    // propia justificación por campo — spec `end-of-session-notes`, "Changes accumulate
+    // without prompting": no per-change reason modal. La única nota que las cubre es la
+    // del diálogo de guardado (`dialogoNotas`, más abajo), obligatoria recién ahí.
     if (f.faltaObservacion) {
       impedimentos.push(
         `El tratamiento de ${f.amenaza.codigo} necesita justificación en observaciones: sin nivel residual calculado no hay sugerencia que lo respalde, así que cualquier decisión es una sobrescritura.`,
@@ -1082,7 +1171,10 @@ export default function FichaActivo({
     // with no risk row has nothing to change. Saving the valuation first is what creates
     // it, so the message says so.
     const pendienteDeRiesgo =
-      f.tratamientoPendiente || f.frecuenciaPendiente || DIMS.some((d) => f.degradacionPendiente[d]);
+      f.tratamientoPendiente ||
+      f.frecuenciaPendiente ||
+      f.madurezRiesgoPendiente ||
+      DIMS.some((d) => f.degradacionPendiente[d]);
     if (pendienteDeRiesgo && f.codigoRiesgo === null) {
       impedimentos.push(
         `${f.amenaza.codigo} no tiene riesgo generado en este activo${
@@ -1112,8 +1204,12 @@ export default function FichaActivo({
     });
   };
 
-  const guardar = (): void => {
-    if (activo === null || impedimentos.length > 0 || plan.pendientes === 0) return;
+  /// Corre el guardado de verdad. `notaSesion` es `null` cuando no hay ningún cambio de
+  /// sesión pendiente (`plan.sesionRiesgos` vacío) — en ese caso `guardar()` de abajo llama
+  /// acá directo, sin pasar por el diálogo. Cuando SÍ hay cambios de sesión, `guardar()`
+  /// abre el diálogo primero y es su confirmación la que llama acá con la nota escrita.
+  const ejecutarGuardado = (notaSesion: string | null): void => {
+    if (activo === null) return;
     const codigoActivo = activo.codigo;
     setSync('guardando');
     setAviso(null);
@@ -1121,6 +1217,9 @@ export default function FichaActivo({
     iniciarGuardado(async () => {
       const fallos: string[] = [];
       const logros: string[] = [];
+      // REQ-SIG-20 §7 (D4, tarea 4.16) · lo que dejó el residual en Crítico esta vuelta.
+      // El guardado que los llenó YA tuvo éxito — la cola solo decide si el popup se abre.
+      const criticos: { activoCodigo: string; amenazaCodigo: string }[] = [];
 
       const aplicar = async (operacion: Promise<{ ok: boolean; mensaje: string }>) => {
         const r = await operacion;
@@ -1137,16 +1236,17 @@ export default function FichaActivo({
       // yet needs this to have run — and the gate above refuses that case anyway.
       if (plan.valoracion.length > 0) await aplicar(guardarValoracion(plan.valoracion));
 
-      for (const d of plan.degradaciones) {
-        if (d.codigoRiesgo === null) continue;
-        await aplicar(
-          excepcionDegradacion(d.codigoRiesgo, d.dimension, d.degradacionId, d.justificacion),
-        );
-      }
-
-      for (const f of plan.frecuencias) {
-        if (f.codigoRiesgo === null) continue;
-        await aplicar(excepcionFrecuencia(f.codigoRiesgo, f.frecuenciaId, f.justificacion));
+      // REQ-SIG-20 §10 (D5, tareas 4.14-4.16) · un `guardarSesionRiesgo` por riesgo
+      // tocado, con la MISMA nota para todos — reemplaza el camino de
+      // `excepcionDegradacion`/`excepcionFrecuencia`. `notaSesion` nunca es `null` acá
+      // cuando `plan.sesionRiesgos` no está vacío: `guardar()` garantiza el diálogo pasó
+      // antes de llegar a este punto.
+      if (plan.sesionRiesgos.length > 0 && notaSesion !== null) {
+        for (const s of plan.sesionRiesgos) {
+          const r = await guardarSesionRiesgo(s.codigoRiesgo, s.borrador, notaSesion);
+          (r.ok ? logros : fallos).push(r.mensaje);
+          if (r.critico) criticos.push(r.critico);
+        }
       }
 
       for (const t of plan.tratamientos) {
@@ -1164,6 +1264,12 @@ export default function FichaActivo({
       const salir =
         plan.bajaActivo !== null && (await aplicar(darDeBajaActivo(codigoActivo, plan.bajaActivo)));
 
+      if (criticos.length > 0) {
+        // D17: nunca condiciona si el guardado valió — spec `critical-risk-treatment-
+        // plan`, "Save succeeds, popup opens". Uno a la vez, en el orden en que llegaron.
+        setColaCritica((cola) => [...cola, ...criticos]);
+      }
+
       if (fallos.length === 0) {
         setSync('sincronizado');
         setAviso({ ok: true, texto: resumen(logros) });
@@ -1180,6 +1286,30 @@ export default function FichaActivo({
       }
       router.refresh();
     });
+  };
+
+  /// El botón Guardar. Con cambios de sesión pendientes (degradación/frecuencia/madurez
+  /// del riesgo) abre el diálogo de notas en vez de guardar directo — spec `end-of-
+  /// session-notes`, "Single save dialog with a mandatory notes field". Sin ellos, el
+  /// resto del guardado no tiene por qué esperar ningún diálogo.
+  const guardar = (): void => {
+    if (activo === null || impedimentos.length > 0 || plan.pendientes === 0) return;
+    if (plan.sesionRiesgos.length > 0) {
+      setDialogoNotas(true);
+      return;
+    }
+    ejecutarGuardado(null);
+  };
+
+  /// Confirmar el diálogo de notas. Nota vacía no hace nada — ni cierra el diálogo ni
+  /// guarda — el mismo bloqueo deliberado que `guardarSesionRiesgo` aplica del lado del
+  /// servidor (spec `end-of-session-notes`, "Empty note blocks the save").
+  const confirmarNotaSesion = (): void => {
+    const razon = nota.trim();
+    if (razon === '') return;
+    setDialogoNotas(false);
+    setNota('');
+    ejecutarGuardado(razon);
   };
 
   // The indicator is DERIVED from what is actually pending, so it cannot disagree with
@@ -1568,6 +1698,33 @@ export default function FichaActivo({
         }}
         onGuardar={guardar}
       />
+
+      {dialogoNotas && (
+        <DialogoNotas
+          cambios={plan.sesionRiesgos.flatMap((s) =>
+            s.cambios.map((c) => ({ clave: `${s.codigoRiesgo}·${c.campo}`, ...c })),
+          )}
+          nota={nota}
+          onNota={setNota}
+          onCancelar={() => setDialogoNotas(false)}
+          onConfirmar={confirmarNotaSesion}
+        />
+      )}
+
+      {/* REQ-SIG-20 §7 (D4, tarea 4.16) · uno a la vez, en el orden en que llegaron. El
+          guardado que los dejó en banda Crítico YA tuvo éxito — la cola solo decide si el
+          popup se abre, nunca si el cambio se guardó (D17, spec "Save succeeds, popup
+          opens"). Key por (activo, amenaza) para que cada crítico monte una instancia
+          nueva del popup en vez de reusar el estado de la anterior. */}
+      {colaCritica.length > 0 && (
+        <PopupPlanCritico
+          key={`${colaCritica[0].activoCodigo}·${colaCritica[0].amenazaCodigo}`}
+          activoCodigo={colaCritica[0].activoCodigo}
+          amenazaCodigo={colaCritica[0].amenazaCodigo}
+          onCerrar={() => setColaCritica((cola) => cola.slice(1))}
+          onRegistrado={() => router.refresh()}
+        />
+      )}
 
       {popup === 'superior' && (
         <PopupSuperior
@@ -4337,6 +4494,78 @@ function PopupAmenaza({
             Todas las amenazas del catálogo ya están asignadas a este activo.
           </div>
         )}
+      </div>
+    </Marco>
+  );
+}
+
+/// REQ-SIG-20 §10 (D5, tarea 4.15) · el ÚNICO diálogo de guardado de fin de sesión. Lista
+/// cada cambio de degradación/frecuencia/madurez del riesgo con su valor anterior → nuevo
+/// (spec `end-of-session-notes`, "Dialog lists the pending changes") y pide UNA nota
+/// obligatoria para todos — nunca una por campo. Confirmar con la nota vacía no hace nada:
+/// el mismo bloqueo deliberado de D17 que `guardarSesionRiesgo` aplica del lado del
+/// servidor, repetido acá para que se lea ANTES del rechazo, no después.
+function DialogoNotas({
+  cambios,
+  nota,
+  onNota,
+  onCancelar,
+  onConfirmar,
+}: {
+  cambios: { clave: string; campo: string; anterior: string; nuevo: string }[];
+  nota: string;
+  onNota: (v: string) => void;
+  onCancelar: () => void;
+  onConfirmar: () => void;
+}) {
+  const vacia = nota.trim() === '';
+  return (
+    <Marco
+      titulo="Notas de la sesión"
+      subtitulo={`${cambios.length} ${cambios.length === 1 ? 'cambio' : 'cambios'} de degradación, frecuencia y madurez del riesgo. Una sola nota los explica a todos — sin ella no se guarda ninguno.`}
+      ancho={620}
+      onCerrar={onCancelar}
+    >
+      <div className="flex flex-col gap-4 px-5 py-4">
+        <ul className="flex max-h-[30vh] flex-col gap-1.5 overflow-y-auto">
+          {cambios.map((c) => (
+            <li key={c.clave} className="text-11_5 leading-snug text-secondary [text-wrap:pretty]">
+              <span className="font-semibold text-primary">{c.campo}</span>: {c.anterior} →{' '}
+              {c.nuevo}
+            </li>
+          ))}
+        </ul>
+
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Notas — qué cambió en la realidad y por qué</span>
+          <textarea
+            value={nota}
+            autoFocus
+            onChange={(e) => onNota(e.target.value)}
+            rows={3}
+            placeholder="Obligatorio: sin nota, ni los datos ni la bitácora se escriben."
+            className="w-full rounded-campo border border-border-field bg-surface px-2.5 py-1.5 text-12_5 text-secondary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-hairline-strong px-5 py-3.5">
+        <button
+          type="button"
+          onClick={onCancelar}
+          className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 text-secondary transition-colors hover:bg-app"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={onConfirmar}
+          disabled={vacia}
+          title={vacia ? 'Las notas son obligatorias para guardar estos cambios.' : undefined}
+          className="rounded-campo bg-accent-500 px-3.5 py-2 text-12_5 font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-[var(--hf-text-placeholder)]"
+        >
+          Confirmar y guardar
+        </button>
       </div>
     </Marco>
   );

@@ -17,6 +17,7 @@ import {
 } from '@/app/sgsi/acciones/plan';
 import type { EstadoAccion } from '@prisma/client';
 import PopupAccion from './PopupAccion';
+import FranjaSinPlan, { type FilaFranjaSinPlan } from './FranjaSinPlan';
 
 export interface AccionVista {
   codigo: string;
@@ -121,12 +122,16 @@ export default function PlanesTratamiento({
   controles,
   cargos,
   madurez,
+  sinPlan,
 }: {
   acciones: AccionVista[];
   alcanceCalculable: boolean;
   controles: OpcionControl[];
   cargos: Opcion[];
   madurez: OpcionMadurez[];
+  /// REQ-SIG-20 §7.3 (tarea 4.17) · residuales Crítico sin plan de tratamiento. Ausente en
+  /// pantallas que todavía no lo calculan.
+  sinPlan?: FilaFranjaSinPlan[];
 }) {
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const [estados, setEstados] = useState<Record<string, string>>({});
@@ -246,6 +251,8 @@ export default function PlanesTratamiento({
           <option value="ACEPTAR">Solo aceptar</option>
         </select>
       </header>
+
+      {sinPlan && <FranjaSinPlan filas={sinPlan} />}
 
       {aviso && (
         <div

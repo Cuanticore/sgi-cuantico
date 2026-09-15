@@ -42,6 +42,14 @@ jest.mock('../PopupControlesAmenaza', () => ({
   default: () => null,
 }));
 
+// Mismo motivo (REQ-SIG-20 §7, tarea 4.16): `PopupPlanCritico` importa `app/sgsi/acciones/
+// plan.ts`, que también arrastra `next/cache`. La cola de críticos está vacía en estas
+// pruebas — nunca se monta de verdad — así que llega cerrado como los otros dos.
+jest.mock('../PopupPlanCritico', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 jest.mock('@/app/sgsi/acciones/activos', () => ({
   abrirOverlayActivo: jest.fn(),
   darDeBajaActivo: jest.fn(),
@@ -50,8 +58,7 @@ jest.mock('@/app/sgsi/acciones/activos', () => ({
 }));
 
 jest.mock('@/app/sgsi/acciones/riesgos', () => ({
-  excepcionDegradacion: jest.fn(),
-  excepcionFrecuencia: jest.fn(),
+  guardarSesionRiesgo: jest.fn(),
   guardarTratamiento: jest.fn(),
   quitarAmenazaDelActivo: jest.fn(),
   restaurarAmenaza: jest.fn(),

@@ -26,6 +26,8 @@ import { revalidatePath } from 'next/cache';
 import type { EstadoAccion, TipoAccion, VerificacionEficacia } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
+import { elegirControlParaPlan, fechaObjetivoPlan, type ControlParaPlan } from '@/lib/sgsi/deuda-planes';
+import { formatearOrigen } from '@/lib/sgsi/origen-plan';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -418,6 +420,309 @@ export async function crearAccionDesdeControl(codigoControl: string): Promise<Re
       ok: true,
       mensaje: `Se creó ${creado} para ${codigoControl}. Falta asignar responsable y fecha.`,
       codigo: creado,
+      cambios: 1,
+    };
+  });
+}
+
+// ============================================================================
+// REQ-SIG-20 §7.2 (D-4, D4) · el popup de residual crítico (tarea 4.12)
+//
+// El plan que nace acá sigue siendo sobre el CONTROL — no se crea ninguna tabla ni lista
+// paralela por activo o por riesgo (tarea 4.19). `origen` guarda de qué activo y qué
+// amenaza nació, con el prefijo verificable de `lib/sgsi/origen-plan.ts`, para que
+// `lib/sgsi/deuda-planes.ts` pueda decidir después si un riesgo ya tiene plan.
+// ============================================================================
+
+export interface PrefillPlanCritico {
+  riesgoCodigo: string;
+  activoCodigo: string;
+  activoNombre: string;
+  amenazaCodigo: string;
+  amenazaNombre: string;
+  /// El principal de la amenaza crítica, o el de menor madurez sin relevancia asignada
+  /// (Open Item 6). `null` cuando la amenaza no tiene ningún control mapeado.
+  control: { id: number; codigo: string; nombre: string; madurezActual: number | null } | null;
+  /// El objetivo del control, o `min(actual + 1, 5)` cuando no tiene uno propio — el mismo
+  /// criterio que `crearAccionDesdeControl` usa. `null` sin control elegido.
+  madurezObjetivoSugerida: number | null;
+  /// El propietario del activo, editable en el popup.
+  responsable: { id: number; nombre: string } | null;
+  /// De `CriterioAceptacion.aprueba` (texto libre) resuelto contra el catálogo de cargos,
+  /// con «Líder del SIG» como respaldo. `null` cuando ninguno de los dos existe en el
+  /// catálogo: el popup pide elegirlo a mano en vez de guardar uno inventado.
+  apruebaSugerido: { id: number; nombre: string } | null;
+  /// Hoy + `CriterioAceptacion.plazoEjecucion` de la banda Crítico. `null` cuando el plazo
+  /// es irreconocible (ver `lib/sgsi/deuda-planes.ts`, `parsearPlazo`) — el campo queda
+  /// vacío para completar a mano en vez de una fecha inventada.
+  fechaObjetivo: string | null;
+  /// Los catálogos que el popup necesita para los selects editables: Responsable, Aprueba
+  /// y el objetivo de madurez.
+  cargos: { id: number; nombre: string }[];
+  escalaMadurez: { id: number; nivel: number; nombre: string }[];
+}
+
+export interface ResultadoPrefillPlanCritico {
+  ok: boolean;
+  mensaje: string;
+  datos: PrefillPlanCritico | null;
+}
+
+/// Lee lo que el popup necesita para prellenarse. De solo lectura: no escribe nada, ni
+/// siquiera cuando no encuentra el riesgo — ese caso lo dice `ok: false` y el popup lo
+/// muestra en vez de intentar prellenar con huecos.
+export async function datosPrefillPlanCritico(
+  activoCodigo: string,
+  amenazaCodigo: string,
+): Promise<ResultadoPrefillPlanCritico> {
+  const vacio = { datos: null };
+  try {
+    await autorConPermiso('sgsi:ver');
+
+    const riesgo = await prisma.riesgo.findFirst({
+      where: { activo: { codigo: activoCodigo }, amenaza: { codigo: amenazaCodigo } },
+      include: {
+        activo: { include: { propietario: true } },
+        amenaza: {
+          include: {
+            controles: {
+              include: { control: { include: { actual: true, objetivo: true } }, relevancia: true },
+            },
+          },
+        },
+      },
+    });
+    if (!riesgo) {
+      return {
+        ok: false,
+        mensaje: `No existe el riesgo ${activoCodigo} × ${amenazaCodigo}.`,
+        ...vacio,
+      };
+    }
+
+    const controlesAplicables = riesgo.amenaza.controles.filter((c) => c.control.soa !== 'NO');
+    const paraPlan: ControlParaPlan[] = controlesAplicables.map((c) => ({
+      codigo: c.control.codigo,
+      nivel: c.control.actual?.nivel ?? null,
+      esPrincipal: c.relevancia?.esPrincipal ?? false,
+    }));
+    const elegido = elegirControlParaPlan(paraPlan);
+    const filaControl = elegido
+      ? controlesAplicables.find((c) => c.control.codigo === elegido.codigo)
+      : undefined;
+
+    const madurezObjetivoSugerida = filaControl
+      ? (filaControl.control.objetivo?.nivel ??
+        (filaControl.control.actual === null ? 1 : Math.min(filaControl.control.actual.nivel + 1, 5)))
+      : null;
+
+    const [criterioCritico, cargos, escalaMadurez] = await Promise.all([
+      prisma.criterioAceptacion.findFirst({ where: { umbralRiesgo: { nombre: 'Crítico' } } }),
+      prisma.cargoResponsable.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
+      prisma.escalaMadurez.findMany({ orderBy: { nivel: 'asc' } }),
+    ]);
+
+    // «Comité del SIG», «Líder del SIG y Comité»… `CriterioAceptacion.aprueba` es texto
+    // libre y no siempre coincide con un cargo del catálogo — coincidencia exacta primero,
+    // «Líder del SIG» como respaldo, `null` si ninguno de los dos existe.
+    const apruebaSugerido =
+      cargos.find((c) => c.nombre === criterioCritico?.aprueba) ??
+      cargos.find((c) => c.nombre === 'Líder del SIG') ??
+      null;
+
+    const fechaObjetivo = criterioCritico
+      ? fechaObjetivoPlan(new Date(), criterioCritico.plazoEjecucion)
+      : null;
+
+    return {
+      ok: true,
+      mensaje: 'Prellenado listo.',
+      datos: {
+        riesgoCodigo: riesgo.codigo,
+        activoCodigo,
+        activoNombre: riesgo.activo.nombre,
+        amenazaCodigo,
+        amenazaNombre: riesgo.amenaza.nombre,
+        control: filaControl
+          ? {
+              id: filaControl.control.id,
+              codigo: filaControl.control.codigo,
+              nombre: filaControl.control.nombre,
+              madurezActual: filaControl.control.actual?.nivel ?? null,
+            }
+          : null,
+        madurezObjetivoSugerida,
+        responsable: riesgo.activo.propietario
+          ? { id: riesgo.activo.propietario.id, nombre: riesgo.activo.propietario.nombre }
+          : null,
+        apruebaSugerido: apruebaSugerido ? { id: apruebaSugerido.id, nombre: apruebaSugerido.nombre } : null,
+        fechaObjetivo: fechaObjetivo ? fechaObjetivo.toISOString().slice(0, 10) : null,
+        cargos: cargos.map((c) => ({ id: c.id, nombre: c.nombre })),
+        escalaMadurez: escalaMadurez.map((m) => ({ id: m.id, nivel: m.nivel, nombre: m.nombre })),
+      },
+    };
+  } catch (error) {
+    console.error('[sgsi] no se pudo prellenar el plan crítico', error);
+    return {
+      ok: false,
+      mensaje: error instanceof Error ? error.message : 'No se pudo leer el prellenado.',
+      ...vacio,
+    };
+  }
+}
+
+/// Lo que el popup envía al registrar. `controlId` puede ser `null` —salvo cuando
+/// `tipo === 'MITIGAR'`, que lo exige igual que `guardarAccion`.
+export interface DatosPlanCritico {
+  activoCodigo: string;
+  amenazaCodigo: string;
+  controlId: number | null;
+  tipo: TipoAccion;
+  responsableId: number;
+  apruebaId: number;
+  madurezObjetivoId?: number | null;
+  fechaObjetivo?: string | null;
+  justificacionAceptacion?: string | null;
+  fechaRevisionAceptacion?: string | null;
+  instrumento?: string | null;
+  riesgoRemanente?: string | null;
+}
+
+/// Registra el plan que dispara el popup de residual crítico. El guardado que lo abrió
+/// (`guardarSesionRiesgo`, tarea 4.14) YA tuvo éxito antes de que esta función corra —D17:
+/// esto solo registra el plan, nunca condiciona si el residual se guardó.
+///
+/// LA DEDUPE ES LA MISMA QUE `crearAccionDesdeControl`: un control con un plan activo no
+/// recibe un segundo. El popup entonces navega al que ya existe en vez de crear uno
+/// paralelo — es lo que la tarea 4.19 verifica estructuralmente.
+export async function registrarPlanCritico(
+  datos: DatosPlanCritico,
+  motivo?: string,
+): Promise<ResultadoAccion> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('sgsi:escribir');
+    idOpcional(datos.controlId, 'el control');
+    exigirId(datos.responsableId, 'el responsable');
+    exigirId(datos.apruebaId, 'quien aprueba');
+
+    const riesgo = await prisma.riesgo.findFirst({
+      where: {
+        activo: { codigo: datos.activoCodigo },
+        amenaza: { codigo: datos.amenazaCodigo },
+      },
+      include: { activo: true, amenaza: true },
+    });
+    if (!riesgo) {
+      return {
+        ok: false,
+        mensaje: `No existe el riesgo ${datos.activoCodigo} × ${datos.amenazaCodigo}.`,
+      };
+    }
+
+    // Las mismas reglas condicionales de ISO/IEC 27001:2022 6.1.3 que `guardarAccion`
+    // exige — repetidas acá porque este camino de creación no pasa por esa función.
+    const errores: string[] = [];
+    if (datos.tipo === 'MITIGAR' && datos.controlId === null) {
+      errores.push('Una acción de mitigación necesita el control que mejora.');
+    }
+    if (datos.tipo === 'ACEPTAR') {
+      if (!datos.justificacionAceptacion) {
+        errores.push('Aceptar un riesgo necesita la justificación de la aceptación.');
+      }
+      if (!datos.fechaRevisionAceptacion) {
+        errores.push(
+          'Aceptar un riesgo necesita fecha de revisión: una aceptación sin vencimiento es una que nadie vuelve a mirar.',
+        );
+      }
+    }
+    if (datos.tipo === 'TRANSFERIR') {
+      if (!datos.instrumento) {
+        errores.push('Transferir necesita el instrumento (póliza, contrato o cláusula).');
+      }
+      if (!datos.riesgoRemanente) {
+        errores.push('Transferir necesita el riesgo remanente: transferir nunca mueve el riesgo completo.');
+      }
+    }
+    if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
+
+    if (datos.controlId !== null) {
+      const existente = await prisma.accionPlan.findFirst({
+        where: { controlId: datos.controlId, activa: true },
+        orderBy: { codigo: 'asc' },
+      });
+      if (existente) {
+        return {
+          ok: true,
+          mensaje: `Ya existe un plan sobre este control: ${existente.codigo}. No se crea uno paralelo.`,
+          codigo: existente.codigo,
+          cambios: 0,
+        };
+      }
+    }
+
+    const origen = formatearOrigen(
+      riesgo.codigo,
+      datos.activoCodigo,
+      datos.amenazaCodigo,
+      `Residual crítico de ${riesgo.activo.codigo} — ${riesgo.amenaza.nombre}.`,
+    );
+
+    const codigo = await prisma.$transaction(async (tx) => {
+      // La misma generación de código que `crearAccionDesdeControl`: nunca se reutiliza un
+      // PT dado de baja.
+      const codigos = await tx.accionPlan.findMany({ select: { codigo: true } });
+      const ultimo = codigos.reduce((mayor, a) => {
+        const n = /^PT-(\d+)$/.exec(a.codigo);
+        return n ? Math.max(mayor, Number(n[1])) : mayor;
+      }, 0);
+      const nuevoCodigo = `PT-${String(ultimo + 1).padStart(3, '0')}`;
+
+      await tx.accionPlan.create({
+        data: {
+          codigo: nuevoCodigo,
+          accion: `Plan de tratamiento — residual crítico de ${riesgo.activo.codigo} (${riesgo.amenaza.nombre})`,
+          tipo: datos.tipo,
+          controlId: datos.controlId,
+          origen,
+          responsableId: datos.responsableId,
+          apruebaId: datos.apruebaId,
+          fechaObjetivo: datos.fechaObjetivo ? new Date(`${datos.fechaObjetivo}T00:00:00.000Z`) : null,
+          madurezObjetivoId: datos.madurezObjetivoId ?? null,
+          estado: 'NO_INICIADA',
+          avance: 0,
+          verificacion: 'PENDIENTE',
+          instrumento: datos.instrumento ?? null,
+          riesgoRemanente: datos.riesgoRemanente ?? null,
+          justificacionAceptacion: datos.justificacionAceptacion ?? null,
+          fechaRevisionAceptacion: datos.fechaRevisionAceptacion
+            ? new Date(`${datos.fechaRevisionAceptacion}T00:00:00.000Z`)
+            : null,
+        },
+      });
+
+      await registrarAlta(tx, autor, 'accion_plan', nuevoCodigo);
+      await registrar(tx, autor, [
+        {
+          tabla: 'accion_plan',
+          registroId: nuevoCodigo,
+          campo: 'origen',
+          anterior: null,
+          nuevo: origen,
+          motivo:
+            normalizar(motivo) ??
+            'Registrado desde el popup de residual crítico (REQ-SIG-20 §7).',
+        },
+      ]);
+
+      return nuevoCodigo;
+    });
+
+    revalidarPlan();
+
+    return {
+      ok: true,
+      mensaje: `Se registró el plan ${codigo} para el residual crítico de ${datos.activoCodigo}.`,
+      codigo,
       cambios: 1,
     };
   });

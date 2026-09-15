@@ -8,6 +8,7 @@
 // once. Modelling it per risk would duplicate the same decision hundreds of times.
 
 import { prisma } from '@/lib/db';
+import { leerDeudaPlanes } from '@/lib/sgsi/deuda-planes-lectura';
 import PlanesTratamiento, {
   type AccionVista,
 } from '@/app/components/sgsi/planes/PlanesTratamiento';
@@ -15,7 +16,7 @@ import PlanesTratamiento, {
 export const dynamic = 'force-dynamic';
 
 export default async function PlanesPage() {
-  const [acciones, paresMapeados, controles, cargos, madurez] = await Promise.all([
+  const [acciones, paresMapeados, controles, cargos, madurez, deuda] = await Promise.all([
     prisma.accionPlan.findMany({
       where: { activa: true },
       orderBy: { codigo: 'asc' },
@@ -42,6 +43,8 @@ export default async function PlanesPage() {
     }),
     prisma.cargoResponsable.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.escalaMadurez.findMany({ orderBy: { nivel: 'asc' } }),
+    // REQ-SIG-20 §7.3 (tarea 4.17) — la franja nombrada de residuales críticos sin plan.
+    leerDeudaPlanes(),
   ]);
 
   // With no relevance assigned the junction is empty, so the reach of an action is
@@ -96,6 +99,15 @@ export default async function PlanesPage() {
     fechaRevisionAceptacion: a.fechaRevisionAceptacion?.toISOString().slice(0, 10) ?? null,
   }));
 
+  const sinPlan = deuda.filas.map((f) => ({
+    activoCodigo: f.activoCodigo,
+    activoNombre: f.activoNombre,
+    amenazaCodigo: f.amenazaCodigo,
+    amenazaNombre: f.amenazaNombre,
+    diasPendiente: f.diasPendiente,
+    escalado: f.escalado,
+  }));
+
   return (
     <PlanesTratamiento
       acciones={vista}
@@ -103,6 +115,7 @@ export default async function PlanesPage() {
       controles={controles}
       cargos={cargos.map((c) => ({ id: c.id, nombre: c.nombre }))}
       madurez={madurez.map((m) => ({ id: m.id, nivel: m.nivel, nombre: m.nombre }))}
+      sinPlan={sinPlan}
     />
   );
 }

@@ -25,6 +25,7 @@ let mockSearchParams = new URLSearchParams();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
+  usePathname: () => '/sgsi/valoracion-riesgos',
 }));
 
 const BANDAS: UmbralRiesgo[] = [
@@ -84,6 +85,8 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
         procesos={['Gestión Tecnológica', 'Gestión Financiera']}
         propietarios={['Chief Operating Officer']}
         personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[]}
       />,
     );
 
@@ -104,6 +107,8 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
         procesos={['Gestión Tecnológica', 'Gestión Financiera']}
         propietarios={['Chief Operating Officer']}
         personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[]}
       />,
     );
 
@@ -112,7 +117,8 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
     expect(enlace).toHaveAttribute('href', expect.stringContaining('tab=amenazas'));
   });
 
-  it('la tarjeta SIN PLAN muestra «—» y no 0: la Fase 4 no existe todavía', () => {
+  it('la tarjeta SIN PLAN cuenta el residual Crítico sin AccionPlan que lo cubra (Fase 4, tareas 4.10-4.11)', () => {
+    // TEC-EQU-0003 tiene residual 25 → Crítico, sin ningún AccionPlan que lo cubra.
     render(
       <PantallaAnalisisRiesgos
         activos={ACTIVOS}
@@ -121,11 +127,60 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
         procesos={['Gestión Tecnológica', 'Gestión Financiera']}
         propietarios={['Chief Operating Officer']}
         personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[]}
       />,
     );
     const tarjetaSinPlan = screen.getByRole('button', { name: /SIN PLAN/ });
-    expect(within(tarjetaSinPlan).getByText('—')).toBeInTheDocument();
-    expect(within(tarjetaSinPlan).getByText('disponible en la Fase 4')).toBeInTheDocument();
+    expect(within(tarjetaSinPlan).getByText('1')).toBeInTheDocument();
+  });
+
+  it('un AccionPlan activo cuyo origen cubre el riesgo saca al activo de la tarjeta SIN PLAN', () => {
+    render(
+      <PantallaAnalisisRiesgos
+        activos={ACTIVOS}
+        bandas={BANDAS}
+        umbral={4}
+        procesos={['Gestión Tecnológica', 'Gestión Financiera']}
+        propietarios={['Chief Operating Officer']}
+        personas={[]}
+        accionesParaDeuda={[
+          {
+            activa: true,
+            origen: 'origen:v1|R-0001|TEC-EQU-0003|A.24 · Residual crítico cubierto',
+          },
+        ]}
+        sinPlan={[]}
+      />,
+    );
+    const tarjetaSinPlan = screen.getByRole('button', { name: /SIN PLAN/ });
+    expect(within(tarjetaSinPlan).getByText('0')).toBeInTheDocument();
+  });
+
+  it('la franja nombrada (tarea 4.17) y el punto ámbar de fila se muestran cuando hay deuda', () => {
+    render(
+      <PantallaAnalisisRiesgos
+        activos={ACTIVOS}
+        bandas={BANDAS}
+        umbral={4}
+        procesos={['Gestión Tecnológica', 'Gestión Financiera']}
+        propietarios={['Chief Operating Officer']}
+        personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[
+          {
+            activoCodigo: 'TEC-EQU-0003',
+            activoNombre: 'Activo de prueba',
+            amenazaCodigo: 'A.24',
+            amenazaNombre: 'Denegación de servicio',
+            diasPendiente: 6,
+            escalado: false,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/1 activo con riesgo residual Crítico/)).toBeInTheDocument();
+    expect(screen.getByLabelText('sin plan')).toBeInTheDocument();
   });
 });
 
