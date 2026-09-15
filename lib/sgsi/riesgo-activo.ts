@@ -62,3 +62,71 @@ export function nivelDeRiesgoDelActivo(
   }
   return mayor;
 }
+
+// ============================================================================
+// La banda del renglón (REQ-SIG-18 §7, movida acá en REQ-SIG-20 §4/P5 — D-6)
+// ============================================================================
+//
+// Vivía como función local de `InventarioActivos.tsx`. REQ-SIG-20 §4 retira el filtro
+// `color` de la grilla del inventario —ya no muestra ninguna columna de riesgo— y la tarea
+// 3.11 lo recablea en la página de análisis (`/sgsi/valoracion-riesgos`) como el filtro
+// «banda del residual». Las dos pantallas necesitan la MISMA regla, así que la regla se
+// muda a este módulo puro en vez de quedar atada a un componente `'use client'`: dos
+// lugares leyendo una función importada es una decisión; dos copias de la misma función es
+// el defecto que este cambio persigue en cada corte.
+
+export type ColorRenglon = 'rojo' | 'verde' | 'blanco';
+
+/// Las tres reglas que dio el cliente, más el caso que no cubren.
+///
+///   · rojo   — riesgo residual de 4 a 5
+///   · verde  — riesgo inherente de 4 a 5 y residual de 1 a 3
+///   · blanco — riesgo inherente de 1 a 3
+///
+/// Lo que decide el blanco es el riesgo INHERENTE, no el valor del activo: no es la misma
+/// lectura — un activo valorado 5 cuyas amenazas son infrecuentes carga un riesgo inherente
+/// bajo, y pintarlo de rojo diría que es peligroso por ser valioso.
+///
+/// EL HUECO: inherente 4-5 con el residual todavía sin calcular no encaja en ninguna de las
+/// tres. Dejado literal, cada renglón de riesgo alto perdería su color hasta que existan los
+/// 272 pares de relevancia — justo los renglones que tienen que verse. Por eso un residual
+/// sin calcular sobre un inherente alto se pinta ROJO: nadie mostró todavía que los controles
+/// lo bajan, y tratar lo desconocido como tratado es el único error que esta pantalla no
+/// puede cometer. El renglón lo dice en palabras, para que nunca se confunda con un residual
+/// medido.
+export function colorDeRenglon(
+  inherente: NivelRiesgo | null,
+  residual: NivelRiesgo | null,
+): ColorRenglon {
+  // El residual nunca puede superar al inherente —los controles solo reducen—, así que esta
+  // cláusula se revisa primero por fidelidad a la regla enunciada, no porque pueda
+  // contradecir a la siguiente.
+  if (residual !== null && residual.nivel >= 4) return 'rojo';
+  // Sin ningún riesgo: el activo no alcanza el umbral de análisis. Nada que colorear.
+  if (inherente === null) return 'blanco';
+  if (inherente.nivel <= 3) return 'blanco';
+  return residual === null ? 'rojo' : 'verde';
+}
+
+/// El color nunca es el único portador: el renglón dice su propio estado en palabras para
+/// quien no pueda verlo, y las tarjetas de arriba dicen lo mismo en pantalla.
+///
+/// Los dos rojos se distinguen a propósito. Uno es un residual medido de 4 o 5; el otro es
+/// un riesgo inherente alto cuyo residual todavía nadie calculó. Se ven igual y no
+/// significan lo mismo, y a quien no puede ver el color es exactamente a quien no hay que
+/// decirle que una suposición es una medición.
+export function textoDeRenglon(
+  color: ColorRenglon,
+  inherente: NivelRiesgo | null,
+  residual: NivelRiesgo | null,
+): string {
+  if (color === 'verde') return 'Renglón verde — riesgo inherente de 4 a 5 y residual de 1 a 3';
+  if (color === 'blanco') {
+    return inherente === null
+      ? 'Renglón blanco — el activo no alcanza el umbral de valoración, no tiene riesgos'
+      : 'Renglón blanco — riesgo inherente de 1 a 3';
+  }
+  return residual === null
+    ? 'Renglón rojo — riesgo inherente de 4 a 5 y residual sin calcular'
+    : 'Renglón rojo — riesgo residual de 4 a 5';
+}

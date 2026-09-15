@@ -201,26 +201,41 @@ left to the user/orchestrator, not decided here.
 
 ### 3b — Analysis page (P4) — Checkpoint C2
 
-- [ ] 3.8 RED test `lib/sgsi/__tests__/analisis-riesgos.test.ts` (new module doesn't exist yet):
+- [x] 3.8 RED test `lib/sgsi/__tests__/analisis-riesgos.test.ts` (new module doesn't exist yet):
       rows sorted by worst residual descending; five card counts (EN ANÁLISIS, MUY ALTOS,
       ALTOS, RESIDUAL CRÍTICO, SIN PLAN); six filter predicates (proceso, propietario, persona,
       valor, banda, estado del plan) rescope both. Fixture reproduces 37/3/34 from the V19
       distribution.
-- [ ] 3.9 Implement `lib/sgsi/analisis-riesgos.ts` to pass 3.8. AC: spec `risk-analysis-page`
+- [x] 3.9 Implement `lib/sgsi/analisis-riesgos.ts` to pass 3.8. AC: spec `risk-analysis-page`
       "Summary cards that filter the list", "One row per in-analysis asset", "Six filters
-      rescoping list and cards".
-- [ ] 3.10 `app/sgsi/valoracion-riesgos/page.tsx` + `app/components/sgsi/valoracion-riesgos/`
+      rescoping list and cards". **Deviation, flagged**: the module's gating ("en análisis")
+      takes ALL 299 vigentes assets plus `umbral` and filters itself, rather than trusting the
+      caller to pre-filter — so "de 299" always comes from the same array the list counts,
+      never a second number. `RESIDUAL CRÍTICO` and `SIN PLAN` share one `estadoPlan` internal
+      dimension (`'requiere-plan'` for the card, `'pendiente'/'con-plan'/'no-requiere'` for the
+      dropdown) instead of a seventh ad-hoc toggle. SIN PLAN's deuda-de-planes logic is NOT
+      built here — see "El cruce de la tarjeta SIN PLAN" below and the apply report.
+- [x] 3.10 `app/sgsi/valoracion-riesgos/page.tsx` + `app/components/sgsi/valoracion-riesgos/`
       (query + client screen) — server page wiring 3.9; row click opens the overlay on Amenazas
-      without leaving the page (reuses 3.2). Integration test: page renders 37 rows on the V19
-      fixture; cards and list agree under a filter combination. AC: proposal AC5.
-- [ ] 3.11 Wire the residual-band filter into this page's filter row, reusing the logic
+      without leaving the page (reuses 3.2). Integration test: page renders the fixture's rows;
+      cards and list agree under a filter combination. AC: proposal AC5. **Note**: the
+      integration test uses a small fixture (2 assets), not literally "37 rows" — reproducing
+      37 rows end-to-end requires a live DB (V19 dataset), which this suite does not have; the
+      37/3/34 distribution is proven against the pure module in 3.8 instead, and the DB-backed
+      claim is left to the manual runtime harness (see apply report).
+- [x] 3.11 Wire the residual-band filter into this page's filter row, reusing the logic
       preserved in task 1.7 (resolves Open Item 2). AC: spec `risk-inventory-view` "Color filter
-      relocated", second half.
-- [ ] 3.12 `app/components/sgsi/SidebarSgsi.tsx` — new entry «Análisis de riesgos» (D-1
+      relocated", second half. **Relocated, not duplicated**: `colorDeRenglon`/`textoDeRenglon`
+      (the rojo/verde/blanco rule) moved from `InventarioActivos.tsx` into
+      `lib/sgsi/riesgo-activo.ts` so both screens import the same function — see apply report.
+- [x] 3.12 `app/components/sgsi/SidebarSgsi.tsx` — new entry «Análisis de riesgos» (D-1
       recommended label, see Open Item 4) directly after «Valoración de activos». AC: spec
       `risk-analysis-page` "Route and menu placement".
-- [ ] 3.13 RED test: visiting the page and exercising its filters/cards creates zero `Bitacora`
+- [x] 3.13 RED test: visiting the page and exercising its filters/cards creates zero `Bitacora`
       rows. AC: spec `risk-analysis-page` "Visiting writes nothing"; proposal AC15.
+      **Deviation, flagged**: proven structurally (no test DB in this suite), not by counting
+      `Bitacora` rows before/after against a live database as `valoracion.query.ts`'s own
+      comment aspires to but never automated either — see apply report for the two checks used.
 
 ## Phase 4: El cierre — P2 plan crítico · P6 notas · P9 criticidad (8.0d)
 

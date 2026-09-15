@@ -25,7 +25,10 @@ import PopupImportacion from '@/app/components/sgsi/inventario/PopupImportacion'
 import { clasificar } from '@/lib/sgsi/clasificar';
 import { etiquetaDeValor } from '@/lib/sig/valoracion';
 import {
+  colorDeRenglon,
   nivelDeRiesgoDelActivo,
+  textoDeRenglon,
+  type ColorRenglon,
   type NivelRiesgo,
 } from '@/lib/sgsi/riesgo-activo';
 import { valorActivo } from '@/lib/sgsi/formulas';
@@ -124,64 +127,16 @@ const TOPE_DE_ESCALA = 5;
 // The collapse of an asset's risks into ONE level lives in lib/sgsi/riesgo-activo.ts,
 // shared by this screen and the workbook export — one rule, one module. See its header
 // for the unratified MAXIMUM assumption (README open question 2).
-
-/// The three rules the client stated, plus the case they do not cover.
-///
-///   · rojo   — riesgo residual de 4 a 5
-///   · verde  — riesgo inherente de 4 a 5 y residual de 1 a 3
-///   · blanco — riesgo inherente de 1 a 3
-///
-/// Note what decides the white: the INHERENT RISK, not the asset's value. They are not the
-/// same reading — an asset valued 5 whose threats are rare carries a low inherent risk, and
-/// colouring it by value would call it dangerous for being expensive.
-///
-/// THE GAP: inherent 4-5 with the residual still uncalculated matches none of the three.
-/// Left literal, every high-risk row would lose its colour until the 272 relevance pairs
-/// exist — precisely the rows that have to be visible. So an uncalculated residual over a
-/// high inherent renders RED: nobody has yet shown that the controls bring it down, and
-/// treating the unknown as treated is the one error this screen must not make. The row says
-/// so in words, so it is never mistaken for a measured residual.
-export function colorDeRenglon(
-  inherente: NivelRiesgo | null,
-  residual: NivelRiesgo | null,
-): 'rojo' | 'verde' | 'blanco' {
-  // Residual can never exceed inherent — controls only reduce — so this clause is checked
-  // first for faithfulness to the stated rule, not because it can disagree with the next.
-  if (residual !== null && residual.nivel >= 4) return 'rojo';
-  // No risks at all: the asset does not reach the valuation threshold. Nothing to colour.
-  if (inherente === null) return 'blanco';
-  if (inherente.nivel <= 3) return 'blanco';
-  return residual === null ? 'rojo' : 'verde';
-}
+//
+// `colorDeRenglon`/`textoDeRenglon` — la banda de riesgo del renglón — también viven ahí
+// (movidos en REQ-SIG-20 §4/P5, D-6): la página de análisis de riesgos (tarea 3.11) necesita
+// la misma regla y una función importada en dos lugares es una decisión, no dos copias.
 
 const FONDO_RENGLON = {
   rojo: { fondo: 'var(--hf-row-rojo)', hover: 'var(--hf-row-rojo-hover)' },
   verde: { fondo: 'var(--hf-row-verde)', hover: 'var(--hf-row-verde-hover)' },
   blanco: { fondo: 'var(--hf-row-blanco)', hover: 'var(--hf-row-blanco-hover)' },
 } as const;
-
-/// Colour is never the only carrier: the row states its own state in words for anyone who
-/// cannot see it, and the chips at the top say the same thing on screen.
-///
-/// The two reds are told apart on purpose. One is a measured residual of 4 or 5; the other
-/// is a high inherent risk whose residual nobody has computed yet. They look the same and
-/// they do not mean the same, and a reader who cannot see the colour is exactly the reader
-/// who must not be told a guess is a measurement.
-function textoDeRenglon(
-  color: 'rojo' | 'verde' | 'blanco',
-  inherente: NivelRiesgo | null,
-  residual: NivelRiesgo | null,
-): string {
-  if (color === 'verde') return 'Renglón verde — riesgo inherente de 4 a 5 y residual de 1 a 3';
-  if (color === 'blanco') {
-    return inherente === null
-      ? 'Renglón blanco — el activo no alcanza el umbral de valoración, no tiene riesgos'
-      : 'Renglón blanco — riesgo inherente de 1 a 3';
-  }
-  return residual === null
-    ? 'Renglón rojo — riesgo inherente de 4 a 5 y residual sin calcular'
-    : 'Renglón rojo — riesgo residual de 4 a 5';
-}
 
 /// Value badges, Muy Alto down to Muy Bajo. Keyed by the number rather than by the
 /// label, because the label is data and the organisation may reword it.
@@ -904,7 +859,7 @@ interface RenglonProps {
     inherente: NivelRiesgo | null;
     residual: NivelRiesgo | null;
     entra: boolean;
-    color: 'rojo' | 'verde' | 'blanco';
+    color: ColorRenglon;
   };
   escala: NivelValor[];
   onEditar: (codigo: string, dim: 'D' | 'I' | 'C', valor: number) => void;

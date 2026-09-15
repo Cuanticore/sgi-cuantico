@@ -90,6 +90,11 @@ const GRUPOS: Grupo[] = [
       // SIN contador a propósito: el número de esta pantalla no es «cuántos activos» —eso ya lo
       // dice INV— sino cuántos alcanzan el umbral, y eso no cabe en el menú.
       { etiqueta: 'Valoración de activos', abreviatura: 'VAL', href: '/sgsi/valoracion' },
+      // REQ-SIG-20 §5 (P4, D-1 abierta) · «Análisis de riesgos» es la recomendación del
+      // handoff, no una decisión cerrada: evita dos entradas casi homónimas pegadas
+      // («Valoración de activos» resume los 299; esta resume solo los que alcanzan el
+      // umbral). Va justo después de Valoración de activos, como pide el §5.
+      { etiqueta: 'Análisis de riesgos', abreviatura: 'ARI', href: '/sgsi/valoracion-riesgos' },
       { etiqueta: 'Matrices de riesgo', abreviatura: 'MTZ', href: '/sgsi/matrices' },
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
