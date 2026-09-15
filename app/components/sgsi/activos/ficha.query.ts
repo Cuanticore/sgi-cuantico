@@ -588,3 +588,23 @@ export async function cargarNavegacion(): Promise<Navegacion> {
   });
   return { codigos: activos.map((a) => a.codigo as string) };
 }
+
+/// Lo que el overlay (REQ-SIG-20 §6, D1) necesita para renderizar la MISMA `FichaActivo`
+/// que la página completa: el activo, el catálogo completo y la materia prima de amenazas.
+/// Sin `Navegacion` — el overlay no participa del recorrido Atrás/Siguiente del inventario.
+///
+/// El fetch que arma este tipo (`abrirOverlayActivo`) NO vive en este archivo: este módulo
+/// es `server-only` — de lectura directa desde Server Components, como `page.tsx` — y un
+/// `Client Component` como `OverlayActivo` no puede importar una función de acá como valor
+/// sin arrastrar todo el módulo (Prisma incluido) al bundle del navegador. Por eso
+/// `abrirOverlayActivo` vive en `app/sgsi/acciones/activos.ts`, con `'use server'` de
+/// archivo — la única forma, según la documentación de Next empaquetada en
+/// `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-server.md`, de
+/// exponer una función de servidor que un Client Component pueda llamar directamente.
+/// Import de solo tipo, como el de acá abajo, no tiene ese problema: se borra en
+/// compilación.
+export interface DatosOverlayActivo {
+  activo: ActivoFicha;
+  catalogos: Catalogos;
+  amenazas: AmenazaCatalogo[];
+}

@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Libre_Franklin, JetBrains_Mono } from 'next/font/google';
+import OverlayActivo from '@/app/components/sgsi/activos/OverlayActivo';
 import './globals.css';
 
 // Handoff v2 typography: Libre Franklin for text, JetBrains Mono for codes,
@@ -32,6 +33,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className={`${libreFranklin.variable} ${jetbrainsMono.variable} antialiased bg-slate-100`}
       >
         {children}
+        {/* REQ-SIG-20 §6 (D1): montado una sola vez en la raíz porque los layouts no
+            reciben `searchParams` — esto es lo que hace que `?activo=` funcione desde
+            CUALQUIER pantalla, no solo desde las de sgsi/. */}
+        <OverlayActivo />
       </body>
     </html>
   );

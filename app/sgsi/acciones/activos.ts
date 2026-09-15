@@ -11,6 +11,12 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
+import {
+  cargarActivo,
+  cargarAmenazas,
+  cargarCatalogos,
+  type DatosOverlayActivo,
+} from '@/app/components/sgsi/activos/ficha.query';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 export interface CambioValoracion {
@@ -412,6 +418,26 @@ export async function reactivarActivo(codigoActivo: string): Promise<Resultado> 
 
     return { ok: true, mensaje: `El activo ${codigoActivo} volvió al inventario.`, cambios: 1 };
   });
+}
+
+/// El fetch detrás del contrato de overlay `?activo=<código>` (REQ-SIG-20 §6, D1, tarea
+/// 3.6). Vive acá y no en `ficha.query.ts` porque quien lo llama — `OverlayActivo`, un
+/// Client Component — solo puede invocar una función de servidor si el ARCHIVO entero
+/// declara `'use server'`; `ficha.query.ts` es `server-only`, de lectura directa desde
+/// Server Components como `page.tsx`, y envolver una sola función suya en `'use server'`
+/// en línea arrastra igual toda la cadena de Prisma al bundle del navegador (`net`/`tls`
+/// no se resuelven ahí — falla `next build`, no un detalle cosmético). Este wrapper reusa
+/// las mismas tres consultas que la página completa, así que las dos ven exactamente los
+/// mismos datos.
+///
+/// `null` significa que el código no resuelve a un activo vivo: quien llama muestra un
+/// aviso y NUNCA abre un overlay vacío (tarea 3.1). `cargarActivo` corre primero y solo
+/// por eso — si no hay activo, no tiene sentido pagar las otras dos consultas.
+export async function abrirOverlayActivo(codigo: string): Promise<DatosOverlayActivo | null> {
+  const activo = await cargarActivo(codigo);
+  if (activo === null) return null;
+  const [catalogos, amenazas] = await Promise.all([cargarCatalogos(), cargarAmenazas()]);
+  return { activo, catalogos, amenazas };
 }
 
 function revalidarSgsi(): void {

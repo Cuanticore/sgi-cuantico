@@ -167,24 +167,33 @@ left to the user/orchestrator, not decided here.
 
 ### 3a — Overlay (P3) — Checkpoint C1
 
-- [ ] 3.1 RED integration test: `?activo=<unknown-code>` on any screen shows a notice and leaves
+- [x] 3.1 RED integration test: `?activo=<unknown-code>` on any screen shows a notice and leaves
       the underlying screen unchanged (no empty overlay). Fails until `OverlayActivo.tsx`
       exists.
-- [ ] 3.2 `app/components/sgsi/activos/OverlayActivo.tsx` (new) — root-mounted (Suspense),
+- [x] 3.2 `app/components/sgsi/activos/OverlayActivo.tsx` (new) — root-mounted (Suspense),
       reads `?activo=&tab=`, fetches via `abrirOverlayActivo`, renders the same `FichaActivo`.
       Makes 3.1 pass. AC: spec `asset-overlay-url` "Unknown code does not open an empty overlay".
-- [ ] 3.3 Mount in `app/layout.tsx`. Close → `router.replace` (param removed, no history entry);
+- [x] 3.3 Mount in `app/layout.tsx`. Close → `router.replace` (param removed, no history entry);
       save → `router.refresh`. Test: close preserves filters/scroll of a filtered underlying
       screen, no new history entry. AC: spec `asset-overlay-url` "Closing returns exactly to the
       origin", "Saving refreshes the underlying screen".
-- [ ] 3.4 Tab alias mapping: URL `general|amenazas|matrices|ecuacion` → internal
+- [x] 3.4 Tab alias mapping: URL `general|amenazas|matrices|ecuacion` → internal
       `valoracion|amenazas|resumen|ecuacion`; unit test for the mapping function.
-- [ ] 3.5 `app/sgsi/inventario/[codigo]/page.tsx` — accept both tab spellings; confirm the
+- [x] 3.5 `app/sgsi/inventario/[codigo]/page.tsx` — accept both tab spellings; confirm the
       full-page route still renders standalone. AC: spec `asset-overlay-url` "Full-page route
       remains".
-- [ ] 3.6 `app/components/sgsi/activos/ficha.query.ts` — add the `abrirOverlayActivo` fetch
-      action.
-- [ ] 3.7 Deep-link test opening `?activo=TEC-GEN-0004&tab=ecuacion` from three distinct mock
+- [x] 3.6 `app/components/sgsi/activos/ficha.query.ts` — add the `abrirOverlayActivo` fetch
+      action. **Deviation, flagged**: the callable wrapper itself ended up in
+      `app/sgsi/acciones/activos.ts` (file-level `'use server'`), not in `ficha.query.ts`
+      (`server-only`). `ficha.query.ts` keeps the `DatosOverlayActivo` type and the three
+      loaders the wrapper composes. Verified against
+      `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-server.md`: a
+      Client Component can only call a Server Function from a file with a FILE-level `'use
+      server'` directive; an inline `'use server'` inside one function of an otherwise
+      `server-only` file does not extract cleanly — `next build` failed with `Can't resolve
+      'net'/'tls'` because the whole Prisma-backed module got pulled into the client bundle.
+      Confirmed by reproducing the failure before moving the function. See report for detail.
+- [x] 3.7 Deep-link test opening `?activo=TEC-GEN-0004&tab=ecuacion` from three distinct mock
       routes; all three land on the Ecuación tab. Structural check: overlay and full page render
       the identical `FichaActivo` component — no second ficha created. AC: spec
       `asset-overlay-url` "Deep-linked tab from three distinct modules", "One component, two

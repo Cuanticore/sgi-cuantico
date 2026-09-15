@@ -10,22 +10,26 @@
 // Next 16: `params` and `searchParams` are Promises and must be awaited.
 
 import { notFound } from 'next/navigation';
-import FichaActivo from '@/app/components/sgsi/activos/FichaActivo';
+import FichaActivo, { type Pestana } from '@/app/components/sgsi/activos/FichaActivo';
 import {
   cargarActivo,
   cargarAmenazas,
   cargarCatalogos,
   cargarNavegacion,
 } from '@/app/components/sgsi/activos/ficha.query';
+import { pestanaInternaDesdeUrl } from '@/app/components/sgsi/activos/overlay-tabs';
 
 export const dynamic = 'force-dynamic';
 
-const PESTANAS = ['valoracion', 'amenazas', 'resumen'] as const;
-type Pestana = (typeof PESTANAS)[number];
-
+// REQ-SIG-20 §6 (D1, tarea 3.5): la página completa acepta las DOS grafías del parámetro
+// `tab` — la interna (`valoracion|amenazas|resumen|ecuacion`) y la del overlay
+// (`general|amenazas|matrices|ecuacion`) — con la misma función que usa `OverlayActivo`,
+// para que un enlace armado con cualquiera de las dos aterrice en la pestaña correcta.
+// Antes de esta tarea la lista local ni siquiera incluía `ecuacion`: un `?tab=ecuacion` a
+// esta ruta caía en Valoración sin avisar.
 function pestanaDe(valor: string | string[] | undefined): Pestana {
   const v = Array.isArray(valor) ? valor[0] : valor;
-  return PESTANAS.includes(v as Pestana) ? (v as Pestana) : 'valoracion';
+  return pestanaInternaDesdeUrl(v);
 }
 
 export default async function FichaActivoPage({
