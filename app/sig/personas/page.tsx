@@ -41,6 +41,11 @@ export default async function PersonasPage() {
       include: {
         area: { select: { nombre: true } },
         cargo: { select: { nombre: true } },
+        // REQ-SIG-12 · los activos `[P] Personal` que esta cuenta ENCARNA. No son los que
+        // custodia (`activosACargo`): son aquellos de los que la persona forma parte.
+        activosQueEncarna: {
+          include: { activo: { select: { codigo: true, nombre: true } } },
+        },
       },
     }),
     prisma.asignacion.findMany({
@@ -183,6 +188,10 @@ export default async function PersonasPage() {
       // salir de la pantalla para saber qué se está moviendo.
       abiertas,
       rol: rolDeLaPersona(p.oid, miembrosDelGrupo.ok ? miembrosDelGrupo.datos : null),
+      // Un activo sin código todavía no tiene URL propia, así que no se ofrece como enlace.
+      activos: p.activosQueEncarna
+        .filter((v) => v.activo.codigo !== null)
+        .map((v) => ({ codigo: v.activo.codigo as string, nombre: v.activo.nombre })),
     };
   });
 

@@ -397,6 +397,69 @@ export async function recalcularRiesgosDelActivo(codigoActivo: string): Promise<
   });
 }
 
+/// Ata o desata una cuenta del dominio a un activo `[P] Personal`.
+///
+/// **No es el custodio.** `Activo.personaId` dice quién TIENE el activo en la mano; esto
+/// dice de quién está HECHO el activo. Un «Personal de soporte» con cantidad 4 es un activo
+/// cuya sustancia son cuatro cuentas concretas, y hasta ahora no había dónde escribir
+/// cuáles.
+///
+/// NO SE EXIGE QUE EL TIPO SEA `[P]`, y es deliberado: el tipo MAGERIT se edita en la misma
+/// pantalla, y un activo puede estar reclasificándose mientras alguien ata su primera
+/// cuenta. Bloquearlo acá convertiría un orden de tecleo en un error. La ficha muestra la
+/// sección sólo para `[P]`, que es donde la guía corresponde.
+///
+/// NO SE EXIGE QUE LA CANTIDAD ALCANCE. Atar cinco cuentas a un activo de cantidad 4 es una
+/// contradicción que hay que VER, no una que haya que impedir: la ficha la señala y deja
+/// que la persona decida cuál de los dos números está mal. «Avisa, no bloquea» (D17).
+export async function vincularCuentaAlActivo(
+  codigoActivo: string,
+  personaId: number,
+  vincular: boolean,
+): Promise<Resultado> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('activo:valorar');
+    exigirId(personaId, 'la persona');
+
+    const [activo, persona] = await Promise.all([
+      prisma.activo.findFirst({ where: { codigo: codigoActivo } }),
+      prisma.persona.findUnique({ where: { id: personaId } }),
+    ]);
+    if (!activo) return { ok: false, mensaje: `No existe el activo ${codigoActivo}.` };
+    if (!persona) return { ok: false, mensaje: 'La persona elegida no existe.' };
+
+    await prisma.$transaction(async (tx) => {
+      if (vincular) {
+        await tx.activoPersona.upsert({
+          where: { activoId_personaId: { activoId: activo.id, personaId } },
+          update: {},
+          create: { activoId: activo.id, personaId },
+        });
+      } else {
+        await tx.activoPersona.deleteMany({ where: { activoId: activo.id, personaId } });
+      }
+
+      await registrar(tx, autor, [
+        {
+          tabla: 'activo_persona',
+          registroId: activo.codigo ?? String(activo.id),
+          campo: 'cuenta del dominio',
+          anterior: vincular ? null : persona.correo,
+          nuevo: vincular ? persona.correo : null,
+        },
+      ]);
+    });
+
+    revalidarSgsi();
+    return {
+      ok: true,
+      mensaje: vincular
+        ? `${persona.correo} quedó atada a ${codigoActivo}.`
+        : `${persona.correo} ya no forma parte de ${codigoActivo}.`,
+    };
+  });
+}
+
 export interface ActivoNuevo {
   nombre: string;
   descripcion?: string | null;

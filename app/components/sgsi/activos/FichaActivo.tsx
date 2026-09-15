@@ -76,6 +76,7 @@ import { useRouter } from 'next/navigation';
 import {
   crearActivo,
   darDeBajaActivo,
+  vincularCuentaAlActivo,
   guardarDatosGenerales,
   guardarValoracion,
   recalcularRiesgosDelActivo,
@@ -110,7 +111,9 @@ import type {
   Dim,
   Navegacion,
   NivelCriticidad,
+  CuentaDelActivo,
   NivelJerarquia,
+  PersonaOpcion,
   NivelValor,
   PlanDeAmenaza,
   RiesgoGuardado,
@@ -1533,6 +1536,8 @@ export default function FichaActivo({
           <DatosGenerales
             edicion={edicion}
             catalogos={catalogos}
+            codigoActivo={activo?.codigo ?? ''}
+            cuentas={activo?.cuentas ?? []}
             superior={
               edicion.superiorId === null ? null : (porId.activo.get(edicion.superiorId) ?? null)
             }
@@ -1980,12 +1985,17 @@ function DatosGenerales({
   catalogos,
   superior,
   valorD,
+  codigoActivo,
+  cuentas,
   onEditar,
   onBuscarSuperior,
 }: {
   edicion: Edicion;
   catalogos: Catalogos;
   superior: ActivoBreve | null;
+  /// Vacío en modo creación: todavía no hay activo al que atarle cuentas.
+  codigoActivo: string;
+  cuentas: CuentaDelActivo[];
   /// La disponibilidad EN VIVO (lo que se está editando, no solo lo guardado): la
   /// comprobación de coherencia (§11.3) tiene que reaccionar al mismo tiempo que la
   /// persona mueve el select de D, no solo después de guardar.
@@ -1994,6 +2004,10 @@ function DatosGenerales({
   onBuscarSuperior: () => void;
 }) {
   const criticidadElegida = catalogos.criticidades.find((c) => c.id === edicion.criticidadId) ?? null;
+  // `[P] Personal` · el único tipo para el que «de quién está hecho este activo» significa
+  // algo. Se mira el tipo EN EDICIÓN y no el guardado, para que la sección aparezca en
+  // cuanto alguien reclasifique el activo, sin tener que guardar primero.
+  const esPersonal = catalogos.tipos.find((t) => t.id === edicion.tipoId)?.codigo === '[P]';
   const sospechoso = esCriticidadSospechosa(criticidadElegida?.codigo ?? null, valorD);
 
   return (
@@ -2117,6 +2131,15 @@ function DatosGenerales({
             criticidad están al día. Esto no bloquea el guardado.
           </span>
         </div>
+      )}
+
+      {esPersonal && (
+        <CuentasDelActivo
+          codigoActivo={codigoActivo}
+          cuentas={cuentas}
+          personas={catalogos.personas}
+          cantidad={edicion.cantidad}
+        />
       )}
 
       <div className="col-span-full flex flex-col gap-1 border-t border-hairline-strong pt-[11px]">
@@ -2293,6 +2316,141 @@ function JerarquiaActivo({
           ? 'El activo guarda el nivel 3; los otros dos se derivan. Sin nivel 3, queda sin ubicar.'
           : cadena.map((n) => n.nombre).join(' · ')}
       </p>
+    </div>
+  );
+}
+
+/// REQ-SIG-12 · las cuentas del dominio que un activo `[P] Personal` ENCARNA.
+///
+/// El inventario tiene activos que SON personas: «Personal de soporte», «FireFly». Hasta
+/// ahora eran una fila con un nombre y una cantidad, sin forma de decir de quién estaban
+/// hechos — y sin eso, «¿a qué activo pertenece esta cuenta?» no tenía respuesta.
+///
+/// Se muestra sólo para el tipo `[P]`: para un servidor o una base de datos la pregunta no
+/// significa nada, y una sección vacía en cada ficha del inventario sería ruido en 298
+/// pantallas para servir a dos.
+function CuentasDelActivo({
+  codigoActivo,
+  cuentas,
+  personas,
+  cantidad,
+}: {
+  codigoActivo: string;
+  cuentas: CuentaDelActivo[];
+  personas: PersonaOpcion[];
+  /// Cuántas unidades declara el activo. Se compara contra las cuentas atadas para
+  /// SEÑALAR la diferencia — nunca para impedirla: cuál de los dos números está mal lo
+  /// sabe la persona, no la pantalla (D17).
+  cantidad: number;
+}) {
+  const router = useRouter();
+  const [pendiente, iniciar] = useTransition();
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [eligiendo, setEligiendo] = useState('');
+
+  if (codigoActivo === '') return null;
+
+  const atadas = new Set(cuentas.map((c) => c.personaId));
+  const disponibles = personas.filter((p) => !atadas.has(p.id));
+
+  const correr = (personaId: number, vincular: boolean) =>
+    iniciar(async () => {
+      const r = await vincularCuentaAlActivo(codigoActivo, personaId, vincular);
+      setAviso({ ok: r.ok, texto: r.mensaje });
+      if (r.ok) {
+        setEligiendo('');
+        router.refresh();
+      }
+    });
+
+  return (
+    <div className="col-span-full flex flex-col gap-2 border-t border-hairline-strong pt-[11px]">
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <span className="etiqueta-campo text-9">CUENTAS DEL DOMINIO QUE ESTE ACTIVO ENCARNA</span>
+        <span className="text-10_5 text-label">
+          {cuentas.length} de {cantidad} {cantidad === 1 ? 'unidad declarada' : 'unidades declaradas'}
+        </span>
+      </div>
+
+      {cuentas.length === 0 ? (
+        <p className="text-11 leading-relaxed text-label [text-wrap:pretty]">
+          Sin cuentas declaradas. Este activo es personal: decir de quién está hecho es lo
+          que permite responder, desde la ficha de una persona, a qué activo pertenece.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {cuentas.map((c) => (
+            <li
+              key={c.personaId}
+              className="flex flex-wrap items-center gap-2 rounded-campo border border-border-default bg-subtle px-2.5 py-1.5"
+            >
+              <span className="text-11_5 font-semibold text-primary">{c.nombre}</span>
+              <span className="font-mono text-10_5 text-muted">{c.correo}</span>
+              {/* Una cuenta inactiva atada se sigue mostrando, y marcada: que alguien haya
+                  salido de la organizacion es justo lo que hay que ver. */}
+              {!c.activa && (
+                <span className="rounded-badge border border-warn-border bg-warn-100 px-1.5 py-px text-9_5 font-semibold text-warn-text">
+                  cuenta inactiva
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={pendiente}
+                onClick={() => correr(c.personaId, false)}
+                aria-label={`Quitar ${c.correo} de ${codigoActivo}`}
+                className="ml-auto rounded-badge border border-danger-border px-1.5 py-0.5 font-mono text-9 uppercase tracking-[0.06em] text-danger-text disabled:opacity-40"
+              >
+                quitar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {cuentas.length > cantidad && (
+        <p className="text-11 leading-relaxed text-warn-text [text-wrap:pretty]">
+          Hay {cuentas.length} cuentas atadas y la cantidad declarada es {cantidad}. Una de
+          las dos cifras está mal; esto no bloquea el guardado.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={eligiendo}
+          disabled={pendiente || disponibles.length === 0}
+          onChange={(e) => setEligiendo(e.target.value)}
+          aria-label="Cuenta del dominio para atar al activo"
+          className="min-w-[240px] flex-1 rounded-campo border border-border-field bg-surface px-2 py-[7px] text-12_5 text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300 disabled:opacity-50"
+        >
+          <option value="">
+            {disponibles.length === 0
+              ? '— ya están todas las cuentas del directorio —'
+              : '— elegí una cuenta del dominio —'}
+          </option>
+          {disponibles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre} · {p.correo}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={pendiente || eligiendo === ''}
+          onClick={() => correr(Number(eligiendo), true)}
+          className="flex-none rounded-campo border border-accent-500 bg-accent-100 px-3 py-[7px] text-11_5 font-semibold text-accent-700 disabled:opacity-40"
+        >
+          {pendiente ? 'Guardando…' : 'Atar cuenta'}
+        </button>
+      </div>
+
+      {aviso && (
+        <span
+          className="text-11 [text-wrap:pretty]"
+          style={{ color: aviso.ok ? 'var(--hf-accent-700)' : 'var(--hf-danger-text)' }}
+        >
+          {aviso.texto}
+        </span>
+      )}
     </div>
   );
 }

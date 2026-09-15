@@ -240,6 +240,9 @@ export interface ActivoFicha {
   /// Los planes activos que ya cubren riesgos de este activo, por amenaza. Vacío cuando
   /// ninguno: la ficha ofrece crearlo en vez de afirmar que existe.
   planes: PlanDeAmenaza[];
+  /// Las cuentas del dominio que este activo encarna. Vacío para todo activo que no sea
+  /// `[P] Personal`, y también para uno que lo sea y todavía no las haya declarado.
+  cuentas: CuentaDelActivo[];
 }
 
 /// REQ-SIG-20 §7.2 · un plan de tratamiento ACTIVO que ya cubre un riesgo de este activo.
@@ -255,6 +258,26 @@ export interface PlanDeAmenaza {
   codigo: string;
   accion: string;
   estado: string;
+}
+
+/// Una cuenta del dominio que este activo ENCARNA (`ActivoPersona`).
+///
+/// No es el custodio. El custodio persona dice quién tiene el activo en la mano; esto dice
+/// de quién está HECHO el activo cuando es de tipo `[P] Personal`.
+export interface CuentaDelActivo {
+  personaId: number;
+  nombre: string;
+  correo: string;
+  /// Una cuenta inactiva atada sigue mostrándose: que alguien haya salido de la
+  /// organización es justamente lo que hay que ver, no algo que esconder.
+  activa: boolean;
+}
+
+/// Una persona del directorio, para el buscador que ata cuentas al activo.
+export interface PersonaOpcion {
+  id: number;
+  nombre: string;
+  correo: string;
 }
 
 /// One row of the "activo superior" search popup.
@@ -306,6 +329,10 @@ export interface Catalogos {
   estados: OpcionCatalogo[];
   contadores: ContadorCodigo[];
   activos: ActivoBreve[];
+  /// El directorio activo, para atar cuentas a un activo `[P] Personal`. Sólo las activas:
+  /// atar a alguien que ya salió de la organización sería declarar algo que dejó de ser
+  /// cierto — las que YA estaban atadas siguen viéndose aunque se inactiven.
+  personas: PersonaOpcion[];
   /// `umbral_valoracion`, 4 today: an asset enters the analysis when its value reaches it.
   umbralValoracion: number;
   /// `delta_techo_eficacia`, 0.05 today: how far the weighted mean may exceed the
@@ -333,6 +360,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     entornos,
     proveedores,
     criticidades,
+    personas,
     niveles,
     escalaValor,
     escalaDegradacion,
@@ -354,6 +382,11 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     prisma.entorno.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.proveedor.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
     prisma.criticidadNegocio.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
+    prisma.persona.findMany({
+      where: { activa: true },
+      orderBy: { nombre: 'asc' },
+      select: { id: true, nombre: true, correo: true },
+    }),
     // Los tres grados de una vez. `orden` primero porque la jerarquía tiene un orden
     // declarado por quien la administra, y el nombre solo desempata.
     prisma.nivelActivo.findMany({
@@ -423,6 +456,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
       rpoMinutos: c.rpoMinutos,
       descripcion: c.descripcion,
     })),
+    personas: personas.map((p) => ({ id: p.id, nombre: p.nombre, correo: p.correo })),
     niveles: niveles.map((n) => ({
       id: n.id,
       grado: n.grado,
@@ -604,6 +638,10 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
   const activo = await prisma.activo.findUnique({
     where: { codigo },
     include: {
+      personasDelActivo: {
+        include: { persona: { select: { nombre: true, correo: true, activa: true } } },
+        orderBy: { persona: { nombre: 'asc' } },
+      },
       valores: {
         select: { dimension: { select: { codigo: true } }, valor: { select: { valor: true } } },
       },
@@ -698,6 +736,12 @@ export async function cargarActivo(codigo: string): Promise<ActivoFicha | null> 
     superiorId: activo.superiorId,
     criticidadId: activo.criticidadId,
     nivelId: activo.nivelId,
+    cuentas: activo.personasDelActivo.map((v) => ({
+      personaId: v.personaId,
+      nombre: v.persona.nombre,
+      correo: v.persona.correo,
+      activa: v.persona.activa,
+    })),
     datosCliente: activo.datosCliente,
     datosPersonales: activo.datosPersonales,
     expuestoInternet: activo.expuestoInternet,

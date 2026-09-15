@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 // app/sig/personas/Personas.client.tsx
 //
 // Tabla del censo con chips Activas/Inactivas/Todas, el botón de sincronizar (A1) y el
@@ -35,6 +37,10 @@ export interface PersonaFila {
   abiertas: AsignacionAbierta[];
   /// Derivado del Directorio al leer, nunca guardado. `DESCONOCIDO` no es Colaborador.
   rol: RolDeclarado;
+  /// REQ-SIG-12 · los activos `[P] Personal` que esta cuenta ENCARNA — de los que la
+  /// persona forma parte, no los que custodia. Vacío para casi todo el censo: sólo los
+  /// activos de tipo Personal declaran sus cuentas.
+  activos: { codigo: string; nombre: string }[];
 
   // ── REQ-SIG-15 · lo que el popup edita ──
   //
@@ -306,6 +312,7 @@ export default function PersonasClient({
               <th className="px-4 py-3 font-semibold">Área</th>
               <th className="px-4 py-3 font-semibold">Cargo</th>
               <th className="px-4 py-3 font-semibold">Rol en el SIG</th>
+              <th className="px-4 py-3 font-semibold">Activo</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
               <th className="px-4 py-3 text-right font-semibold">Pendientes</th>
             </tr>
@@ -384,6 +391,34 @@ export default function PersonasClient({
                   >
                     {CHIP_ROL[p.rol].etiqueta}
                   </span>
+                </td>
+                {/* REQ-SIG-12 · el activo del inventario del que esta cuenta forma parte.
+                    Enlace directo a su ficha: la pregunta «¿a qué activo pertenece esta
+                    persona?» no tenía respuesta desde ninguna pantalla.
+
+                    Casi todo el censo muestra «—», y esta bien: solo los activos de tipo
+                    `[P] Personal` declaran sus cuentas. */}
+                <td className="px-4 py-3">
+                  {p.activos.length === 0 ? (
+                    <span className="text-11 text-label">—</span>
+                  ) : (
+                    <span className="flex flex-col gap-0.5">
+                      {p.activos.map((a) => (
+                        <Link
+                          key={a.codigo}
+                          href={`/sgsi/inventario/${a.codigo}`}
+                          title={a.nombre}
+                          // `stopPropagation` porque la fila entera abre el panel lateral:
+                          // sin esto, el clic en el enlace abriria el panel ademas de
+                          // navegar, y la persona veria las dos cosas pelear.
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-mono text-10_5 text-accent-700 hover:underline"
+                        >
+                          {a.codigo}
+                        </Link>
+                      ))}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span

@@ -97,6 +97,7 @@ const CATALOGOS: Catalogos = {
   ],
   // E1 · una rama completa: raíz → nivel 2 → nivel 3. Es lo mínimo para que los tres
   // selects de la cabecera se encadenen de verdad y no sólo se dibujen.
+  personas: [],
   niveles: [
     { id: 10, grado: 1, nombre: 'PRODUCTOS', padreId: null },
     { id: 20, grado: 2, nombre: 'MINTRACE', padreId: 10 },
@@ -169,6 +170,7 @@ function activo(codigo: string, valor: number): ActivoFicha {
     riesgos: [],
     amenazasExcluidas: [],
     planes: [],
+    cuentas: [],
   };
 }
 
@@ -329,6 +331,7 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       riesgos: [],
       amenazasExcluidas: [],
       planes: [],
+      cuentas: [],
     };
   }
 
@@ -536,6 +539,7 @@ describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de 
       ],
       amenazasExcluidas: [],
       planes: [],
+      cuentas: [],
     };
   }
 

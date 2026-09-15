@@ -77,6 +77,7 @@ const CATALOGOS: Catalogos = {
   entornos: [],
   proveedores: [],
   criticidades: [],
+  personas: [],
   niveles: [],
   escalaValor: [
     { id: 5, valor: 5, etiqueta: '5 — Muy Alto' },
@@ -135,6 +136,7 @@ function activo(codigo: string): ActivoFicha {
     riesgos: [],
     amenazasExcluidas: [],
     planes: [],
+    cuentas: [],
   };
 }
 
