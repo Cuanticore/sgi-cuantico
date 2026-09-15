@@ -457,10 +457,14 @@ describe('el recorrido de la hoja', () => {
 //   TEC-APP-0016  «Key Cloack»   tipo [SW]   subtipo [dir], que pertenece a [S]
 //   TEC-AUX-0001  «ChatGPT Pro»  tipo [AUX]  subtipo [std], que pertenece a [SW]
 //
-// **Se le cree al SUBTIPO y se ajusta el tipo**, porque el subtipo es la afirmación más
-// específica y porque el dato lo respalda: los doce subtipos de [AUX] son fuentes de
-// alimentación, UPS, cableado, fibra, mobiliario y cajas fuertes. Ninguno describe una
-// suscripción a ChatGPT, así que ahí lo que está mal es el tipo.
+// Las dos ya NO se resuelven igual. Decisión del dueño del inventario (2026-09-15): para
+// TEC-APP-0016 manda el TIPO, [SW] — Keycloak es software —, y como [dir] no encaja bajo
+// [SW], el subtipo se reemplaza por una elección documentada, [std], no por un dato del
+// libro. TEC-AUX-0001 sigue con la regla original, sin tocar: se le cree al SUBTIPO y se
+// ajusta el tipo, porque el subtipo es la afirmación más específica y porque el dato lo
+// respalda — los doce subtipos de [AUX] son fuentes de alimentación, UPS, cableado, fibra,
+// mobiliario y cajas fuertes, y ninguno describe una suscripción a ChatGPT, así que ahí lo
+// que está mal es el tipo.
 //
 // **Y va por lista explícita, no por regla general.** El tipo MAGERIT determina qué amenazas
 // aplican vía `AmenazaTipo`, y por lo tanto qué riesgos existen. Una regla que le creyera al
@@ -486,14 +490,16 @@ describe('los dos activos con tipo y subtipo en conflicto', () => {
   const leerCon = (...filas: Record<number, string>[]) =>
     leerMatrizConsolidado(hoja(...filas), CON_CONFLICTO);
 
-  it('«Key Cloack» adopta [S], el tipo de su subtipo [dir]', () => {
+  it('«Key Cloack» conserva [SW], el tipo del libro, y adopta [std] como subtipo elegido', () => {
     const { filas, rechazadas, avisos } = leerCon(
       con({ 2: 'TEC-APP-0016', 9: '[SW] Aplicaciones (software)', 10: '[dir] Servicio de directorio' }),
     );
     expect(rechazadas).toEqual([]);
-    expect(filas[0].tipoId).toBe(11); // [S] Servicios
-    expect(filas[0].subtipoId).toBe(22);
+    expect(filas[0].tipoId).toBe(12); // [SW], el tipo declarado en el libro
+    expect(filas[0].subtipoId).toBe(23); // [std], la elección documentada, no el [dir] del libro
     expect(avisos).toHaveLength(1);
+    expect(avisos[0].mensaje).toContain('[dir]');
+    expect(avisos[0].mensaje).toContain('[std]');
   });
 
   it('«ChatGPT Pro» adopta [SW], el tipo de su subtipo [std]', () => {

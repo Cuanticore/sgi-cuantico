@@ -139,22 +139,41 @@ const ALIAS_AREA: Record<string, string> = {
 /// que corregir.
 const PROVEEDOR_NO_APLICA = ['No aplica', 'N.A.', 'No Aplica'];
 
-/// Los DOS activos del V19 cuyo TIPO contradice a su SUBTIPO.
+/// `TEC-APP-0016` «Key Cloack»: el libro V19 se contradice — tipo `[SW]` Aplicaciones
+/// (software), subtipo `[dir]` Servicio de directorio, que pertenece a `[S]`, no a `[SW]`.
 ///
-///   `TEC-APP-0016` «Key Cloack»   tipo `[SW]`,  subtipo `[dir]`, que pertenece a `[S]`
-///   `TEC-AUX-0001` «ChatGPT Pro»  tipo `[AUX]`, subtipo `[std]`, que pertenece a `[SW]`
+/// **Decisión del dueño del inventario (2026-09-15): manda el TIPO.** Keycloak es software
+/// de terceros, no un servicio de directorio propiamente dicho, así que se carga como `[SW]`.
+/// Eso deja `[dir]` sin encajar bajo `[SW]` — ninguno de sus 17 subtipos (`app`, `av`,
+/// `backup`, `browser`, `dbms`, `email_client`, `email_server`, `file`, `hypervisor`,
+/// `office`, `os`, `prp`, `std`, `sub`, `tm`, `ts`, `www`) es «servicio de directorio» — así
+/// que hace falta elegir uno para que la fila tenga con qué cargarse.
 ///
-/// Los dos no pueden ser verdaderos a la vez, y se le cree al subtipo: es la afirmación más
-/// específica, y el dato lo respalda. Los doce subtipos de `[AUX]` son fuentes de
+/// **Esa elección es `[std]` · Estándar (off the shelf), y es una elección, no un hecho del
+/// libro.** Keycloak es software de terceros que se instala y se configura, no desarrollo
+/// propio (`[prp]`) ni a medida (`[sub]`). Vive en `SUBTIPO_ELEGIDO_PARA`, más abajo: si el
+/// dueño del inventario cambia de opinión sobre el subtipo, ese es el único lugar que hay que
+/// tocar.
+///
+/// `TEC-AUX-0001` «ChatGPT Pro» sigue con la regla original, sin tocar: tipo `[AUX]`, subtipo
+/// `[std]`, que pertenece a `[SW]`. Ahí se le sigue creyendo al SUBTIPO —la afirmación más
+/// específica—, porque el dato lo respalda: los doce subtipos de `[AUX]` son fuentes de
 /// alimentación, UPS, cableado, fibra, mobiliario y cajas fuertes — ninguno describe una
 /// suscripción a ChatGPT, así que ahí lo que está mal es el tipo.
 ///
-/// **Es una lista de códigos y no una regla general, y esa es la parte importante.** El tipo
-/// MAGERIT determina qué amenazas aplican vía `AmenazaTipo`, y por lo tanto qué riesgos
+/// **Es una lista de un código y no una regla general, y esa es la parte importante.** El
+/// tipo MAGERIT determina qué amenazas aplican vía `AmenazaTipo`, y por lo tanto qué riesgos
 /// existen. Una regla que le creyera al subtipo SIEMPRE reclasificaría en silencio cualquier
-/// discrepancia futura: estaría decidiendo sola sobre el análisis de riesgos. Estos dos
-/// códigos los revisó una persona; el tercero que aparezca se rechaza y se reporta.
-const TIPO_DESDE_SUBTIPO = new Set(['TEC-APP-0016', 'TEC-AUX-0001']);
+/// discrepancia futura: estaría decidiendo sola sobre el análisis de riesgos. Este código lo
+/// revisó una persona; el próximo que aparezca se rechaza y se reporta.
+const TIPO_DESDE_SUBTIPO = new Set(['TEC-AUX-0001']);
+
+/// El subtipo elegido para cada código donde el TIPO manda (ver el comentario de arriba)
+/// pero el subtipo que trae el libro ya no encaja bajo él. Es una elección documentada y
+/// auditable, no un dato del libro — y por eso vive acá, en un solo lugar, fácil de cambiar.
+const SUBTIPO_ELEGIDO_PARA: Record<string, string> = {
+  'TEC-APP-0016': '[std]',
+};
 
 /// Insensible a mayúsculas y acentos. Quien escribió «Direccion» por «Dirección» cometió un
 /// error de tipeo, no un error de dato.
@@ -252,33 +271,55 @@ export function leerMatrizConsolidado(
       );
 
       if (!subtipo) {
-        // El tipo y el subtipo no pueden ser los dos verdaderos. Para los dos códigos que
-        // una persona revisó se le cree al SUBTIPO —la afirmación más específica— y el tipo
-        // se ajusta al suyo; para cualquier otro, se rechaza.
-        const adoptable = TIPO_DESDE_SUBTIPO.has(codigo)
-          ? catalogos.subtipos.filter((s) => s.codigo === codigoSubtipo)
-          : [];
-        const nuevoTipo =
-          adoptable.length === 1
-            ? catalogos.tipos.find((t) => t.id === adoptable[0].tipoId)
-            : undefined;
-
-        if (nuevoTipo) {
-          subtipo = adoptable[0];
-          tipo = nuevoTipo;
-          // El aviso dice los DOS tipos. «Se corrigió el tipo» sin decir de qué a qué no se
-          // puede auditar, y esto cambia qué amenazas aplican y por lo tanto qué riesgos
-          // existen para este activo.
-          avisar(
-            `El libro declara el tipo ${tipoDeclarado.codigo} y el subtipo «${textoSubtipo}», que ` +
-              `pertenece a ${nuevoTipo.codigo}. Se carga como ${nuevoTipo.codigo}: revisá la ` +
-              'clasificación, porque de ella depende qué riesgos se generan.',
+        const subtipoElegido = SUBTIPO_ELEGIDO_PARA[codigo];
+        if (subtipoElegido) {
+          // El TIPO manda para este código (decisión del dueño del inventario, ver el
+          // comentario de `SUBTIPO_ELEGIDO_PARA`), pero el subtipo que trae el libro ya no
+          // encaja bajo ese tipo. Se reemplaza por la elección documentada, no por un dato
+          // del libro.
+          subtipo = catalogos.subtipos.find(
+            (s) => s.tipoId === tipoDeclarado.id && s.codigo === subtipoElegido,
           );
+          if (subtipo) {
+            avisar(
+              `El libro declara el subtipo «${textoSubtipo}», que no pertenece a ${tipoDeclarado.codigo}. ` +
+                `Se carga con el subtipo ${subtipoElegido} — elección del dueño del inventario, no dato ` +
+                'del libro —, porque de ella depende qué riesgos se generan.',
+            );
+          } else {
+            rechazar(
+              `El subtipo elegido «${subtipoElegido}» no existe en el catálogo bajo ${tipoDeclarado.codigo}.`,
+            );
+          }
         } else {
-          // A propósito NO es «subtipo desconocido»: el error habitual es un subtipo válido
-          // bajo el tipo equivocado, y decir contra qué tipo se comprobó es lo que lo hace
-          // arreglable.
-          rechazar(`El subtipo «${textoSubtipo}» no pertenece a ${tipoDeclarado.codigo}.`);
+          // El tipo y el subtipo no pueden ser los dos verdaderos. Para el código que una
+          // persona revisó se le cree al SUBTIPO —la afirmación más específica— y el tipo
+          // se ajusta al suyo; para cualquier otro, se rechaza.
+          const adoptable = TIPO_DESDE_SUBTIPO.has(codigo)
+            ? catalogos.subtipos.filter((s) => s.codigo === codigoSubtipo)
+            : [];
+          const nuevoTipo =
+            adoptable.length === 1
+              ? catalogos.tipos.find((t) => t.id === adoptable[0].tipoId)
+              : undefined;
+
+          if (nuevoTipo) {
+            subtipo = adoptable[0];
+            tipo = nuevoTipo;
+            // El aviso dice los DOS tipos. «Se corrigió el tipo» sin decir de qué a qué no
+            // se puede auditar, y esto cambia qué amenazas aplican y por lo tanto qué
+            // riesgos existen para este activo.
+            avisar(
+              `El libro declara el tipo ${tipoDeclarado.codigo} y el subtipo «${textoSubtipo}», que ` +
+                `pertenece a ${nuevoTipo.codigo}. Se carga como ${nuevoTipo.codigo}: revisá la ` +
+                'clasificación, porque de ella depende qué riesgos se generan.',
+            );
+          } else {
+            // A propósito NO es «subtipo desconocido»: el error habitual es un subtipo
+            // válido bajo el tipo equivocado, y decir contra qué tipo se comprobó es lo que
+            // lo hace arreglable.
+            rechazar(`El subtipo «${textoSubtipo}» no pertenece a ${tipoDeclarado.codigo}.`);
+          }
         }
       }
     }

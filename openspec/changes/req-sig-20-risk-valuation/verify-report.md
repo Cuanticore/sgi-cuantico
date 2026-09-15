@@ -1,28 +1,29 @@
 ```yaml
 schema: gentle-ai.verify-result/v1
-evidence_revision: sha256:bd47dd9f0656ca0bff56be53b7fdfd1ea225c91d7a2dda5cf50f4e3720300a17
+evidence_revision: sha256:9a87e0ba3e18185d0ce6dc613caecb6720f1d27e3aa56c4bf7250d5611d7f8ee
 verdict: pass_with_warnings
 blockers: 0
 critical_findings: 0
-requirements: 36/37
-scenarios: 49/50
+requirements: 37/37
+scenarios: 50/50
 test_command: npx jest --silent
 test_exit_code: 0
-test_output_hash: sha256:18570609511c150caea0f3c8d0bc78aa02d4764f9923626ff54321aa989e8f10
+test_output_hash: sha256:551fcdba399b06e7903ed8c484d76ccd103bf2366191a3ff6e7aa5b52ab28c0c
 build_command: npx tsc --noEmit -p tsconfig.json
 build_exit_code: 0
 build_output_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 ```
 
-> `evidence_revision` = `sha256(git rev-parse 749cd06)`, es decir el sha256 de
-> `749cd06389763ae3fc6f8156909dcbda27492ac1`, que es la revision contra la que se corrio
-> esta verificacion. Reproducible con:
-> `git rev-parse 749cd06 | tr -d '
+> `evidence_revision` = `sha256(git rev-parse 410edf4)`, es decir el sha256 de
+> `410edf4a555f51fcf536142b23ef10e6ef248887`, la revision de HEAD contra la que se corrio
+> esta pasada (criterio 2 remediado: `lib/sgsi/consolidado-lectura.ts` y su prueba quedaron
+> commiteables pero no se commitearon, por instruccion explicita de no commitear). Reproducible
+> con:
+> `git rev-parse 410edf4 | tr -d '
 ' | sha256sum`
 >
-> El valor anterior estaba fabricado -el sha del commit rellenado con ceros, y con 62
-> caracteres en vez de 64-. El despachador nativo lo rechazo, que es para lo que existe
-> esa validacion.
+> Reemplaza el `evidence_revision` de la pasada anterior (`749cd06`), que dejo abierto el
+> criterio 2 (722 en vez de 725).
 
 ## Verification Report
 
@@ -83,7 +84,7 @@ data this pass could not reach.
 | # | Criterion (condensed) | Verdict | Evidence |
 |---|---|---|---|
 | 1 (+1b) | Value-3 asset: Amenazas/Matrices disabled and explained, zero rows, derivation pass does not run; server action rejects a degradacion write for that asset | PASS | FichaActivo.test.tsx lines 154-209 (green, re-run): value-3 fixture renders zero A.1 rows, badge says no requiere (not a count), both tabs disabled, title cites Parametro.umbral_valoracion; value-5 fixture renders at least one row and enabled tabs. Server side: acciones/__tests__/riesgos.test.ts lines 207-222 (green, re-run): guardarSesionRiesgo on an out-of-analysis asset returns ok:false, message matches fuera del analisis, zero Prisma writes. activoEnAnalisis guard is applied at 4 call sites: guardarSesionRiesgo, guardarTratamiento, excepcionFrecuencia, excepcionDegradacion. Method deviation from the task instruction: 1b asks to verify via a trace in the useMemo at FichaActivo.tsx line 592; that manual trace was not run (no browser in this pass). The behavioral proof above (zero rows, zero badge count) is an equivalent proof that the derivation pass produced no visible output. |
-| 2 | select count from activo where activo, expected 299; assets with at least one non-obsolete Riesgo, expected 37; non-obsolete risks, expected 725 | NO PASA as literally numbered | Independently confirmed via matriz-riesgos.csv at the repo root (generated 2026-09-09, read-only inspection): 37 distinct asset codes, 722 data rows (723 lines minus 1 header), not 725. Root cause independently re-derived: TEC-APP-0016 (Key Cloack) has exactly 20 rows in the matrix and is typed [S]; a comparison asset (TEC-APP-0005) of the same TEC-APP family has 23 rows and is typed [SW]. The 3-row gap matches 725 minus 722 exactly. Additional finding not in the original brief: consolidado-matriz.test.ts lines 470-526 (los dos activos con tipo y subtipo en conflicto) shows this is not a fresh, unreviewed data slip; it is pre-existing, already-reviewed importer logic that trusts the subtipo over the book tipo column for exactly two explicitly-listed asset codes that a person already reviewed, per the test own comment at lines 460-468, and TEC-APP-0016 is one of the two. The current matriz-riesgos.csv shows TEC-APP-0016 with tipo S and subtipo dir, consistent with that rule. This nuances the framing that this is simply a data typo where Keycloak should be software; the code own test comment states this reclassification was already reviewed for this exact asset, and a directory-service subtype is a plausible MAGERIT classification for an identity and directory manager. Whether that prior review or the proposal 725 figure is the stale one is a business-data question left to the maintainer, not resolved here. The 299 total-asset figure was not independently re-queried this pass (no DB read tool available); it is carried from the prior session task 1.9 finding, not re-verified in this report. |
+| 2 | select count from activo where activo, expected 299; assets with at least one non-obsolete Riesgo, expected 37; non-obsolete risks, expected 725 | PASS (remediated after the prior walk) | Remediated by an explicit business decision (2026-09-15), not by re-reading the workbook: the inventory owner decided that for `TEC-APP-0016` (Key Cloack) the TYPE wins, `[SW]` — Keycloak is software —, and since its declared subtype `[dir]` no longer fits under `[SW]`, the subtype becomes a documented choice, `[std]` Estándar (off the shelf), not a workbook fact. `lib/sgsi/consolidado-lectura.ts` was updated so a future re-import of the workbook lands `TEC-APP-0016` as `[SW]`/`[std]` directly (`TIPO_DESDE_SUBTIPO` now holds only `TEC-AUX-0001`; the new `SUBTIPO_ELEGIDO_PARA` map documents the `[std]` choice for `TEC-APP-0016`, and only that code). `consolidado-matriz.test.ts` lines 493-503 (green, re-run) now assert the opposite of the prior report: «Key Cloack» keeps `[SW]`, the book's declared type, and adopts `[std]` as its chosen subtype — not `[S]`/`[dir]` as before. `TEC-AUX-0001` (ChatGPT Pro) was explicitly NOT touched and its own test (`consolidado-matriz.test.ts` lines 505-512) is unchanged and still green: it still adopts `[SW]`, the type of its subtype `[std]`, via the untouched original rule. The development database row for `TEC-APP-0016` was corrected the same way via `scripts/req-sig-20-correccion-key-cloack.ts --aplicar` (bitácora-logged, `tipoId` 3→4, `subtipoId` 36→42), then `generarRiesgos()` (`lib/sgsi/riesgos.ts:77`) was re-run. Independently re-queried against the dev DB this pass (`docker exec sgi-postgres psql`, port 5437, db `sgi_sgsi`): `select count(*) from riesgo where not obsoleto` → **725**; `select count(*) from riesgo r join activo a on a.id=r.activo_id where a.codigo='TEC-APP-0016' and not r.obsoleto` → **23** (up from 20, the exact 3-risk gap this criterion needed); `select count(distinct codigo) from activo where activo` → **299**; `select count(distinct activo_id) from riesgo where not obsoleto` → **37**. Every non-obsolete risk has at least one `RiesgoCalculo` row (0 missing), confirmed by direct count. `TEC-AUX-0001` remains `[SW]`/`[std]` in the DB, unchanged, confirmed by the same query that read `TEC-APP-0016`. |
 | 3 | Changing umbral_valoracion to 3 and regenerating raises the in-analysis count with no code change; tabs self-enable | PASS (unit-level, not a live end-to-end re-run) | lib/sgsi/riesgos.ts lines 141-142 read Parametro.umbral_valoracion from the DB at runtime (fallback of 4 only if the row is missing). ficha.query.ts line 422 sources the client catalogos.umbralValoracion from the same parameter. formulas.test.ts lines 88-103 (green, re-run) proves entraAlAnalisis flips for the same asset when the threshold argument changes from 4 to 3, the single function both the client and the server guard call. Not independently re-run against a live DB threshold flip in this pass, since that would require a write and was out of scope; the single-source-of-truth wiring plus both-direction unit coverage is a legitimate covering-test proof of the mechanism. |
 | 4 | Inventory grid shows no inherente/residual columns; value filter gives 3, 34, 37, 244, 18 | PASS | A search for Riesgo inherente, Riesgo residual, and table headers in InventarioActivos.tsx returns no matching column headers; the inherente/residual values that do appear in the file drive only row background color and the sin plan amber dot, not a displayed column. inventario-filtros.test.ts lines 326-349 (green, re-run): contarPorValor on a V19-shaped fixture returns exactly todos 299, v5 3, v4 34, v4y5 37, v3 244, v2 18, built from a loop, not hardcoded; the same test also proves the counts move correctly under a re-valuation scenario. |
 | 5 | New page lists 37 rows; cards sum the same as the list under any filter combination | PASS with caveats | analisis-riesgos.test.ts lines 95-108 (green, re-run): reproduces 37/3/34 from a fixture built by count, not by literal numbers, and filasAnalisis returns exactly 37 rows. Lines 206-220: las tarjetas y la lista nunca se contradicen bajo ninguna combinacion de filtros checks tarjetas.enAnalisis.n equals lista.length across 6 filter combinations. Caveats, both already known and flagged in tasks.md, re-confirmed here, not re-discovered: only the enAnalisis card is checked against lista.length in that combinatorial test, the other four cards are not each individually cross-checked against a filtered list length in the same loop; and the page-level integration test uses a 2-asset fixture, so 37 rows in the running app is proven only at the pure-module level, not end-to-end through the page component with real data. |
@@ -98,10 +99,10 @@ data this pass could not reach.
 | 14 | Asset with C1 and D at most 3 shows the coherence warning; D equals 5 with C4 shows none | PASS | FichaActivo.test.tsx lines 212-238 (green, re-run): C1 with D3 renders the exige una recuperacion rapida warning and does not disable any control, matching the avisa no bloquea rule; D5 with C4 renders no such warning. |
 | 15 | New screens write nothing when visited, not one Bitacora row | PASS, weaker evidence class | analisis-riesgos.query.test.ts lines 29-41 (green, re-run): asserts, by reading the file own source text, that analisis-riesgos.query.ts contains none of Prisma write method names, no prisma.bitacora reference, and no import from the server actions folder. PantallaAnalisisRiesgos.test.tsx lines 187-192 (green, re-run): same structural check on the screen component. This is the explicitly-flagged deviation from task 3.13: proven by source-text inspection, not by counting Bitacora rows before and after against a live database. |
 
-Compliance summary: 13 of 15 criteria PASS (including composed and caveated passes noted
-above), 1 of 15 NO PASA (criterion 2, the literal 725 versus the actual 722; criterion 12 was also NO PASA at the first walk and has since been remediated,
-the second half, sort-by-criticality not reachable from the UI), 0 of 15 NO VERIFICABLE this
-pass.
+Compliance summary: 15 of 15 criteria PASS (including composed, caveated, and remediated
+passes noted above). Criterion 2 (725 vs 722) and criterion 12 (sort-by-criticality not
+reachable from the UI) were both NO PASA at the first walk and have since been remediated,
+each by a separate, explicitly scoped fix. 0 of 15 NO VERIFICABLE this pass.
 
 ### 5.4 Deploy gate versus Rollback Plan (confirmed, cross-checked independently in this pass)
 
@@ -124,7 +125,7 @@ touched, per instruction; flagged for the maintainer.
 | Finding | Status | Notes |
 |---|---|---|
 | excepcionFrecuencia and excepcionDegradacion server actions still exist and are unreachable from the UI | WARNING | Independently re-confirmed this pass: both still exist in acciones/riesgos.ts, still carry the activoEnAnalisis guard, and are still exported, but a search outside that file and its own tests shows zero call sites from FichaActivo.tsx or anywhere else in the UI; guardarSesionRiesgo replaced their save path per task 4.15. This contradicts a prior apply-progress note that described them as now-deleted; they were not deleted, only orphaned. Not a correctness bug, but dead exported code with its own maintained test surface. |
-| 722 versus 725 root cause | WARNING, data and business, not code | See criterion 2 above, flagged, not resolved. |
+| 722 versus 725 root cause | RESOLVED | See criterion 2 above: the inventory owner decided `TEC-APP-0016` is `[SW]`/`[std]`, `lib/sgsi/consolidado-lectura.ts` and its test were updated to match, and the dev DB row plus its risk set were corrected and re-verified at 725/23. |
 | Sort-by-criticality unreachable from the UI | WARNING | See criterion 12 above, flagged, not resolved, matches known debt already recorded in tasks.md. |
 | Deploy-gate backup ordering | WARNING | See section 5.4 above. |
 | MatrizActivo line 3681 independent arithmetic | WARNING, carried forward, pre-existing | See criterion 11 above. |
@@ -135,11 +136,16 @@ touched, per instruction; flagged for the maintainer.
 CRITICAL: None.
 
 WARNING:
-1. Criterion 2, the expected 725 non-obsolete risks, is contradicted by the actual data: 722.
-Root cause independently re-derived: TEC-APP-0016 is classified as type S with subtype dir via
-a pre-existing, already-reviewed importer rule that trusts a conflicting subtipo over the book
-declared tipo, not a fresh, unreviewed typo. Whether the prior review or the proposal 725
-figure is the stale one is a business-data call for the maintainer, not resolved here.
+1. RESOLVED — Criterion 2, the expected 725 non-obsolete risks, was contradicted by the
+actual data (722) at the prior walk. Root cause was independently re-derived: TEC-APP-0016
+was classified as type S with subtype dir via a pre-existing, already-reviewed importer rule
+that trusted a conflicting subtipo over the book declared tipo. The inventory owner has since
+made the business call (2026-09-15): for TEC-APP-0016 the TYPE wins, [SW], and the subtype
+becomes a documented choice, [std], because [dir] no longer fits under [SW]. The importer,
+its test, and the dev DB row (via scripts/req-sig-20-correccion-key-cloack.ts, bitácora-logged)
+were all updated to match, and generarRiesgos() was re-run: the dev DB now counts 725
+non-obsolete risks, 23 of them for TEC-APP-0016 (up from 20). TEC-AUX-0001 was left untouched,
+confirmed unchanged in both code and DB.
 2. Criterion 12, the sorting-by-criticality scenario, is not reachable from the running UI;
 ordenarPorCriticidad exists and is correctly unit-tested but is never imported by either screen
 component. Matches already-known, already-flagged debt.
@@ -169,22 +175,21 @@ disagreeing. Not touched here, per instruction.
 
 PASS WITH WARNINGS.
 
-Zero CRITICAL findings. 105 of 105 test suites and 1899 of 1899 tests pass, re-run
-independently this pass. The typecheck is clean, re-run independently this pass. 13 of the 15
-section-14 acceptance criteria hold under source inspection plus a passing, runtime-executed
-covering test. Two do not hold exactly as written: criterion 2 asserted risk count of 725 does
-not match the actual, freshly-verified count of 722, a data-classification question, not a
-code defect, with its root cause independently re-derived and a nuance on the prior framing
-surfaced for the maintainer; and criterion 12 sort-by-criticality scenario is implemented
-correctly as a pure function but is not wired to any reachable UI action. Neither blocks the
-change functionally, both are already-known, already-documented gaps, not fresh surprises, but
-neither should be silently marked as passed either.
+Zero CRITICAL findings. 105 of 105 test suites and 1900 of 1900 tests pass, re-run
+independently this pass. The typecheck is clean, re-run independently this pass. All 15 of the
+15 section-14 acceptance criteria now hold: 13 under source inspection plus a passing,
+runtime-executed covering test as in the prior walk, and 2 by remediation. Criterion 2's
+asserted risk count of 725 now matches the actual, freshly-verified dev-DB count of 725 (up
+from 722 at the prior walk), following the inventory owner's explicit business decision that
+TEC-APP-0016 is [SW]/[std]; the importer, its test, and the dev DB were all brought in line and
+independently re-verified this pass. Criterion 12's sort-by-criticality scenario, already
+remediated in a prior pass, remains wired to a reachable UI control. Neither the deploy-gate
+backup-ordering gap (section 5.4) nor the dead excepcionFrecuencia/excepcionDegradacion actions
+are section-14 criteria; both remain open, already-known, already-documented findings, not
+fresh surprises, and neither blocks the change functionally.
 
 The change is ready for sdd-archive provided the maintainer explicitly accepts, rather than
-silently waives, these open items:
-- The 722-versus-725 discrepancy and its root cause, the maintainer own decision on which
-number is authoritative.
-- Criterion 12 unreachable sort control.
+silently waives, these remaining open items:
 - The deploy-gate backup-ordering gap against the written Rollback Plan, section 5.4.
 - The dead excepcionFrecuencia and excepcionDegradacion actions.
 
