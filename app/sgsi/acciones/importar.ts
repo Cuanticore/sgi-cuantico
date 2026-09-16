@@ -33,6 +33,7 @@ import {
   claveLegacy,
   conPendientes,
   esFormatoLegacy,
+  faltantesDelLibro,
   leerFilas,
   type Catalogos,
   type FilaResuelta,
@@ -319,14 +320,13 @@ async function leer(
   // transacción con los reales.
   const conCreaciones = conPendientes(catalogo, resoluciones);
   const lectura = leerFilas(matriz, conCreaciones, filaDeEncabezado);
-  // Los faltantes se reportan contra el catálogo REAL. Si salieran de la lectura de arriba,
-  // desaparecerían en cuanto la persona decide y perdería de vista lo que eligió — además
-  // de que `problemasDeResoluciones` necesita la lista completa para exigir una decisión
-  // por cada uno. Cuando no hay nada decidido las dos lecturas son la misma y no se repite.
+  // Los faltantes salen del catálogo crudo, SIN alias y SIN pendientes: son lo que el libro
+  // pide y la base no tiene, y eso no cambia porque ya se haya decidido qué hacer al
+  // respecto. Ver `faltantesDelLibro`.
   const faltantes =
-    conCreaciones === catalogo
+    resoluciones.length === 0
       ? lectura.faltantes
-      : leerFilas(matriz, catalogo, filaDeEncabezado).faltantes;
+      : faltantesDelLibro(matriz, base, filaDeEncabezado);
   if (lectura.filas.length === 0) {
     throw new PlantillaError(
       'No encontré filas con datos. Revisa que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
