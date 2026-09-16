@@ -1,6 +1,7 @@
 // lib/sgsi/__tests__/formulas.test.ts
 
 import {
+  EFICACIA_MAXIMA,
   calcularRiesgo,
   entraAlAnalisis,
   impactoAcumulado,
@@ -163,6 +164,50 @@ describe('eficacia agregada de una amenaza, MET-SIG-01 §7.4', () => {
     // REQ-SIG-21 §8 · desconocido no es cero: escribir cero haría que toda matriz residual
     // saliera idéntica a la inherente, que es el defecto que este dominio ya pagó una vez.
     expect(eficaciaAmenaza([])).toBeNull();
+  });
+});
+
+describe('REQ-SIG-24 §4 · el techo del motor: ningún control elimina un riesgo', () => {
+  // La eficacia 1.0 daría residual exactamente 0 — el riesgo desaparecería del registro.
+  // El techo vive acá y no en el selector porque hay tres puertas que la interfaz no
+  // cubre: un UPDATE por script, la agregación de REQ-SIG-21 y la excepción de madurez
+  // de `Riesgo.madurezId`.
+  const ENTRADA = {
+    valores: { D: 5, I: 5, C: 5 },
+    degradaciones: { D: 1, I: 0, C: 0 },
+    aro: 10,
+  };
+
+  it('el máximo es 0.95, expuesto como constante', () => {
+    expect(EFICACIA_MAXIMA).toBe(0.95);
+  });
+
+  it('con eficacia 1 el residual es el 5 % del inherente, no cero', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 1 });
+    expect(r.riesgoPotencial.toNumber()).toBe(50);
+    expect(r.riesgoResidual.toNumber()).toBe(2.5);
+    expect(r.eficaciaAcotada).toBe(true);
+  });
+
+  it('por debajo del techo no interviene y no se marca', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 0.9 });
+    expect(r.riesgoResidual.toNumber()).toBe(5);
+    expect(r.eficaciaAcotada).toBe(false);
+  });
+
+  it('justo en el techo tampoco se marca: acotar es recortar, no tocar', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 0.95 });
+    expect(r.riesgoResidual.toNumber()).toBe(2.5);
+    expect(r.eficaciaAcotada).toBe(false);
+  });
+
+  it('el residual nunca baja del 5 % del inherente, con cualquier eficacia', () => {
+    for (const eficacia of [0, 0.5, 0.9, 0.95, 0.99, 1]) {
+      const r = calcularRiesgo({ ...ENTRADA, eficacia });
+      expect(r.riesgoResidual.toNumber()).toBeGreaterThanOrEqual(
+        r.riesgoPotencial.toNumber() * 0.05,
+      );
+    }
   });
 });
 
