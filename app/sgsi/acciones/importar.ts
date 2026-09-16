@@ -25,9 +25,19 @@ import {
   TOPE_ARCHIVO,
   type Analisis,
   type FilaLeida,
+  type OpcionesCatalogo,
 } from '@/lib/sgsi/plantilla';
 import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
+import {
+  CATALOGOS_CURABLES,
+  esCreable,
+  indiceDeAlias,
+  problemasDeResoluciones,
+  type CatalogoCurable,
+  type FaltanteCatalogo,
+  type Resolucion,
+} from '@/lib/sgsi/catalogos-curables';
 import {
   conteoDeCodigos,
   encabezadoDeMatriz,
@@ -45,6 +55,13 @@ import type { Prisma } from '@prisma/client';
 
 /// Something wrong with the FILE, not with the code: a message the person can act on.
 class PlantillaError extends Error {}
+
+/// Aborta la transacción cuando, ya creados los catálogos, no queda ni una fila que escribir.
+///
+/// Es un throw y no un `return` porque sólo revirtiendo la transacción desaparecen los
+/// cargos y proveedores recién insertados. Sin esto quedarían registrados para una
+/// importación que no ocurrió, y nadie va a salir a buscarlos después.
+class SinFilasTrasResolver extends Error {}
 
 /// Flattens a cell to text. ExcelJS hands back objects for rich text, formulas and
 /// hyperlinks, and a "[object Object]" in a preview table tells nobody anything.
@@ -268,15 +285,145 @@ async function idDeNivel3(
   return padreId;
 }
 
-async function leer(datos: FormData): Promise<{ filas: FilaLeida[]; resueltas: FilaResuelta[] }> {
-  const [matriz, catalogo] = await Promise.all([abrir(datos), catalogos()]);
+async function leer(
+  datos: FormData,
+  resoluciones: Resolucion[] = [],
+): Promise<{
+  filas: FilaLeida[];
+  resueltas: FilaResuelta[];
+  faltantes: FaltanteCatalogo[];
+  matriz: Awaited<ReturnType<typeof abrir>>;
+  catalogo: Catalogos;
+}> {
+  const [matriz, base] = await Promise.all([abrir(datos), catalogos()]);
+  const catalogo: Catalogos = { ...base, alias: indiceDeAlias(resoluciones) };
   const lectura = leerFilas(matriz, catalogo);
   if (lectura.filas.length === 0) {
     throw new PlantillaError(
-      'No encontré filas con datos. Revisá que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
+      'No encontré filas con datos. Revisa que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
     );
   }
-  return lectura;
+  return { ...lectura, matriz, catalogo };
+}
+
+/// Las decisiones que la persona tomó sobre los faltantes, tal como viajan en el formulario.
+///
+/// Se validan acá y no en la pantalla: una server action es una frontera de confianza, y lo
+/// que llega por `FormData` puede no venir de la pantalla. Un cuerpo mal formado no es un
+/// error del sistema — es una petición que se descarta sin decisiones.
+function resolucionesDe(datos: FormData): Resolucion[] {
+  const crudo = datos.get('resoluciones');
+  if (typeof crudo !== 'string' || crudo.trim() === '') return [];
+
+  let leido: unknown;
+  try {
+    leido = JSON.parse(crudo);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(leido)) return [];
+
+  const salida: Resolucion[] = [];
+  for (const r of leido) {
+    if (typeof r !== 'object' || r === null) continue;
+    const { catalogo, valor, accion, destino, nombre: nombreCrudo } = r as Record<
+      string,
+      unknown
+    >;
+    const r2 = { nombre: nombreCrudo };
+    if (typeof catalogo !== 'string' || typeof valor !== 'string') continue;
+    if (!(CATALOGOS_CURABLES as readonly string[]).includes(catalogo)) continue;
+    const c = catalogo as CatalogoCurable;
+    if (accion === 'crear') {
+      // Sin `nombre` se registra lo que dice el libro. Es el caso normal: sólo se corrige
+      // cuando el libro trae el nombre mal escrito.
+      const nombre =
+        typeof r2.nombre === 'string' && r2.nombre.trim() !== '' ? r2.nombre : valor;
+      salida.push({ catalogo: c, valor, accion: 'crear', nombre });
+    }
+    else if (accion === 'mapear' && typeof destino === 'string') {
+      salida.push({ catalogo: c, valor, accion: 'mapear', destino });
+    }
+  }
+  return salida;
+}
+
+/// Los nombres vigentes de cada catálogo curable, para el selector de «mapear a».
+function opcionesDe(catalogo: Catalogos): OpcionesCatalogo {
+  const ordenar = (xs: { nombre: string }[]) =>
+    xs.map((x) => x.nombre).sort((a, b) => a.localeCompare(b, 'es'));
+  return {
+    cargo: ordenar(catalogo.cargos),
+    proveedor: ordenar(catalogo.proveedores),
+    ubicacion: ordenar(catalogo.ubicaciones),
+    entorno: ordenar(catalogo.entornos),
+    area: ordenar(catalogo.areas),
+  };
+}
+
+/// Inserta lo que la persona marcó para crear y devuelve el catálogo con esas filas dentro.
+///
+/// Corre DENTRO de la transacción de la importación a propósito. Crear los catálogos aparte
+/// y escribir después deja cargos y proveedores huérfanos si la carga falla: inventados para
+/// una importación que no ocurrió, y que nadie va a salir a buscar.
+async function crearFaltantes(
+  tx: Prisma.TransactionClient,
+  base: Catalogos,
+  resoluciones: readonly Resolucion[],
+): Promise<Catalogos> {
+  const aumentado: Catalogos = {
+    ...base,
+    cargos: [...base.cargos],
+    proveedores: [...base.proveedores],
+    ubicaciones: [...base.ubicaciones],
+    entornos: [...base.entornos],
+  };
+
+  for (const r of resoluciones) {
+    if (r.accion !== 'crear' || !esCreable(r.catalogo)) continue;
+    // El nombre decidido, que puede diferir del texto del libro cuando éste venía mal
+    // escrito. La fila lo encuentra igual: `indiceDeAlias` traduce el uno al otro.
+    const nombre = r.nombre.trim();
+
+    if (r.catalogo === 'cargo') {
+      // `orden` va al final de la lista: la organización decide después dónde ubicarlo, y
+      // los dos flags quedan en su default —ofrecido como propietario y como custodio—
+      // porque la aplicación no puede saber cuál de los dos es. Esa es su decisión.
+      const ultimo = await tx.cargoResponsable.aggregate({ _max: { orden: true } });
+      const creado = await tx.cargoResponsable.create({
+        data: { nombre, orden: (ultimo._max.orden ?? 0) + 1 },
+        select: { id: true, nombre: true },
+      });
+      aumentado.cargos.push(creado);
+      continue;
+    }
+
+    if (r.catalogo === 'proveedor') {
+      const creado = await tx.proveedor.create({
+        data: { nombre },
+        select: { id: true, nombre: true },
+      });
+      aumentado.proveedores.push(creado);
+      continue;
+    }
+
+    if (r.catalogo === 'ubicacion') {
+      const creado = await tx.ubicacion.create({
+        data: { nombre },
+        select: { id: true, nombre: true },
+      });
+      aumentado.ubicaciones.push(creado);
+      continue;
+    }
+
+    const creado = await tx.entorno.create({
+      data: { nombre },
+      select: { id: true, nombre: true },
+    });
+    aumentado.entornos.push(creado);
+  }
+
+  return aumentado;
 }
 
 // ─── El Consolidado de Activos V19 (REQ-SIG-12) ────────────────────────────────────────
@@ -482,18 +629,31 @@ export async function analizarPlantilla(datos: FormData): Promise<Analisis> {
       };
     }
 
-    const { filas, resueltas } = await leer(datos);
+    const resoluciones = resolucionesDe(datos);
+    const { filas, resueltas, faltantes, catalogo } = await leer(datos, resoluciones);
     const conErrores = filas.length - resueltas.length;
+
+    // Los faltantes de catálogo se cuentan aparte del resumen de filas porque no son un
+    // defecto del libro: son decisiones pendientes. Decir «12 filas tienen algo que
+    // corregir» cuando lo único que pasa es que falta registrar un cargo manda a la persona
+    // a revisar doce filas que están bien.
+    const pendientes = faltantes.length;
+    const resumen =
+      conErrores === 0
+        ? `${resueltas.length} ${resueltas.length === 1 ? 'fila lista' : 'filas listas'} para importar.`
+        : `${resueltas.length} de ${filas.length} filas están listas. Las otras ${conErrores} tienen algo que corregir y no se van a importar.`;
 
     return {
       ok: true,
       mensaje:
-        conErrores === 0
-          ? `${resueltas.length} ${resueltas.length === 1 ? 'fila lista' : 'filas listas'} para importar.`
-          : `${resueltas.length} de ${filas.length} filas están listas. Las otras ${conErrores} tienen algo que corregir y no se van a importar.`,
+        pendientes === 0
+          ? resumen
+          : `${resumen} Antes hay que decidir qué hacer con ${pendientes} ${pendientes === 1 ? 'nombre que el catálogo no tiene' : 'nombres que el catálogo no tiene'}.`,
       filas,
       validas: resueltas.length,
       conErrores,
+      faltantes,
+      opciones: opcionesDe(catalogo),
     };
   } catch (error) {
     if (error instanceof PlantillaError) return { ...vacio, mensaje: error.message };
@@ -601,15 +761,31 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
       throw error;
     }
 
+    const resoluciones = resolucionesDe(datos);
+
     let lectura;
     try {
-      lectura = await leer(datos);
+      lectura = await leer(datos, resoluciones);
     } catch (error) {
       if (error instanceof PlantillaError) return { ok: false, mensaje: error.message };
       throw error;
     }
-    const { filas, resueltas } = lectura;
-    if (resueltas.length === 0) {
+    const { filas, faltantes, matriz, catalogo } = lectura;
+    let { resueltas } = lectura;
+
+    // La validación va ANTES de abrir la transacción: descubrir a mitad de camino que un
+    // destino no existe deja el trabajo de la persona a medias sin decirle qué corregir.
+    const problemas = problemasDeResoluciones(faltantes, resoluciones, opcionesDe(catalogo));
+    if (problemas.length > 0) {
+      return { ok: false, mensaje: problemas.join(' ') };
+    }
+
+    const hayQueCrear = resoluciones.some((r) => r.accion === 'crear');
+    // El chequeo de «ninguna fila pasó» NO puede ir antes de crear los catálogos: si todas
+    // las filas fallaban por un cargo que la persona acaba de mandar a crear, `resueltas`
+    // vale 0 acá y saldríamos sin crearlo. Con creaciones pendientes se decide después de
+    // la relectura, ya dentro de la transacción.
+    if (!hayQueCrear && resueltas.length === 0) {
       return {
         ok: false,
         mensaje: `Ninguna de las ${filas.length} filas pasó la validación, así que no importé nada.`,
@@ -633,7 +809,28 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
     // One transaction for the whole batch. Half an inventory looks plausible and hides
     // what is missing, and the counters would already have moved for the rows that made
     // it in.
-    await prisma.$transaction(async (tx) => {
+    let creados = 0;
+
+    try {
+      await prisma.$transaction(async (tx) => {
+      if (hayQueCrear) {
+        // Se crea y se RELEE dentro de la misma transacción. La relectura es pura y la
+        // matriz ya está en memoria, así que cuesta nada; lo que compra es que los ids de
+        // los cargos y proveedores recién insertados sean los que escriben las filas, sin
+        // una segunda consulta que podría ver otro estado.
+        const aumentado = await crearFaltantes(tx, catalogo, resoluciones);
+        creados = aumentado.cargos.length - catalogo.cargos.length
+          + aumentado.proveedores.length - catalogo.proveedores.length
+          + aumentado.ubicaciones.length - catalogo.ubicaciones.length
+          + aumentado.entornos.length - catalogo.entornos.length;
+        resueltas = leerFilas(matriz, aumentado).resueltas;
+        if (resueltas.length === 0) {
+          // Abortar revierte los catálogos recién creados: si no entra ni una fila, no
+          // quedan cargos inventados para una importación que no ocurrió.
+          throw new SinFilasTrasResolver();
+        }
+      }
+
       for (const f of resueltas) {
         const area = porArea.get(f.areaId);
         const tipo = porTipo.get(f.tipoId);
@@ -716,14 +913,25 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
           await tx.activo.update({ where: { id: p.id }, data: { superiorId: destino.id } });
         }
       }
-    }, {
-      // Prisma's default interactive-transaction timeout is 5 s, and this loop runs four
-      // awaited queries PER ROW. Two hundred rows is eight hundred round trips, so the
-      // default aborts a perfectly valid import on the clock and reports it as a failure of
-      // the data. `maxWait` is the queue wait for a connection, `timeout` the work itself.
-      maxWait: 10_000,
-      timeout: 120_000,
-    });
+      }, {
+        // Prisma's default interactive-transaction timeout is 5 s, and this loop runs four
+        // awaited queries PER ROW. Two hundred rows is eight hundred round trips, so the
+        // default aborts a perfectly valid import on the clock and reports it as a failure of
+        // the data. `maxWait` is the queue wait for a connection, `timeout` the work itself.
+        maxWait: 10_000,
+        timeout: 120_000,
+      });
+    } catch (error) {
+      if (error instanceof SinFilasTrasResolver) {
+        return {
+          ok: false,
+          mensaje:
+            `Ninguna de las ${filas.length} filas pasó la validación ni siquiera con los ` +
+            'nombres resueltos, así que no importé nada y tampoco registré los catálogos nuevos.',
+        };
+      }
+      throw error;
+    }
 
     // FROM HERE ON THE ASSETS ARE COMMITTED. Anything that fails below is a failure to
     // FINISH, never a failure to save, and it must not be reported as one: told "no se pudo
@@ -733,6 +941,12 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
     const rango = codigos.length > 1 ? `${codigos[0]} … ${codigos[codigos.length - 1]}` : codigos[0];
     const importados =
       `Se importaron ${codigos.length} ${codigos.length === 1 ? 'activo' : 'activos'} (${rango}). ` +
+      // Los catálogos creados se dicen SIEMPRE, y no como detalle: son filas nuevas en el
+      // vocabulario de la organización, no un efecto secundario de la carga. Quien importó
+      // tiene que saber qué quedó registrado a su nombre.
+      (creados > 0
+        ? `Registré ${creados} ${creados === 1 ? 'nombre nuevo' : 'nombres nuevos'} en los catálogos. `
+        : '') +
       (omitidas > 0 ? `Quedaron ${omitidas} filas afuera por errores. ` : '');
 
     let diagnostico;

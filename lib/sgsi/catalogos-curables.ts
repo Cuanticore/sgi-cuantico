@@ -1,0 +1,241 @@
+// lib/sgsi/catalogos-curables.ts
+//
+// Qué se puede resolver desde la pantalla de carga cuando el libro nombra algo que el
+// catálogo no tiene, y qué no.
+//
+// EL PROBLEMA. Que un cargo no esté en el catálogo no dice nada sobre si debe existir:
+// dice que nadie lo registró todavía. El V21 llegó con «Architecture and Technology
+// Manager» —un cargo real de la organización— y la carga rechazaba las filas sin ofrecer
+// salida, obligando a abandonar la importación para ir a curar el catálogo a otra pantalla.
+//
+// LAS DOS SALIDAS. Crear lo que falta, o mapear el texto del libro a algo que ya existe.
+// La segunda es la que evita el daño silencioso: «Arq. y Tec. Manager» no es un cargo
+// nuevo, es el mismo de siempre escrito distinto, y crearlo daría dos filas para una
+// persona.
+//
+// EL LÍMITE. Sólo se curan los catálogos DE LA ORGANIZACIÓN. MAGERIT v3.0 es normativo y
+// cerrado, y la criticidad de negocio son cinco filas fijas: dejar que una celda de Excel
+// invente un tipo de activo saca el análisis de la metodología que dice seguir.
+
+/// Los catálogos que la organización cura y que, por tanto, la carga puede resolver.
+///
+/// La lista es el límite, no una enumeración de conveniencia: lo que no está acá no se
+/// crea ni se mapea desde el libro. Ver el encabezado del módulo.
+export const CATALOGOS_CURABLES = ['cargo', 'proveedor', 'ubicacion', 'entorno', 'area'] as const;
+
+export type CatalogoCurable = (typeof CATALOGOS_CURABLES)[number];
+
+/// Los que además se pueden CREAR desde la carga. `area` queda fuera y no por cautela:
+/// `Area.prefijo` es CHAR(3) único y forma el código de cada activo del área
+/// (`COM-APP-0001`). Inventarlo desde un nombre sería decidir la codificación de la
+/// organización por ella, y ese prefijo después es inmutable — los códigos ya emitidos lo
+/// llevan dentro. Un área faltante se mapea, o se crea en parámetros con su prefijo pensado.
+export const CATALOGOS_CREABLES = ['cargo', 'proveedor', 'ubicacion', 'entorno'] as const;
+
+export type CatalogoCreable = (typeof CATALOGOS_CREABLES)[number];
+
+export function esCreable(catalogo: string): catalogo is CatalogoCreable {
+  return (CATALOGOS_CREABLES as readonly string[]).includes(catalogo);
+}
+
+/// Cómo se nombra cada catálogo dentro de un mensaje, en minúscula y en singular.
+const ETIQUETA: Record<CatalogoCurable, string> = {
+  cargo: 'cargo',
+  proveedor: 'proveedor',
+  ubicacion: 'ubicación',
+  entorno: 'entorno',
+  area: 'área',
+};
+
+export function esCurable(catalogo: string): catalogo is CatalogoCurable {
+  return (CATALOGOS_CURABLES as readonly string[]).includes(catalogo);
+}
+
+/// Un valor del libro que el catálogo no tiene, tal como lo vio UNA fila.
+export interface RegistroFaltante {
+  catalogo: CatalogoCurable;
+  valor: string;
+  fila: number;
+}
+
+/// El mismo valor, ya juntado con todas las filas que lo piden.
+export interface FaltanteCatalogo {
+  catalogo: CatalogoCurable;
+  valor: string;
+  filas: number[];
+}
+
+/// Qué hacer con un faltante: crearlo, o mapearlo a uno que ya está.
+///
+/// `valor` es SIEMPRE el texto tal como viene del libro — es la llave que identifica al
+/// faltante, y la que las filas traen escrita. `nombre` es lo que va a quedar registrado, y
+/// puede diferir: el V21 escribe «OpenIA» donde dice OpenAI, y `Proveedor.nombre` es único,
+/// así que registrar el typo lo deja fijo — corregirlo después ya no es un alta sino un
+/// renombre. `indiceDeAlias` se encarga de que la fila encuentre lo que se creó.
+export type Resolucion =
+  | { catalogo: CatalogoCurable; valor: string; accion: 'crear'; nombre: string }
+  | { catalogo: CatalogoCurable; valor: string; accion: 'mapear'; destino: string };
+
+/// La forma en que dos textos cuentan como el mismo nombre.
+///
+/// Sin esto «Oficina Bogotá» y «oficina bogota» viajarían como dos faltantes para una sola
+/// decisión, y la persona podría crear dos filas para la misma cosa. Es la misma
+/// insensibilidad a tildes y mayúsculas que ya usa la lectura de la plantilla al buscar en
+/// los catálogos, y tiene que serlo: si acá fueran distintos y allá iguales, una resolución
+/// aceptada no encontraría su fila.
+function clave(valor: string): string {
+  return valor
+    .trim()
+    .toLocaleLowerCase('es')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/// Los faltantes agrupados, en orden de catálogo y valor, con sus filas ascendentes.
+///
+/// Agrupar es el punto: si doce activos nombran el mismo cargo, la persona decide UNA vez.
+/// Una lista fila por fila sería la misma pantalla que ya la bloqueaba, sólo que con botones.
+export function agruparFaltantes(registros: readonly RegistroFaltante[]): FaltanteCatalogo[] {
+  const porClave = new Map<string, FaltanteCatalogo>();
+
+  for (const r of registros) {
+    const k = `${r.catalogo}\u0000${clave(r.valor)}`;
+    const previo = porClave.get(k);
+    if (previo) {
+      if (!previo.filas.includes(r.fila)) previo.filas.push(r.fila);
+      continue;
+    }
+    // Se conserva la PRIMERA grafía vista: es la que la persona reconoce de su libro, y la
+    // que tiene que leer para decidir.
+    porClave.set(k, { catalogo: r.catalogo, valor: r.valor, filas: [r.fila] });
+  }
+
+  const salida = [...porClave.values()];
+  for (const f of salida) f.filas.sort((a, b) => a - b);
+  salida.sort(
+    (a, b) => a.catalogo.localeCompare(b.catalogo) || clave(a.valor).localeCompare(clave(b.valor)),
+  );
+  return salida;
+}
+
+/// Traducciones declaradas por la persona, listas para consultar. Opaco a propósito: quien
+/// lo use pasa por `aplicarAlias` y no depende de cómo están guardadas.
+export interface IndiceAlias {
+  readonly porCatalogo: ReadonlyMap<string, string>;
+}
+
+export function indiceDeAlias(resoluciones: readonly Resolucion[]): IndiceAlias {
+  const porCatalogo = new Map<string, string>();
+  for (const r of resoluciones) {
+    // `crear` TAMBIEN traduce cuando el nombre se corrigio. Sin esto la fila seguiria
+    // diciendo «OpenIA», buscaria eso en el catalogo y no encontraria el «OpenAI» que la
+    // transaccion acaba de insertar. Cuando el nombre no cambia la traduccion es identidad,
+    // asi que da igual guardarla.
+    porCatalogo.set(
+      `${r.catalogo}\u0000${clave(r.valor)}`,
+      r.accion === 'mapear' ? r.destino : r.nombre,
+    );
+  }
+  return { porCatalogo };
+}
+
+/// El nombre con el que hay que buscar en el catálogo, ya traducido si la persona lo mapeó.
+export function aplicarAlias(
+  indice: IndiceAlias,
+  catalogo: CatalogoCurable,
+  valor: string,
+): string {
+  return indice.porCatalogo.get(`${catalogo}\u0000${clave(valor)}`) ?? valor;
+}
+
+/// Lo que impide aplicar estas decisiones, en el orden de los faltantes. Vacío significa
+/// que la carga puede seguir.
+///
+/// Se valida ANTES de escribir y no durante: la importación es una sola transacción, y
+/// descubrir a mitad de camino que un destino no existe deja el trabajo de la persona a
+/// medias sin decirle qué corregir.
+export function problemasDeResoluciones(
+  faltantes: readonly FaltanteCatalogo[],
+  resoluciones: readonly Resolucion[],
+  nombresPorCatalogo: Record<CatalogoCurable, readonly string[]>,
+): string[] {
+  const problemas: string[] = [];
+  const pedidos = new Set(faltantes.map((f) => `${f.catalogo}\u0000${clave(f.valor)}`));
+  const decididos = new Map<string, Resolucion>();
+  for (const r of resoluciones) decididos.set(`${r.catalogo}\u0000${clave(r.valor)}`, r);
+  /// Un choque entre dos creaciones se dice UNA vez, no una por cada lado del par.
+  const yaAvisado = new Set<string>();
+
+  for (const f of faltantes) {
+    const r = decididos.get(`${f.catalogo}\u0000${clave(f.valor)}`);
+    const etiqueta = ETIQUETA[f.catalogo];
+
+    if (!r) {
+      problemas.push(`Falta decidir qué hacer con el ${etiqueta} «${f.valor}».`);
+      continue;
+    }
+
+    const existentes = nombresPorCatalogo[f.catalogo] ?? [];
+
+    if (r.accion === 'mapear') {
+      const destino = existentes.find((n) => clave(n) === clave(r.destino));
+      if (!destino) {
+        problemas.push(
+          `El ${etiqueta} «${r.destino}» no existe, así que «${f.valor}» no se puede mapear ahí.`,
+        );
+      }
+      continue;
+    }
+
+    if (!esCreable(f.catalogo)) {
+      problemas.push(
+        `Un ${etiqueta} no se puede crear desde la carga: necesita un prefijo de tres letras ` +
+          `que entra en el código de sus activos. Créala en parámetros, o mapea «${f.valor}» ` +
+          'a un área existente.',
+      );
+      continue;
+    }
+
+    if (r.nombre.trim() === '') {
+      problemas.push(`No se puede crear un ${etiqueta} sin nombre.`);
+      continue;
+    }
+
+    // Crear algo que ya existe con otra grafía da dos filas para una misma cosa, y el
+    // inventario deja de poder agruparse por ella. Es el error que ya costó la trazabilidad
+    // del `codigo_heredado`: sin llave controlada, el catálogo se duplica solo.
+    const choque = existentes.find((n) => clave(n) === clave(r.nombre));
+    if (choque !== undefined) {
+      problemas.push(
+        `Ya existe el ${etiqueta} «${choque}». Mapea «${f.valor}» ahí en vez de crear uno nuevo.`,
+      );
+      continue;
+    }
+
+    // `nombre` es único en la base: dos faltantes que corrigen hacia el mismo nombre
+    // reventarían la segunda inserción a mitad de la transacción, con un error de Prisma
+    // que no le dice nada a nadie.
+    const gemelo = faltantes.find((otro) => {
+      if (otro === f) return false;
+      if (otro.catalogo !== f.catalogo) return false;
+      const suya = decididos.get(`${otro.catalogo}\u0000${clave(otro.valor)}`);
+      return suya?.accion === 'crear' && clave(suya.nombre) === clave(r.nombre);
+    });
+    if (gemelo && !yaAvisado.has(clave(r.nombre))) {
+      yaAvisado.add(clave(r.nombre));
+      problemas.push(
+        `«${f.valor}» y «${gemelo.valor}» quieren crear el mismo ${etiqueta} «${r.nombre}». ` +
+          'Crea uno y mapea el otro ahí.',
+      );
+    }
+  }
+
+  for (const r of resoluciones) {
+    const k = `${r.catalogo}\u0000${clave(r.valor)}`;
+    if (!pedidos.has(k)) {
+      problemas.push(`El libro no pide el ${ETIQUETA[r.catalogo]} «${r.valor}».`);
+    }
+  }
+
+  return problemas;
+}

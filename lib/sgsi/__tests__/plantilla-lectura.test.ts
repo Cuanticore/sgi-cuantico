@@ -6,6 +6,8 @@
 
 import { COLUMNAS_PLANTILLA } from '../plantilla';
 import { aTernario, entreCorchetes, esFormatoLegacy, leerFilas, type Catalogos } from '../plantilla-lectura';
+import { indiceDeAlias } from '../catalogos-curables';
+import { LEGACY_NORMALIZAR } from '../plantilla-lectura';
 
 const CATALOGOS: Catalogos = {
   tipos: [
@@ -234,5 +236,113 @@ describe('leerFilas', () => {
     const { filas } = leer([{ ...VALIDA, area: 'tecnologia' }]);
     expect(filas[0].lectura.area).toBe('tecnologia');
     expect(filas[0].lectura.nombre).toBe('Servidor de archivos');
+  });
+});
+
+describe('faltantes de catálogo', () => {
+  it('reporta el cargo que no existe, con la fila que lo pide', () => {
+    const { faltantes } = leer([{ ...VALIDA, custodio: 'Architecture and Technology Manager' }]);
+
+    expect(faltantes).toEqual([
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', filas: [2] },
+    ]);
+  });
+
+  it('reporta el proveedor que no existe', () => {
+    const { faltantes } = leer([{ ...VALIDA, proveedor: 'OpenAI' }]);
+
+    expect(faltantes).toEqual([{ catalogo: 'proveedor', valor: 'OpenAI', filas: [2] }]);
+  });
+
+  it('junta las filas que piden el mismo cargo', () => {
+    const { faltantes } = leer([
+      { ...VALIDA, custodio: 'Architecture and Technology Manager' },
+      { ...VALIDA, nombre: 'Otro activo', custodio: 'Architecture and Technology Manager' },
+    ]);
+
+    expect(faltantes).toHaveLength(1);
+    expect(faltantes[0].filas).toEqual([2, 3]);
+  });
+
+  it('NO reporta como faltante un tipo MAGERIT desconocido', () => {
+    // MAGERIT v3.0 es normativo y cerrado: el tipo sigue siendo un error de la fila, no
+    // algo que la pantalla de carga pueda ofrecerse a crear.
+    const { filas, faltantes } = leer([{ ...VALIDA, tipo: '[XX] Inventado' }]);
+
+    expect(faltantes).toEqual([]);
+    expect(filas[0].errores.join(' ')).toContain('Tipo MAGERIT desconocido');
+  });
+
+  it('no reporta faltantes cuando todo el libro resuelve', () => {
+    expect(leer([VALIDA]).faltantes).toEqual([]);
+  });
+});
+
+describe('alias de catálogo', () => {
+  it('un cargo mapeado resuelve la fila sin crear nada', () => {
+    const conAlias: Catalogos = {
+      ...CATALOGOS,
+      alias: indiceDeAlias([
+        { catalogo: 'cargo', valor: 'Arq. y Tec. Manager', accion: 'mapear', destino: 'Líder de Tecnología' },
+      ]),
+    };
+
+    const { filas, resueltas, faltantes } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, custodio: 'Arq. y Tec. Manager' })],
+      conAlias,
+    );
+
+    expect(filas[0].errores).toEqual([]);
+    expect(faltantes).toEqual([]);
+    expect(resueltas[0].custodioId).toBe(200);
+  });
+
+  it('un proveedor mapeado resuelve al id del destino', () => {
+    const conAlias: Catalogos = {
+      ...CATALOGOS,
+      alias: indiceDeAlias([
+        { catalogo: 'proveedor', valor: 'OpenAI', accion: 'mapear', destino: 'Microsoft' },
+      ]),
+    };
+
+    const { resueltas } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, proveedor: 'OpenAI' })],
+      conAlias,
+    );
+
+    expect(resueltas[0].proveedorId).toBe(500);
+  });
+
+  it('lo marcado para crear sigue faltando hasta que exista de verdad', () => {
+    // `crear` no traduce: el nombre del libro ES el nombre nuevo, y la fila sólo resuelve
+    // cuando la transacción ya insertó esa fila en el catálogo.
+    const conAlias: Catalogos = {
+      ...CATALOGOS,
+      alias: indiceDeAlias([{ catalogo: 'cargo', valor: 'Nuevo Cargo', accion: 'crear', nombre: 'Nuevo Cargo' }]),
+    };
+
+    const { faltantes } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, custodio: 'Nuevo Cargo' })],
+      conAlias,
+    );
+
+    expect(faltantes).toEqual([{ catalogo: 'cargo', valor: 'Nuevo Cargo', filas: [2] }]);
+  });
+});
+
+describe('«No aplica» como proveedor', () => {
+  it('significa SIN proveedor, no un proveedor que se llama así', () => {
+    // 7 de las 15 filas que el V21 rechazó decían «No aplica» en la columna de proveedor.
+    // No es un nombre sin registrar: es la ausencia de proveedor, y `Activo.proveedorId` ya
+    // es nullable. Crear un proveedor llamado «No aplica» metería una organización
+    // inexistente al alcance de A.5.19–A.5.22.
+    expect(LEGACY_NORMALIZAR.proveedor['No aplica']).toBe('');
+  });
+
+  it('sigue valiendo como ubicación y como entorno, que sí lo tienen', () => {
+    // La asimetría es del catálogo, no un descuido: «No aplica» ES una ubicación y un
+    // entorno registrados, y mapearlos a vacío borraría un dato que la fila sí declara.
+    expect(LEGACY_NORMALIZAR.ubicacion['N.A.']).toBe('No aplica');
+    expect(LEGACY_NORMALIZAR.entorno['N.A.']).toBe('No aplica');
   });
 });

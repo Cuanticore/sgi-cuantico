@@ -7,6 +7,7 @@
 //
 // No 'server-only' guard: the popup is a client component and shows these headers.
 
+import type { CatalogoCurable, FaltanteCatalogo } from './catalogos-curables';
 import type { ParteConsolidado } from './consolidado';
 
 export interface ColumnaPlantilla {
@@ -93,7 +94,18 @@ export interface Analisis {
   /// leer cada mensaje para saber de qué hoja habla, que es justo lo que el parte tiene que
   /// responder de un vistazo.
   consolidado?: ParteConsolidado;
+  /// Lo que el libro nombra y el catálogo no tiene, agrupado por valor.
+  ///
+  /// Va aparte de los errores de fila porque NO es un error de la fila: que un cargo no
+  /// esté registrado no dice nada sobre si debe existir. Es una decisión pendiente, y la
+  /// pantalla la presenta como tal — una por valor, no una por fila.
+  faltantes?: FaltanteCatalogo[];
+  /// Los nombres vigentes de cada catálogo curable, para el selector de «mapear a».
+  opciones?: OpcionesCatalogo;
 }
+
+/// Nombres vigentes por catálogo, en el orden en que la pantalla los ofrece.
+export type OpcionesCatalogo = Record<CatalogoCurable, string[]>;
 
 /// Maximum upload size. Far above any plausible inventory, far below anything that would
 /// hurt to parse.
