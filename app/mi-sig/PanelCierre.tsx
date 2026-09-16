@@ -91,6 +91,16 @@ export default function PanelCierre({
   if (tarjeta.tipo === 'CURSO_VIRTUAL' || (tarjeta.tipo === 'CAPACITACION' && tarjeta.tienePaqueteScorm)) {
     const iniciado = tarjeta.cursoIniciado;
     const accion = iniciado ? 'Reanudar' : 'Iniciar';
+    // UN CURSO VIRTUAL PUEDE SER DE DOS CLASES, y la diferencia es de fondo.
+    //
+    // Con PAQUETE SCORM se recorre dentro de la aplicación: el reproductor reporta el avance
+    // y el resultado, y el cierre lo hace él. Con ENLACE EXTERNO —Coursebox, por ejemplo— la
+    // aplicación no ve nada de lo que pasa del otro lado: no hay avance que reanudar ni
+    // resultado que reportar, así que el cierre vuelve a ser una declaración de la persona.
+    //
+    // Presentarlos igual sería mentir en los dos sentidos: prometer un seguimiento que no
+    // existe, o esconder el que sí existe.
+    const externo = !tarjeta.tienePaqueteScorm && tarjeta.documentoUrl !== null;
     return (
       <aside
         className="fixed inset-y-0 right-0 z-40 flex w-[396px] flex-col overflow-y-auto bg-surface shadow-xl"
@@ -142,7 +152,9 @@ export default function PanelCierre({
               ? iniciado
                 ? 'Retomás donde quedaste. El resultado lo reporta el curso.'
                 : 'El resultado lo reporta el curso.'
-              : 'Este curso todavía no tiene contenido cargado. Avisale a quien lo publicó: no hay nada que iniciar.'}
+              : externo
+                ? 'El curso se abre en la plataforma externa. Desde acá no se ve tu avance, así que al terminarlo tenés que declararlo vos.'
+                : 'Este curso todavía no tiene contenido cargado. Avisale a quien lo publicó: no hay nada que iniciar.'}
           </span>
           <button
             onClick={alCerrar}
@@ -157,6 +169,19 @@ export default function PanelCierre({
               style={{ background: 'var(--hf-accent-500)' }}
             >
               {accion} el curso
+            </a>
+          )}
+          {externo && (
+            // `noopener` no es opcional: la pestaña que se abre podría manipular la nuestra
+            // por `window.opener`, y ésta es una sesión autenticada del SIG.
+            <a
+              href={tarjeta.documentoUrl ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+              style={{ background: 'var(--hf-accent-500)' }}
+            >
+              Abrir el curso ↗
             </a>
           )}
         </footer>
