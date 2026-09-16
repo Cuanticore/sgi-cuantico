@@ -477,6 +477,9 @@ export interface ActivoNuevo {
   nivelId?: number | null;
   /// V21 · cuántas unidades representa el activo. 1 cuando no se declara.
   cantidad?: number;
+  /// E9 · el custodio PERSONA — quién tiene el activo en la mano. Distinto de `custodioId`,
+  /// que es el CARGO que responde por él en el organigrama.
+  personaId?: number | null;
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -587,6 +590,7 @@ export async function crearActivo(
           superiorId: datos.superiorId ?? null,
           nivelId: datos.nivelId ?? null,
           cantidad: datos.cantidad !== undefined && datos.cantidad >= 1 ? Math.floor(datos.cantidad) : 1,
+          personaId: datos.personaId ?? null,
           datosCliente: datos.datosCliente ?? 'POR_DEFINIR',
           datosPersonales: datos.datosPersonales ?? 'POR_DEFINIR',
           expuestoInternet: datos.expuestoInternet ?? 'POR_DEFINIR',

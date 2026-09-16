@@ -37,6 +37,7 @@ import type { ContactoPropuesto } from '@/lib/sig/contactos';
 import BloqueoCuenta from './BloqueoCuenta';
 import Link from 'next/link';
 import { resumenDePersona, type ResumenDePersona } from '@/app/sig/acciones/persona-resumen';
+import AsociarPc from './AsociarPc';
 import LicenciasPersona from './LicenciasPersona';
 import type { PersonaFila } from './Personas.client';
 
@@ -613,6 +614,21 @@ export default function PopupPersona({
                     </ul>
                   )}
                 </div>
+
+                {administra && (
+                  <AsociarPc
+                    personaId={persona.id}
+                    nombrePersona={persona.nombre}
+                    // El equipo ya asociado se reconoce por el vínculo de custodia; si ya
+                    // tiene uno, el bloque lo dice en vez de ofrecer crear un segundo.
+                    yaTieneEquipo={resumen.activos.some((a) => a.vinculo === 'custodia')}
+                    onHecho={() => {
+                      // Se vuelve a pedir el resumen: acaba de cambiar lo que cuenta.
+                      setResumen(null);
+                      pedidoDeResumen.current = false;
+                    }}
+                  />
+                )}
 
                 <Link
                   href={`/sig/colaboradores/${persona.id}`}
