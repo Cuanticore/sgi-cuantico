@@ -11,11 +11,13 @@
 import {
   agruparFaltantes,
   aplicarAlias,
+  esCreable,
   indiceDeAlias,
   type CatalogoCurable,
   type FaltanteCatalogo,
   type IndiceAlias,
   type RegistroFaltante,
+  type Resolucion,
 } from './catalogos-curables';
 
 import { COLUMNAS_PLANTILLA } from './plantilla';
@@ -183,6 +185,49 @@ function igual(a: string, b: string): boolean {
   return a.localeCompare(b, 'es', { sensitivity: 'base' }) === 0;
 }
 
+/// El id de una fila de catálogo que TODAVÍA NO EXISTE, y que la importación va a crear.
+///
+/// Es negativo para que nunca se confunda con un id real de Postgres, que arranca en 1. Si
+/// uno de éstos llegara a una escritura sería una clave foránea inexistente, así que vale
+/// más que reviente de forma reconocible a que se cuele.
+export const ID_POR_CREAR = -1;
+
+/// El catálogo con las filas que la persona decidió crear, agregadas de forma provisional.
+///
+/// EL ANÁLISIS NO ESCRIBE NADA, y ahí estaba el bucle: un proveedor marcado para crear
+/// seguía sin estar en el catálogo, así que la fila fallaba igual y el faltante volvía a
+/// salir. El botón decía «Aplicar y revalidar» para siempre y el de importar no aparecía
+/// nunca. Elegir «crear» no llevaba a ningún lado.
+///
+/// Con esto el parte dice la verdad —cuántas filas van a quedar listas SI se crea lo que se
+/// decidió— sin tocar la base. La importación relee dentro de su transacción con los ids
+/// reales, así que estos provisionales no sobreviven al análisis.
+///
+/// Los catálogos que no se pueden crear no se tocan: agregar un área provisional diría que
+/// la carga puede seguir cuando el servidor la va a rechazar.
+export function conPendientes(
+  catalogos: Catalogos,
+  resoluciones: readonly Resolucion[],
+): Catalogos {
+  const porCrear = resoluciones.filter((r) => r.accion === 'crear' && esCreable(r.catalogo));
+  if (porCrear.length === 0) return catalogos;
+
+  const sumar = (catalogo: CatalogoCurable, filas: { id: number; nombre: string }[]) => [
+    ...filas,
+    ...porCrear
+      .filter((r) => r.catalogo === catalogo)
+      .map((r) => ({ id: ID_POR_CREAR, nombre: (r as { nombre: string }).nombre })),
+  ];
+
+  return {
+    ...catalogos,
+    cargos: sumar('cargo', catalogos.cargos),
+    proveedores: sumar('proveedor', catalogos.proveedores),
+    ubicaciones: sumar('ubicacion', catalogos.ubicaciones),
+    entornos: sumar('entorno', catalogos.entornos),
+  };
+}
+
 /// One row of cell text per sheet row, header included, in template column order.
 export type Matriz = string[][];
 
@@ -191,6 +236,17 @@ export type Matriz = string[][];
 export function leerFilas(
   matriz: Matriz,
   catalogos: Catalogos,
+  /// En qué fila del Excel está el encabezado, para que los números del parte apunten a
+  /// líneas que la persona pueda abrir.
+  ///
+  /// EL FOR-SIG-12 HISTORICO LO PONE EN LA FILA 7, no en la 1. Sin este dato el lector
+  /// numeraba desde 1 y todo el parte salía corrido SEIS filas: decía «FILA 45» y en la
+  /// fila 45 del libro había otro activo. Quien va a corregir toca el activo equivocado, y
+  /// el que estaba mal sigue mal — peor que no decir nada, porque el número se ve exacto.
+  ///
+  /// El valor por defecto es el de la plantilla que genera la aplicación, con el encabezado
+  /// arriba de todo.
+  filaDeEncabezado = 1,
 ): { filas: FilaLeida[]; resueltas: FilaResuelta[]; faltantes: FaltanteCatalogo[] } {
   const indice = new Map(COLUMNAS_PLANTILLA.map((c, i) => [c.clave, i]));
   const filas: FilaLeida[] = [];
@@ -205,7 +261,7 @@ export function leerFilas(
   for (let i = 1; i < matriz.length; i++) {
     const celdas = matriz[i] ?? [];
     // Sheet row numbers, so an error message points at a line they can find.
-    const numero = i + 1;
+    const numero = filaDeEncabezado + i;
     const leer = (clave: string): string => (celdas[indice.get(clave) ?? 0] ?? '').trim();
 
     const nombre = leer('nombre');

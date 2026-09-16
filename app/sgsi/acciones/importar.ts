@@ -27,7 +27,16 @@ import {
   type FilaLeida,
   type OpcionesCatalogo,
 } from '@/lib/sgsi/plantilla';
-import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
+import {
+  ID_POR_CREAR,
+  LEGACY_NORMALIZAR,
+  claveLegacy,
+  conPendientes,
+  esFormatoLegacy,
+  leerFilas,
+  type Catalogos,
+  type FilaResuelta,
+} from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
 import {
   CATALOGOS_CURABLES,
@@ -152,7 +161,7 @@ async function abrirWorkbook(datos: FormData): Promise<ExcelJS.Workbook> {
 ///   1. Nuestra plantilla (hoja «Activos», encabezado fila 1, 17 columnas).
 ///   2. El formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado en la
 ///      fila 7 con B..U, títulos arriba) — se alinea columna por columna.
-async function abrir(datos: FormData): Promise<string[][]> {
+async function abrir(datos: FormData): Promise<{ matriz: string[][]; filaDeEncabezado: number }> {
   const wb = await abrirWorkbook(datos);
   const hoja = wb.getWorksheet('Activos') ?? wb.worksheets[0];
   if (!hoja) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
@@ -229,7 +238,9 @@ async function abrir(datos: FormData): Promise<string[][]> {
       matrizLegacy.push(celdas);
     }
     void LEGACY_ABC;
-    return matrizLegacy;
+    // El encabezado del FOR-SIG-12 historico esta en la fila 7, no en la 1: sin decirlo, el
+    // parte numeraria las filas corridas seis lugares.
+    return { matriz: matrizLegacy, filaDeEncabezado: filaEncabezado };
   }
 
   const matriz: string[][] = [];
@@ -239,7 +250,8 @@ async function abrir(datos: FormData): Promise<string[][]> {
     const cruda = hoja.getRow(n);
     matriz.push(COLUMNAS_PLANTILLA.map((_, i) => texto(cruda.getCell(i + 1).value)));
   }
-  return matriz;
+  // La plantilla que genera la aplicación trae el encabezado arriba de todo.
+  return { matriz, filaDeEncabezado: 1 };
 }
 
 /// La rama Nivel 1 → Nivel 2 → Nivel 3 del libro, resuelta al id del GRADO 3.
@@ -292,18 +304,35 @@ async function leer(
   filas: FilaLeida[];
   resueltas: FilaResuelta[];
   faltantes: FaltanteCatalogo[];
-  matriz: Awaited<ReturnType<typeof abrir>>;
+  matriz: string[][];
+  filaDeEncabezado: number;
   catalogo: Catalogos;
 }> {
-  const [matriz, base] = await Promise.all([abrir(datos), catalogos()]);
+  const [libro, base] = await Promise.all([abrir(datos), catalogos()]);
+  const { matriz, filaDeEncabezado } = libro;
+  // `catalogo` es el REAL —lo que hay hoy en la base— y es contra el que se validan las
+  // resoluciones y se arman las opciones de «mapear a».
   const catalogo: Catalogos = { ...base, alias: indiceDeAlias(resoluciones) };
-  const lectura = leerFilas(matriz, catalogo);
+  // La lectura, en cambio, va contra el catálogo con las creaciones pendientes puestas: sin
+  // eso el análisis nunca deja de pedir lo que ya se decidió crear, porque analizar no
+  // escribe. Los ids que salgan de ahí son provisionales; la importación relee dentro de su
+  // transacción con los reales.
+  const conCreaciones = conPendientes(catalogo, resoluciones);
+  const lectura = leerFilas(matriz, conCreaciones, filaDeEncabezado);
+  // Los faltantes se reportan contra el catálogo REAL. Si salieran de la lectura de arriba,
+  // desaparecerían en cuanto la persona decide y perdería de vista lo que eligió — además
+  // de que `problemasDeResoluciones` necesita la lista completa para exigir una decisión
+  // por cada uno. Cuando no hay nada decidido las dos lecturas son la misma y no se repite.
+  const faltantes =
+    conCreaciones === catalogo
+      ? lectura.faltantes
+      : leerFilas(matriz, catalogo, filaDeEncabezado).faltantes;
   if (lectura.filas.length === 0) {
     throw new PlantillaError(
       'No encontré filas con datos. Revisa que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
     );
   }
-  return { ...lectura, matriz, catalogo };
+  return { ...lectura, faltantes, matriz, filaDeEncabezado, catalogo };
 }
 
 /// Las decisiones que la persona tomó sobre los faltantes, tal como viajan en el formulario.
@@ -770,7 +799,7 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
       if (error instanceof PlantillaError) return { ok: false, mensaje: error.message };
       throw error;
     }
-    const { filas, faltantes, matriz, catalogo } = lectura;
+    const { filas, faltantes, matriz, filaDeEncabezado, catalogo } = lectura;
     let { resueltas } = lectura;
 
     // La validación va ANTES de abrir la transacción: descubrir a mitad de camino que un
@@ -823,7 +852,7 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
           + aumentado.proveedores.length - catalogo.proveedores.length
           + aumentado.ubicaciones.length - catalogo.ubicaciones.length
           + aumentado.entornos.length - catalogo.entornos.length;
-        resueltas = leerFilas(matriz, aumentado).resueltas;
+        resueltas = leerFilas(matriz, aumentado, filaDeEncabezado).resueltas;
         if (resueltas.length === 0) {
           // Abortar revierte los catálogos recién creados: si no entra ni una fila, no
           // quedan cargos inventados para una importación que no ocurrió.
@@ -832,6 +861,17 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
       }
 
       for (const f of resueltas) {
+        // Un id provisional acá seria una clave foranea inexistente. Solo puede pasar si la
+        // relectura de arriba no corrio, y vale mas revertir la transaccion entera que
+        // escribir un activo colgado de la nada.
+        for (const id of [f.custodioId, f.propietarioId, f.ubicacionId, f.entornoId, f.proveedorId]) {
+          if (id === ID_POR_CREAR) {
+            throw new Error(
+              `La fila ${f.fila} quedo apuntando a un catalogo que no se llego a crear.`,
+            );
+          }
+        }
+
         const area = porArea.get(f.areaId);
         const tipo = porTipo.get(f.tipoId);
         if (!area || !tipo) throw new Error(`La fila ${f.fila} quedó sin área o sin tipo.`);

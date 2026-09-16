@@ -7,7 +7,7 @@
 import { COLUMNAS_PLANTILLA } from '../plantilla';
 import { aTernario, entreCorchetes, esFormatoLegacy, leerFilas, type Catalogos } from '../plantilla-lectura';
 import { indiceDeAlias } from '../catalogos-curables';
-import { LEGACY_NORMALIZAR } from '../plantilla-lectura';
+import { ID_POR_CREAR, LEGACY_NORMALIZAR, conPendientes } from '../plantilla-lectura';
 
 const CATALOGOS: Catalogos = {
   tipos: [
@@ -344,5 +344,128 @@ describe('«No aplica» como proveedor', () => {
     // entorno registrados, y mapearlos a vacío borraría un dato que la fila sí declara.
     expect(LEGACY_NORMALIZAR.ubicacion['N.A.']).toBe('No aplica');
     expect(LEGACY_NORMALIZAR.entorno['N.A.']).toBe('No aplica');
+  });
+});
+
+describe('el número de fila que se reporta', () => {
+  it('sin decir nada, asume el encabezado en la fila 1', () => {
+    // La plantilla que genera la aplicación trae el encabezado arriba de todo, así que la
+    // primera fila de datos es la 2.
+    const { filas } = leer([{ ...VALIDA, tipo: '[XX] No existe' }]);
+
+    expect(filas[0].fila).toBe(2);
+  });
+
+  it('con el encabezado en la fila 7, la primera fila de datos es la 8', () => {
+    // EL FOR-SIG-12 HISTÓRICO PONE EL ENCABEZADO EN LA FILA 7. Sin decírselo, el lector
+    // numeraba desde 1 y todo el parte salía corrido seis filas: el mensaje decía «FILA 45»
+    // y en la fila 45 del libro había otro activo. La persona corrige el activo equivocado,
+    // y el que estaba mal sigue mal.
+    const { filas } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, tipo: '[XX] No existe' })],
+      CATALOGOS,
+      7,
+    );
+
+    expect(filas[0].fila).toBe(8);
+  });
+
+  it('numera correlativo desde el encabezado, sin saltos', () => {
+    const { filas } = leerFilas(
+      [
+        ENCABEZADO,
+        fila({ ...VALIDA, tipo: '[XX] No existe' }),
+        fila({ ...VALIDA, nombre: 'Otro', tipo: '[YY] Tampoco' }),
+      ],
+      CATALOGOS,
+      7,
+    );
+
+    expect(filas.map((f) => f.fila)).toEqual([8, 9]);
+  });
+
+  it('los faltantes de catálogo apuntan a la misma fila que los errores', () => {
+    // Si el faltante dijera una fila y el error otra, el parte se contradiría a sí mismo.
+    const { filas, faltantes } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, proveedor: 'OpenIA' })],
+      CATALOGOS,
+      7,
+    );
+
+    expect(faltantes[0].filas).toEqual([filas[0].fila]);
+    expect(faltantes[0].filas).toEqual([8]);
+  });
+});
+
+describe('lo que se decidió CREAR, durante el análisis', () => {
+  // EL BUCLE. El análisis no escribe nada, así que un proveedor marcado para crear seguía
+  // sin estar en el catálogo: la fila fallaba igual y el faltante volvía a salir. El botón
+  // decía «Aplicar y revalidar» para siempre y el de importar no aparecía nunca, porque
+  // sólo aparece cuando no quedan faltantes. Elegir «crear» no llevaba a ningún lado.
+
+  const conCreacion = (resoluciones: Parameters<typeof conPendientes>[1]) =>
+    leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, proveedor: 'Claude' })],
+      conPendientes(
+        { ...CATALOGOS, alias: indiceDeAlias(resoluciones) },
+        resoluciones,
+      ),
+    );
+
+  it('deja de contarse como faltante: ya está decidido', () => {
+    const { faltantes } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(faltantes).toEqual([]);
+  });
+
+  it('la fila pasa a estar lista, para que el parte diga la verdad', () => {
+    const { filas, resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(filas[0].errores).toEqual([]);
+    expect(resueltas).toHaveLength(1);
+  });
+
+  it('el id es provisional y se reconoce como tal', () => {
+    // La importación relee DENTRO de la transacción con los ids reales. Si uno de éstos
+    // llegara a la escritura sería un id inexistente, así que se marca para poder detectarlo.
+    const { resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(resueltas[0].proveedorId).toBe(ID_POR_CREAR);
+    expect(ID_POR_CREAR).toBeLessThan(0);
+  });
+
+  it('el nombre corregido es el que entra al catálogo provisional', () => {
+    const { faltantes, resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Anthropic' },
+    ]);
+
+    expect(faltantes).toEqual([]);
+    expect(resueltas).toHaveLength(1);
+  });
+
+  it('un «mapear» no agrega nada al catálogo: apunta a algo que ya está', () => {
+    const resoluciones = [
+      { catalogo: 'proveedor' as const, valor: 'Claude', accion: 'mapear' as const, destino: 'Microsoft' },
+    ];
+    const conMapeo = conPendientes({ ...CATALOGOS, alias: indiceDeAlias(resoluciones) }, resoluciones);
+
+    expect(conMapeo.proveedores).toHaveLength(CATALOGOS.proveedores.length);
+  });
+
+  it('no toca los catálogos que no se pueden crear', () => {
+    // Un área se mapea pero no se crea: agregarla provisionalmente diría que la carga puede
+    // seguir cuando el servidor la va a rechazar.
+    const resoluciones = [
+      { catalogo: 'area' as const, valor: 'Innovación', accion: 'crear' as const, nombre: 'Innovación' },
+    ];
+    const conArea = conPendientes({ ...CATALOGOS, alias: indiceDeAlias(resoluciones) }, resoluciones);
+
+    expect(conArea.areas).toHaveLength(CATALOGOS.areas.length);
   });
 });
