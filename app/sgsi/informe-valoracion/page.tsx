@@ -15,7 +15,7 @@
 // excepción que alguien elige.
 
 import { leerInforme } from './informe.query';
-import InformeDocumento from '@/app/components/sgsi/informe/InformeDocumento';
+import { documentoInforme } from '@/lib/sgsi/informe-documento';
 import BarraInforme from '@/app/components/sgsi/informe/BarraInforme';
 
 export const dynamic = 'force-dynamic';
@@ -51,11 +51,17 @@ export default async function InformeValoracionPage({
         responsablesElegidos={responsables}
       />
 
-      {/* El documento va sobre blanco y con sombra: en pantalla se lee como la hoja que
-          después se imprime, así que lo que se ve es lo que sale. */}
-      <article className="rounded-lg border border-border-field bg-white p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
-        <InformeDocumento datos={datos} />
-      </article>
+      {/* El documento llega como HTML ya armado por `documentoInforme`, que es la MISMA
+          función de la que sale el `.doc`. `dangerouslySetInnerHTML` suena peor de lo que es
+          acá: la cadena la produce código nuestro y todo lo que viene de la base —nombres de
+          activos, justificaciones de aceptación— pasa por `esc()` sin excepción.
+
+          Sobre blanco y con sombra: en pantalla se lee como la hoja que después se imprime,
+          así que lo que se ve es lo que sale. */}
+      <article
+        className="rounded-lg border border-border-field bg-white p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
+        dangerouslySetInnerHTML={{ __html: documentoInforme(datos) }}
+      />
     </div>
   );
 }

@@ -3,11 +3,11 @@
 // El informe de valoración, descargable. Word y Excel; el PDF lo hace el navegador
 // imprimiendo la pantalla, así que no pasa por acá.
 //
-// ── EL WORD ES EL MISMO ÁRBOL DE REACT, NO UNA SEGUNDA PLANTILLA ────────────────────────
+// ── EL WORD SALE DE LA MISMA FUNCIÓN QUE LA PANTALLA ────────────────────────────────────
 //
-// `renderToStaticMarkup(<InformeDocumento …>)` y se sirve con `application/msword`. Word abre
-// HTML y lo convierte a documento; es lo que hace cualquier exportador «a Word» que no genere
-// OOXML de verdad.
+// `documentoInforme(datos)` devuelve el HTML del informe, y acá se sirve con
+// `application/msword`. Word abre HTML y lo convierte a documento; es lo que hace cualquier
+// exportador «a Word» que no genere OOXML de verdad.
 //
 // Se eligió esto sobre `docx` o `html-to-docx` por una razón concreta y no por evitar una
 // dependencia: **no hay una segunda plantilla que mantener**. Con una librería de OOXML, el
@@ -30,12 +30,11 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { authOptions } from '@/app/lib/auth';
 import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { leerInforme } from '@/app/sgsi/informe-valoracion/informe.query';
 import { construirLibroInforme } from '@/lib/sgsi/informe-libro';
-import InformeDocumento from '@/app/components/sgsi/informe/InformeDocumento';
+import { documentoInforme } from '@/lib/sgsi/informe-documento';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +84,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const cuerpo = renderToStaticMarkup(<InformeDocumento datos={datos} />);
+  const cuerpo = documentoInforme(datos);
 
   // `xmlns:w` y la `WordDocument` de `<xml>` son lo que hace que Word lo abra como documento
   // propio y no como «página web» en modo lectura. Es fea y es la que funciona.
