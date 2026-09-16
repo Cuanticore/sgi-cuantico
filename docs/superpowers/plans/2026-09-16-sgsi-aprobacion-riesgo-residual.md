@@ -19,6 +19,45 @@ Chromium no se cuele en el grafo de nadie más.
 
 ---
 
+## Estado de ejecución · 16/09/2026
+
+| Tarea | Estado |
+|---|---|
+| 1 · Alcance | Hecha · 5 pruebas |
+| 2 · Huella del alcance | Hecha · 6 pruebas |
+| 3 · Firmantes | Hecha · 6 pruebas |
+| 4 · Estado del acta | Hecha · 9 pruebas |
+| 5 · Esquema y migración | Hecha, **sin aplicar contra una base real** — ver abajo |
+| 6 · HTML del acta | Hecha · 8 pruebas |
+| 7 · PDF y Dockerfile | Hecha, **Chromium sin ejecutar nunca** — ver abajo |
+| 8 · Lectura de la pantalla | Hecha |
+| 9 · Server actions | Hecha · la prueba de frontera cubre 38 archivos |
+| 10 · Descargas y Excel | Hecha · 5 pruebas |
+| 11 · Pantalla | Hecha · 8 pruebas |
+| 12 · Los cuatro checks | **Verde**: 0 errores de tipos, 0 de lint, 2454 pruebas en 134 suites, el build compila |
+| 13 · Recorrido de punta a punta | **NO EJECUTADO** |
+
+### Lo que NO se pudo verificar, y por qué
+
+En la máquina donde se implementó esto **no hay base de datos ni Docker**, así que tres cosas
+quedaron escritas y sin ejercitar ni una vez:
+
+1. **La migración no se ha aplicado.** El SQL se generó con `prisma migrate diff` contra el
+   esquema anterior —comparado línea a línea con la salida de Prisma, coincide— pero ningún
+   Postgres lo ha corrido. Antes de mergear: `npx prisma migrate dev` sobre una base real.
+2. **Chromium nunca se ejecutó.** `lib/pdf.ts` compila y el build lo empaqueta, pero nadie ha
+   generado un PDF. Lo que está verificado es que `puppeteer-core` resuelve en el bundle; lo
+   que no, que el binario arranque y produzca un documento legible.
+3. **Ninguna escritura se ha ejercitado.** Emitir, cargar soporte, registrar firma y anular no
+   se han corrido contra una base. La lógica que podía equivocarse está en los módulos puros y
+   sí está probada; lo que falta es la costura entre esos módulos y Prisma — que es
+   exactamente dónde vivían los tres bugs que motivaron `HARNESS.md`.
+
+**La Tarea 13 es obligatoria antes de mergear.** No es formalidad: los tres defectos que
+originaron este harness pasaron una suite en verde y reventaron en el primer uso real.
+
+---
+
 ## Estructura de archivos
 
 | Archivo | Responsabilidad |
