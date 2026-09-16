@@ -37,6 +37,7 @@ import {
 import { urlDeInventario } from '@/lib/sgsi/inventario-filtros';
 import PilasValoracion from './PilasValoracion';
 import TablaValoracion from './TablaValoracion';
+import GraficaDeTabla from './GraficaDeTabla';
 
 export interface PantallaValoracionProps {
   activos: ActivoAgregable[];
@@ -190,6 +191,19 @@ export default function PantallaValoracion({
             arrastreDeCriterio={arrastreDeCriterio}
           />
         </div>
+
+        <GraficaPlegable titulo="Ver la gráfica por propietario">
+          <GraficaDeTabla
+            tabla={tablaA}
+            // La Tabla A muestra un criterio a la vez —el que la pantalla tenga elegido— y
+            // la gráfica ofrece los cuatro: es una lectura, no una edición, así que cambiar
+            // de criterio acá no mueve la tabla ni la URL.
+            criterios={criteriosDeTabla}
+            niveles={niveles}
+            umbral={umbral}
+            etiquetaGrupo="Propietario"
+          />
+        </GraficaPlegable>
       </section>
 
       {/* Tabla B · custodio (persona) × los cuatro criterios × nivel. */}
@@ -221,6 +235,16 @@ export default function PantallaValoracion({
             arrastreDeCriterio={arrastreDeCriterio}
           />
         </div>
+
+        <GraficaPlegable titulo="Ver la gráfica por subtipo">
+          <GraficaDeTabla
+            tabla={tablaB}
+            criterios={criteriosDeTabla}
+            niveles={niveles}
+            umbral={umbral}
+            etiquetaGrupo="Subtipo"
+          />
+        </GraficaPlegable>
       </section>
     </main>
   );
@@ -237,5 +261,36 @@ function Encabezado({ umbral }: { umbral: number }) {
         con exactamente esos activos.
       </p>
     </header>
+  );
+}
+
+/// La gráfica de una tabla, plegada por omisión.
+///
+/// PLEGADA Y NO ABIERTA, y no es indecisión: la tabla es el dato exacto y la gráfica es la
+/// forma. Quien entra a esta pantalla viene casi siempre a buscar un número —«¿cuántos
+/// activos de este cargo llegan a 4?»— y para eso la tabla ya está. Abrir la gráfica por
+/// omisión empujaría la tabla media pantalla hacia abajo para responder una pregunta que
+/// nadie hizo todavía.
+function GraficaPlegable({
+  titulo,
+  children,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  const [abierta, setAbierta] = useState(false);
+  return (
+    <div className="mt-4 border-t border-hairline-strong pt-3">
+      <button
+        type="button"
+        onClick={() => setAbierta((v) => !v)}
+        aria-expanded={abierta}
+        className="flex items-center gap-1.5 text-12 font-semibold text-accent-700 hover:underline"
+      >
+        <span aria-hidden>{abierta ? '▾' : '▸'}</span>
+        {abierta ? 'Ocultar la gráfica' : titulo}
+      </button>
+      {abierta && <div className="mt-3">{children}</div>}
+    </div>
   );
 }

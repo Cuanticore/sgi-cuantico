@@ -7,7 +7,7 @@
 // módulos puros de `lib/sgsi/`, que es donde vive la decisión. Acá se comprueba solo lo que
 // depende de que el texto esté escrito y visible.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import PantallaValoracion from '../PantallaValoracion';
 import type { ActivoAgregable, DimensionActiva, NivelEscala } from '@/lib/sgsi/valoracion-agregada';
 
@@ -231,5 +231,45 @@ describe('una cuarta dimensión activa da una quinta pila y una quinta fila (§9
     );
     expect(screen.getAllByText('Autenticidad').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/alcanzan el umbral de 4/i)).toBeInTheDocument();
+  });
+});
+
+describe('la grafica de cada tabla', () => {
+  // PLEGADA POR OMISION, y no es indecision: la tabla es el dato exacto y quien entra viene
+  // casi siempre a buscar un numero. Abrirla por omision empujaria la tabla media pantalla
+  // hacia abajo para responder una pregunta que nadie hizo todavia.
+  it('nace plegada: la tabla no se corre para abajo', () => {
+    render(
+      <PantallaValoracion
+        activos={CON_EMPATE}
+        dimensiones={DIMENSIONES}
+        escala={ESCALA}
+        umbral={4}
+        conPersona={0}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Ver la gráfica por propietario/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByText(/escala absoluta/i)).not.toBeInTheDocument();
+  });
+
+  it('se abre y trae sus filtros', () => {
+    render(
+      <PantallaValoracion
+        activos={CON_EMPATE}
+        dimensiones={DIMENSIONES}
+        escala={ESCALA}
+        umbral={4}
+        conPersona={0}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Ver la gráfica por propietario/i }));
+    // El filtro por criterio y el del umbral son los dos que la hacen util.
+    expect(screen.getAllByText('CRITERIO').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText(/Sólo los que alcanzan 4/i)).toBeInTheDocument();
+    // Y dice que la escala es absoluta: el largo significa cuantos activos, no un porcentaje.
+    expect(screen.getAllByText(/escala absoluta/i).length).toBeGreaterThanOrEqual(1);
   });
 });
