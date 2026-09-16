@@ -5,9 +5,11 @@
 
 import {
   huellaDeAlcance,
+  resolverFirmantes,
   seleccionarAlcance,
   type ActivoParaAlcance,
   type FilaAlcance,
+  type ProcesoParaFirma,
 } from '../alcance-residual';
 
 const BANDAS = [
@@ -127,5 +129,81 @@ describe('huellaDeAlcance', () => {
   it('la lista vacía tiene huella, y es estable', () => {
     expect(huellaDeAlcance([])).toBe(huellaDeAlcance([]));
     expect(huellaDeAlcance([])).toHaveLength(64);
+  });
+});
+
+describe('resolverFirmantes', () => {
+  const tecnologia: ProcesoParaFirma = {
+    areaId: 1,
+    proceso: 'Tecnología',
+    cargoId: 10,
+    cargoNombre: 'Líder de Tecnología',
+    candidatos: [{ id: 100, nombre: 'Ana Ruiz' }],
+  };
+
+  it('resuelve el proceso cuyo cargo líder tiene una persona', () => {
+    const [f] = resolverFirmantes([tecnologia], [fila({ codigo: 'A-1', areaId: 1 })]);
+    expect(f.resoluble).toBe(true);
+    expect(f.candidatos).toHaveLength(1);
+    expect(f.activos).toBe(1);
+  });
+
+  it('con varias personas en el cargo, todas son candidatas', () => {
+    const [f] = resolverFirmantes(
+      [
+        {
+          ...tecnologia,
+          candidatos: [
+            { id: 100, nombre: 'Ana Ruiz' },
+            { id: 101, nombre: 'Luis Paz' },
+          ],
+        },
+      ],
+      [fila({ codigo: 'A-1', areaId: 1 })],
+    );
+    expect(f.resoluble).toBe(true);
+    expect(f.candidatos.map((c) => c.nombre)).toEqual(['Ana Ruiz', 'Luis Paz']);
+  });
+
+  // Los dos estados que la pantalla NO puede confundir: uno es deuda del catálogo de cargos y
+  // no se arregla insistiéndole a nadie; el otro es una persona a la que hay que buscar.
+  it('un cargo líder sin persona activa NO es resoluble', () => {
+    const [f] = resolverFirmantes(
+      [{ ...tecnologia, candidatos: [] }],
+      [fila({ codigo: 'A-1', areaId: 1 })],
+    );
+    expect(f.resoluble).toBe(false);
+    expect(f.candidatos).toHaveLength(0);
+  });
+
+  it('un área sin cargo líder tampoco es resoluble, y lo dice distinto', () => {
+    const [f] = resolverFirmantes(
+      [{ ...tecnologia, cargoId: null, cargoNombre: null, candidatos: [] }],
+      [fila({ codigo: 'A-1', areaId: 1 })],
+    );
+    expect(f.resoluble).toBe(false);
+    expect(f.cargoId).toBeNull();
+  });
+
+  it('omite los procesos que no ponen ningún activo en el acta', () => {
+    const contabilidad: ProcesoParaFirma = { ...tecnologia, areaId: 2, proceso: 'Contabilidad' };
+    const firmantes = resolverFirmantes(
+      [tecnologia, contabilidad],
+      [fila({ codigo: 'A-1', areaId: 1 })],
+    );
+    expect(firmantes.map((f) => f.proceso)).toEqual(['Tecnología']);
+  });
+
+  it('ordena por cantidad de activos, de mayor a menor', () => {
+    const contabilidad: ProcesoParaFirma = { ...tecnologia, areaId: 2, proceso: 'Contabilidad' };
+    const firmantes = resolverFirmantes(
+      [tecnologia, contabilidad],
+      [
+        fila({ codigo: 'A-1', areaId: 1 }),
+        fila({ codigo: 'A-2', areaId: 2 }),
+        fila({ codigo: 'A-3', areaId: 2 }),
+      ],
+    );
+    expect(firmantes.map((f) => f.proceso)).toEqual(['Contabilidad', 'Tecnología']);
   });
 });

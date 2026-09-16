@@ -140,3 +140,70 @@ export function huellaDeAlcance(filas: readonly FilaAlcance[]): string {
     .join('\n');
   return createHash('sha256').update(canonica).digest('hex');
 }
+
+// ============================================================================
+// La hoja de firmas
+// ============================================================================
+//
+// Firman los DUEÑOS DE PROCESO, que en el esquema son `Area.liderCargo`, y no los propietarios
+// de los activos.
+//
+// La razón es que se puede: `Activo.propietarioId` es nulo para buena parte del inventario
+// —la migración no podía inventar propietarios para 234 activos sin ellos— mientras que
+// `Activo.areaId` es obligatorio. Todo activo tiene proceso, luego todo activo tiene firmante.
+
+/// Un proceso tal como llega del catálogo: su cargo líder y las personas que hoy lo ocupan.
+export interface ProcesoParaFirma {
+  areaId: number;
+  proceso: string;
+  /// `Area.liderCargoId`. Nulo cuando el área no tiene cargo líder declarado.
+  cargoId: number | null;
+  cargoNombre: string | null;
+  /// Las personas ACTIVAS cuyo cargo es ese. Puede haber varias, o ninguna.
+  candidatos: { id: number; nombre: string }[];
+}
+
+/// Un renglón de la hoja de firmas.
+export interface FirmanteProceso {
+  areaId: number;
+  proceso: string;
+  cargoId: number | null;
+  cargoNombre: string | null;
+  /// Quiénes pueden firmar por el proceso. Basta con que UNA firme: el cargo responde por el
+  /// activo en el organigrama, y quien lo ocupe ese día firma por él.
+  candidatos: { id: number; nombre: string }[];
+  /// Falso cuando el área no tiene cargo líder, o el cargo no tiene ninguna persona activa.
+  ///
+  /// **No se confunde con «todavía no ha firmado», y por eso es un campo propio.** Un proceso
+  /// no resoluble es deuda del catálogo de cargos y no se arregla insistiéndole a nadie; uno
+  /// resoluble sin firma es una persona a la que hay que buscar. Se resuelven distinto, así
+  /// que se dicen distinto.
+  resoluble: boolean;
+  /// Cuántos activos del acta pertenecen a este proceso.
+  activos: number;
+}
+
+/// La hoja de firmas: un renglón por proceso QUE PONE ACTIVOS en el acta.
+///
+/// Un proceso sin activos en banda Alta o Crítica no tiene nada que aprobar, y hacerlo firmar
+/// una lista vacía enseña a firmar sin leer.
+export function resolverFirmantes(
+  procesos: readonly ProcesoParaFirma[],
+  filas: readonly FilaAlcance[],
+): FirmanteProceso[] {
+  const porArea = new Map<number, number>();
+  for (const f of filas) porArea.set(f.areaId, (porArea.get(f.areaId) ?? 0) + 1);
+
+  return procesos
+    .filter((p) => (porArea.get(p.areaId) ?? 0) > 0)
+    .map((p) => ({
+      areaId: p.areaId,
+      proceso: p.proceso,
+      cargoId: p.cargoId,
+      cargoNombre: p.cargoNombre,
+      candidatos: p.candidatos,
+      resoluble: p.cargoId !== null && p.candidatos.length > 0,
+      activos: porArea.get(p.areaId) ?? 0,
+    }))
+    .sort((a, b) => b.activos - a.activos || a.proceso.localeCompare(b.proceso));
+}
