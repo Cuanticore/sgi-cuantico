@@ -7,6 +7,7 @@
 import {
   anclaDeProceso,
   armarInforme,
+  peorBanda,
   SIN_CALCULAR,
   type ActivoDelInforme,
   type AceptacionDelInforme,
@@ -328,5 +329,30 @@ describe('las matrices del capítulo', () => {
       riesgos: [{ proceso: 'P', impacto: 4.8, aro: 1, aroResidual: 1 }],
     });
     expect(informe[0].matrizInherente).toBeNull();
+  });
+});
+
+// ===========================================================================
+// La banda del activo — donde «sin calcular» tiene que ganar
+// ===========================================================================
+
+describe('peorBanda', () => {
+  it('toma la peor de las cifras, no la primera ni el promedio', () => {
+    expect(peorBanda([2, 80, 15], UMBRALES_RIESGO)).toBe('Crítico');
+  });
+
+  it('un solo riesgo sin calcular deja al activo SIN banda, aunque los otros once esten', () => {
+    // La decision que sostiene el informe. La peor de las once seria una cifra optimista
+    // presentada como completa: el riesgo que falta puede ser el peor de todos, y el comite
+    // estaria firmando una aceptacion sobre un techo que nadie midio.
+    expect(peorBanda([2, 80, null], UMBRALES_RIESGO)).toBeNull();
+  });
+
+  it('un activo sin riesgos no tiene banda', () => {
+    expect(peorBanda([], UMBRALES_RIESGO)).toBeNull();
+  });
+
+  it('una cifra fuera de todos los umbrales no se fuerza a una banda', () => {
+    expect(peorBanda([-5], UMBRALES_RIESGO)).toBeNull();
   });
 });

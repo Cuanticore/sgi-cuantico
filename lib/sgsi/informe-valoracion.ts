@@ -23,7 +23,7 @@ import {
   type MatrizClasica,
   type RiesgoUbicable,
 } from './matriz-clasica';
-import type { Umbral } from './clasificar';
+import { clasificar, type Umbral } from './clasificar';
 
 /// Un riesgo tal como el informe lo necesita para las matrices.
 ///
@@ -133,6 +133,30 @@ export function anclaDeProceso(proceso: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+/// La banda del PEOR riesgo de un activo, a partir de las cifras de todos sus riesgos.
+///
+/// ── «SIN CALCULAR» GANA SIEMPRE, Y ESA ES LA DECISIÓN ────────────────────────────────────
+///
+/// Si a un activo con doce riesgos se le calculó el residual de once, la respuesta NO es la
+/// peor de esas once. Sería una cifra optimista presentada como si fuera completa: el riesgo
+/// que falta puede ser el peor de todos, y el informe estaría afirmando un techo que nadie
+/// midió. Un comité que firma una aceptación de riesgo residual sobre esa base está firmando
+/// otra cosa distinta de la que cree.
+///
+/// Así que basta con que UNO falte para que la respuesta sea `null` — «sin calcular»—, que es
+/// un estado del modelo y se imprime como tal. Es la misma regla que sostiene la matriz
+/// residual: eficacia desconocida no es riesgo bajo.
+///
+/// Un activo sin riesgos también da `null`: no entra al análisis, y no hay nada que clasificar.
+export function peorBanda(
+  valores: readonly (number | null)[],
+  umbrales: readonly Umbral[],
+): string | null {
+  if (valores.length === 0) return null;
+  if (valores.some((v) => v === null)) return null;
+  return clasificar(Math.max(...(valores as number[])), umbrales);
 }
 
 /// Cuenta por clave conservando el ORDEN DECLARADO de las etiquetas, e incluyendo las que
