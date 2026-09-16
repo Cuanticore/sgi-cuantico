@@ -19,6 +19,17 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { clasificar } from '@/lib/sgsi/clasificar';
+import {
+  columnaDeFrecuencia,
+  type ColumnaFrecuencia,
+  type FilaImpacto,
+} from '@/lib/sgsi/matriz-clasica';
+
+// Los ejes viven en `lib/sgsi/matriz-clasica.ts` desde que el informe de valoración imprime
+// la misma matriz: la casilla a la que cae un riesgo la tiene que decidir UNA sola función, o
+// el informe que se firma y la pantalla que se mira pueden terminar diciendo cosas distintas.
+// Se re-exportan acá porque `app/sgsi/matrices/page.tsx` los importa de este módulo.
+export type { ColumnaFrecuencia, FilaImpacto } from '@/lib/sgsi/matriz-clasica';
 
 export interface ActivoVista {
   codigo: string;
@@ -46,20 +57,6 @@ export interface FilaRiesgo {
   /// Null while the efficacy of the controls that mitigate the threat is unknown.
   aroResidual: number | null;
   riesgoResidual: number | null;
-}
-
-/// A band of umbral_impacto plus the midpoint that gives the row's cells their colour.
-export interface FilaImpacto {
-  nombre: string;
-  desde: number;
-  hasta: number;
-  medio: number;
-}
-
-export interface ColumnaFrecuencia {
-  nombre: string;
-  lectura: string;
-  vecesAno: number;
 }
 
 export interface BandaVista {
@@ -154,26 +151,9 @@ export default function MatricesRiesgo({
   // once for the whole set instead of on every keystroke. The filter then only decides
   // which coordinates are counted.
   const coordenadas = useMemo(() => {
-    const columnaDe = (veces: number): number => {
-      // The frequency scale is geometric — 0,01 · 0,1 · 1 · 10 · 100 — so the nearest
-      // column is the nearest in orders of magnitude, not in plain distance. Plain
-      // distance would put an ARO of 5,5 in the "una vez al año" column when it is
-      // nearer, decade for decade, to "cada mes". (The prototype uses plain distance;
-      // this is a deliberate deviation, and it only ever moves residual values, since
-      // an inherent ARO always lands exactly on a point of the scale.)
-      if (!(veces > 0)) return 0; // efficacy of 100% drives the ARO to zero
-      const log = Math.log10(veces);
-      let mejor = 0;
-      let distancia = Infinity;
-      for (let j = 0; j < columnas.length; j++) {
-        const d = Math.abs(Math.log10(columnas[j].vecesAno) - log);
-        if (d < distancia) {
-          distancia = d;
-          mejor = j;
-        }
-      }
-      return mejor;
-    };
+    // La regla —la columna más cercana EN ÓRDENES DE MAGNITUD, no en distancia lisa— está
+    // en `lib/sgsi/matriz-clasica.ts`, probada, y es la misma que usa el informe.
+    const columnaDe = (veces: number): number => columnaDeFrecuencia(veces, columnas);
 
     return filas.map((f) => {
       const banda = clasificar(f.impacto, filasImpacto);
