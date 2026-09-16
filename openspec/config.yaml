@@ -65,5 +65,10 @@ rules:
     build_command: "npm run build"
     typecheck_command: "npx tsc --noEmit"
     coverage_threshold: 0
+    # HARNESS.md manda sobre esta seccion. Mergear a main DESPLIEGA A PRODUCCION, y el CI no
+    # corre en el PR: estos comandos se corren a mano o no los corre nadie. `next build`
+    # ignora los errores de TypeScript, asi que `tsc --noEmit` es la unica red de tipos.
+    # Y ningun cambio que una persona opere se mergea sin recorrerlo de punta a punta.
+    harness: "HARNESS.md"
   archive:
     - Warn before merging destructive deltas
