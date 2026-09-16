@@ -35,7 +35,7 @@ interface Props {
 
 type MensajeDelPlayer =
   | { tipo: 'ESTADO'; modelo: Record<string, string>; entradaUrl: string; soloLectura: boolean }
-  | { tipo: 'GUARDADO'; ok: boolean };
+  | { tipo: 'GUARDADO'; ok: boolean; mensaje?: string };
 
 export default function Runner({ origenApp }: Props) {
   const [entradaUrl, setEntradaUrl] = useState<string | null>(null);
@@ -163,11 +163,16 @@ export default function Runner({ origenApp }: Props) {
         setEntradaUrl(mensaje.entradaUrl);
       }
       if (mensaje.tipo === 'GUARDADO' && !mensaje.ok) {
-        // El servidor rechazó la escritura: el intento está cerrado o el token venció. El
-        // curso tiene que enterarse, o seguiría acumulando avance que no se guarda.
+        // El servidor rechazó la escritura. El curso tiene que enterarse, o seguiría
+        // acumulando avance que no se guarda.
+        //
+        // El motivo lo dice el SERVIDOR y acá sólo se muestra. Antes se afirmaba «este
+        // intento ya se cerró» para cualquier rechazo, y la causa más común —el token
+        // vencido— quedaba descrita como algo que no había pasado.
         ultimoError.current = EXCEPCION_GENERAL;
-        diagnostico.current = 'el servidor rechazó el guardado: el intento ya no está abierto';
-        setAviso('Tu avance dejó de guardarse porque este intento ya se cerró. Volvé a abrir el curso.');
+        const motivo = mensaje.mensaje ?? 'el servidor rechazó el guardado';
+        diagnostico.current = motivo;
+        setAviso(`Tu avance dejó de guardarse: ${motivo}`);
       }
     }
 
