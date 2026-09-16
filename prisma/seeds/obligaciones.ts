@@ -41,6 +41,7 @@ const PREFIJO_CODIGO: Record<TipoContenido, string> = {
   LECTURA: 'LEC',
   VERIFICACION: 'LVE',
   TAREA: 'TAR',
+  CURSO_VIRTUAL: 'CUR',
 };
 
 /// §4.4 · G-1 · el libro declara `FOR-CAL-10`, que en el listado maestro es el Plan de

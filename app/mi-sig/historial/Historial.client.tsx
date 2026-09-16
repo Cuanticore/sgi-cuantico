@@ -56,6 +56,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   LECTURA: 'Lectura',
   VERIFICACION: 'Verificación',
   CAPACITACION: 'Capacitación',
+  CURSO_VIRTUAL: 'Curso Virtual',
   TAREA: 'Tarea',
 };
 
@@ -152,7 +153,7 @@ export default function HistorialClient({
           </button>
         ))}
         <span className="mx-2 h-4 w-px" style={{ background: 'var(--hf-hairline-strong)' }} />
-        {(['todos', 'LECTURA', 'VERIFICACION', 'CAPACITACION', 'TAREA'] as const).map((t) => (
+        {(['todos', 'LECTURA', 'VERIFICACION', 'CAPACITACION', 'CURSO_VIRTUAL', 'TAREA'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTipo(t)}
@@ -347,6 +348,7 @@ function chipTipo(tipo: string): { background: string; color: string } {
       LECTURA: { background: '#e9f0fb', color: '#12437f' },
       VERIFICACION: { background: '#fff3e6', color: '#8a4407' },
       CAPACITACION: { background: '#e8f4ef', color: '#0b5c44' },
+      CURSO_VIRTUAL: { background: '#efeafc', color: '#4a2f9b' },
       TAREA: { background: '#f5f7f6', color: '#4a544f' },
     }[tipo] ?? { background: '#f5f7f6', color: '#4a544f' }
   );

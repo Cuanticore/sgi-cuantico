@@ -1195,6 +1195,17 @@ enum TipoContenido {
   LECTURA
   VERIFICACION
   TAREA
+  /// REQ-SIG-24 · un curso que se recorre dentro de la aplicación, no un documento que se
+  /// lee ni una sesión a la que se asiste.
+  ///
+  /// **Por qué es un tipo propio y no una Capacitación con paquete.** El reproductor SCORM
+  /// ya existía y se activaba cuando una CAPACITACION resultaba tener paquete cargado: el
+  /// tipo decía una cosa y el comportamiento dependía de un adjunto. Quien creaba el
+  /// contenido no podía saber, al elegir el tipo, si la persona iba a declarar su
+  /// asistencia o a recorrer un curso — lo descubría después, según si alguien había subido
+  /// el zip. Declararlo de entrada es lo que permite que la bandeja diga «Iniciar» en vez
+  /// de «Leer» sin tener que adivinar.
+  CURSO_VIRTUAL
 
   @@map("tipo_contenido")
 }

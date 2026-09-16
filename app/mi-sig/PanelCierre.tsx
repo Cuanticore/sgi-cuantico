@@ -81,12 +81,21 @@ export default function PanelCierre({
   // abrió, que es exactamente la razón de ser del player. El servidor lo rechaza igual
   // (`app/sig/acciones/tareas.ts`), pero una pantalla que ofrece lo que el servidor niega
   // enseña a desconfiar de la pantalla.
-  if (tarjeta.tipo === 'CAPACITACION' && tarjeta.tienePaqueteScorm) {
+  // REQ-SIG-24 · el curso virtual SIEMPRE entra por acá, tenga paquete o no. Una
+  // CAPACITACION sigue entrando sólo si lo tiene, que es como funcionaba antes y no hay por
+  // qué cambiarle el trato a lo ya creado.
+  //
+  // Que el curso virtual entre aunque le falte el paquete es deliberado: sin esto caería al
+  // formulario manual y alguien podría declararse aprobado en un curso que la organización
+  // todavía no subió. El panel dice qué falta; el servidor lo rechaza igual.
+  if (tarjeta.tipo === 'CURSO_VIRTUAL' || (tarjeta.tipo === 'CAPACITACION' && tarjeta.tienePaqueteScorm)) {
+    const iniciado = tarjeta.cursoIniciado;
+    const accion = iniciado ? 'Reanudar' : 'Iniciar';
     return (
       <aside
         className="fixed inset-y-0 right-0 z-40 flex w-[396px] flex-col overflow-y-auto bg-surface shadow-xl"
         style={{ borderLeft: '1px solid var(--hf-border-field)' }}
-        aria-label="Abrir el curso"
+        aria-label={`${accion} el curso`}
       >
         <header
           className="flex items-center justify-between px-5 py-4"
@@ -129,7 +138,11 @@ export default function PanelCierre({
           style={{ borderTop: '1px solid var(--hf-hairline-strong)' }}
         >
           <span className="flex-1 font-mono text-9_5 leading-relaxed text-label">
-            El resultado lo reporta el curso.
+            {tarjeta.tienePaqueteScorm
+              ? iniciado
+                ? 'Retomás donde quedaste. El resultado lo reporta el curso.'
+                : 'El resultado lo reporta el curso.'
+              : 'Este curso todavía no tiene contenido cargado. Avisale a quien lo publicó: no hay nada que iniciar.'}
           </span>
           <button
             onClick={alCerrar}
@@ -137,13 +150,15 @@ export default function PanelCierre({
           >
             Cancelar
           </button>
-          <a
-            href={`/mi-sig/curso/${tarjeta.id}`}
-            className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
-            style={{ background: 'var(--hf-accent-500)' }}
-          >
-            Abrir el curso
-          </a>
+          {tarjeta.tienePaqueteScorm && (
+            <a
+              href={`/mi-sig/curso/${tarjeta.id}`}
+              className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+              style={{ background: 'var(--hf-accent-500)' }}
+            >
+              {accion} el curso
+            </a>
+          )}
         </footer>
       </aside>
     );

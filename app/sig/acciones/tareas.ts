@@ -597,10 +597,13 @@ const PREFIJO_CODIGO: Record<DatosContenido['tipo'], string> = {
   LECTURA: 'LEC',
   VERIFICACION: 'LVE',
   TAREA: 'TAR',
+  // `CUR` y no `CV`: tres letras como los otros cuatro, para que los códigos sigan
+  // alineándose en columna en las listas y en el repositorio documental.
+  CURSO_VIRTUAL: 'CUR',
 };
 
 export interface DatosContenido {
-  tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA';
+  tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA' | 'CURSO_VIRTUAL';
   titulo: string;
   descripcion: string;
   procedimientoOrigen?: string;

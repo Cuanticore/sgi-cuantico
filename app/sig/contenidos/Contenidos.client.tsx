@@ -27,7 +27,7 @@ import {
 } from '@/app/sig/acciones/tareas';
 import { subirPaqueteScorm } from '@/app/sig/acciones/scorm';
 
-type Tipo = 'LECTURA' | 'VERIFICACION' | 'CAPACITACION' | 'TAREA';
+type Tipo = 'LECTURA' | 'VERIFICACION' | 'CAPACITACION' | 'TAREA' | 'CURSO_VIRTUAL';
 
 export interface ItemFila {
   id: number;
@@ -93,9 +93,13 @@ const TIPO: Record<Tipo, { etiqueta: string; fondo: string; texto: string }> = {
   VERIFICACION: { etiqueta: 'Verificación', fondo: '#fff3e6', texto: '#8a4407' },
   CAPACITACION: { etiqueta: 'Capacitación', fondo: '#e8f4ef', texto: '#0b5c44' },
   TAREA: { etiqueta: 'Tarea', fondo: '#f5f7f6', texto: '#4a544f' },
+  CURSO_VIRTUAL: { etiqueta: 'Curso Virtual', fondo: '#efeafc', texto: '#4a2f9b' },
 };
 
-const ORDEN_TIPOS: Tipo[] = ['LECTURA', 'VERIFICACION', 'CAPACITACION', 'TAREA'];
+// Curso Virtual va DESPUES de Capacitacion y no al final: las dos son formacion, y el
+// orden del renglon agrupa primero lo que se lee, despues lo que se verifica, despues lo
+// que se aprende, y por ultimo lo que se hace.
+const ORDEN_TIPOS: Tipo[] = ['LECTURA', 'VERIFICACION', 'CAPACITACION', 'CURSO_VIRTUAL', 'TAREA'];
 
 /// Un ítem en edición. `id` ausente = nuevo. `clave` es sólo para React: un ítem nuevo no
 /// tiene id, y usar el índice como key hace que al reordenar el foco salte de campo.

@@ -20,6 +20,10 @@ const COLORES_TIPO: Record<string, { fondo: string; texto: string }> = {
   VERIFICACION: { fondo: '#fff3e6', texto: '#8a4407' },
   CAPACITACION: { fondo: '#e8f4ef', texto: '#0b5c44' },
   TAREA: { fondo: '#f5f7f6', texto: '#4a544f' },
+  // Violeta: los otros cuatro ya ocupan azul, naranja, verde y gris, y un curso no es
+  // ninguno de ellos. El nombre acompaña siempre al color, asi que la identidad nunca
+  // depende del tono.
+  CURSO_VIRTUAL: { fondo: '#efeafc', texto: '#4a2f9b' },
 };
 
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -27,6 +31,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   VERIFICACION: 'Verificación',
   CAPACITACION: 'Capacitación',
   TAREA: 'Tarea',
+  CURSO_VIRTUAL: 'Curso Virtual',
 };
 
 export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
