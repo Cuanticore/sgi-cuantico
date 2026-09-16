@@ -318,7 +318,7 @@ describe('alias de catálogo', () => {
     // cuando la transacción ya insertó esa fila en el catálogo.
     const conAlias: Catalogos = {
       ...CATALOGOS,
-      alias: indiceDeAlias([{ catalogo: 'cargo', valor: 'Nuevo Cargo', accion: 'crear' }]),
+      alias: indiceDeAlias([{ catalogo: 'cargo', valor: 'Nuevo Cargo', accion: 'crear', nombre: 'Nuevo Cargo' }]),
     };
 
     const { faltantes } = leerFilas(

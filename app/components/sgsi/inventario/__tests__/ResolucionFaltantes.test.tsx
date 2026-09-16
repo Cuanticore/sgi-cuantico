@@ -59,7 +59,7 @@ describe('ResolucionFaltantes', () => {
     fireEvent.click(within(cargo).getByRole('radio', { name: /Crear/ }));
 
     expect(onCambiar).toHaveBeenCalledWith([
-      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear', nombre: 'Architecture and Technology Manager' },
     ]);
   });
 
@@ -133,5 +133,57 @@ describe('ResolucionFaltantes', () => {
     );
 
     for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled();
+  });
+});
+
+describe('corregir el nombre al crear', () => {
+  it('al elegir crear propone el nombre del libro, listo para corregir', () => {
+    const { onCambiar } = montar();
+
+    const proveedor = screen.getByRole('group', { name: /OpenAI/ });
+    fireEvent.click(within(proveedor).getByRole('radio', { name: /Crear/ }));
+
+    expect(onCambiar).toHaveBeenCalledWith([
+      { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenAI' },
+    ]);
+  });
+
+  it('el campo se puede editar, y lo editado es lo que se va a registrar', () => {
+    // El V21 escribe «OpenIA» donde dice OpenAI. Sin este campo, el catálogo heredaría el
+    // typo para siempre: `Proveedor.nombre` es único y corregirlo después es un renombre.
+    const { onCambiar } = montar([
+      { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenIA' },
+    ]);
+
+    const proveedor = screen.getByRole('group', { name: /OpenAI/ });
+    const campo = within(proveedor).getByRole('textbox');
+    expect(campo).toHaveValue('OpenIA');
+
+    fireEvent.change(campo, { target: { value: 'OpenAI' } });
+
+    expect(onCambiar).toHaveBeenCalledWith([
+      { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenAI' },
+    ]);
+  });
+
+  it('sin haber elegido crear no hay campo que editar', () => {
+    montar();
+
+    const proveedor = screen.getByRole('group', { name: /OpenAI/ });
+    expect(within(proveedor).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('el campo se bloquea mientras la importación corre', () => {
+    render(
+      <ResolucionFaltantes
+        faltantes={FALTANTES}
+        opciones={OPCIONES}
+        resoluciones={[{ catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenAI' }]}
+        onCambiar={jest.fn()}
+        deshabilitado
+      />,
+    );
+
+    expect(screen.getByRole('textbox')).toBeDisabled();
   });
 });

@@ -326,11 +326,21 @@ function resolucionesDe(datos: FormData): Resolucion[] {
   const salida: Resolucion[] = [];
   for (const r of leido) {
     if (typeof r !== 'object' || r === null) continue;
-    const { catalogo, valor, accion, destino } = r as Record<string, unknown>;
+    const { catalogo, valor, accion, destino, nombre: nombreCrudo } = r as Record<
+      string,
+      unknown
+    >;
+    const r2 = { nombre: nombreCrudo };
     if (typeof catalogo !== 'string' || typeof valor !== 'string') continue;
     if (!(CATALOGOS_CURABLES as readonly string[]).includes(catalogo)) continue;
     const c = catalogo as CatalogoCurable;
-    if (accion === 'crear') salida.push({ catalogo: c, valor, accion: 'crear' });
+    if (accion === 'crear') {
+      // Sin `nombre` se registra lo que dice el libro. Es el caso normal: sólo se corrige
+      // cuando el libro trae el nombre mal escrito.
+      const nombre =
+        typeof r2.nombre === 'string' && r2.nombre.trim() !== '' ? r2.nombre : valor;
+      salida.push({ catalogo: c, valor, accion: 'crear', nombre });
+    }
     else if (accion === 'mapear' && typeof destino === 'string') {
       salida.push({ catalogo: c, valor, accion: 'mapear', destino });
     }
@@ -371,7 +381,9 @@ async function crearFaltantes(
 
   for (const r of resoluciones) {
     if (r.accion !== 'crear' || !esCreable(r.catalogo)) continue;
-    const nombre = r.valor.trim();
+    // El nombre decidido, que puede diferir del texto del libro cuando éste venía mal
+    // escrito. La fila lo encuentra igual: `indiceDeAlias` traduce el uno al otro.
+    const nombre = r.nombre.trim();
 
     if (r.catalogo === 'cargo') {
       // `orden` va al final de la lista: la organización decide después dónde ubicarlo, y

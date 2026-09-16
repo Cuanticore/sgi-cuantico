@@ -69,7 +69,9 @@ export default function PopupImportacion({ onCerrar }: Props) {
         x.valor.trim().toLocaleLowerCase('es') === f.valor.trim().toLocaleLowerCase('es'),
     );
     if (!r) return true;
-    return r.accion === 'mapear' && r.destino === '';
+    // Un «mapear» sin destino y un «crear» con el nombre borrado son media decisión, que no
+    // es una decisión. El servidor los rechaza igual; contarlos acá evita el viaje.
+    return r.accion === 'mapear' ? r.destino === '' : r.nombre.trim() === '';
   }).length;
   // The import button has to stay on screen while the import runs, so the review step
   // covers both states rather than flipping back to "validate" mid-write.

@@ -104,12 +104,17 @@ export default function ResolucionFaltantes({
                     checked={actual?.accion === 'crear'}
                     disabled={deshabilitado}
                     onChange={() =>
-                      reemplazar(f, { catalogo: f.catalogo, valor: f.valor, accion: 'crear' })
+                      reemplazar(f, {
+                        catalogo: f.catalogo,
+                        valor: f.valor,
+                        accion: 'crear',
+                        // Se propone el nombre del libro: corregirlo es la excepción, no el
+                        // caso normal.
+                        nombre: f.valor,
+                      })
                     }
                   />
-                  <span>
-                    Crear <strong>{f.valor}</strong>
-                  </span>
+                  <span>Crear con este nombre</span>
                 </label>
               ) : (
                 // `Area.prefijo` es CHAR(3) único y entra en el código de cada activo del
@@ -119,6 +124,29 @@ export default function ResolucionFaltantes({
                   Un área no se puede crear desde acá: necesita un prefijo de tres letras que
                   entra en el código de sus activos. Créala en parámetros, o mapéala abajo.
                 </p>
+              )}
+
+              {/* El nombre que va a quedar registrado, editable.
+                  El V21 escribe «OpenIA» donde dice OpenAI, y `Proveedor.nombre` es único:
+                  registrar el typo lo deja fijo, porque corregirlo después ya no es un alta
+                  sino un renombre. La fila sigue diciendo «OpenIA» y lo encuentra igual —
+                  quien traduce es el índice de alias. */}
+              {actual?.accion === 'crear' && (
+                <input
+                  type="text"
+                  aria-label={`Nombre con el que se va a registrar «${f.valor}»`}
+                  value={actual.nombre}
+                  disabled={deshabilitado}
+                  onChange={(e) =>
+                    reemplazar(f, {
+                      catalogo: f.catalogo,
+                      valor: f.valor,
+                      accion: 'crear',
+                      nombre: e.target.value,
+                    })
+                  }
+                  className="ml-6 rounded-campo border border-border-field px-2.5 py-1.5 text-12_5"
+                />
               )}
 
               <label className="flex items-center gap-2 text-12_5">

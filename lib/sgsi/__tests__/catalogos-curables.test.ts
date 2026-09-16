@@ -87,7 +87,7 @@ describe('agruparFaltantes', () => {
 describe('aplicarAlias', () => {
   const indice = indiceDeAlias([
     { catalogo: 'cargo', valor: 'Arq. y Tec. Manager', accion: 'mapear', destino: 'CTO' },
-    { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear' },
+    { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenAI' },
   ]);
 
   it('traduce el texto del libro al nombre que el catálogo ya tiene', () => {
@@ -126,7 +126,7 @@ describe('problemasDeResoluciones', () => {
 
   it('no protesta cuando cada faltante tiene su decisión', () => {
     const resoluciones: Resolucion[] = [
-      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear', nombre: 'Architecture and Technology Manager' },
       { catalogo: 'proveedor', valor: 'OpenAI', accion: 'mapear', destino: 'Amazon Web Services' },
     ];
 
@@ -135,7 +135,7 @@ describe('problemasDeResoluciones', () => {
 
   it('exige una decisión por cada faltante: media carga es peor que ninguna', () => {
     const resoluciones: Resolucion[] = [
-      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear', nombre: 'Architecture and Technology Manager' },
     ];
 
     expect(problemasDeResoluciones(FALTANTES, resoluciones, NOMBRES)).toEqual([
@@ -145,7 +145,7 @@ describe('problemasDeResoluciones', () => {
 
   it('rechaza mapear a un destino que no existe', () => {
     const resoluciones: Resolucion[] = [
-      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear', nombre: 'Architecture and Technology Manager' },
       { catalogo: 'proveedor', valor: 'OpenAI', accion: 'mapear', destino: 'Anthropic' },
     ];
 
@@ -160,7 +160,7 @@ describe('problemasDeResoluciones', () => {
     // codigo_heredado: sin llave controlada, el catálogo se duplica solo.
     const faltantes = [{ catalogo: 'cargo' as const, valor: 'cto', filas: [8] }];
     const resoluciones: Resolucion[] = [
-      { catalogo: 'cargo', valor: 'cto', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'cto', accion: 'crear', nombre: 'cto' },
     ];
 
     expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([
@@ -170,9 +170,9 @@ describe('problemasDeResoluciones', () => {
 
   it('rechaza una decisión sobre algo que el libro no pidió', () => {
     const resoluciones: Resolucion[] = [
-      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear' },
-      { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear' },
-      { catalogo: 'cargo', valor: 'Cargo fantasma', accion: 'crear' },
+      { catalogo: 'cargo', valor: 'Architecture and Technology Manager', accion: 'crear', nombre: 'Architecture and Technology Manager' },
+      { catalogo: 'proveedor', valor: 'OpenAI', accion: 'crear', nombre: 'OpenAI' },
+      { catalogo: 'cargo', valor: 'Cargo fantasma', accion: 'crear', nombre: 'Cargo fantasma' },
     ];
 
     expect(problemasDeResoluciones(FALTANTES, resoluciones, NOMBRES)).toEqual([
@@ -182,7 +182,7 @@ describe('problemasDeResoluciones', () => {
 
   it('rechaza un nombre en blanco: un catálogo no se cura con una celda vacía', () => {
     const faltantes = [{ catalogo: 'cargo' as const, valor: '   ', filas: [8] }];
-    const resoluciones: Resolucion[] = [{ catalogo: 'cargo', valor: '   ', accion: 'crear' }];
+    const resoluciones: Resolucion[] = [{ catalogo: 'cargo', valor: '   ', accion: 'crear', nombre: '   ' }];
 
     expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([
       'No se puede crear un cargo sin nombre.',
@@ -214,7 +214,7 @@ describe('crear un área', () => {
     };
 
     expect(
-      problemasDeResoluciones(faltantes, [{ catalogo: 'area', valor: 'Innovación', accion: 'crear' }], nombres),
+      problemasDeResoluciones(faltantes, [{ catalogo: 'area', valor: 'Innovación', accion: 'crear', nombre: 'Innovación' }], nombres),
     ).toEqual([
       'Un área no se puede crear desde la carga: necesita un prefijo de tres letras que entra en el código de sus activos. Créala en parámetros, o mapea «Innovación» a un área existente.',
     ]);
@@ -226,5 +226,85 @@ describe('crear un área', () => {
         nombres,
       ),
     ).toEqual([]);
+  });
+});
+
+describe('corregir el nombre al crear', () => {
+  // El V21 escribe «OpenIA» donde dice OpenAI, y «Proveedor.nombre» es único: registrar el
+  // typo lo deja fijo, porque arreglarlo después ya no es un alta sino un renombre. Por eso
+  // `crear` lleva el nombre que va a quedar, separado del texto que trae el libro.
+
+  const NOMBRES = {
+    cargo: ['CEO'],
+    proveedor: ['Microsoft'],
+    ubicacion: [],
+    entorno: [],
+    area: [],
+  };
+
+  it('el texto del libro se traduce al nombre corregido', () => {
+    // Sin esto la fila seguiría diciendo «OpenIA», buscaría eso en el catálogo y no
+    // encontraría el «OpenAI» recién creado.
+    const indice = indiceDeAlias([
+      { catalogo: 'proveedor', valor: 'OpenIA', accion: 'crear', nombre: 'OpenAI' },
+    ]);
+
+    expect(aplicarAlias(indice, 'proveedor', 'OpenIA')).toBe('OpenAI');
+  });
+
+  it('sin corrección no traduce nada: el nombre del libro ES el nombre nuevo', () => {
+    const indice = indiceDeAlias([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(aplicarAlias(indice, 'proveedor', 'Claude')).toBe('Claude');
+  });
+
+  it('acepta crear con el nombre corregido', () => {
+    const faltantes = [{ catalogo: 'proveedor' as const, valor: 'OpenIA', filas: [47] }];
+    const resoluciones: Resolucion[] = [
+      { catalogo: 'proveedor', valor: 'OpenIA', accion: 'crear', nombre: 'OpenAI' },
+    ];
+
+    expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([]);
+  });
+
+  it('rechaza un nombre corregido que ya existe', () => {
+    const faltantes = [{ catalogo: 'proveedor' as const, valor: 'Microsft', filas: [8] }];
+    const resoluciones: Resolucion[] = [
+      { catalogo: 'proveedor', valor: 'Microsft', accion: 'crear', nombre: 'microsoft' },
+    ];
+
+    expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([
+      'Ya existe el proveedor «Microsoft». Mapea «Microsft» ahí en vez de crear uno nuevo.',
+    ]);
+  });
+
+  it('rechaza dos faltantes que quieren crear el MISMO nombre', () => {
+    // `nombre` es único en la base: sin esto, la segunda inserción reventaría a mitad de la
+    // transacción con un error de Prisma que no le dice nada a nadie.
+    const faltantes = [
+      { catalogo: 'proveedor' as const, valor: 'OpenIA', filas: [47] },
+      { catalogo: 'proveedor' as const, valor: 'Open IA', filas: [48] },
+    ];
+    const resoluciones: Resolucion[] = [
+      { catalogo: 'proveedor', valor: 'OpenIA', accion: 'crear', nombre: 'OpenAI' },
+      { catalogo: 'proveedor', valor: 'Open IA', accion: 'crear', nombre: 'OpenAI' },
+    ];
+
+    expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([
+      '«OpenIA» y «Open IA» quieren crear el mismo proveedor «OpenAI». Crea uno y mapea el otro ahí.',
+    ]);
+  });
+
+  it('rechaza dejar el nombre en blanco', () => {
+    const faltantes = [{ catalogo: 'proveedor' as const, valor: 'OpenIA', filas: [47] }];
+    const resoluciones: Resolucion[] = [
+      { catalogo: 'proveedor', valor: 'OpenIA', accion: 'crear', nombre: '  ' },
+    ];
+
+    expect(problemasDeResoluciones(faltantes, resoluciones, NOMBRES)).toEqual([
+      'No se puede crear un proveedor sin nombre.',
+    ]);
   });
 });
