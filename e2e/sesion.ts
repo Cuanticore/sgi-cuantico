@@ -49,3 +49,215 @@ export async function iniciarSesion(contexto: BrowserContext, baseURL: string): 
     },
   ]);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// Recorridos que ESCRIBEN
+//
+// Todo lo de arriba sólo navega, y por eso puede correr contra la base que le den —hoy, el
+// túnel a producción en lectura. Lo de abajo siembra filas y las borra: el espejo de Sentinel
+// y la promoción no se pueden comprobar mirando.
+//
+// La regla del arnés —«ningún spec de este directorio puede escribir»— no se relaja: se hace
+// cumplir por código. `exigirBaseDeDesarrollo()` corta la corrida si `DATABASE_URL` no apunta
+// al Postgres local del `docker-compose.dev.yml`. Una promesa escrita en un comentario la
+// rompe quien no lo leyó; una excepción no.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+/// Puerto del Postgres de desarrollo (`docker-compose.dev.yml`). El 5432 y el 5436 ya estaban
+/// tomados por otros proyectos de esta máquina; por eso es el 5437.
+const PUERTO_DESARROLLO = '5437';
+
+/// Corta si la base no es la de desarrollo. Se llama antes de cualquier escritura.
+function exigirBaseDeDesarrollo(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL no está definida. Los recorridos que escriben necesitan la base local.');
+  }
+  let destino: URL;
+  try {
+    destino = new URL(url);
+  } catch {
+    throw new Error('DATABASE_URL no es una URL válida.');
+  }
+  const esLocal = ['localhost', '127.0.0.1', '::1'].includes(destino.hostname);
+  if (!esLocal || destino.port !== PUERTO_DESARROLLO) {
+    throw new Error(
+      `Este recorrido ESCRIBE y DATABASE_URL apunta a ${destino.hostname}:${destino.port || '(por omisión)'}. ` +
+        `Sólo se permite el Postgres de desarrollo en localhost:${PUERTO_DESARROLLO} ` +
+        '(docker-compose.dev.yml). Nunca contra producción, ni a través de un túnel.',
+    );
+  }
+  return url;
+}
+
+let clienteCache: PrismaClient | null = null;
+
+function cliente(): PrismaClient {
+  if (clienteCache) return clienteCache;
+  clienteCache = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: exigirBaseDeDesarrollo() }),
+  });
+  return clienteCache;
+}
+
+export async function cerrarCliente(): Promise<void> {
+  if (clienteCache) {
+    await clienteCache.$disconnect();
+    clienteCache = null;
+  }
+}
+
+/// Object id del grupo «Líderes SIG» en el Directorio.
+///
+/// El recorrido de arriba usa el NOMBRE del grupo y éste el OBJECT ID. Los dos resuelven al
+/// mismo rol porque `ALIAS` en `lib/sgsi/permisos.ts` reconoce ambos. Acá se usa el object id
+/// a propósito: es **el que Azure emite de verdad** en el claim `groups`, así que el camino
+/// que se ejercita es el de producción.
+export const GRUPO_LIDERES_SIG = '2e0f4290-e91c-4f45-a663-77ece2d2a50e';
+
+export interface Identidad {
+  correo: string;
+  nombre: string;
+  /// Vacío = Colaborador. Con `GRUPO_LIDERES_SIG` = rol de seguridad.
+  grupos?: readonly string[];
+}
+
+/// Firma una sesión para una identidad concreta y la instala.
+///
+/// Se separa de `iniciarSesion` porque estas pruebas SÍ necesitan que la identidad exista en
+/// `Persona`: las acciones del servidor resuelven al autor buscando por correo, y un token
+/// válido de alguien que no está en la tabla no puede escribir. Es una regla del dominio que
+/// hay que respetar, no esquivar.
+export async function iniciarSesionComo(
+  contexto: BrowserContext,
+  identidad: Identidad,
+  baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3004',
+): Promise<void> {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error('NEXTAUTH_SECRET no está definida: sin ella no se puede firmar la sesión.');
+
+  const token = await encode({
+    secret,
+    maxAge: 30 * 60,
+    token: {
+      name: identidad.nombre,
+      email: identidad.correo,
+      sub: `e2e-${identidad.correo}`,
+      grupos: [...(identidad.grupos ?? [])],
+    },
+  });
+
+  await contexto.addCookies([
+    {
+      name: 'next-auth.session-token',
+      value: token,
+      domain: new URL(baseURL).hostname,
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+}
+
+/// Deja la persona en la base, sin duplicar si la prueba corre dos veces.
+export async function sembrarPersona(identidad: Identidad): Promise<{ id: number }> {
+  return cliente().persona.upsert({
+    where: { correo: identidad.correo },
+    update: { nombre: identidad.nombre, activa: true },
+    create: {
+      oid: `e2e-${identidad.correo}`,
+      correo: identidad.correo,
+      nombre: identidad.nombre,
+      activa: true,
+    },
+    select: { id: true },
+  });
+}
+
+/// Atajo para el caso común: persona sembrada y sesión con rol de seguridad.
+export async function entrarComoLiderSig(
+  contexto: BrowserContext,
+  correo = 'e2e.lider@cuantico.com',
+): Promise<{ id: number }> {
+  const persona = await sembrarPersona({ correo, nombre: 'Líder SIG de pruebas' });
+  await iniciarSesionComo(contexto, {
+    correo,
+    nombre: 'Líder SIG de pruebas',
+    grupos: [GRUPO_LIDERES_SIG],
+  });
+  return persona;
+}
+
+/// El otro lado de la moneda: alguien autenticado SIN permisos de decisión.
+export async function entrarComoColaborador(
+  contexto: BrowserContext,
+  correo = 'e2e.colaborador@cuantico.com',
+): Promise<{ id: number }> {
+  const persona = await sembrarPersona({ correo, nombre: 'Colaborador de pruebas' });
+  await iniciarSesionComo(contexto, { correo, nombre: 'Colaborador de pruebas', grupos: [] });
+  return persona;
+}
+
+/// Deja un incidente en la tabla espejo sin pasar por Azure.
+///
+/// La sincronización real se prueba aparte: lo que estas pruebas ejercitan es la VISTA y la
+/// promoción, que empiezan cuando la fila ya está. Sembrar directo evita que una credencial
+/// ausente o un workspace lento conviertan una prueba de interfaz en una prueba de red.
+export async function sembrarIncidenteSentinel(datos: {
+  numeroIncidente: string;
+  titulo: string;
+  severidadSentinel?: string;
+  estadoSentinel?: string;
+}): Promise<void> {
+  const ahora = new Date();
+  const comun = {
+    titulo: datos.titulo,
+    severidadSentinel: datos.severidadSentinel ?? 'Medium',
+    estadoSentinel: datos.estadoSentinel ?? 'New',
+    creadoEnSentinel: ahora,
+    url: `https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/pruebas/${datos.numeroIncidente}`,
+    proveedor: 'Microsoft XDR',
+    sincronizadoEn: ahora,
+  };
+  await cliente().incidenteSentinel.upsert({
+    where: { numeroIncidente: datos.numeroIncidente },
+    update: comun,
+    create: { numeroIncidente: datos.numeroIncidente, ...comun },
+  });
+}
+
+/// Intenta crear un SEGUNDO evento desde el mismo incidente. Debe fallar.
+///
+/// Ataca por debajo de la interfaz a propósito: que el botón desaparezca es ergonomía, y un
+/// segundo intento no tiene por qué llegar por un clic — puede venir de dos pestañas abiertas,
+/// de una llamada repetida a la acción o de un reintento del servidor. Lo que comprueba es la
+/// barrera que sí aguanta eso: el índice único `(origen_sistema, origen_id_externo)`.
+export async function intentarSegundaPromocion(numeroIncidente: string): Promise<void> {
+  const db = cliente();
+  const persona = await db.persona.findFirstOrThrow({ select: { id: true } });
+  await db.eventoSeguridad.create({
+    data: {
+      codigo: `EVT-DUP-${numeroIncidente}`,
+      descripcion: 'Segundo intento de promoción del mismo incidente. No debe entrar.',
+      fechaOcurrencia: new Date(),
+      enCurso: false,
+      reportadoPorId: persona.id,
+      origenSistema: 'SENTINEL',
+      origenIdExterno: numeroIncidente,
+      origenUrl: 'https://portal.azure.com/#pruebas',
+    },
+  });
+}
+
+/// Borra el rastro de un incidente sembrado y el evento promovido desde él, para que la suite
+/// pueda repetirse sin intervención manual.
+export async function limpiarIncidenteSentinel(numeroIncidente: string): Promise<void> {
+  const db = cliente();
+  await db.eventoSeguridad.deleteMany({
+    where: { origenSistema: 'SENTINEL', origenIdExterno: numeroIncidente },
+  });
+  await db.incidenteSentinel.deleteMany({ where: { numeroIncidente } });
+}
