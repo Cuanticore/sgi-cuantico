@@ -8,6 +8,7 @@
 
 import {
   planificarGrupos,
+  planificarMiembros,
   type GrupoConocido,
   type MembresiaVigente,
 } from '../grupos';
@@ -164,5 +165,57 @@ describe('las frases de la bitácora', () => {
         nuevo: 'retirado el 2026-09-14',
       },
     ]);
+  });
+});
+
+// ── El mismo cruce, desde el GRUPO ──────────────────────────────────────────────────────
+//
+// La pantalla de grupos de interes administra la pertenencia desde el otro lado. Las tres
+// reglas valen identicas, y estas pruebas fijan que valgan: cerrar en vez de borrar, no
+// escribir lo que no cambio, y rechazar el grupo derivado.
+
+describe('planificarMiembros', () => {
+  const HOY = new Date('2026-09-15T00:00:00.000Z');
+  const MINTRACE = { id: 7, nombre: 'Mintrace', derivado: false };
+  const TODOS = { id: 1, nombre: 'Todos', derivado: true };
+
+  it('una persona nueva se abre con el desde de hoy', () => {
+    const plan = planificarMiembros([], [42], MINTRACE, HOY);
+    expect(plan.crear).toEqual([{ personaId: 42, desde: HOY }]);
+    expect(plan.cerrar).toEqual([]);
+  });
+
+  it('quien sale se CIERRA, no se borra', () => {
+    const vigente = { id: 5, personaId: 42, desde: new Date('2026-01-10T00:00:00.000Z') };
+    const plan = planificarMiembros([vigente], [], MINTRACE, HOY);
+    expect(plan.cerrar).toEqual([{ id: 5, personaId: 42, hasta: HOY }]);
+    expect(plan.crear).toEqual([]);
+  });
+
+  it('quien ya estaba y sigue propuesto no genera NINGUNA escritura', () => {
+    // Re-abrirlo le correria el piso de periodos a alguien que nunca dejo de pertenecer.
+    const vigente = { id: 5, personaId: 42, desde: new Date('2026-01-10T00:00:00.000Z') };
+    const plan = planificarMiembros([vigente], [42], MINTRACE, HOY);
+    expect(plan.crear).toEqual([]);
+    expect(plan.cerrar).toEqual([]);
+  });
+
+  it('proponer dos veces a la misma persona es la misma propuesta', () => {
+    const plan = planificarMiembros([], [42, 42], MINTRACE, HOY);
+    expect(plan.crear).toHaveLength(1);
+  });
+
+  it('un grupo derivado se rechaza acá, no en la pantalla', () => {
+    const plan = planificarMiembros([], [42], TODOS, HOY);
+    expect(plan.errores).toHaveLength(1);
+    expect(plan.errores[0]).toMatch(/se calcula solo/);
+    expect(plan.crear).toEqual([]);
+    expect(plan.cerrar).toEqual([]);
+  });
+
+  it('el plan es determinista: la misma lista produce el mismo plan', () => {
+    const a = planificarMiembros([], [9, 3, 7], MINTRACE, HOY);
+    const b = planificarMiembros([], [7, 9, 3], MINTRACE, HOY);
+    expect(a.crear).toEqual(b.crear);
   });
 });

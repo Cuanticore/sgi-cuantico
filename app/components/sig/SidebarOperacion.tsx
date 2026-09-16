@@ -84,6 +84,7 @@ const GRUPOS: Grupo[] = [
     sub: true,
     items: [
       { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
+      { etiqueta: 'Grupos de interés', abreviatura: 'GRP', href: '/sig/grupos-interes', sub: true },
       { etiqueta: 'Colaboradores', abreviatura: 'COL', href: '/sig/colaboradores', sub: true },
       { etiqueta: 'Procesos', abreviatura: 'PCS', href: '/sig/procesos', sub: true },
     ],
