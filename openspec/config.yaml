@@ -14,7 +14,7 @@ testing: |
   ## Testing Capabilities
 
   **Strict TDD Mode**: enabled
-  **Detected**: 2026-09-14
+  **Detected**: 2026-09-15
 
   ### Test Runner
 
@@ -25,7 +25,7 @@ testing: |
 
   | Layer       | Available | Tool |
   | ----------- | --------- | ---- |
-  | Unit        | ✅ | Jest 30 + Testing Library; ~40 suites collocated in lib/sig/__tests__ |
+  | Unit        | ✅ | Jest 30 + Testing Library; 108 suites collocated in __tests__ next to the module (lib/sig, lib/sgsi, app/lib, app/sgsi/acciones, app/components/**) |
   | Integration | ✅ | @testing-library/react + @testing-library/jest-dom (jsdom component tests) |
   | E2E         | ❌ | — (@playwright/test is installed but no playwright.config.* or e2e specs exist) |
 

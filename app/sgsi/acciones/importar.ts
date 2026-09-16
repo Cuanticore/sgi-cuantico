@@ -28,7 +28,12 @@ import {
 } from '@/lib/sgsi/plantilla';
 import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
-import { conteoDeCodigos, encabezadoDeMatriz, hojasDelLibro } from '@/lib/sgsi/consolidado-libro';
+import {
+  conteoDeCodigos,
+  encabezadoDeMatriz,
+  hojasDelLibro,
+  ultimaFilaConDatos,
+} from '@/lib/sgsi/consolidado-libro';
 import { escribirPlan, planificarCarga, type PlanDeCarga } from '@/lib/sgsi/consolidado-carga';
 import type { CatalogosConsolidado } from '@/lib/sgsi/consolidado-lectura';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
@@ -171,9 +176,10 @@ async function abrir(datos: FormData): Promise<string[][]> {
 
   if (legacy) {
     const { hoja: hojaDatos, fila: filaEncabezado } = legacy;
+    const anchoLegacy = Math.max(hojaDatos.columnCount, 21);
     const orden = COLUMNAS_PLANTILLA.map((col) => col.clave);
     const filaCruda: string[] = [];
-    for (let c = 1; c <= Math.max(hojaDatos.columnCount, 21); c++) {
+    for (let c = 1; c <= anchoLegacy; c++) {
       filaCruda.push(texto(hojaDatos.getRow(filaEncabezado).getCell(c).value));
     }
     const indiceClave = new Map<string, number>();
@@ -188,7 +194,11 @@ async function abrir(datos: FormData): Promise<string[][]> {
       return mapa[v] ?? v;
     };
     const matrizLegacy: string[][] = [orden.map(() => '')];
-    for (let filaDatos = filaEncabezado + 1; filaDatos <= hojaDatos.rowCount; filaDatos++) {
+    // Hasta la última fila CON DATOS, no hasta `rowCount`: el V21 declara 1.048.277 filas
+    // para 94 activos porque le dieron formato a columnas enteras, y acumular una fila por
+    // vuelta hasta ahí agota la memoria del proceso antes de leer el primer activo.
+    const ultimaLegacy = ultimaFilaConDatos(hojaDatos, anchoLegacy);
+    for (let filaDatos = filaEncabezado + 1; filaDatos <= ultimaLegacy; filaDatos++) {
       const cruda2 = hojaDatos.getRow(filaDatos);
       const celdas: string[] = [];
       for (const clave of orden) {
@@ -206,7 +216,9 @@ async function abrir(datos: FormData): Promise<string[][]> {
   }
 
   const matriz: string[][] = [];
-  for (let n = 1; n <= hoja.rowCount; n++) {
+  // Mismo corte que el camino legacy, por la misma razón.
+  const ultima = ultimaFilaConDatos(hoja, COLUMNAS_PLANTILLA.length);
+  for (let n = 1; n <= ultima; n++) {
     const cruda = hoja.getRow(n);
     matriz.push(COLUMNAS_PLANTILLA.map((_, i) => texto(cruda.getCell(i + 1).value)));
   }
