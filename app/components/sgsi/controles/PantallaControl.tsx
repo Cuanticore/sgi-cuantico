@@ -21,7 +21,13 @@ import { useRef } from 'react';
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { EFICACIA_POR_NIVEL, eficaciaDeNivel, esAplicable, etiquetaSoa } from '@/lib/sgsi/madurez';
+import {
+  ESCALONES_SELECCIONABLES,
+  UMBRAL_GESTIONADO,
+  eficaciaDeNivel,
+  esAplicable,
+  etiquetaSoa,
+} from '@/lib/sgsi/madurez';
 import {
   agregarEvidencias,
   cambiarEstadoSoa,
@@ -112,14 +118,10 @@ function TextoEnriquecido({ linea }: { linea: string }) {
   );
 }
 
-const ESCALA = [
-  { nivel: 0, nombre: 'Inexistente' },
-  { nivel: 1, nombre: 'Inicial / ad hoc' },
-  { nivel: 2, nombre: 'Reproducible pero intuitivo' },
-  { nivel: 3, nombre: 'Proceso definido' },
-  { nivel: 4, nombre: 'Gestionado y medible' },
-  { nivel: 5, nombre: 'Optimizado' },
-];
+// REQ-SIG-24 §3 · la escala ya no se declara acá. La rúbrica de los once escalones vive en
+// `lib/sgsi/madurez.ts`, y esta pantalla ofrece sólo los seleccionables — el 100 % queda
+// fuera porque eficacia 1.0 borraría el riesgo del registro.
+const ESCALA = ESCALONES_SELECCIONABLES;
 
 const TIPOS: { valor: TipoEvidencia; etiqueta: string }[] = [
   { valor: 'ENLACE', etiqueta: 'Enlaces' },
@@ -135,10 +137,10 @@ function semaforo(nivel: number | null) {
   if (nivel === null) {
     return { fg: 'var(--hf-cmm-nulo-fg)', bg: 'var(--hf-cmm-nulo-bg)', bd: 'var(--hf-cmm-nulo-bd)' };
   }
-  if (nivel <= 1) {
+  if (nivel <= 10) {
     return { fg: 'var(--hf-cmm-rojo-fg)', bg: 'var(--hf-cmm-rojo-bg)', bd: 'var(--hf-cmm-rojo-bd)' };
   }
-  if (nivel <= 3) {
+  if (nivel < UMBRAL_GESTIONADO) {
     return {
       fg: 'var(--hf-cmm-naranja-fg)',
       bg: 'var(--hf-cmm-naranja-bg)',
@@ -481,7 +483,7 @@ export default function PantallaControl({
                   <option value="">— sin objetivo —</option>
                   {ESCALA.map((e) => (
                     <option key={e.nivel} value={e.nivel}>
-                      L{e.nivel} — {e.nombre} · {pct(EFICACIA_POR_NIVEL[e.nivel])}
+                      {e.nivel} % — {e.nombre}
                     </option>
                   ))}
                 </select>
@@ -1143,7 +1145,7 @@ function EscaleraMadurez({
   avance: number | null;
   brecha: number | null;
 }) {
-  const alto = (n: number) => Math.max(EFICACIA_POR_NIVEL[n] * 100, 16);
+  const alto = (n: number) => Math.max(n, 16);
   const tramo = (i: number): string | null => {
     if (lineaBase !== null && actual !== null && i >= Math.min(lineaBase, actual) && i < Math.max(lineaBase, actual)) {
       return VERDE;
@@ -1160,9 +1162,9 @@ function EscaleraMadurez({
       <div className="flex items-baseline justify-between">
         <p className="etiqueta-campo">Escalera de madurez</p>
         <p className="font-mono text-10 text-faint">
-          peldaño actual: {actual === null ? 'por evaluar' : `L${actual}`}
-          {avance !== null && ` · avance ${avance > 0 ? `+${avance}` : avance}${avance > 0 ? ' nivel' + (avance > 1 ? 'es' : '') : ''}`}
-          {brecha !== null && ` · brecha ${brecha} ${brecha === 1 ? 'nivel' : 'niveles'}`}
+          peldaño actual: {actual === null ? 'por evaluar' : `${actual} %`}
+          {avance !== null && ` · avance ${avance > 0 ? `+${avance}` : avance} puntos`}
+          {brecha !== null && ` · brecha ${brecha} puntos`}
         </p>
       </div>
 
@@ -1179,14 +1181,14 @@ function EscaleraMadurez({
             <div key={i} className="flex items-stretch gap-2" style={{ minHeight: alto(i), maxHeight: alto(i) }}>
               <div className="flex w-[140px] flex-none flex-col justify-center px-2">
                 <span className="font-mono text-10 font-bold" style={{ color: s.fg }}>
-                  L{i}
+                  {i} %
                 </span>
                 <span className="truncate text-10 leading-tight text-muted">{e.nombre}</span>
               </div>
 
               <button
                 onClick={() => onElegir(i)}
-                aria-label={`Calificar el control en L${i} — ${e.nombre} · ${pct(EFICACIA_POR_NIVEL[i])}`}
+                aria-label={`Calificar el control en ${i} % — ${e.nombre}`}
                 className="min-w-0 flex-1 rounded-campo border px-2 py-0.5 text-left transition-colors hover:bg-accent-50 focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                 style={{
                   background: color ?? 'var(--hf-row-blanco)',
@@ -1196,10 +1198,10 @@ function EscaleraMadurez({
                   boxShadow: esInicial ? `inset 3px 0 0 0 ${ROJO}` : undefined,
                 }}
               >
-                <span className="font-mono text-9_5 text-faint">{pct(EFICACIA_POR_NIVEL[i])}</span>
+                <span className="font-mono text-9_5 text-faint">{pct(eficaciaDeNivel(i))}</span>
                 {esAviso && (
                   <span className="ml-2 font-mono text-9_5 text-warn-text">
-                    ¿confirmar salto L{actual ?? '—'} → L{i}?
+                    ¿confirmar salto {actual ?? '—'} % → {i} %?
                   </span>
                 )}
               </button>

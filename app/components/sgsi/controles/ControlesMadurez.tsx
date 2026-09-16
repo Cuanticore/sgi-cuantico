@@ -238,7 +238,7 @@ export default function ControlesMadurez({
     },
     { clave: 'indice', titulo: 'Índice de madurez', valor: `${m.indice.toFixed(1)}%`, pie: 'media de la eficacia' },
     { clave: 'tipico', titulo: 'Nivel típico', valor: nivelTexto(m.nivelTipico), pie: 'mediana del nivel' },
-    { clave: 'gestionados', titulo: 'Gestionados en L3+', valor: m.enL3, pie: `${m.pctL3.toFixed(1)}%` },
+    { clave: 'gestionados', titulo: 'Gestionados en L3+', valor: m.enGestionado, pie: `${m.pctGestionado.toFixed(1)}%` },
     { clave: 'objetivo', titulo: 'Cumplen su objetivo', valor: m.enObjetivo, pie: `de ${m.aplicables}` },
     { clave: 'brechas', titulo: 'Brechas prioritarias', valor: m.brechas, pie: 'en L2 o menos' },
   ] as const;
@@ -671,8 +671,8 @@ function PorDominio({
           if (delDominio.length === 0) return null;
           const evaluados = delDominio.filter((c) => c.actual !== null);
           const niveles = evaluados.map((c) => c.actual as number);
-          const enL3 = evaluados.filter((c) => (c.actual as number) >= 3).length;
-          const pct = (enL3 / evaluados.length) * 100;
+          const enGestionado = evaluados.filter((c) => (c.actual as number) >= 3).length;
+          const pct = (enGestionado / evaluados.length) * 100;
           const eficaciaMedia = media(evaluados.map((c) => eficaciaDeNivel(c.actual))) * 100;
 
           return (

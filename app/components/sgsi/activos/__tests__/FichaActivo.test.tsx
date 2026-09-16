@@ -284,7 +284,7 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       {
         codigo: 'A.8.20',
         nombre: 'Protección contra DoS',
-        nivel: 3,
+        nivel: 90,
         soa: 'si',
         peso: 1,
         esPrincipal: false,
@@ -295,7 +295,7 @@ describe('REQ-SIG-20 D3 (tarea 2.4) · aritmética en vivo en Amenazas', () => {
       {
         codigo: 'A.8.6',
         nombre: 'Gestión de la capacidad',
-        nivel: 3,
+        nivel: 90,
         soa: 'si',
         peso: 1,
         esPrincipal: false,

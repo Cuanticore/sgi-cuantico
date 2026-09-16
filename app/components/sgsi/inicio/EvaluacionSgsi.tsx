@@ -369,7 +369,7 @@ export default function EvaluacionSgsi({
                         </span>
                       </span>
                       <span className="text-right font-mono text-11_5 tabular-nums text-secondary">
-                        {p.enL3}
+                        {p.enGestionado}
                       </span>
                       <SinDato valor={p.altos} conocido={p.riesgosConocidos} />
                       <SinDato

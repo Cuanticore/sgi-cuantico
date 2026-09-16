@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
+import { RUBRICA } from '../../lib/sgsi/madurez';
 
 const DATA = join(process.cwd(), 'prisma', 'data');
 
@@ -22,7 +23,6 @@ interface EscalasLibro {
   valor: { etiqueta: string; valor: number }[];
   degradacion: { grado: string; fraccion: number; lectura: string }[];
   frecuencia: { etiqueta: string; vecesPorAno: number; lectura: string }[];
-  madurez: { nivel: string; eficacia: number; lectura: string }[];
   umbralImpacto: { nivel: string; desde: number; hasta: number }[];
   umbralRiesgo: { nivel: string; desde: number; hasta: number }[];
 }
@@ -64,16 +64,35 @@ export async function seedEscalas(prisma: PrismaClient): Promise<void> {
     await prisma.escalaFrecuencia.upsert({ where: { orden: i + 1 }, update: datos, create: datos });
   }
 
-  // The workbook writes the level as "L3 — Proceso definido"; the number is what the
-  // arithmetic indexes by, so both are kept.
-  for (const m of libro.madurez) {
-    const encontrado = /^L(\d)\s*—\s*(.+)$/.exec(m.nivel);
-    if (!encontrado) throw new Error(`Nivel de madurez ilegible: ${m.nivel}`);
+  // REQ-SIG-24 §3 · LA ESCALA DE MADUREZ YA NO VIENE DEL LIBRO.
+  //
+  // Venía de `escalas.json` como «L3 — Proceso definido» con su eficacia al lado, y el
+  // código llevaba ADEMÁS su propia copia de la curva en `EFICACIA_POR_NIVEL`. Dos copias
+  // de la misma tabla, una de las cuales era la que multiplicaba: podían separarse sin que
+  // nada fallara. Ahora hay una sola fuente —`RUBRICA`, en `lib/sgsi/madurez.ts`— y el
+  // catálogo es su proyección.
+  //
+  // LA VERIFICACIÓN DE LINEALIDAD NO ES DECORATIVA. `eficaciaDeNivel` cae en la identidad
+  // `nivel / 100` cuando no recibe la tabla, que es el camino de las pantallas. Esa
+  // identidad es válida SÓLO mientras la escala sembrada sea lineal. Si alguien introduce
+  // un escalón que no lo es, la siembra falla acá y no seis pantallas después mostrando
+  // una eficacia distinta de la que el motor usó.
+  const esperados = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  const sembrados = RUBRICA.map((e) => e.nivel);
+  if (sembrados.length !== esperados.length || sembrados.some((n, i) => n !== esperados[i])) {
+    throw new Error(
+      `La rúbrica de madurez no son los once escalones de 0 a 100 de diez en diez: [${sembrados.join(', ')}]. ` +
+        'La identidad eficacia = nivel / 100 que usan las pantallas dejaría de ser cierta.',
+    );
+  }
+
+  for (const e of RUBRICA) {
+    const eficacia = e.nivel / 100;
     const datos = {
-      nivel: Number(encontrado[1]),
-      nombre: encontrado[2].trim(),
-      eficacia: m.eficacia,
-      lectura: m.lectura,
+      nivel: e.nivel,
+      nombre: e.nombre,
+      eficacia,
+      lectura: e.equivaleA === null ? null : `Equivale a ${e.equivaleA} de la escala CMM anterior`,
     };
     await prisma.escalaMadurez.upsert({ where: { nivel: datos.nivel }, update: datos, create: datos });
   }

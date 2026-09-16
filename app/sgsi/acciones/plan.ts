@@ -511,9 +511,15 @@ export async function datosPrefillPlanCritico(
       ? controlesAplicables.find((c) => c.control.codigo === elegido.codigo)
       : undefined;
 
+    // REQ-SIG-24 §3 · un escalón por encima del actual, sin pasarse del tope SELECCIONABLE.
+    // El tope es 90 y no 100: la eficacia 1.0 daría residual cero, y sugerir como objetivo
+    // de un plan el único valor que borra el riesgo del registro sería el peor default
+    // posible. Sin nivel actual se sugiere el primer escalón por encima de «no existe».
     const madurezObjetivoSugerida = filaControl
       ? (filaControl.control.objetivo?.nivel ??
-        (filaControl.control.actual === null ? 1 : Math.min(filaControl.control.actual.nivel + 1, 5)))
+        (filaControl.control.actual === null
+          ? 10
+          : Math.min(filaControl.control.actual.nivel + 10, 90)))
       : null;
 
     const [criterioCritico, cargos, escalaMadurez] = await Promise.all([

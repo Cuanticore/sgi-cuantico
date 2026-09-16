@@ -68,7 +68,7 @@ export interface PeriodoProgreso {
   etiqueta: string;
   /// Maturity index: mean of efficacy, as a percentage.
   indice: number;
-  enL3: number;
+  enGestionado: number;
   aplicables: number;
   /// Residual Alto or Crítico. Null when unknown.
   altos: number | null;
@@ -552,7 +552,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
         ? `Línea base — ${lineasBase[0]?.nombre ?? 'sin establecer'}`
         : 'Snapshot anterior',
       indice: metricasBase.indice,
-      enL3: metricasBase.enL3,
+      enGestionado: metricasBase.enGestionado,
       aplicables: metricasBase.aplicables,
       // No risk snapshot was ever taken for this period: the figure was never measured,
       // which is a different absence from an efficacy nobody has calculated.
@@ -564,7 +564,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
       periodo: 'agosto de 2026',
       etiqueta: 'Evaluación actual',
       indice: metricas.indice,
-      enL3: metricas.enL3,
+      enGestionado: metricas.enGestionado,
       aplicables: metricas.aplicables,
       altos: altosResidualesGlobal,
       sinTratamiento: altosSinTratamiento,
@@ -646,16 +646,16 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
       nota: `de ${metricas.aplicables} aplicables`,
       unidad: 'entero',
       mejoraCuando: 'sube',
-      anterior: dato(metricasBase.enL3),
-      actual: dato(metricas.enL3),
+      anterior: dato(metricasBase.enGestionado),
+      actual: dato(metricas.enGestionado),
     },
     {
       etiqueta: 'Porcentaje en L3 o superior',
       nota: null,
       unidad: 'porcentaje',
       mejoraCuando: 'sube',
-      anterior: dato(unDecimal(metricasBase.pctL3)),
-      actual: dato(unDecimal(metricas.pctL3)),
+      anterior: dato(unDecimal(metricasBase.pctGestionado)),
+      actual: dato(unDecimal(metricas.pctGestionado)),
     },
     {
       etiqueta: 'Brechas prioritarias en L2 o menos',
@@ -696,7 +696,7 @@ export async function cargarEvaluacionSgsi(): Promise<EvaluacionSgsiDatos> {
     `El índice de madurez, medido como la media de la eficacia de los ${metricas.aplicables} ` +
       `controles aplicables, es ${texto(unDecimal(metricas.indice))} % frente a ` +
       `${texto(unDecimal(metricasBase.indice))} % en la calificación inicial. El nivel típico ` +
-      `del SGSI es L${texto(dosDecimales(metricas.nivelTipico))} y ${metricas.enL3} controles ` +
+      `del SGSI es L${texto(dosDecimales(metricas.nivelTipico))} y ${metricas.enGestionado} controles ` +
       `están gestionados en L3 o más. Se reporta la media de la eficacia y no el promedio del ` +
       `nivel, porque la eficacia es una escala de razón y es la que alimenta el riesgo residual.`,
 

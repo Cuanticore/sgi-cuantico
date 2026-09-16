@@ -84,38 +84,6 @@
       "lectura": "Prácticamente improbable"
     }
   ],
-  "madurez": [
-    {
-      "nivel": "L0 — Inexistente",
-      "eficacia": 0,
-      "lectura": "No existe el control"
-    },
-    {
-      "nivel": "L1 — Inicial / ad hoc",
-      "eficacia": 0.1,
-      "lectura": "Se hace, pero sin método ni constancia"
-    },
-    {
-      "nivel": "L2 — Reproducible pero intuitivo",
-      "eficacia": 0.5,
-      "lectura": "Se repite, sin estar documentado"
-    },
-    {
-      "nivel": "L3 — Proceso definido",
-      "eficacia": 0.9,
-      "lectura": "Documentado, comunicado y aplicado"
-    },
-    {
-      "nivel": "L4 — Gestionado y medible",
-      "eficacia": 0.95,
-      "lectura": "Se mide su desempeño y se corrige"
-    },
-    {
-      "nivel": "L5 — Optimizado",
-      "eficacia": 1,
-      "lectura": "Mejora continua sobre la medición"
-    }
-  ],
   "umbralImpacto": [
     {
       "nivel": "Muy alto",

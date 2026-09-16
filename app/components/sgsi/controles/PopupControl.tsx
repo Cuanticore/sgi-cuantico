@@ -13,7 +13,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Popup, { PopupVacio } from '@/app/components/sgsi/Popup';
-import { EFICACIA_POR_NIVEL, eficaciaDeNivel, esAplicable, etiquetaSoa } from '@/lib/sgsi/madurez';
+import { RUBRICA, eficaciaDeNivel, esAplicable, etiquetaSoa } from '@/lib/sgsi/madurez';
 import {
   agregarEvidencias,
   cambiarEstadoSoa,
@@ -319,7 +319,7 @@ export default function PopupControl({
               </option>
               {ESCALA.map((e) => (
                 <option key={e.nivel} value={e.nivel}>
-                  L{e.nivel} — {e.nombre} · {pct(EFICACIA_POR_NIVEL[e.nivel])}
+                  {e.nivel} % — {e.nombre}
                 </option>
               ))}
             </select>
@@ -339,7 +339,7 @@ export default function PopupControl({
               <option value="">— sin objetivo —</option>
               {ESCALA.map((e) => (
                 <option key={e.nivel} value={e.nivel}>
-                  L{e.nivel} — {e.nombre} · {pct(EFICACIA_POR_NIVEL[e.nivel])}
+                  {e.nivel} % — {e.nombre}
                 </option>
               ))}
             </select>
@@ -552,7 +552,7 @@ export function BloqueFormulas({ nivel, control }: { nivel: number | null; contr
         {'// Escala CMM a eficacia, según PILAR (CCN-CERT)'}
       </p>
       <p>
-        EFI = [{EFICACIA_POR_NIVEL.map((v) => v.toFixed(2)).join(', ')}] &nbsp;→&nbsp; L
+        EFI = escalón / 100 &nbsp;→&nbsp; 
         {nivel ?? '—'} = {pct(e)}
       </p>
 
@@ -598,7 +598,7 @@ export function BloqueFormulas({ nivel, control }: { nivel: number | null; contr
 /// People assign maturity by feel until they can read what each level asserts, so the
 /// definition and the arithmetic sit side by side here.
 ///
-/// The efficacy column is EFICACIA_POR_NIVEL, the same array the engine multiplies by — not
+/// The efficacy column comes from `eficaciaDeNivel`, the same function the engine uses — not
 /// a transcription. `Escalas MAGERIT` B40:C45 of the workbook holds these same six pairs.
 export function PopupEquivalencia({ onCerrar }: { onCerrar: () => void }) {
   const definiciones: Record<number, string> = {
@@ -663,7 +663,7 @@ export function PopupEquivalencia({ onCerrar }: { onCerrar: () => void }) {
                       {e.nombre}
                     </td>
                     <td className="border-b border-hairline-faint px-2.5 py-2 align-top text-right font-mono tabular-nums text-secondary">
-                      {pct(EFICACIA_POR_NIVEL[e.nivel])}
+                      {pct(eficaciaDeNivel(e.nivel))}
                     </td>
                     <td className="border-b border-hairline-faint px-2.5 py-2 align-top text-secondary [text-wrap:pretty]">
                       {definiciones[e.nivel]}

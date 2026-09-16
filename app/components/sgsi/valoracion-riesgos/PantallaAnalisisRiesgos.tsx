@@ -218,9 +218,9 @@ export default function PantallaAnalisisRiesgos({
           onClick={() => setFiltros((f) => ({ ...f, valor: f.valor === 4 ? 'ambos' : 4 }))}
         />
         <Tarjeta
-          etiqueta="RESIDUAL CRÍTICO"
-          valor={String(tarjetas.residualCritico)}
-          nota="exigen plan (§7)"
+          etiqueta="CON BRECHA"
+          valor={String(tarjetas.conBrecha)}
+          nota="no alcanzan lo exigido"
           activa={filtros.estadoPlan === 'requiere-plan'}
           onClick={() =>
             setFiltros((f) => ({
@@ -229,10 +229,21 @@ export default function PantallaAnalisisRiesgos({
             }))
           }
         />
+        {/* REQ-SIG-24 §7 · va SEPARADA de CON BRECHA a propósito: sumarlas diría que hay
+            brechas donde nadie miró. Mientras REQ-SIG-21 no asigne las 272 relevancias,
+            ninguna amenaza tiene control principal designado y esta cifra es la medida de
+            cuánto del análisis todavía no se puede hacer. */}
+        <Tarjeta
+          etiqueta="SIN DETERMINAR"
+          valor={String(tarjetas.sinDeterminar)}
+          nota="sin control principal → REQ-SIG-21"
+          activa={false}
+          onClick={() => {}}
+        />
         <Tarjeta
           etiqueta="SIN PLAN"
           valor={tarjetas.sinPlan === null ? '—' : String(tarjetas.sinPlan)}
-          nota="residual Crítico, sin plan"
+          nota="con brecha, sin plan"
           activa={filtros.estadoPlan === 'pendiente'}
           deshabilitada={tarjetas.sinPlan === null}
           onClick={() =>

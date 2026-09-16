@@ -39,6 +39,11 @@
 // decisión — porque para efectos de ORDEN los dos son «sin urgencia de recuperación».
 
 import { clasificar } from './clasificar';
+import {
+  evaluarBrecha,
+  type EstadoBrecha,
+  type HayVerificacionVigente,
+} from './exigencia';
 import { SIN_ASIGNAR } from './inventario-filtros';
 import { colorDeRenglon, nivelDeRiesgoDelActivo, type ColorRenglon, type NivelRiesgo, type UmbralRiesgo } from './riesgo-activo';
 
@@ -58,7 +63,7 @@ export const TODAS_CRITICIDADES = 'Todas las criticidades';
 export type ValorFiltroAnalisis = 'ambos' | 4 | 5;
 
 /// Las cuatro opciones que el desplegable «estado del plan» ofrece. `'requiere-plan'` es un
-/// quinto valor interno que solo la tarjeta RESIDUAL CRÍTICO usa (ver `tarjetasAnalisis`); no
+/// quinto valor interno que solo la tarjeta CON BRECHA usa (ver `tarjetasAnalisis`); no
 /// aparece en el desplegable porque no es una pregunta que alguien elija, es lo que la
 /// tarjeta necesita contar.
 export type EstadoPlanFiltro = 'todos' | 'pendiente' | 'con-plan' | 'no-requiere';
@@ -100,6 +105,18 @@ export interface RiesgoAnalizable {
   /// `Riesgo.riesgoResidual`, como string decimal.
   residual: string | null;
   obsoleto: boolean;
+  /// REQ-SIG-24 §6 · la degradación de la AMENAZA por dimensión, como fracción de 0 a 1.
+  /// Decide qué dimensiones gobiernan la exigencia: la criticidad sólo manda sobre las
+  /// amenazas que degradan D, y una que sólo degrada C no recibe exigencia de ella.
+  degradacion: { D: number; I: number; C: number };
+  /// El control PRINCIPAL de la amenaza. `undefined` = la amenaza no tiene principal
+  /// designado — hoy, las 57, porque los 272 pares de `ControlAmenaza` siguen con
+  /// `relevanciaId` en null. `nivel: null` = lo tiene y nadie lo evaluó.
+  ///
+  /// Que sea opcional y no un `| null` es deliberado: `undefined` y `null` significan cosas
+  /// distintas y `evaluarBrecha` las distingue. Colapsarlas produciría el «tablero que
+  /// afirma con precisión que no hay brechas».
+  principal?: { codigo: string; nivel: number | null };
 }
 
 export interface ActivoAnalizable {
@@ -108,6 +125,11 @@ export interface ActivoAnalizable {
   /// `max(D, I, C)`, ya calculado por `lib/sgsi/formulas.ts` (`valorActivo`) — la única
   /// aritmética del valor, la misma que usan la ficha y el inventario.
   valor: number;
+  /// REQ-SIG-24 §6 · los tres valores POR DIMENSIÓN. El máximo no alcanza para la
+  /// exigencia: cada dimensión tiene su propio conductor, y un activo `D=3 I=5 C=1` exige
+  /// 90 % sobre las amenazas que degradan I y nada sobre las que degradan D por la vía del
+  /// valor. Con sólo el máximo, esa distinción se pierde.
+  valores: { D: number; I: number; C: number };
   /// `Activo.criticidadId` (Fase 4, P9). Siempre `null` hasta esa fase.
   criticidad: string | null;
   /// `Activo.area.nombre` — «proceso» en el lenguaje del dominio, la misma convención que
@@ -126,9 +148,24 @@ export interface ActivoAnalizable {
 /// estado resultante sea `'sin-determinar'` y no `'pendiente'` cuando no se provee.
 export type ResolverDeudaPlan = (riesgo: { activoCodigo: string; amenazaCodigo: string }) => boolean;
 
-/// El estado de plan de un ACTIVO (no de un riesgo individual): basta que uno de sus riesgos
-/// en banda Crítico no tenga plan activo para que el activo entero cuente como pendiente —
+/// El estado de plan de un ACTIVO (no de un riesgo individual): basta que una de sus
+/// amenazas tenga brecha sin plan activo para que el activo entero cuente como pendiente —
 /// el §7.3 alerta nombrando el activo, no el riesgo.
+///
+/// REQ-SIG-24 §7 · LA COMPUERTA CAMBIÓ DE FUENTE, NO DE FORMA. Los cuatro valores y la firma
+/// de `estadoPlanDe` son los mismos; lo único distinto es qué se pregunta:
+///
+///     antes:  peorResidual(a).banda === 'Crítico'     →  requiere plan
+///     ahora:  alguna amenaza de `a` tiene brecha      →  requiere plan
+///
+/// El cambio es necesario porque la banda Crítico del residual es INALCANZABLE por
+/// construcción: con la eficacia declarada el residual queda en el 5-10 % del inherente, y
+/// llegar a 25 exigiría un inherente de 250 cuando el máximo del modelo es 50. Toda esta
+/// maquinaria —la tarjeta, la cola, el envejecimiento, el escalado— estaba construida,
+/// probada, y no podía dispararse nunca.
+///
+/// El residual no desaparece: pasa de ser la COMPUERTA a ser la MAGNITUD. Sigue ordenando la
+/// lista (`compararPorResidual`), que es para lo que sirve.
 export type EstadoPlanActivo = 'no-requiere' | 'con-plan' | 'pendiente' | 'sin-determinar';
 
 export interface FilaAnalisis {
@@ -143,6 +180,11 @@ export interface FilaAnalisis {
   cantidadAmenazas: number;
   peorInherente: NivelRiesgo | null;
   peorResidual: NivelRiesgo | null;
+  /// REQ-SIG-24 §6.2 · la peor brecha de NIVEL del activo, en puntos. `null` cuando ninguna
+  /// amenaza tiene brecha de nivel — que no es lo mismo que «cumple»: puede haber brecha de
+  /// verificación (sin puntos) o brechas que no se pudieron evaluar. Para eso está
+  /// `estadoPlan`, que sí distingue los tres casos.
+  peorBrecha: number | null;
   estadoPlan: EstadoPlanActivo;
 }
 
@@ -162,7 +204,20 @@ export interface Tarjetas {
   enAnalisis: { n: number; deTotal: number };
   muyAltos: number;
   altos: number;
-  residualCritico: number;
+  /// REQ-SIG-24 §7 · era `residualCritico` y contaba activos cuyo peor residual caía en
+  /// banda Crítico — una condición inalcanzable, así que la tarjeta era siempre 0. Ahora
+  /// cuenta activos con una brecha MEDIDA: alguna amenaza cuyo control principal no alcanza
+  /// lo que la criticidad o la valoración exigen, o que no tiene la verificación que C1 pide.
+  conBrecha: number;
+  /// Activos cuya brecha NO SE PUDO EVALUAR y que no tienen ninguna medida: sin control
+  /// principal designado, o con el principal sin evaluar.
+  ///
+  /// Va aparte de `conBrecha` a propósito. Sumarlos diría que hay brechas donde nadie
+  /// miró — el mismo «tablero que afirma con precisión» que REQ-SIG-23 §2 advierte, sólo
+  /// que con el signo invertido. Y hoy no es un caso de borde: mientras REQ-SIG-21 no corra,
+  /// las 57 amenazas caen acá, así que esta cifra es la medida de cuánto del análisis
+  /// todavía no se puede hacer.
+  sinDeterminar: number;
   /// `null` = la deuda de planes todavía no se puede determinar (no se proveyó
   /// `resolverDeuda`, porque la Fase 4 no existe todavía). Nunca `0` por ausencia: `0` es una
   /// afirmación —«no hay deuda»— que esta fase no puede hacer.
@@ -181,24 +236,82 @@ function peorResidual(a: ActivoAnalizable, bandas: readonly UmbralRiesgo[]): Niv
   return nivelDeRiesgoDelActivo(figurasNoObsoletas(a.riesgos, 'residual'), bandas);
 }
 
-/// El estado de plan del activo. `'no-requiere'` no depende del resolutor: se decide solo con
-/// la banda del peor residual, que ya se puede calcular hoy.
+/// La brecha de un (activo, amenaza), con los datos que la fila ya trae. Es el único lugar
+/// donde esta pantalla arma la entrada de `evaluarBrecha`: la exigencia y la brecha viven en
+/// `lib/sgsi/exigencia.ts` y acá sólo se las consulta.
+export function brechaDelRiesgo(
+  a: ActivoAnalizable,
+  r: RiesgoAnalizable,
+  hayVerificacionVigente?: HayVerificacionVigente,
+): EstadoBrecha {
+  return evaluarBrecha({
+    criticidad: a.criticidad,
+    valores: a.valores,
+    degradacion: r.degradacion,
+    nivelPrincipal: r.principal === undefined ? undefined : r.principal.nivel,
+    codigoPrincipal: r.principal?.codigo,
+    hayVerificacionVigente,
+  });
+}
+
+/// Una brecha que EXIGE plan: falta nivel, o falta la verificación que C1 pide. Las dos son
+/// afirmaciones positivas sobre algo que se miró.
+function esDeuda(e: EstadoBrecha): boolean {
+  return e.tipo === 'brecha' || e.tipo === 'brecha-de-verificacion';
+}
+
+/// Una brecha que NO SE PUDO EVALUAR. Nunca es `no-requiere`: decir «este activo no necesita
+/// plan» porque nadie designó el control principal es exactamente el tablero que afirma con
+/// precisión que no hay brechas. Hoy cubre las 57 amenazas (REQ-SIG-21 sin correr).
+function esIndeterminada(e: EstadoBrecha): boolean {
+  return (
+    e.tipo === 'sin-principal' ||
+    e.tipo === 'principal-sin-evaluar' ||
+    e.tipo === 'verificacion-sin-determinar'
+  );
+}
+
+/// El estado de plan del activo, por BRECHA (REQ-SIG-24 §7).
+///
+/// El orden de las preguntas es el que evita las dos mentiras posibles. Una brecha medida
+/// manda sobre todo: si la hay, el activo requiere plan y sólo falta saber si ya lo tiene.
+/// Si no hay ninguna medida pero alguna no se pudo evaluar, el estado es `sin-determinar` —
+/// nunca `no-requiere`, porque «no miré» no es «no falta».
 function estadoPlanDe(
   a: ActivoAnalizable,
-  bandas: readonly UmbralRiesgo[],
   resolver: ResolverDeudaPlan | undefined,
+  hayVerificacionVigente?: HayVerificacionVigente,
 ): EstadoPlanActivo {
-  const residual = peorResidual(a, bandas);
-  if (residual === null || residual.banda !== 'Crítico') return 'no-requiere';
-  if (resolver === undefined) return 'sin-determinar';
+  const vigentes = a.riesgos.filter((r) => !r.obsoleto);
+  const conDeuda = vigentes.filter((r) => esDeuda(brechaDelRiesgo(a, r, hayVerificacionVigente)));
 
-  const criticos = a.riesgos.filter(
-    (r) => !r.obsoleto && r.residual !== null && clasificar(r.residual, bandas) === 'Crítico',
+  if (conDeuda.length > 0) {
+    if (resolver === undefined) return 'sin-determinar';
+    const faltaAlguno = conDeuda.some(
+      (r) => !resolver({ activoCodigo: a.codigo, amenazaCodigo: r.amenazaCodigo }),
+    );
+    return faltaAlguno ? 'pendiente' : 'con-plan';
+  }
+
+  const indeterminadas = vigentes.some((r) =>
+    esIndeterminada(brechaDelRiesgo(a, r, hayVerificacionVigente)),
   );
-  const faltaAlguno = criticos.some(
-    (r) => !resolver({ activoCodigo: a.codigo, amenazaCodigo: r.amenazaCodigo }),
-  );
-  return faltaAlguno ? 'pendiente' : 'con-plan';
+  return indeterminadas ? 'sin-determinar' : 'no-requiere';
+}
+
+/// La peor brecha del activo, en puntos, para la columna «Brecha». `null` cuando ninguna
+/// amenaza tiene una brecha de NIVEL — puede haberla de verificación, que no tiene puntos.
+export function peorBrecha(
+  a: ActivoAnalizable,
+  hayVerificacionVigente?: HayVerificacionVigente,
+): number | null {
+  let peor: number | null = null;
+  for (const r of a.riesgos) {
+    if (r.obsoleto) continue;
+    const e = brechaDelRiesgo(a, r, hayVerificacionVigente);
+    if (e.tipo === 'brecha' && (peor === null || e.brecha > peor)) peor = e.brecha;
+  }
+  return peor;
 }
 
 /// Si el activo cumple los filtros. `excluir` deja pasar la dimensión que ese llamado no
@@ -211,6 +324,7 @@ function coincideActivo(
   resolver: ResolverDeudaPlan | undefined,
   umbral: number,
   excluir: keyof FiltrosAnalisis | null = null,
+  hayVerificacionVigente?: HayVerificacionVigente,
 ): boolean {
   // La gating de P1: esta pantalla es «los activos que entran al análisis», siempre — no es
   // uno de los seis filtros que se puedan excluir para contar «lo que pasaría si».
@@ -247,7 +361,7 @@ function coincideActivo(
   }
 
   if (excluir !== 'estadoPlan' && f.estadoPlan !== 'todos') {
-    const estado = estadoPlanDe(a, bandas, resolver);
+    const estado = estadoPlanDe(a, resolver, hayVerificacionVigente);
     if (f.estadoPlan === 'requiere-plan') {
       if (estado === 'no-requiere') return false;
     } else if (estado !== f.estadoPlan) return false;
@@ -260,6 +374,7 @@ function filaDe(
   a: ActivoAnalizable,
   bandas: readonly UmbralRiesgo[],
   resolver: ResolverDeudaPlan | undefined,
+  hayVerificacionVigente?: HayVerificacionVigente,
 ): FilaAnalisis {
   return {
     codigo: a.codigo,
@@ -273,7 +388,8 @@ function filaDe(
     cantidadAmenazas: a.riesgos.filter((r) => !r.obsoleto).length,
     peorInherente: peorInherente(a, bandas),
     peorResidual: peorResidual(a, bandas),
-    estadoPlan: estadoPlanDe(a, bandas, resolver),
+    peorBrecha: peorBrecha(a, hayVerificacionVigente),
+    estadoPlan: estadoPlanDe(a, resolver, hayVerificacionVigente),
   };
 }
 
@@ -320,10 +436,13 @@ export function filasAnalisis(
   datos: DatosAnalisis,
   filtros: FiltrosAnalisis,
   resolverDeuda?: ResolverDeudaPlan,
+  hayVerificacionVigente?: HayVerificacionVigente,
 ): FilaAnalisis[] {
   return datos.activos
-    .filter((a) => coincideActivo(a, filtros, datos.bandas, resolverDeuda, datos.umbral))
-    .map((a) => filaDe(a, datos.bandas, resolverDeuda))
+    .filter((a) =>
+      coincideActivo(a, filtros, datos.bandas, resolverDeuda, datos.umbral, null, hayVerificacionVigente),
+    )
+    .map((a) => filaDe(a, datos.bandas, resolverDeuda, hayVerificacionVigente))
     .sort(compararPorResidual);
 }
 
@@ -333,32 +452,47 @@ export function tarjetasAnalisis(
   datos: DatosAnalisis,
   filtros: FiltrosAnalisis,
   resolverDeuda?: ResolverDeudaPlan,
+  hayVerificacionVigente?: HayVerificacionVigente,
 ): Tarjetas {
   const contarExcluyendo = (
     dimension: keyof FiltrosAnalisis,
     cumple: (a: ActivoAnalizable) => boolean,
   ): number =>
     datos.activos.filter(
-      (a) => coincideActivo(a, filtros, datos.bandas, resolverDeuda, datos.umbral, dimension) && cumple(a),
+      (a) =>
+        coincideActivo(
+          a,
+          filtros,
+          datos.bandas,
+          resolverDeuda,
+          datos.umbral,
+          dimension,
+          hayVerificacionVigente,
+        ) && cumple(a),
     ).length;
 
   return {
     enAnalisis: {
-      n: filasAnalisis(datos, filtros, resolverDeuda).length,
+      n: filasAnalisis(datos, filtros, resolverDeuda, hayVerificacionVigente).length,
       deTotal: datos.activos.length,
     },
     muyAltos: contarExcluyendo('valor', (a) => a.valor === 5),
     altos: contarExcluyendo('valor', (a) => a.valor === 4),
-    residualCritico: contarExcluyendo(
+    conBrecha: contarExcluyendo('estadoPlan', (a) =>
+      a.riesgos.some((r) => !r.obsoleto && esDeuda(brechaDelRiesgo(a, r, hayVerificacionVigente))),
+    ),
+    sinDeterminar: contarExcluyendo(
       'estadoPlan',
-      (a) => estadoPlanDe(a, datos.bandas, resolverDeuda) !== 'no-requiere',
+      (a) =>
+        !a.riesgos.some((r) => !r.obsoleto && esDeuda(brechaDelRiesgo(a, r, hayVerificacionVigente))) &&
+        a.riesgos.some((r) => !r.obsoleto && esIndeterminada(brechaDelRiesgo(a, r, hayVerificacionVigente))),
     ),
     sinPlan:
       resolverDeuda === undefined
         ? null
         : contarExcluyendo(
             'estadoPlan',
-            (a) => estadoPlanDe(a, datos.bandas, resolverDeuda) === 'pendiente',
+            (a) => estadoPlanDe(a, resolverDeuda, hayVerificacionVigente) === 'pendiente',
           ),
   };
 }

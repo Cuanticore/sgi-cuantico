@@ -40,6 +40,7 @@ function activo(p: Partial<ActivoAnalizable> = {}): ActivoAnalizable {
     codigo: 'TEC-GEN-0001',
     nombre: 'Activo de prueba',
     valor: 5,
+    valores: { D: 5, I: 5, C: 5 },
     criticidad: null,
     proceso: 'Gestión Tecnológica',
     propietario: 'Chief Operating Officer',
@@ -52,6 +53,8 @@ function activo(p: Partial<ActivoAnalizable> = {}): ActivoAnalizable {
         potencial: '25',
         residual: '25',
         obsoleto: false,
+        degradacion: { D: 1, I: 0, C: 0 },
+        principal: { codigo: 'A.8.14', nivel: 50 },
       },
     ],
     ...p,
@@ -65,7 +68,9 @@ const ACTIVOS: ActivoAnalizable[] = [
     valor: 4,
     proceso: 'Gestión Financiera',
     riesgos: [
-      { amenazaCodigo: 'A.11', amenazaNombre: 'Acceso no autorizado', potencial: '12', residual: '12', obsoleto: false },
+      // Su principal SÍ alcanza lo exigido (90 %), así que este activo está cubierto y no
+      // entra en SIN PLAN — es el contraste que hace legible la cifra del otro.
+      { amenazaCodigo: 'A.11', amenazaNombre: 'Acceso no autorizado', potencial: '12', residual: '12', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.5.30', nivel: 90 } },
     ],
   }),
 ];
@@ -117,8 +122,9 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
     expect(enlace).toHaveAttribute('href', expect.stringContaining('tab=amenazas'));
   });
 
-  it('la tarjeta SIN PLAN cuenta el residual Crítico sin AccionPlan que lo cubra (Fase 4, tareas 4.10-4.11)', () => {
-    // TEC-EQU-0003 tiene residual 25 → Crítico, sin ningún AccionPlan que lo cubra.
+  it('la tarjeta SIN PLAN cuenta las BRECHAS sin AccionPlan que las cubra (REQ-SIG-24 §7)', () => {
+    // TEC-EQU-0003 vale 5 y su principal está en 50 %: la exigencia por valor es 90 %, así
+    // que hay una brecha de 40 puntos y ningún AccionPlan que la cubra.
     render(
       <PantallaAnalisisRiesgos
         activos={ACTIVOS}
@@ -191,7 +197,7 @@ describe('REQ-SIG-20 §14.12 (segunda mitad) · elegir «criticidad» reordena p
       criticidad: 'C3',
       valor: 5,
       riesgos: [
-        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '25', residual: '25', obsoleto: false },
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '25', residual: '25', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.8.14', nivel: 50 } },
       ],
     }),
     activo({
@@ -199,7 +205,7 @@ describe('REQ-SIG-20 §14.12 (segunda mitad) · elegir «criticidad» reordena p
       criticidad: 'C1',
       valor: 5,
       riesgos: [
-        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '15', residual: '15', obsoleto: false },
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '15', residual: '15', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.8.14', nivel: 50 } },
       ],
     }),
     activo({
@@ -207,7 +213,7 @@ describe('REQ-SIG-20 §14.12 (segunda mitad) · elegir «criticidad» reordena p
       criticidad: null,
       valor: 4,
       riesgos: [
-        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '8', residual: '8', obsoleto: false },
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '8', residual: '8', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.8.14', nivel: 50 } },
       ],
     }),
     activo({
@@ -215,7 +221,7 @@ describe('REQ-SIG-20 §14.12 (segunda mitad) · elegir «criticidad» reordena p
       criticidad: 'C5',
       valor: 4,
       riesgos: [
-        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '3', residual: '3', obsoleto: false },
+        { amenazaCodigo: 'A.24', amenazaNombre: 'Denegación de servicio', potencial: '3', residual: '3', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.8.14', nivel: 50 } },
       ],
     }),
   ];
