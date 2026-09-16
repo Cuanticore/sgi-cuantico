@@ -101,3 +101,25 @@ export function origenCubreRiesgo(
 ): boolean {
   return origen.activoCodigo === riesgo.activoCodigo && origen.amenazaCodigo === riesgo.amenazaCodigo;
 }
+
+/// La narrativa humana del origen de un plan nacido desde la ficha del activo.
+///
+/// ── POR QUÉ DEJÓ DE SER UNA CADENA FIJA ─────────────────────────────────────────────────
+///
+/// Decía «Residual crítico de …» siempre, porque el plan sólo se podía crear desde un
+/// residual en banda Crítico. Al abrir el registro a cualquier banda, esa frase se convierte
+/// en una afirmación falsa escrita en el campo que un auditor lee tal cual — y `origen` es
+/// justamente el campo que ISO/IEC 27001 6.1.3 pide para justificar por qué existe la acción.
+/// Un plan sobre un riesgo Bajo que dice «Residual crítico» es peor que uno sin narrativa.
+///
+/// `null` es «sin calcular», y se dice así en vez de omitirse: un plan creado sobre un riesgo
+/// cuyo residual nadie calculó es una decisión tomada a ciegas, y eso es exactamente lo que
+/// el origen tiene que dejar registrado.
+export function narrativaOrigenPlan(
+  banda: string | null,
+  activoCodigo: string,
+  amenazaNombre: string,
+): string {
+  const estado = banda === null ? 'Residual sin calcular' : `Residual ${banda.toLowerCase()}`;
+  return `${estado} de ${activoCodigo} — ${amenazaNombre}.`;
+}

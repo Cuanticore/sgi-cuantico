@@ -4029,6 +4029,23 @@ function DetalleAmenaza({
 /// plan es del CONTROL y vive allá, así que esto lleva hasta él en vez de duplicarlo acá.
 /// Sin plan, el botón que abre el mismo popup que el guardado de un residual crítico dispara
 /// solo. Decidir «Mitigar» y no tener dónde registrar con qué, era el salto que faltaba.
+///
+/// ── SE PUEDE PLANIFICAR SOBRE CUALQUIER BANDA ───────────────────────────────────────────
+///
+/// Antes sólo se ofrecía sobre residual Crítico: REQ-SIG-20 §7 lo pide desde ahí, y abrirlo a
+/// todo parecía convertir el plan en un campo más en vez de una respuesta a algo.
+///
+/// La realidad desmintió el razonamiento. Con las 272 relevancias control–amenaza todavía sin
+/// asignar, la eficacia se agrega como media simple y TODOS los residuales salen reducidos:
+/// 0 en banda Crítico, 0 en Alto. Con la puerta puesta, no había un solo riesgo en toda la
+/// organización desde el cual registrar un plan — y en particular era imposible registrar una
+/// ACEPTACIÓN formal, que es lo que el informe de valoración necesita para tener qué mostrar.
+/// La puerta no estaba protegiendo el rigor del registro; estaba impidiendo que existiera.
+///
+/// El énfasis se conserva: en Crítico el botón es sólido y dice que el riesgo EXIGE plan; en
+/// las demás bandas es discreto y dice que se puede. La diferencia entre «hay que» y «se
+/// puede» la sigue marcando la pantalla, que es donde corresponde — no una restricción que
+/// deja a la organización sin manera de decidir.
 function PlanDelRiesgo({
   plan,
   onCrear,
@@ -4039,11 +4056,9 @@ function PlanDelRiesgo({
   onCrear: () => void;
   /// En modo creación todavía no hay activo con código, y sin él no hay riesgo que cubrir.
   habilitado: boolean;
-  /// El residual está en banda Crítico. El plan se registra DESDE ahí y solo desde ahí
-  /// (REQ-SIG-20 §7): es la banda que obliga a planificar, y abrir el registro para
-  /// cualquier residual convertiría el plan en un campo más en vez de una respuesta a algo.
-  /// Un plan que YA existe se enseña igual, esté el riesgo en la banda que esté — puede
-  /// haber bajado justamente porque el plan funcionó.
+  /// El residual está en banda Crítico. Ya no decide SI se ofrece el botón, sino con cuánto
+  /// énfasis: es la banda que obliga a planificar, y eso se dice, no se impone escondiendo la
+  /// opción.
   esCritico: boolean;
 }) {
   if (plan !== null) {
@@ -4058,24 +4073,25 @@ function PlanDelRiesgo({
     );
   }
 
-  // Sin plan y fuera de la banda Crítico no se ofrece nada. No es un botón deshabilitado:
-  // un control apagado invita a preguntarse qué falta para encenderlo, y acá no falta nada
-  // — simplemente este riesgo no exige plan.
-  if (!esCritico) return null;
-
   return (
     <button
       type="button"
       onClick={onCrear}
       disabled={!habilitado}
       title={
-        habilitado
-          ? 'Registra un plan de tratamiento sobre el control que más mueve este riesgo, con el activo y la amenaza de los que nace.'
-          : 'El activo todavía no existe: no hay riesgo al que asociarle un plan.'
+        !habilitado
+          ? 'El activo todavía no existe: no hay riesgo al que asociarle un plan.'
+          : esCritico
+            ? 'Este residual está en banda Crítico: exige plan. Se registra sobre el control que más mueve el riesgo.'
+            : 'Registra un plan sobre este riesgo — mitigar, aceptar, transferir o evitar. Este residual no lo exige, pero la decisión se puede dejar escrita.'
       }
-      className="flex-none rounded-campo border border-dashed border-accent-border bg-accent-50 px-2.5 py-1 text-11_5 font-semibold text-accent-700 transition-colors hover:bg-accent-100 disabled:opacity-40"
+      className={
+        esCritico
+          ? 'flex-none rounded-campo border border-accent-500 bg-accent-100 px-2.5 py-1 text-11_5 font-semibold text-accent-700 transition-colors hover:bg-accent-border disabled:opacity-40'
+          : 'flex-none rounded-campo border border-dashed border-accent-border bg-transparent px-2.5 py-1 text-11_5 font-medium text-secondary-soft transition-colors hover:bg-accent-50 hover:text-accent-700 disabled:opacity-40'
+      }
     >
-      + Crear plan de acción
+      {esCritico ? '+ Crear plan de acción' : '+ Plan de tratamiento'}
     </button>
   );
 }

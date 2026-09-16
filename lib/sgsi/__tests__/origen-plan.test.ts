@@ -8,6 +8,7 @@ import {
   formatearOrigen,
   origenCubreRiesgo,
   parsearOrigen,
+  narrativaOrigenPlan,
   type OrigenPlan,
 } from '../origen-plan';
 
@@ -88,5 +89,40 @@ describe('origenCubreRiesgo', () => {
     expect(
       origenCubreRiesgo(origen, { activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'A.11' }),
     ).toBe(false);
+  });
+});
+
+// ===========================================================================
+// La narrativa — que dejo de poder mentir sobre la banda
+// ===========================================================================
+
+describe('narrativaOrigenPlan', () => {
+  it('nombra la banda real del riesgo', () => {
+    expect(narrativaOrigenPlan('Crítico', 'TEC-DAT-0009', 'Denegación de servicio')).toBe(
+      'Residual crítico de TEC-DAT-0009 — Denegación de servicio.',
+    );
+  });
+
+  it('un plan sobre un riesgo Bajo NO dice «crítico»', () => {
+    // La razon del cambio. `origen` es el campo que ISO 27001 6.1.3 pide para justificar por
+    // que existe la accion, y un auditor lo lee tal cual: decir «critico» sobre un riesgo
+    // Bajo es una afirmacion falsa en el unico lugar donde no puede haberla.
+    const t = narrativaOrigenPlan('Bajo', 'TEC-DAT-0009', 'Errores del administrador');
+    expect(t).toContain('Residual bajo');
+    expect(t).not.toContain('crítico');
+  });
+
+  it('sin residual calculado lo dice, en vez de callarlo', () => {
+    // Un plan creado sobre un riesgo que nadie calculo es una decision a ciegas, y el origen
+    // tiene que dejarlo registrado.
+    expect(narrativaOrigenPlan(null, 'EST-DAT-0031', 'Fuego')).toBe(
+      'Residual sin calcular de EST-DAT-0031 — Fuego.',
+    );
+  });
+
+  it('la narrativa sobrevive el round-trip del formato', () => {
+    const texto = narrativaOrigenPlan('Medio', 'TEC-DAT-0009', 'Interceptación');
+    const partes = parsearOrigen(formatearOrigen('R-0001', 'TEC-DAT-0009', 'A.11', texto));
+    expect(partes!.justificacion).toBe(texto);
   });
 });

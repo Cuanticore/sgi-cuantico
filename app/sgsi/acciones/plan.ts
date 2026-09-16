@@ -27,7 +27,13 @@ import type { EstadoAccion, TipoAccion, VerificacionEficacia } from '@prisma/cli
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { elegirControlParaPlan, fechaObjetivoPlan, type ControlParaPlan } from '@/lib/sgsi/deuda-planes';
-import { formatearOrigen, origenCubreRiesgo, parsearOrigen } from '@/lib/sgsi/origen-plan';
+import {
+  formatearOrigen,
+  narrativaOrigenPlan,
+  origenCubreRiesgo,
+  parsearOrigen,
+} from '@/lib/sgsi/origen-plan';
+import { clasificar } from '@/lib/sgsi/clasificar';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -690,11 +696,20 @@ export async function registrarPlanCritico(
       }
     }
 
+    // La narrativa dice la banda REAL. Decía «Residual crítico» fijo, porque el plan sólo se
+    // podía crear desde esa banda; ahora que se puede crear desde cualquiera, esa frase sería
+    // una afirmación falsa en el campo que ISO/IEC 27001 6.1.3 pide para justificar la acción
+    // y que un auditor lee tal cual.
+    const umbrales = await prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } });
+    const banda =
+      riesgo.riesgoResidual === null
+        ? null
+        : clasificar(riesgo.riesgoResidual.toString(), umbrales);
     const origen = formatearOrigen(
       riesgo.codigo,
       datos.activoCodigo,
       datos.amenazaCodigo,
-      `Residual crítico de ${riesgo.activo.codigo} — ${riesgo.amenaza.nombre}.`,
+      narrativaOrigenPlan(banda, riesgo.activo.codigo ?? datos.activoCodigo, riesgo.amenaza.nombre),
     );
 
     const codigo = await prisma.$transaction(async (tx) => {
