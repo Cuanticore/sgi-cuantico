@@ -161,10 +161,16 @@ export async function guardarPaquete(
   }
 
   const rutas = entradas.map((e) => e.ruta);
-  // Sólo el HTML se le pasa al análisis: es donde se ve si el curso apunta afuera (D-1).
+  // El HTML **y el JavaScript** se le pasan al análisis: es donde se ve si el curso apunta
+  // afuera (D-1). El `.js` hace falta porque un despacho puede armar la URL del proveedor
+  // dentro de su propio driver en vez de escribirla en el HTML; el análisis decide después
+  // cuáles de esos `.js` mira —sólo los que el SCO carga—, no este bucle.
+  //
+  // Los `.xsd` quedan fuera a propósito: son los esquemas del estándar y están llenos de
+  // URLs de namespace que no son orígenes de contenido.
   const contenidos: Record<string, string> = {};
   for (const e of entradas) {
-    if (e.ruta.endsWith('.html') || e.ruta.endsWith('.htm')) {
+    if (/\.(html?|m?js)$/i.test(e.ruta)) {
       contenidos[e.ruta] = e.bytes.toString('utf8');
     }
   }

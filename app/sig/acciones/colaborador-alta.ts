@@ -23,8 +23,8 @@
 // existe en el Directorio no tiene uno, y dejarlo vacío no es opción: la columna es NOT NULL
 // porque es la identidad estable que sobrevive a un cambio de correo.
 //
-// Se genera uno con el prefijo `manual:`. El porqué completo —y cómo se reconoce después—
-// está en `lib/sig/oid-manual.ts`.
+// Se genera uno con el prefijo `manual:`. El porqué completo —y cómo se reconoce después,
+// con `esOidManual`— está en `lib/sig/personas.ts`.
 
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
@@ -39,7 +39,6 @@ import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/s
 // RESUELTO EN EL REBASE: el mismo defecto se corrigió dos veces. `main` movió la constante a
 // `lib/sig/personas.ts`; esta rama la movió a un módulo propio con su prueba. Se conserva el
 // módulo propio —es la intención del commit que se reaplica— y queda PENDIENTE retirar el
-// `export const PREFIJO_OID_MANUAL` duplicado de `lib/sig/personas.ts`, que ya no lo importa
 // nadie. Dos definiciones de la misma cadena es exactamente cómo una se queda atrás.
 import { PREFIJO_OID_MANUAL } from '@/lib/sig/oid-manual';
 

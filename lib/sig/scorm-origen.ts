@@ -30,7 +30,10 @@ export function esOrigenDeContenido(hostDeLaPeticion: string | null, origenConte
 /// declaró: en un AUTOCONTENIDO no se permite ningún dominio externo, y en un DESPACHO
 /// exactamente los suyos (D-5).
 export function cspDelPaquete(dominios: readonly string[]): string {
-  const externos = dominios.join(' ');
+  // Sin repetidos: el mismo dominio puede venir del HTML del SCO y de su driver, y una CSP
+  // con el origen tres veces es válida pero ilegible justo cuando alguien la está leyendo
+  // porque el curso no carga.
+  const externos = [...new Set(dominios)].join(' ');
   const con = (base: string) => (externos === '' ? base : `${base} ${externos}`);
   return [
     "default-src 'none'",
@@ -41,8 +44,16 @@ export function cspDelPaquete(dominios: readonly string[]): string {
     con("font-src 'self' data:"),
     con("connect-src 'self'"),
     con("frame-src 'self'"),
+    // Declarada, porque sin ella caía a `default-src 'none'` y un curso con Web Worker
+    // moría sin un error que dijera por qué. NO lleva los dominios externos: un worker corre
+    // con el origen del documento que lo crea, así que `'self'` y `blob:` es todo lo que
+    // puede necesitar, y sumarle el tercero no habilitaría nada real.
+    "worker-src 'self' blob:",
     "frame-ancestors 'self'",
     "base-uri 'none'",
+    // Se queda en `'none'` a propósito: un curso no tiene por qué enviar formularios a
+    // ningún lado. Si alguno lo necesitara, es algo que hay que ver y decidir, no permitir
+    // de entrada para todos.
     "form-action 'none'",
   ].join('; ');
 }

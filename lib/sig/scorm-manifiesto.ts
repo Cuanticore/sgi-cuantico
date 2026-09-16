@@ -44,13 +44,68 @@ function comoArreglo<T>(valor: T | T[] | undefined): T[] {
 
 const ORIGEN_EXTERNO = /https?:\/\/[a-zA-Z0-9.-]+(?::\d+)?/g;
 
-/// Los orígenes que aparecen en el HTML del SCO. Es una heurística deliberada y acotada: si
-/// el SCO de entrada apunta a un dominio, el curso NO es autocontenido y hay que decirlo.
-/// No pretende encontrar todo lo que un curso pueda cargar en tiempo de ejecución — para eso
-/// está la CSP, que bloquea lo que no se declaró y lo hace visible (P18).
-export function dominiosDe(html: string): string[] {
-  const encontrados = html.match(ORIGEN_EXTERNO) ?? [];
+/// Hosts que aparecen como URL y NO son orígenes de contenido: son identificadores de
+/// namespace XML. Nadie descarga nada de `www.w3.org/2000/svg` — la URL identifica un
+/// vocabulario, no un servidor.
+///
+/// Sin este filtro, un paquete con un SVG inline o un comentario que cite el esquema se
+/// clasificaría como «DESPACHO que comparte correo y nombre con w3.org». Eso es una
+/// afirmación falsa ante un auditor, y además le abre el dominio en la CSP.
+const NAMESPACES = [
+  'www.w3.org',
+  'w3.org',
+  'www.imsglobal.org',
+  'www.imsproject.org',
+  'www.adlnet.org',
+  'ltsc.ieee.org',
+  'schemas.xmlsoap.org',
+];
+
+function esNamespace(origen: string): boolean {
+  const host = origen.replace(/^https?:\/\//, '').split(':')[0].toLowerCase();
+  return NAMESPACES.includes(host);
+}
+
+/// Los orígenes que aparecen en un texto. Heurística deliberada y acotada: no pretende
+/// encontrar todo lo que un curso pueda cargar en tiempo de ejecución — para eso está la
+/// CSP, que bloquea lo no declarado y lo hace visible (P18).
+export function dominiosDe(texto: string): string[] {
+  const encontrados = (texto.match(ORIGEN_EXTERNO) ?? []).filter((o) => !esNamespace(o));
   return [...new Set(encontrados)].sort();
+}
+
+const SCRIPT_SRC = /<script[^>]+src\s*=\s*["']([^"']+)["']/gi;
+
+/// Las rutas de los `<script src>` LOCALES del SCO, resueltas contra su carpeta.
+///
+/// Se miran porque un despacho no está obligado a poner la URL del proveedor en el HTML:
+/// puede armarla dentro de su propio `.js`, y entonces el paquete se clasificaría como
+/// autocontenido mientras el correo y el nombre salen igual.
+///
+/// Sólo los que el SCO CARGA, no todos los `.js` del zip: un archivo que nadie referencia no
+/// corre nunca, y meterlo en la CSP sería abrirle un dominio a código muerto.
+export function scriptsLocalesDe(html: string, entradaHref: string): string[] {
+  const carpeta = entradaHref.includes('/') ? entradaHref.replace(/\/[^/]*$/, '/') : '';
+  const rutas: string[] = [];
+  for (const [, src] of html.matchAll(SCRIPT_SRC)) {
+    // Los absolutos ya los encontró `dominiosDe` sobre el HTML.
+    if (/^(https?:)?\/\//i.test(src) || src.startsWith('data:')) continue;
+    const limpio = src.split(/[?#]/)[0];
+    rutas.push(normalizarRuta(limpio.startsWith('/') ? limpio.slice(1) : carpeta + limpio));
+  }
+  return [...new Set(rutas)];
+}
+
+/// Resuelve `.` y `..` sin salir de la raíz. Un `../` de más se queda en la raíz en vez de
+/// producir una ruta con `..` que nunca casaría con ningún archivo del paquete.
+function normalizarRuta(ruta: string): string {
+  const salida: string[] = [];
+  for (const parte of ruta.split('/')) {
+    if (parte === '' || parte === '.') continue;
+    if (parte === '..') salida.pop();
+    else salida.push(parte);
+  }
+  return salida.join('/');
 }
 
 export function analizarManifiesto(
@@ -130,7 +185,11 @@ export function analizarManifiesto(
     };
   }
 
-  const dominios = dominiosDe(contenidos[href] ?? '');
+  // El HTML del SCO, más los scripts locales que ese HTML carga. Es lo que efectivamente
+  // corre cuando la persona abre el curso.
+  const htmlEntrada = contenidos[href] ?? '';
+  const aRevisar = [htmlEntrada, ...scriptsLocalesDe(htmlEntrada, href).map((r) => contenidos[r] ?? '')];
+  const dominios = [...new Set(aRevisar.flatMap(dominiosDe))].sort();
   const titulo = String(
     (organizacion['title'] as string | undefined) ?? conRecurso[0]['title'] ?? 'Curso sin título',
   );

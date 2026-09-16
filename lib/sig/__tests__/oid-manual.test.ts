@@ -3,7 +3,7 @@
 // Lo que se prueba acá es que las dos poblaciones —quien tiene cuenta en Azure y quien
 // todavía no— no se puedan confundir nunca.
 
-import { esOidManual, PREFIJO_OID_MANUAL } from '../oid-manual';
+import { esOidManual, PREFIJO_OID_MANUAL } from '../personas';
 
 describe('esOidManual', () => {
   it('reconoce el oid que inventamos', () => {

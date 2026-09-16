@@ -193,20 +193,35 @@ export function versionAPublicar(
   return { version, publicar: version > actual.version, texto };
 }
 
+/// El tipo del contenido, sólo para decidir qué campos se leen. Se escribe acá y no se
+/// importa de `@prisma/client` porque este módulo es puro y se prueba sin cliente generado.
+export type TipoParaVersionado =
+  | 'CAPACITACION'
+  | 'LECTURA'
+  | 'VERIFICACION'
+  | 'TAREA'
+  | 'CURSO_VIRTUAL';
+
 /// Cambió algo que la persona LEE. Si sólo cambió la modalidad o la duración, el texto que
 /// se leyó es el mismo y subir la versión pediría un acuse nuevo sobre un documento
 /// idéntico.
+///
+/// REQ-SIG-26 · D-2 · QUÉ SE LEE DEPENDE DEL TIPO. En una `LECTURA`, `documentoUrl` apunta
+/// al documento que se lee: cambiarla apunta a OTRO documento y versionar es correcto. En
+/// un `CURSO_VIRTUAL` la URL es **dónde está el curso**, no qué dice, y `documentoNombre` es
+/// la plataforma que lo hospeda. Corregir una URL rota no publica una versión nueva del
+/// curso; hacerlo le pediría un acuse nuevo a gente que ya lo hizo.
+///
+/// El tipo es obligatorio a propósito. Con un parámetro opcional, un llamador nuevo que lo
+/// olvide versionaría de más sin que nada se lo diga: acá el compilador lo obliga a decidir.
 export function cambiaElTexto(
   actual: TextoVersionado,
   cambios: Partial<TextoVersionado>,
+  tipo: TipoParaVersionado,
 ): boolean {
-  const claves: (keyof TextoVersionado)[] = [
-    'titulo',
-    'descripcion',
-    'documentoCodigo',
-    'documentoNombre',
-    'documentoVersion',
-    'documentoUrl',
-  ];
+  const claves: (keyof TextoVersionado)[] =
+    tipo === 'CURSO_VIRTUAL'
+      ? ['titulo', 'descripcion', 'documentoCodigo', 'documentoVersion']
+      : ['titulo', 'descripcion', 'documentoCodigo', 'documentoNombre', 'documentoVersion', 'documentoUrl'];
   return claves.some((k) => cambios[k] !== undefined && cambios[k] !== actual[k]);
 }
