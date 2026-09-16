@@ -33,8 +33,9 @@ Chromium no se cuele en el grafo de nadie más.
 | 8 · Lectura de la pantalla | Hecha |
 | 9 · Server actions | Hecha · la prueba de frontera cubre 38 archivos |
 | 10 · Descargas y Excel | Hecha · 5 pruebas |
-| 11 · Pantalla | Hecha · 8 pruebas |
-| 12 · Los cuatro checks | **Verde**: 0 errores de tipos, 0 de lint, 2454 pruebas en 134 suites, el build compila |
+| 11 · Pantalla | Hecha · 9 pruebas |
+| 11b · Popup de registro de firmas | Hecha · 7 pruebas. No estaba en el plan original: el plan dejaba el botón sin destino |
+| 12 · Los cuatro checks | **Verde**: 0 errores de tipos, 0 de lint, 2476 pruebas en 136 suites, el build compila |
 | 13 · Recorrido de punta a punta | **NO EJECUTADO** |
 
 ### Lo que NO se pudo verificar, y por qué
