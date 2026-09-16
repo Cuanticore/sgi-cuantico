@@ -134,6 +134,40 @@ jobs:
           fi
           echo "espacio ok: ${libre}G libres"
 
+      # EL GATE. Hasta acá, el despliegue empezaba construyendo: ni los tipos, ni ESLint, ni
+      # las pruebas eran condición para llegar a producción. `HARNESS.md` lo decía sin
+      # rodeos —«si estos comandos no se corren a mano antes de mergear, no los corre
+      # nadie»— y el 16/09/2026 se cobró un despliegue: un `export const` dentro de un
+      # archivo `'use server'` dejó a `main` sin compilar.
+      #
+      # Va acá y no antes por el mismo criterio que los dos preflights de arriba: primero lo
+      # que cuesta segundos (variables, disco), después lo que cuesta minutos, y todo antes
+      # de construir. Si algo se pone rojo, no se construyó nada, no se empujó nada al
+      # registro y el contenedor viejo sigue sirviendo.
+      #
+      # `npm ci` y no `npm install`: instala exactamente lo que dice package-lock.json. Con
+      # `install`, el runner podría resolver una versión distinta de la que se probó en
+      # local, que es la clase de diferencia que sólo aparece en producción.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 # el mismo major que `node:22-alpine` en el Dockerfile
+          cache: npm
+
+      # Es `npm run verificar` y no la lista de comandos desplegada acá a propósito: el
+      # despliegue, el PR y el bucle local tienen que correr LA MISMA cosa. Tres listas
+      # copiadas divergen, y el día que diverjan nadie se entera —el gate seguiría verde—.
+      # `lib/__tests__/despliegue-verificado.test.ts` es lo que impide que vuelvan a ser tres.
+      #
+      # El build NO está en esta invocación: lo corre el paso de abajo dentro de la imagen,
+      # que es donde tiene que correr. Duplicarlo acá serían dos minutos por despliegue a
+      # cambio de nada.
+      - name: Verificación — tipos, lint y pruebas
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verificar
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -231,3 +265,16 @@ jobs:
           set -euo pipefail
           cd "$DESTINO"
           SGI_COMPOSE_FILE="$COMPOSE" bash deploy/respaldo-postgres.sh
+
+      # El workspace del runner persiste entre ejecuciones y el `npm ci` del gate deja
+      # alrededor de un giga en `node_modules`. En esta máquina eso no es un detalle: el
+      # despliegue #41 murió con `No space left on device`, y el preflight de disco de arriba
+      # exige 8G libres para construir. Dejar el árbol puesto sería restarle un giga a ese
+      # margen en cada despliegue.
+      #
+      # `if: always()` porque el caso que más importa es el del gate en rojo: ahí el job se
+      # corta y nadie pasa a limpiar. El caché de npm (`~/.npm`) se conserva, que es lo que
+      # hace que el `npm ci` siguiente no vuelva a bajar el árbol entero de internet.
+      - name: Liberar el espacio de node_modules
+        if: always()
+        run: rm -rf node_modules

@@ -3,8 +3,12 @@
 Reglas obligatorias para todo cambio que entre a `main`. No son recomendaciones.
 
 En este repo **mergear a `main` despliega a producción**: el workflow `Build and Deploy`
-corre en el push a `main`, no en el PR. No hay paso intermedio, no hay staging, no hay
-revisión después del merge. Lo que se mergea, sale.
+corre en el push a `main`. No hay paso intermedio, no hay staging, no hay revisión después
+del merge. Lo que se mergea, sale.
+
+Por eso el despliegue verifica antes de construir, y el PR verifica antes de dejar mergear:
+un rojo en `main` no es un build roto, es producción sin desplegar. Ver
+[Quién corre esto, y cuándo](#quién-corre-esto-y-cuándo).
 
 ---
 
@@ -47,12 +51,34 @@ comentarios, formato, tipos sin efecto en runtime, documentación—.
 ## Regla 2 · Ningún PR sin los tres checks en limpio
 
 ```bash
+npm run verificar         # prisma generate && tsc --noEmit && lint && test
+npm run verificar:build   # los cuatro de arriba, y además el build
+```
+
+Es un solo comando y encadenado con `&&`: el primero que se pone rojo corta, y el código de
+salida es distinto de cero. Con `;` los cuatro correrían igual y saldría el del último — una
+suite roja seguida de un lint verde daría salida 0.
+
+Lo que corre por dentro, y por qué está en ese orden:
+
+```bash
 npx prisma generate     # obligatorio antes de tsc, si no da ~30 falsos errores
 npx tsc --noEmit        # 0 errores
 npm run lint            # 0 errores (los 5 warnings preexistentes se toleran)
 npm test                # todo verde
 npm run build           # tiene que compilar
 ```
+
+**No los copies a mano en otro lado.** Que el PR, el despliegue y tu terminal corran
+exactamente la misma invocación es lo que impide que las tres listas se separen; el día que
+se separen, la que se queda corta sigue dando verde y nadie se entera.
+`lib/__tests__/despliegue-verificado.test.ts` es lo que sostiene esa igualdad.
+
+Una advertencia sobre `tsc`: `tsconfig.json` trae `incremental: true` y el caché
+(`tsconfig.tsbuildinfo`) puede quedar rancio y reportar errores de código que ya se arregló.
+Falla del lado seguro —alarma de más, nunca de menos—, pero si ves un error que no aparece en
+el archivo que nombra, borra `tsconfig.tsbuildinfo` y vuelve a correr. En CI no pasa: cada
+ejecución arranca de un checkout limpio.
 
 `next build` **ignora los errores de TypeScript** (`ignoreBuildErrors: true`), así que no
 reemplaza a `tsc --noEmit`. Pero tampoco al revés: hay errores que **sólo** el build ve.
@@ -67,8 +93,39 @@ más de un minuto y `lib/__tests__/use-server.test.ts` cubre esa misma clase de 
 milisegundos, sobre los 36 archivos a la vez. El build sigue siendo obligatorio igual —
 atrapa lo que todavía no tiene test.
 
-Y el CI **no corre en el PR**: el workflow se dispara con el push a `main`. Si estos
-comandos no se corren a mano antes de mergear, no los corre nadie.
+### Quién corre esto, y cuándo
+
+Hasta el 16/09/2026 la respuesta era «tú, a mano, o nadie»: el único workflow se disparaba con
+el push a `main` y empezaba construyendo la imagen. Ni los tipos, ni ESLint, ni las pruebas
+eran condición para llegar a producción. Ahora son tres momentos:
+
+| Cuándo | Qué corre | Qué pasa si se pone rojo |
+|---|---|---|
+| Tu terminal, antes del PR | `npm run verificar:build` | te enteras en segundos, que es lo barato |
+| El PR (`Verificación`) | `npm run verificar:build` | el PR queda en rojo antes de mergear |
+| El push a `main` (`Build and Deploy`) | `npm run verificar` | **no se construye nada**: el contenedor viejo sigue sirviendo |
+
+El despliegue no corre el build en ese paso porque lo corre el `docker buildx build` de dos
+pasos más abajo: compilar dos veces no agrega información. El PR sí lo corre, porque ahí no
+hay imagen que construir y es justo el error que tumbó el despliegue del 16/09/2026.
+
+Correrlo a mano antes del PR **sigue siendo lo correcto**, y no por disciplina: el CI tarda
+minutos y tu terminal tarda segundos.
+
+> **Pendiente de configuración en GitHub, y hasta que se haga esto el gate del PR no bloquea
+> nada.** El workflow `Verificación` corre en cada PR, pero GitHub deja mergear un PR con el
+> check en rojo mientras ese check no esté marcado como obligatorio. Se hace una sola vez, en
+> `Settings → Branches → Add branch ruleset` (o `Add rule`) sobre `main`:
+>
+> - **Require status checks to pass before merging**, y agregar el check llamado `verificar`.
+>   Aparece en la lista después de la primera ejecución del workflow: si todavía no corrió
+>   nunca, GitHub no lo ofrece.
+> - **Require branches to be up to date before merging** — sin esto, dos PR que pasan por
+>   separado pueden romper `main` al mergearse uno detrás del otro. Es el caso de los tres
+>   bugs de arriba: el defecto vivía entre las piezas, no en una.
+>
+> Requiere permisos de administración sobre el repositorio. El gate del push a `main` **no
+> depende de esto** y bloquea desde el primer despliegue.
 
 ## Regla 3 · Ningún merge sin prueba de punta a punta, cuando aplica
 
