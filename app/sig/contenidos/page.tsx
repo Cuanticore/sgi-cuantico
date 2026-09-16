@@ -85,6 +85,9 @@ export default async function ContenidosPage() {
     id: c.id,
     codigo: c.codigo,
     tipo: c.tipo,
+    // REQ-SIG-26 · la clase del curso decide qué muestra la ficha: el cargador del zip o el
+    // campo del enlace. Va derecho desde el modelo, sin inferirse de qué campos hay llenos.
+    claseCurso: c.claseCurso,
     titulo: c.titulo,
     descripcion: c.descripcion,
     procedimientoOrigen: c.procedimientoOrigen,

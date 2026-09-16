@@ -47,15 +47,39 @@ export async function subirPaqueteScorm(datos: FormData): Promise<RespuestaSubid
 
   const contenido = await prisma.contenidoSig.findUnique({
     where: { id: contenidoId },
-    select: { id: true, tipo: true, codigo: true },
+    select: { id: true, tipo: true, codigo: true, claseCurso: true },
   });
   if (contenido === null) return { ok: false, mensaje: 'el contenido no existe' };
-  if (contenido.tipo !== 'CAPACITACION') {
+
+  // REQ-SIG-26 · LA COMPUERTA NO DESAPARECE, CAMBIA DE CRITERIO.
+  //
+  // Decía «sólo una CAPACITACION puede tener paquete SCORM. P1: un curso no es un tipo
+  // nuevo de contenido, es una capacitación con paquete». **REQ-SIG-24 revirtió P1**:
+  // `CURSO_VIRTUAL` es un tipo propio. La compuerta estaba escrita contra un diseño que ya
+  // no rige, y por eso el tipo nuevo no podía publicarse por ninguna vía.
+  //
+  // Lo que sigue prohibido es lo mismo de antes: una LECTURA, una TAREA o una VERIFICACION
+  // no tienen dónde ejecutar un curso, y aceptarles un zip guardaría un paquete que nadie
+  // podría abrir nunca.
+  if (contenido.tipo !== 'CAPACITACION' && contenido.tipo !== 'CURSO_VIRTUAL') {
     return {
       ok: false,
       mensaje:
-        'sólo una CAPACITACION puede tener paquete SCORM. P1: un curso no es un tipo nuevo ' +
-        'de contenido, es una capacitación con paquete.',
+        'este contenido no puede tener paquete SCORM: sólo un Curso Virtual de clase ' +
+        'paquete, o una capacitación de las que ya existían con curso cargado.',
+    };
+  }
+
+  // La clase la declara quien publica (D-1), y decirlo importa: un curso de enlace externo
+  // se recorre en la plataforma del proveedor y su cierre es una declaración de la persona.
+  // Aceptarle un zip dejaría el contenido con las dos cosas y nadie sabría cuál rige.
+  if (contenido.tipo === 'CURSO_VIRTUAL' && contenido.claseCurso === 'ENLACE') {
+    return {
+      ok: false,
+      mensaje:
+        'este curso está declarado como enlace externo: se abre en la plataforma del ' +
+        'proveedor y no lleva paquete. Cambiá la clase a «Paquete SCORM» en la ficha antes ' +
+        'de subir uno.',
     };
   }
 

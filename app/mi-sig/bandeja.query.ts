@@ -37,6 +37,13 @@ export interface TarjetaBandeja {
   /// nota desaparece. Dejar los dos caminos abiertos permitiría declararse aprobado en el
   /// curso que no se abrió, y anularía la razón de ser del player.
   tienePaqueteScorm: boolean;
+  /// REQ-SIG-26 · qué clase de curso virtual es. `null` en todo lo que no es un curso.
+  ///
+  /// El panel **dejó de inferirlo** de si había paquete o URL cargados: con la clase
+  /// declarada puede decir CUÁL de las dos cosas falta cuando el curso está vacío, en vez
+  /// del genérico «no tiene contenido cargado», y sabe si el cierre lo hace el reproductor
+  /// o la declaración de la persona sin adivinarlo.
+  claseCurso: 'PAQUETE' | 'ENLACE' | null;
   /// REQ-SIG-24 · si esta asignación ya tiene un intento del curso empezado. Es lo único
   /// que separa «Iniciar» de «Reanudar», y se pregunta acá —no en el cliente— porque la
   /// bandeja ya trae todo lo que la tarjeta necesita decir.
@@ -130,6 +137,7 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       declaracion: contenido?.declaracion ?? null,
       notaMinima: contenido?.notaMinima ? Number(contenido.notaMinima) : null,
       tienePaqueteScorm: (contenido?.paquetes.length ?? 0) > 0,
+      claseCurso: contenido?.claseCurso ?? null,
       cursoIniciado: f.intentosScorm.length > 0,
       documentoVersion: contenido?.documentoVersion ?? null,
       documentoUrl: contenido?.documentoUrl ?? null,
