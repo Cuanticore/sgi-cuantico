@@ -25,7 +25,7 @@
 
 import ExcelJS from 'exceljs';
 import type { ProcesoDelInforme } from './informe-valoracion';
-import { SIN_CALCULAR } from './informe-valoracion';
+import { FUERA_DEL_ANALISIS, SIN_CALCULAR, etiquetaDeBanda } from './informe-valoracion';
 import type { ColumnaFrecuencia, FilaImpacto } from './matriz-clasica';
 
 export interface DatosLibro {
@@ -85,6 +85,7 @@ export async function construirLibroInforme(datos: DatosLibro): Promise<ExcelJS.
   resumen.addRow([
     'Nota',
     `«${SIN_CALCULAR}» no es «bajo»: es que la eficacia de los controles de esa amenaza todavía no está establecida, así que el residual es desconocido.`,
+    `«${FUERA_DEL_ANALISIS}» es otra cosa: el activo no alcanza el umbral de valoración, no se le generan riesgos y no hay residual que calcular. No es deuda del modelo, es el alcance declarado.`,
   ]);
   resumen.getColumn(1).width = 24;
   resumen.getColumn(2).width = 90;
@@ -124,8 +125,8 @@ export async function construirLibroInforme(datos: DatosLibro): Promise<ExcelJS.
         // «Sí»/«No» y no TRUE/FALSE: se filtra escribiendo, y un booleano de Excel se
         // traduce distinto según el idioma de la instalación.
         f.entraAlAnalisis ? 'Sí' : 'No',
-        f.bandaInherente ?? SIN_CALCULAR,
-        f.bandaResidual ?? SIN_CALCULAR,
+        etiquetaDeBanda(f.bandaInherente, f.entraAlAnalisis),
+        etiquetaDeBanda(f.bandaResidual, f.entraAlAnalisis),
       ]);
       pintarBanda(fila.getCell(10), f.bandaResidual, bandas);
     }

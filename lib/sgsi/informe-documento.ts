@@ -37,7 +37,7 @@
 // acá — y la única defensa contra que se olvide es que estén escritos al lado, con su nombre.
 
 import type { ProcesoDelInforme } from './informe-valoracion';
-import { SIN_CALCULAR } from './informe-valoracion';
+import { FUERA_DEL_ANALISIS, SIN_CALCULAR, etiquetaDeBanda } from './informe-valoracion';
 import type { ColumnaFrecuencia, FilaImpacto, MatrizClasica } from './matriz-clasica';
 
 /// Los mismos valores que `--hf-risk-*`. Indexados por POSICIÓN de la banda y no por su
@@ -158,6 +158,7 @@ export function documentoInforme(datos: DatosDocumento): string {
     `<p style="margin:0 0 8pt">Cada activo se valora en las dimensiones de <strong>disponibilidad</strong>, <strong>integridad</strong> y <strong>confidencialidad</strong>. El valor del activo es el <strong>mayor</strong> de las tres, no su promedio: un activo es tan crítico como su dimensión más comprometida, y promediar escondería un secreto absoluto detrás de dos dimensiones irrelevantes.</p>`,
     `<p style="margin:0 0 8pt">Los activos que alcanzan el umbral de ${esc(datos.umbralValoracion)} entran al análisis de riesgos. Sobre cada uno se cruzan las amenazas aplicables a su tipo MAGERIT; para cada par (activo, amenaza) se calcula el <strong>impacto</strong> a partir del valor y de la degradación, y el <strong>riesgo inherente</strong> multiplicándolo por la frecuencia esperada. La eficacia agregada de los controles que mitigan la amenaza reduce esa frecuencia, y de ahí sale el <strong>riesgo residual</strong> (MET-SIG-01 §7).</p>`,
     `<p style="margin:0 0 8pt">Donde este informe dice <strong>«${SIN_CALCULAR}»</strong> no está diciendo «bajo». Es un estado del modelo: la eficacia de los controles de esa amenaza todavía no está establecida, así que el residual es <em>desconocido</em>. Sustituirlo por cero dibujaría un riesgo tratado que nadie trató, y por eso se imprime aparte en cada tabla.</p>`,
+    `<p style="margin:0 0 8pt">Distinto es <strong>«${FUERA_DEL_ANALISIS}»</strong>: ese activo no alcanza el umbral de valoración, así que no se le generan riesgos y no hay residual que calcular. No es una deuda del modelo, es el alcance declarado.</p>`,
     `<p style="${S.nota};margin-bottom:20pt">Ninguna cifra de este documento está almacenada: todas se derivan al leer, con las mismas funciones que alimentan las pantallas de Valoración, Análisis de riesgos y Matrices. Un informe y una pantalla que discrepan son un informe que nadie puede firmar.</p>`,
   );
 
@@ -274,6 +275,7 @@ export function documentoInforme(datos: DatosDocumento): string {
     for (const f of c.filas) {
       const cr = colorDeBanda(f.bandaResidual, bandas);
       const fondo = f.bandaResidual === null ? `background:#ffffff;color:${SUAVE}` : `background:${cr.bg};color:${cr.fg}`;
+      const residual = etiquetaDeBanda(f.bandaResidual, f.entraAlAnalisis);
       p.push(
         `<tr><td style="${S.td};white-space:nowrap;font-family:Consolas,monospace">${esc(f.codigo)}</td>`,
         `<td style="${S.td}">${esc(f.nombre)}</td>`,
@@ -281,7 +283,7 @@ export function documentoInforme(datos: DatosDocumento): string {
         `<td style="${S.td}">${esc(f.responsable ?? '—')}</td>`,
         `<td style="${S.num}">${f.valor}<br><span style="color:${SUAVE};font-size:8pt">${esc(f.nivelValor)}</span></td>`,
         `<td style="${S.td}">${esc(f.bandaInherente ?? '—')}</td>`,
-        `<td style="${S.td};white-space:nowrap;${fondo};font-weight:600">${esc(f.bandaResidual ?? SIN_CALCULAR)}</td></tr>`,
+        `<td style="${S.td};white-space:nowrap;${fondo};font-weight:600">${esc(residual)}</td></tr>`,
       );
     }
     p.push('</tbody></table>', '</section>');

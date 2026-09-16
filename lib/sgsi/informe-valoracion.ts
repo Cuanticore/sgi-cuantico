@@ -125,6 +125,28 @@ export interface ProcesoDelInforme {
 /// la tabla digan exactamente la misma palabra.
 export const SIN_CALCULAR = 'Sin calcular';
 
+/// El activo NO ENTRA AL ANÁLISIS: su valor no alcanza el umbral, así que no se le generan
+/// riesgos y no hay residual que calcular.
+///
+/// Es una palabra distinta de `SIN_CALCULAR` a propósito, y la distinción no es cosmética.
+/// «Sin calcular» afirma una causa —la eficacia de los controles de esa amenaza todavía no
+/// está establecida— que es FALSA para un activo bajo el umbral: su residual no es
+/// desconocido, es que no existe la pregunta. Usar la misma palabra para las dos cosas hacía
+/// que el glosario del informe explicara 348 filas con un motivo que no era el suyo, y dejaba
+/// al lector sin manera de separar la deuda del modelo del alcance declarado.
+export const FUERA_DEL_ANALISIS = 'No aplica';
+
+/// Cómo se imprime la banda de un activo en las tablas del informe, en cualquier formato.
+/// Vive acá y no en cada renderizador para que Word y Excel no puedan decir cosas distintas
+/// sobre la misma fila.
+export function etiquetaDeBanda(
+  banda: string | null,
+  entraAlAnalisis: boolean,
+): string {
+  if (!entraAlAnalisis) return FUERA_DEL_ANALISIS;
+  return banda ?? SIN_CALCULAR;
+}
+
 /// El ancla de un proceso para la tabla de contenido: minúsculas, sin acentos y con guiones.
 export function anclaDeProceso(proceso: string): string {
   return proceso
