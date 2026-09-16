@@ -70,6 +70,7 @@ export default async function PlanesPage() {
     aprueba: a.aprueba.nombre,
     fechaObjetivo: a.fechaObjetivo?.toISOString().slice(0, 10) ?? null,
     fechaAprobacion: a.fechaAprobacion?.toISOString().slice(0, 10) ?? null,
+    fechaCierre: a.fechaCierre?.toISOString().slice(0, 10) ?? null,
     estado: a.estado,
     avance: a.avance,
     verificacion: a.verificacion,
