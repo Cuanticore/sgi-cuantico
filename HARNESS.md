@@ -126,18 +126,62 @@ Cuando no aplica, dilo y di por qué. Una línea alcanza.
 
 ## Lo que este harness todavía no puede exigir de forma automática
 
-**No hay runner de pruebas de punta a punta.** `@playwright/test` está en las
-`devDependencies`, pero no existe `playwright.config.*` ni un solo spec. La dependencia
-declarada sin arnés es peor que no tenerla: en el `package.json` parece cubierto y no cubre
-nada.
+De las tres reglas, **sólo la 2 está automatizada.** Conviene tenerlo presente: el CI en verde
+dice que los checks pasaron, no que la Regla 1 y la Regla 3 se cumplieron.
 
-Mientras eso siga así, la Regla 3 se cumple **a mano**, y el recorrido escrito en el PR es la
-única evidencia que queda. Funciona, pero no se repite solo: no protege contra la regresión
-de dentro de tres meses, que es justo cuando nadie se acuerda de por qué existía la regla.
+**La marca de *required* no está puesta.** El workflow `Verificación` corre en cada PR, pero
+GitHub deja mergear un PR con un check en rojo mientras ese check no esté marcado como
+obligatorio en la protección de rama. Hasta que alguien con permisos de administración corra
+el comando de la Regla 2, el gate del PR **informa pero no bloquea**. El del push a `main` sí
+bloquea desde el primer día: ahí no hay nada que marcar, el despliegue simplemente no ocurre.
 
-Montar Playwright y automatizar el recorrido de carga de activos es la primera deuda a pagar.
-Cuando exista, esta sección se reemplaza por el comando que lo corre, y la Regla 3 pasa a ser
-verificable como las otras dos.
+**Nadie verifica que el test se haya visto en rojo primero.** La Regla 1 es la más importante
+de las tres y es la única que no deja rastro: un test escrito después del arreglo pasa igual y
+se ve idéntico en el diff. No hay forma razonable de automatizar eso; queda en la honestidad
+de quien escribe y en lo que diga el PR.
+
+**El runner de punta a punta ya existe, y cubre un solo recorrido.** Desde el 16/09/2026 hay
+`playwright.config.ts` y `e2e/`. Deja de ser cierto que la dependencia esté declarada sin arnés;
+sigue siendo cierto que casi todo se prueba a mano.
+
+---
+
+## El runner de punta a punta
+
+```powershell
+$env:DATABASE_URL = '…'   # una base con datos reales; hoy, el túnel SSM
+npm run e2e
+```
+
+Levanta `next dev` solo —o reutiliza el que esté corriendo— y corre los specs de `e2e/`.
+Chromium, un trabajador, **sin reintentos**: un recorrido que sólo pasa a veces no es evidencia.
+
+**No está en `verificar:build`, y es a propósito.** Necesita una base con datos reales, que hoy
+es producción por el túnel. Encadenarlo a los checks locales haría que `npm run verificar`
+fallara en cualquier máquina sin túnel, y la respuesta a eso siempre termina siendo saltárselo.
+
+**La sesión se acuña, no se inicia.** `/tecnologia/:path*` está detrás de Azure AD, y
+automatizar un inicio de sesión corporativo arrastraría MFA y las credenciales de una persona a
+un archivo. `e2e/sesion.ts` firma un token con el mismo `NEXTAUTH_SECRET` de la aplicación y lo
+pone como cookie, con el grupo `Líderes SIG` que exige la puerta del layout. Sin el secreto la
+cookie no vale nada, así que no debilita ninguna puerta. Si mañana cambia el nombre del grupo,
+el recorrido falla — y tiene que fallar.
+
+**Los specs de `e2e/` sólo leen.** Es la regla que hace tolerable correr contra producción:
+navegar y hacer clic sí, escribir nunca. Lo que necesite escribir va a la suite unitaria, con
+datos armados a mano.
+
+| Spec | Recorrido | Pasos |
+|---|---|---|
+| `e2e/grafo.spec.ts` | `/tecnologia/grafo` · filtro por Nivel 1/2/3, frontera, acomodo determinista | 13 |
+
+**Lo que sigue a mano.** El recorrido de carga de activos —el que motivó tres de las cuatro
+cicatrices de arriba— todavía no tiene spec, y es la siguiente deuda. Mientras tanto ese flujo
+se prueba a mano y el recorrido escrito en el PR es la única evidencia que queda.
+
+`test-results/` no entra al repositorio. Las trazas y capturas de un recorrido fallido llevan la
+pantalla entera —códigos de activo, IP, nombres de servidores—, que es exactamente el mapa que
+el layout de `/tecnologia` se niega a mostrar sin el grupo del Directorio.
 
 ---
 
