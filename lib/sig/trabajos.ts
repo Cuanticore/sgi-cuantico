@@ -183,6 +183,10 @@ const IMPLEMENTACIONES: Record<string, (autor: string, hoy: Date) => Promise<Res
     const { abandonarIntentosScorm } = await import('@/lib/sig/trabajos-scorm');
     return abandonarIntentosScorm(autor, hoy);
   },
+  'sincronizar-incidentes-sentinel': async (autor, hoy) => {
+    const { sincronizarIncidentesSentinel } = await import('@/lib/sig/trabajos-sentinel');
+    return sincronizarIncidentesSentinel(autor, hoy);
+  },
 };
 
 // Al cargar el módulo, no a las 5 de la mañana. Un trabajo marcado `disponible` sin

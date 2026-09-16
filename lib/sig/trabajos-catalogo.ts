@@ -101,6 +101,16 @@ export const TRABAJOS: DefinicionTrabajo[] = [
     cuando: 'Cada hora, :40',
     disponible: true,
   },
+  {
+    nombre: 'sincronizar-incidentes-sentinel',
+    descripcion:
+      'Trae los incidentes de Microsoft Sentinel (`SecurityIncident` en Log Analytics) al ' +
+      'espejo de solo lectura, por upsert idempotente sobre IncidentNumber. Nunca borra ni ' +
+      'escribe hacia Sentinel — el flujo es de un solo sentido — y su único rastro es esta ' +
+      'ejecución: el espejo no escribe bitácora.',
+    cuando: 'Cada hora, :10',
+    disponible: true,
+  },
 ];
 
 export function trabajoPorNombre(nombre: string): DefinicionTrabajo | null {
