@@ -33,14 +33,42 @@ export function textoDeCelda(v: unknown): string {
   return String(v).trim();
 }
 
+/// La última fila que tiene ALGO escrito en las primeras `columnas`, o 0 si no hay ninguna.
+///
+/// `rowCount` NO es esto. ExcelJS informa la última fila con registro en el XML, y dar
+/// formato a una columna entera deja registradas el millón de filas del máximo de Excel sin
+/// una sola letra dentro. El V21 llegó así: `rowCount` = 1.048.277 para 94 activos. Recorrer
+/// hasta ahí acumulando una fila por vuelta agota la memoria del proceso — la carga no
+/// fallaba con un mensaje, moría.
+///
+/// `eachRow` sin `includeEmpty` visita sólo las filas que existen, y el corte por `columnas`
+/// descarta lo que quedó fuera del ancho declarado: una nota suelta en la columna 40 no
+/// alarga la hoja.
+export function ultimaFilaConDatos(hoja: ExcelJS.Worksheet, columnas: number): number {
+  let ultima = 0;
+  hoja.eachRow({ includeEmpty: false }, (fila, n) => {
+    if (n <= ultima) return;
+    for (let c = 1; c <= columnas; c++) {
+      if (textoDeCelda(fila.getCell(c).value).trim() !== '') {
+        ultima = n;
+        return;
+      }
+    }
+  });
+  return ultima;
+}
+
 /// Toda la hoja como texto, con `matriz[i]` = fila `i + 1` de Excel.
 ///
 /// El desfase de uno se paga UNA vez, acá, para que los números de columna de los mapeos
 /// sean los mismos que la persona ve en la barra de Excel. Que cada lector lo resuelva por
 /// su cuenta es cómo se cuela un off-by-one que desplaza una columna entera sin fallar.
+///
+/// Se corta en `ultimaFilaConDatos` y no en `rowCount`: ver ahí por qué no son lo mismo.
 export function matrizDeHoja(hoja: ExcelJS.Worksheet, columnas: number): string[][] {
   const matriz: string[][] = [];
-  for (let n = 1; n <= hoja.rowCount; n++) {
+  const ultima = ultimaFilaConDatos(hoja, columnas);
+  for (let n = 1; n <= ultima; n++) {
     const cruda = hoja.getRow(n);
     const celdas: string[] = [];
     for (let c = 1; c <= columnas; c++) celdas.push(textoDeCelda(cruda.getCell(c).value));
@@ -112,7 +140,8 @@ export function conteoDeCodigos(wb: ExcelJS.Workbook): ConteoDeCodigos {
 
   let conCodigo = 0;
   let sinCodigo = 0;
-  for (let f = 8; f <= hoja.rowCount; f++) {
+  const ultima = ultimaFilaConDatos(hoja, ANCHOS.matriz);
+  for (let f = 8; f <= ultima; f++) {
     const fila = hoja.getRow(f);
     const nombre = textoDeCelda(fila.getCell(COLUMNA_NOMBRE).value).trim();
     if (nombre === '') continue;

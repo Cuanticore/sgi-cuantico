@@ -64,3 +64,10 @@ auth-test.ts
 # Volcados de la base (scripts/respaldo.mjs). Nunca se versionan: son datos reales de
 # la organizacion, y un respaldo dentro del repositorio no es un respaldo.
 var/respaldos/
+
+# Libros de Excel del SGSI (FOR-SIG-*, consolidado de activos). Traen el inventario real
+# de la organizacion con nombres de personas y descripciones de sistemas: son datos, no
+# codigo, y no se versionan. Se cargan por la pantalla de carga, no por el repositorio.
+*.xlsx
+*.xls
+*.xlsm
