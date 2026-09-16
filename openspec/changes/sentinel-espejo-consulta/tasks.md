@@ -88,7 +88,7 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 3 — El trabajo [depende de Fase 0, 1.4, 2.1]
 
-- [ ] **3.1** — En el MISMO commit: `lib/sig/trabajos-catalogo.ts` (nueva entrada
+- [x] **3.1** — En el MISMO commit: `lib/sig/trabajos-catalogo.ts` (nueva entrada
   `nombre: 'sincronizar-incidentes-sentinel'`, `cuando: 'Cada hora, :10'`,
   `disponible: true`) y `lib/sig/trabajos.ts` (`IMPLEMENTACIONES` con import perezoso de
   `lib/sig/trabajos-sentinel.ts`, mismo patrón que `abandonar-intentos-scorm`). Crear
@@ -109,7 +109,7 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 4 — Acción de promoción [depende de Fase 0, 1.4; en paralelo con Fase 3]
 
-- [ ] **4.1** — `app/sig/acciones/sentinel.ts` (`'use server'`):
+- [x] **4.1** — `app/sig/acciones/sentinel.ts` (`'use server'`):
   `promoverIncidenteSentinel(numeroIncidente, { enCurso, dondeId })`.
   `autorConPermiso('sgsi:escribir')` primero; `idOpcional(datos.dondeId, 'el lugar')`;
   resolver `Persona` por correo (sin ficha, no promueve); leer espejo por
@@ -136,7 +136,7 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 5 — Vista [depende de Fase 3 y 4]
 
-- [ ] **5.1** — `app/sgsi/sentinel/page.tsx` (server, `dynamic = 'force-dynamic'`, mismo
+- [x] **5.1** — `app/sgsi/sentinel/page.tsx` (server, `dynamic = 'force-dynamic'`, mismo
   patrón que `app/sgsi/eventos/page.tsx:13`): lee `incidenteSentinel` + eventos
   promovidos, calcula `puede(await rolActual(), 'sgsi:escribir')`, renderiza
   `app/sgsi/sentinel/Sentinel.client.tsx` (`'use client'`). Cada fila muestra
