@@ -36,11 +36,12 @@ import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/s
 // navegador— y una constante exportada hacía que el compilador descartara todos los exports
 // de este archivo, incluido `crearColaborador`.
 //
-// RESUELTO EN EL REBASE: el mismo defecto se corrigió dos veces. `main` movió la constante a
-// `lib/sig/personas.ts`; esta rama la movió a un módulo propio con su prueba. Se conserva el
-// módulo propio —es la intención del commit que se reaplica— y queda PENDIENTE retirar el
-// nadie. Dos definiciones de la misma cadena es exactamente cómo una se queda atrás.
-import { PREFIJO_OID_MANUAL } from '@/lib/sig/oid-manual';
+// SE ARREGLÓ DOS VECES, y ya está consolidado: `main` movió la constante a
+// `lib/sig/personas.ts` (PR #17) y esta rama la había movido a un módulo propio sin verlo.
+// Gana la de `main` —es el módulo de identidad del Directorio, que es de lo que habla el
+// prefijo— y el módulo duplicado se eliminó. Dos definiciones de la misma cadena es
+// exactamente cómo una se queda atrás.
+import { PREFIJO_OID_MANUAL } from '@/lib/sig/personas';
 
 export interface ColaboradorNuevo {
   nombre: string;
