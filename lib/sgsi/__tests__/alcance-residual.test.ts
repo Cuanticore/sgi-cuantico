@@ -3,7 +3,12 @@
 // El alcance del acta de aprobación del riesgo residual: qué activos entran, con qué banda,
 // y cuáles quedan fuera y por qué.
 
-import { seleccionarAlcance, type ActivoParaAlcance } from '../alcance-residual';
+import {
+  huellaDeAlcance,
+  seleccionarAlcance,
+  type ActivoParaAlcance,
+  type FilaAlcance,
+} from '../alcance-residual';
 
 const BANDAS = [
   { nombre: 'Crítico', desde: 6, hasta: 999 },
@@ -71,5 +76,56 @@ describe('seleccionarAlcance', () => {
       BANDAS,
     );
     expect(r.filas.map((f) => f.cifra)).toEqual(['9', '6.1', '4.5']);
+  });
+});
+
+function fila(p: Partial<FilaAlcance> & { codigo: string }): FilaAlcance {
+  return {
+    activoId: 1,
+    nombre: 'Servidor',
+    areaId: 1,
+    proceso: 'Tecnología',
+    banda: 'Alto',
+    cifra: '4.5',
+    ...p,
+  };
+}
+
+describe('huellaDeAlcance', () => {
+  it('no cambia si sólo cambia el orden de la lista', () => {
+    const a = [fila({ codigo: 'A-1' }), fila({ codigo: 'B-2' })];
+    const b = [fila({ codigo: 'B-2' }), fila({ codigo: 'A-1' })];
+    expect(huellaDeAlcance(a)).toBe(huellaDeAlcance(b));
+  });
+
+  it('cambia si cambia una cifra', () => {
+    expect(huellaDeAlcance([fila({ codigo: 'A-1', cifra: '4.5' })])).not.toBe(
+      huellaDeAlcance([fila({ codigo: 'A-1', cifra: '4.6' })]),
+    );
+  });
+
+  it('cambia si cambia una banda', () => {
+    expect(huellaDeAlcance([fila({ codigo: 'A-1', banda: 'Alto' })])).not.toBe(
+      huellaDeAlcance([fila({ codigo: 'A-1', banda: 'Crítico' })]),
+    );
+  });
+
+  it('cambia si entra un activo nuevo', () => {
+    expect(huellaDeAlcance([fila({ codigo: 'A-1' })])).not.toBe(
+      huellaDeAlcance([fila({ codigo: 'A-1' }), fila({ codigo: 'A-2' })]),
+    );
+  });
+
+  // Se aprobó el riesgo de un activo, no su nombre. Hacer que una corrección ortográfica
+  // invalide un acta firmada obligaría a recoger las firmas otra vez.
+  it('no cambia si sólo cambia el nombre del activo', () => {
+    expect(huellaDeAlcance([fila({ codigo: 'A-1', nombre: 'Servidor' })])).toBe(
+      huellaDeAlcance([fila({ codigo: 'A-1', nombre: 'Servidor de aplicaciones' })]),
+    );
+  });
+
+  it('la lista vacía tiene huella, y es estable', () => {
+    expect(huellaDeAlcance([])).toBe(huellaDeAlcance([]));
+    expect(huellaDeAlcance([])).toHaveLength(64);
   });
 });

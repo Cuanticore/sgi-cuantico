@@ -21,6 +21,7 @@
 // cifra optimista presentada como completa — y el riesgo que falta puede ser el peor de
 // todos. Nadie puede firmar un techo que nadie midió.
 
+import { createHash } from 'node:crypto';
 import Decimal from 'decimal.js';
 import type { Umbral } from './clasificar';
 import { peorBanda } from './informe-valoracion';
@@ -120,4 +121,22 @@ export function seleccionarAlcance(
   });
 
   return { filas, sinCalcular, fueraDeBanda };
+}
+
+/// SHA-256 de lo que el acta afirma: código, banda y cifra de cada activo, ordenado por código
+/// para que el mismo alcance dé siempre la misma huella.
+///
+/// Es lo que permite decir «esta acta ya no describe el riesgo vigente». Sin ella, un acta
+/// firmada seguiría afirmando para siempre unas cifras que cambiaron al día siguiente, y
+/// nadie tendría cómo notarlo salvo comparando a mano.
+///
+/// **No entran el nombre ni el proceso, a propósito.** Renombrar un activo o moverlo de área
+/// no cambia el riesgo que alguien aprobó, y hacer que eso invalide un acta firmada obligaría
+/// a recoger las firmas otra vez por una corrección ortográfica.
+export function huellaDeAlcance(filas: readonly FilaAlcance[]): string {
+  const canonica = [...filas]
+    .map((f) => `${f.codigo}|${f.banda}|${f.cifra}`)
+    .sort()
+    .join('\n');
+  return createHash('sha256').update(canonica).digest('hex');
 }
