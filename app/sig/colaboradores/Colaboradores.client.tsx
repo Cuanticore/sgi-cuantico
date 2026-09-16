@@ -12,7 +12,11 @@
 // decisión se pueda discutir con el dato delante.
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
+import { crearColaborador } from '@/app/sig/acciones/colaborador-alta';
+import AltaColaborador from './AltaColaborador';
 
 type Filtro = 'todos' | 'activos' | 'inactivos' | 'anomalia';
 
@@ -46,13 +50,34 @@ export default function ColaboradoresClient({
   anomalias,
   composicion,
   tiposDeContrato,
+  areas,
+  cargos,
+  administra,
+  ultimaSincronizacion,
 }: {
   filas: ColaboradorFila[];
   anomalias: AnomaliaFila[];
   composicion: { etiqueta: string; n: number }[];
   tiposDeContrato: { id: number; nombre: string }[];
+  areas: { id: number; nombre: string }[];
+  cargos: { id: number; nombre: string }[];
+  administra: boolean;
+  /// La última corrida del Directorio, como texto ya formateado por el servidor. `null`
+  /// cuando nunca corrió: decir «nunca» es un dato, y una fecha inventada no lo es.
+  ultimaSincronizacion: string | null;
 }) {
+  const router = useRouter();
+  const [pendiente, iniciar] = useTransition();
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [dandoDeAlta, setDandoDeAlta] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('activos');
+
+  const sincronizar = (): void =>
+    iniciar(async () => {
+      const r = await sincronizarDirectorio();
+      setAviso({ ok: r.ok, texto: r.mensaje });
+      if (r.ok) router.refresh();
+    });
 
   const conteos = useMemo(
     () => ({
@@ -86,6 +111,66 @@ export default function ColaboradoresClient({
               calcula de la fecha de retiro, así que el tipo de contrato sobrevive al retiro.
             </p>
           </div>
+          {/* Las acciones superiores. El Directorio manda sobre quién existe, así que
+              sincronizar es la primera: antes de dar de alta a alguien a mano conviene ver
+              si el Directorio ya lo trajo. */}
+          {administra && (
+            <div className="ml-auto flex flex-none flex-col items-end gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={pendiente}
+                  onClick={sincronizar}
+                  className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5 text-secondary transition-colors hover:bg-app disabled:opacity-40"
+                >
+                  {pendiente ? 'Sincronizando…' : 'Sincronizar con el Directorio'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDandoDeAlta(true)}
+                  className="rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"
+                  style={{ background: 'var(--hf-brand-nav)' }}
+                >
+                  + Nuevo colaborador
+                </button>
+              </div>
+              <span className="font-mono text-9_5 text-label">
+                {ultimaSincronizacion === null
+                  ? 'el Directorio nunca se sincronizó'
+                  : `última sincronización · ${ultimaSincronizacion}`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {aviso && (
+          <p
+            className="mt-3 max-w-[100ch] text-12 [text-wrap:pretty]"
+            style={{ color: aviso.ok ? 'var(--hf-accent-700)' : 'var(--hf-danger-text)' }}
+          >
+            {aviso.texto}
+          </p>
+        )}
+
+        {dandoDeAlta && (
+          <AltaColaborador
+            tiposDeContrato={tiposDeContrato}
+            areas={areas}
+            cargos={cargos}
+            onCerrar={() => setDandoDeAlta(false)}
+            onCrear={async (datos) => {
+              const r = await crearColaborador(datos);
+              setAviso({ ok: r.ok, texto: r.mensaje });
+              if (r.ok) {
+                setDandoDeAlta(false);
+                router.refresh();
+              }
+              return r.ok;
+            }}
+          />
+        )}
+
+        <div className="mt-4 flex items-start gap-5">
           <nav className="ml-auto flex flex-none flex-wrap items-center gap-1.5">
             {(['todos', 'activos', 'inactivos', 'anomalia'] as const).map((f) => {
               const activo = filtro === f;

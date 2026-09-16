@@ -16,6 +16,10 @@
 // el conjunto real fue todo lo que hizo falta.
 
 import { prisma } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth';
+import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
+import { CAMPOS_DE_SINCRONIZACION } from '@/lib/sig/personas';
 import {
   anomalias,
   composicionPorContrato,
@@ -28,7 +32,10 @@ import ColaboradoresClient from './Colaboradores.client';
 export const dynamic = 'force-dynamic';
 
 export default async function ColaboradoresPage() {
-  const [personas, tipos, accesos, actas] = await Promise.all([
+  const session = await getServerSession(authOptions);
+  const administra = puede(rolDesdeGrupos(session?.user?.grupos), 'personas:administrar');
+
+  const [personas, tipos, accesos, actas, areas, cargos, ultimaCorrida] = await Promise.all([
     prisma.persona.findMany({
       orderBy: { nombre: 'asc' },
       include: {
@@ -52,6 +59,21 @@ export default async function ColaboradoresPage() {
     // PRO-TAL-01 los nombra.
     prisma.actaAceptacion.findMany({
       select: { personaId: true, contenido: { select: { codigo: true } } },
+    }),
+    prisma.area.findMany({ where: { activa: true }, orderBy: { orden: 'asc' }, select: { id: true, nombre: true } }),
+    prisma.cargoResponsable.findMany({
+      where: { activo: true },
+      orderBy: { orden: 'asc' },
+      select: { id: true, nombre: true },
+    }),
+    // La última corrida del Directorio, acotada por los campos que la sincronización escribe:
+    // sin ese filtro, una edición manual de tres campos desde el popup se vuelve «la última
+    // corrida» y la pantalla anuncia una sincronización que nunca ocurrió. Es el mismo
+    // criterio —y la misma lista— que usa `/sig/personas`.
+    prisma.bitacora.findFirst({
+      where: { tabla: 'persona', campo: { in: [...CAMPOS_DE_SINCRONIZACION] } },
+      orderBy: { ocurridoEn: 'desc' },
+      select: { ocurridoEn: true },
     }),
   ]);
 
@@ -131,6 +153,16 @@ export default async function ColaboradoresPage() {
       }))}
       composicion={composicionPorContrato(base)}
       tiposDeContrato={tipos}
+      areas={areas}
+      cargos={cargos}
+      administra={administra}
+      // Formateada en el servidor: el cliente no tiene por qué saber la zona horaria con la
+      // que se escribe una fecha del SIG.
+      ultimaSincronizacion={
+        ultimaCorrida === null
+          ? null
+          : ultimaCorrida.ocurridoEn.toISOString().slice(0, 16).replace('T', ' · ')
+      }
     />
   );
 }
