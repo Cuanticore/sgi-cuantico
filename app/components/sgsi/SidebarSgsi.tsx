@@ -98,6 +98,9 @@ const GRUPOS: Grupo[] = [
       { etiqueta: 'Matrices de riesgo', abreviatura: 'MTZ', href: '/sgsi/matrices' },
       { etiqueta: 'Madurez de los controles', abreviatura: 'MAD', href: '/sgsi/controles', contador: 'controles' },
       { etiqueta: 'Planes de tratamiento', abreviatura: 'PLA', href: '/sgsi/planes', contador: 'planes' },
+      // Va después de Planes y no antes: el residual que se aprueba es el que queda DESPUÉS
+      // del tratamiento, y la pantalla se entiende leyendo las dos en ese orden.
+      { etiqueta: 'Riesgo residual', abreviatura: 'RES', href: '/sgsi/riesgo-residual' },
     ],
   },
   {
