@@ -33,6 +33,13 @@ export interface RenglonFirmaVista {
   soporteId: number | null;
   /// Quién asentó la firma acá, que casi nunca es quien firmó.
   registradoPor: string | null;
+  /// Quiénes pueden firmar hoy por este proceso.
+  ///
+  /// **Se resuelve en vivo contra el cargo, no se congela con el acta.** El acta congela el
+  /// CARGO —eso es lo que se aprobó y quién responde por ello— pero quién ocupa ese cargo hoy
+  /// es un hecho del presente: si la persona cambió entre la emisión y la firma, quien firma
+  /// es la de ahora, y una lista congelada ofrecería a alguien que ya no está.
+  candidatos: { id: number; nombre: string }[];
 }
 
 export interface ActaVista {
@@ -101,6 +108,7 @@ export async function leerRiesgoResidual(periodo: string): Promise<VistaRiesgoRe
           select: {
             areaId: true,
             proceso: true,
+            cargoId: true,
             cargoNombre: true,
             resoluble: true,
             activos: true,
@@ -142,7 +150,18 @@ export async function leerRiesgoResidual(periodo: string): Promise<VistaRiesgoRe
 
   // Las personas del cargo líder de cada área, en una sola consulta. Preguntar por cada área
   // sería una consulta por proceso, y son diez.
-  const cargosLideres = areas.map((a) => a.liderCargoId).filter((x): x is number => x !== null);
+  //
+  // Entran también los cargos que el ACTA congeló, que pueden no ser ya el líder de su área:
+  // sin ellos, un proceso al que le cambiaron el cargo líder después de emitir se quedaría sin
+  // nadie a quien ofrecer para firmar el documento que ya está en la calle.
+  const cargosLideres = [
+    ...new Set(
+      [
+        ...areas.map((a) => a.liderCargoId),
+        ...(actaFila?.firmantes.map((f) => f.cargoId) ?? []),
+      ].filter((x): x is number => x !== null),
+    ),
+  ];
   const personas =
     cargosLideres.length === 0
       ? []
@@ -211,6 +230,7 @@ export async function leerRiesgoResidual(periodo: string): Promise<VistaRiesgoRe
               fechaFirma: f.fechaFirma?.toISOString().slice(0, 10) ?? null,
               soporteId: f.soporteId,
               registradoPor: f.registradoPor?.nombre ?? null,
+              candidatos: f.cargoId === null ? [] : (porCargo.get(f.cargoId) ?? []),
             })),
             soportes: actaFila.soportes.map((s) => ({
               id: s.id,

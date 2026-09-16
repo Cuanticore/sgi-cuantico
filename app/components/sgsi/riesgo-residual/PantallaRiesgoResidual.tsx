@@ -20,6 +20,7 @@ import { useState, useTransition } from 'react';
 import type { VistaRiesgoResidual } from '@/app/sgsi/riesgo-residual/acta.query';
 import type { EstadoActa } from '@/lib/sgsi/estado-acta-residual';
 import { emitirActaResidual } from '@/app/sgsi/acciones/acta-residual';
+import PopupFirmaResidual from './PopupFirmaResidual';
 
 const TEXTO_ESTADO: Record<EstadoActa, string> = {
   EMITIDA: 'Emitida · faltan firmas',
@@ -42,6 +43,7 @@ export default function PantallaRiesgoResidual({
 }) {
   const [pendiente, empezar] = useTransition();
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [registrando, setRegistrando] = useState(false);
 
   const acta = datos.acta;
   const criticos = datos.filas.filter((f) => f.banda === 'Crítico').length;
@@ -160,6 +162,7 @@ export default function PantallaRiesgoResidual({
                     ) : puedeEscribir && admiteFirmas && r.resoluble ? (
                       <button
                         type="button"
+                        onClick={() => setRegistrando(true)}
                         className="text-accent underline decoration-from-font underline-offset-2"
                       >
                         Registrar firma
@@ -172,13 +175,37 @@ export default function PantallaRiesgoResidual({
               ))}
             </tbody>
           </table>
-          {acta.renglones.some((r) => r.registradoPor !== null) && (
+          <p className="mt-1.5 text-10_5 text-faint">
+            Las firmas se hacen en papel. Lo que este sistema guarda es el registro de que
+            ocurrieron, con el soporte que las sostiene y quién lo asentó.
+          </p>
+
+          {acta.soportes.length > 0 && (
             <p className="mt-1.5 text-10_5 text-faint">
-              Las firmas se hacen en papel. Lo que este sistema guarda es el registro de que
-              ocurrieron, con el soporte que las sostiene y quién lo asentó.
+              {acta.soportes.length === 1 ? 'Soporte cargado' : 'Soportes cargados'}:{' '}
+              {acta.soportes.map((s, i) => (
+                <span key={s.id}>
+                  {i > 0 && ' · '}
+                  <a
+                    href={`/api/sgsi/acta-residual?que=soporte&id=${s.id}`}
+                    className="text-accent underline decoration-from-font underline-offset-2"
+                  >
+                    {s.nombre}
+                  </a>{' '}
+                  <span title={`sha256 ${s.sha256}`}>({s.cargadoEn})</span>
+                </span>
+              ))}
             </p>
           )}
         </section>
+      )}
+
+      {registrando && acta !== null && (
+        <PopupFirmaResidual
+          actaId={acta.id}
+          renglones={acta.renglones}
+          alCerrar={() => setRegistrando(false)}
+        />
       )}
 
       <section>

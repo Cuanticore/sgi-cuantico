@@ -6,7 +6,7 @@
 //   · dejar recoger firmas sobre un acta cuyas cifras ya cambiaron;
 //   · ofrecer acciones de escritura a quien sólo puede ver.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import PantallaRiesgoResidual from '../PantallaRiesgoResidual';
 import type { ActaVista, VistaRiesgoResidual } from '@/app/sgsi/riesgo-residual/acta.query';
 import type { FilaAlcance, FirmanteProceso } from '@/lib/sgsi/alcance-residual';
@@ -70,6 +70,7 @@ function acta(p: Partial<ActaVista> = {}): ActaVista {
         fechaFirma: null,
         soporteId: null,
         registradoPor: null,
+        candidatos: [{ id: 100, nombre: 'Ana Ruiz' }],
       },
     ],
     soportes: [],
@@ -124,6 +125,7 @@ describe('PantallaRiesgoResidual', () => {
           fechaFirma: null,
           soporteId: null,
           registradoPor: null,
+          candidatos: [],
         },
       ],
     });
@@ -157,6 +159,14 @@ describe('PantallaRiesgoResidual', () => {
   it('con el acta emitida y vigente sí deja registrar firmas', () => {
     render(<PantallaRiesgoResidual datos={vista({ acta: acta() })} puedeEscribir />);
     expect(screen.getAllByRole('button', { name: /registrar firma/i }).length).toBeGreaterThan(0);
+  });
+
+  // Un botón que existe y no hace nada pasa cualquier prueba que sólo compruebe que existe.
+  it('«Registrar firma» abre el popup', () => {
+    render(<PantallaRiesgoResidual datos={vista({ acta: acta() })} puedeEscribir />);
+    expect(screen.queryByText(/registrar las firmas del acta/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: /registrar firma/i })[0]);
+    expect(screen.getByText(/registrar las firmas del acta/i)).toBeInTheDocument();
   });
 
   it('sin permiso de escritura no ofrece ninguna acción que escriba', () => {
