@@ -228,6 +228,26 @@ export function conPendientes(
   };
 }
 
+/// Lo que el libro pide y el catálogo no tiene, MIRE LO QUE MIRE la persona haber decidido.
+///
+/// UN FALTANTE ES UNA PROPIEDAD DEL LIBRO Y DE LA BASE, no de las decisiones. Detectarlos
+/// con los alias puestos hacía que un mapeo se borrara a sí mismo: en cuanto alguien mapeaba
+/// «Claude» a «Nube otro proveedor» la fila resolvía, el faltante desaparecía, y la decisión
+/// quedaba huérfana — la validación la rechazaba con «El libro no pide la ubicación Claude».
+/// El servidor tachando lo que la persona acababa de decidir en su propia pantalla.
+///
+/// Por eso acá se descarta el alias explícitamente. La LECTURA sí lo aplica —para eso se
+/// decidió, y por eso la fila pasa limpia—, pero la lista de lo que hay que decidir no se
+/// encoge porque ya se haya decidido.
+export function faltantesDelLibro(
+  matriz: Matriz,
+  catalogos: Catalogos,
+  filaDeEncabezado = 1,
+): FaltanteCatalogo[] {
+  const { alias: _alias, ...sinAlias } = catalogos;
+  return leerFilas(matriz, sinAlias, filaDeEncabezado).faltantes;
+}
+
 /// One row of cell text per sheet row, header included, in template column order.
 export type Matriz = string[][];
 

@@ -7,7 +7,12 @@
 import { COLUMNAS_PLANTILLA } from '../plantilla';
 import { aTernario, entreCorchetes, esFormatoLegacy, leerFilas, type Catalogos } from '../plantilla-lectura';
 import { indiceDeAlias } from '../catalogos-curables';
-import { ID_POR_CREAR, LEGACY_NORMALIZAR, conPendientes } from '../plantilla-lectura';
+import {
+  ID_POR_CREAR,
+  LEGACY_NORMALIZAR,
+  conPendientes,
+  faltantesDelLibro,
+} from '../plantilla-lectura';
 
 const CATALOGOS: Catalogos = {
   tipos: [
@@ -467,5 +472,59 @@ describe('lo que se decidió CREAR, durante el análisis', () => {
     const conArea = conPendientes({ ...CATALOGOS, alias: indiceDeAlias(resoluciones) }, resoluciones);
 
     expect(conArea.areas).toHaveLength(CATALOGOS.areas.length);
+  });
+});
+
+describe('faltantesDelLibro', () => {
+  // EL MAPEO SE RECHAZABA A SI MISMO. Los faltantes se detectaban contra un catálogo que ya
+  // llevaba los alias puestos, así que en cuanto alguien mapeaba «Claude» a «Sede Bogotá»
+  // la fila resolvía y el faltante desaparecía. La decisión quedaba huérfana y la
+  // validación la rechazaba con «El libro no pide la ubicación Claude» — el servidor
+  // tachando lo que la persona acababa de decidir en su propia pantalla.
+
+  const CON_CLAUDE = () => [ENCABEZADO, fila({ ...VALIDA, ubicacion: 'Claude' })];
+
+  it('reporta lo que el libro pide y la base no tiene', () => {
+    expect(faltantesDelLibro(CON_CLAUDE(), CATALOGOS)).toEqual([
+      { catalogo: 'ubicacion', valor: 'Claude', filas: [2] },
+    ]);
+  });
+
+  it('lo sigue reportando aunque ya se haya decidido mapearlo', () => {
+    const decidido: Catalogos = {
+      ...CATALOGOS,
+      alias: indiceDeAlias([
+        { catalogo: 'ubicacion', valor: 'Claude', accion: 'mapear', destino: 'Sede Bogotá' },
+      ]),
+    };
+
+    // La LECTURA sí lo resuelve —para eso se decidió— y la fila pasa limpia...
+    expect(leerFilas(CON_CLAUDE(), decidido).filas[0].errores).toEqual([]);
+    // ...pero el libro sigue pidiendo «Claude», y la validación necesita saberlo para no
+    // tratar la decisión como si sobrara.
+    expect(faltantesDelLibro(CON_CLAUDE(), decidido)).toEqual([
+      { catalogo: 'ubicacion', valor: 'Claude', filas: [2] },
+    ]);
+  });
+
+  it('lo sigue reportando aunque ya se haya decidido crearlo', () => {
+    const decidido: Catalogos = {
+      ...CATALOGOS,
+      alias: indiceDeAlias([
+        { catalogo: 'ubicacion', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+      ]),
+    };
+
+    expect(faltantesDelLibro(CON_CLAUDE(), decidido)).toEqual([
+      { catalogo: 'ubicacion', valor: 'Claude', filas: [2] },
+    ]);
+  });
+
+  it('respeta desde qué fila arranca el libro', () => {
+    expect(faltantesDelLibro(CON_CLAUDE(), CATALOGOS, 7)[0].filas).toEqual([8]);
+  });
+
+  it('no inventa faltantes cuando el libro resuelve entero', () => {
+    expect(faltantesDelLibro([ENCABEZADO, fila(VALIDA)], CATALOGOS)).toEqual([]);
   });
 });
