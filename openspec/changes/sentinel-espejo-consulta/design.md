@@ -29,6 +29,7 @@ lectura de la documentación.
 | D8 | `enCurso` lo **declara** quien promueve; el sistema solo sugiere | Derivarlo de `estadoSentinel !== 'Closed'` | Un incidente abierto en la bandeja de triage no es lo mismo que un ataque en curso. `sugerirEnCurso()` marca la casilla; el valor guardado es la afirmación de una persona |
 | D9 | `sincronizadoEn` se escribe explícito en cada corrida | `@updatedAt` | La pregunta es «cuándo confirmó el espejo que esto sigue así», y es verdad también cuando nada cambió. `@updatedAt` no dispara si el update queda vacío |
 | D10 | El botón Promover se oculta sin `sgsi:escribir`; el control real es `autorConPermiso` | Solo ocultar el botón | Ocultar es ergonomía. Una server action es alcanzable por quien sepa formar la petición |
+| D11 | La ventana de tiempo va **solo** en el `timespan` del cuerpo de la petición; el KQL no lleva ningún `ago()` | Predicado de tiempo en el KQL; o los dos | Con los dos, la ventana más angosta gana en silencio y hay dos sitios donde buscar por qué falta una fila. Explícito en el cuerpo además evita depender del valor por omisión del endpoint cuando `timespan` se omite |
 
 ## Modelo de datos
 
@@ -45,8 +46,9 @@ lectura de la documentación.
 
 **Qué se normaliza**: fechas (a `DateTime`, para poder ordenar y comparar) y
 `propietarioCorreo` (extraído del JSON `Owner`, porque es el único campo que alguien lee).
-**Qué queda crudo**: `etiquetas` y `alertas`, texto JSON tal cual. Explotarlos a tablas
-inventaría un modelo de alertas que el SGI no usa y que Sentinel ya tiene.
+**Qué queda crudo**: `etiquetas` y `alertas`, como texto JSON (`aTextoJson`, porque la API
+los devuelve ya parseados). Explotarlos a tablas inventaría un modelo de alertas que el SGI
+no usa y que Sentinel ya tiene.
 **`severidadSentinel` y `estadoSentinel` llevan el sufijo en el nombre** (O5): son el
 vocabulario de Sentinel, no la severidad del SGSI —que es derivada de los impactos CID y no
 se almacena nunca— ni el estado del evento, que sale de `estadoDelEvento()`.
@@ -75,17 +77,22 @@ El CHECK `evidencia_un_solo_origen` no se toca.
 ## Módulo puro — `lib/sig/sentinel.ts` (+ `__tests__/sentinel.test.ts`)
 
 ```ts
-export const KQL_INCIDENTES: string;           // con arg_max(TimeGenerated, *) by IncidentNumber
+export const KQL_INCIDENTES: string;              // con arg_max(TimeGenerated, *) by IncidentNumber, SIN ago()
+export const TIMESPAN_SINCRONIZACION: string;     // ISO-8601, p. ej. 'P365D'
 export interface RespuestaLogAnalytics { tables: { name: string; columns: { name: string; type: string }[]; rows: unknown[][] }[] }
 export function aFilas(r: RespuestaLogAnalytics): ResultadoSentinel<Record<string, unknown>[]>;
 export function claveIncidente(valor: unknown): string;
+export function aTextoJson(valor: unknown): string | null;
 export function normalizarIncidente(fila: Record<string, unknown>): IncidenteEspejo;
-export function correoDelPropietario(ownerJson: unknown): string | null;
+export function correoDelPropietario(owner: unknown): string | null;
 export function descripcionPromovida(titulo: string, descripcion: string | null): string;
 export function sugerirEnCurso(estadoSentinel: string): boolean;
-export function clasificarSincronizacion(existentes: readonly IncidenteEspejo[], entrantes: readonly IncidenteEspejo[]): { nuevos: IncidenteEspejo[]; actualizados: IncidenteEspejo[]; sinCambios: number };
+export function clasificarSincronizacion(existentes: readonly IncidenteEspejo[], entrantes: readonly IncidenteEspejo[]): { nuevos: IncidenteEspejo[]; actualizados: IncidenteEspejo[]; sinCambios: string[] };
 export function variablesSentinelQueFaltan(entorno: Record<string, string | undefined>): string[];
 ```
+
+`ResultadoSentinel` y `FalloSentinel` viven en `sentinel-fallo.ts` y `sentinel.ts` los
+importa. Una sola dirección, para que no aparezca un ciclo.
 
 `aFilas` mapea **por nombre de columna**, leyendo `columns[]`. Indexar por posición hace que
 un reordenamiento de Azure corra todos los campos un lugar sin que nada falle.
@@ -94,9 +101,17 @@ un reordenamiento de Azure corra todos los campos un lugar sin que nada falle.
 llegar como número. Si el trabajo normaliza de una forma y la acción de otra, la clave del
 upsert se bifurca y el espejo duplica en producción con los tests en verde.
 
+`aTextoJson` es el mismo problema con otra cara: `Labels` y `AlertIds` son `dynamic` en KQL,
+así que la API los devuelve ya parseados —arreglo u objeto—, no como cadena. La conversión a
+texto vive en el módulo puro para que el trabajo y cualquier lector futuro coincidan;
+`normalizarIncidente` la usa para `etiquetas` y `alertas`. `correoDelPropietario` recibe
+`unknown` por lo mismo: `Owner` puede llegar como objeto o como cadena JSON, y las dos
+formas tienen que dar el mismo correo.
+
 `clasificarSincronizacion` compara una **proyección** que excluye `id` y `sincronizadoEn`;
 sin eso toda fila se reporta «actualizada» para siempre y el criterio de éxito 1 deja de
-significar algo.
+significar algo. Devuelve **claves**, no un conteo, porque D9 exige refrescar
+`sincronizadoEn` también en las filas sin cambios.
 
 ## Módulo puro — `lib/sig/sentinel-fallo.ts` (+ tests)
 
@@ -120,7 +135,8 @@ export async function consultarLogAnalytics(kql: string): Promise<ResultadoSenti
 Token: `POST https://login.microsoftonline.com/${SENTINEL_TENANT_ID}/oauth2/v2.0/token`,
 `grant_type=client_credentials`, `scope=https://api.loganalytics.io/.default`.
 Consulta: `POST https://api.loganalytics.io/v1/workspaces/${SENTINEL_WORKSPACE_ID}/query`,
-cuerpo `{ query }`, `Authorization: Bearer`.
+cuerpo `{ query: kql, timespan: TIMESPAN_SINCRONIZACION }`, `Authorization: Bearer`.
+El `timespan` va explícito y es la **única** ventana de tiempo (D11).
 
 Comprueba las variables **antes** de intentar la llamada y devuelve `SIN_CONFIGURAR` con los
 nombres exactos. Nunca lanza: todo `catch` cae en `SIN_RED`.
@@ -143,6 +159,7 @@ mitad sin la otra tumba el arranque. Import perezoso dentro de `IMPLEMENTACIONES
   idempotente reportara 19 creados cada hora y el criterio 1 sería inverificable desde la
   bitácora.
 - `detalle`: `"19 incidentes; 0 nuevos, 2 actualizados, 17 sin cambios"`.
+- Después de los upserts, **un solo** `incidenteSentinel.updateMany({ where: { numeroIncidente: { in: todasLasClaves } }, data: { sincronizadoEn: ahora } })`. La clasificación solo alimenta `creados` y `detalle`; quien escribe `sincronizadoEn` es el `updateMany`, y por eso también las filas sin cambios quedan refrescadas (D9).
 - Ante `!ok` lanza con `explicarFalloSentinel(fallo)`; `correrTrabajo` lo atrapa y deja
   `EjecucionTrabajo` FALLIDO con el mensaje. Mismo contrato que `enviar-notificaciones`.
 
@@ -157,23 +174,27 @@ export async function promoverIncidenteSentinel(
 
 1. `autorConPermiso('sgsi:escribir')` — promover es decisión del SGSI, no observación
    espontánea; O1 no aplica y reportar a mano sigue sin pedir permiso.
-2. Resuelve `Persona` por `correo`; sin ficha, no promueve.
-3. Lee el espejo por `claveIncidente(numeroIncidente)`; si no está, dice que hay que
+2. `const dondeId = idOpcional(datos.dondeId, 'el lugar')` (`sesion.ts:50`). Sin eso, un
+   `<select>` de lugares vacío manda `undefined` o `0` hasta Prisma y la pantalla muestra un
+   error crudo de base de datos — el defecto que `idOpcional` existe para cerrar
+   (`sesion.ts:29-34`).
+3. Resuelve `Persona` por `correo`; sin ficha, no promueve.
+4. Lee el espejo por `claveIncidente(numeroIncidente)`; si no está, dice que hay que
    sincronizar.
-4. Si ya fue promovido, devuelve `ok: false` con el código del evento existente. **La
+5. Si ya fue promovido, devuelve `ok: false` con el código del evento existente. **La
    consulta es para el mensaje; la garantía es el índice único** — el `P2002` se atrapa y
    produce el mismo mensaje, para que un doble clic sea una frase y no un 500.
-5. Transacción: `contadorEvento.upsert` → `codigoEvento(anio, n)` → `eventoSeguridad.create`
+6. Transacción: `contadorEvento.upsert` → `codigoEvento(anio, n)` → `eventoSeguridad.create`
    con `descripcion: descripcionPromovida(titulo, descripcion)` (O15, se compone una vez y
    no se reescribe), `fechaOcurrencia: primeraActividad ?? creadoEnSentinel` (cuándo ocurrió,
    no cuándo Sentinel se enteró; el respaldo es obligatorio porque `FirstActivityTime` puede
-   venir nula), `enCurso: datos.enCurso`, `reportadoPorId: persona.id`, `veredicto: null`,
-   `justificacion: null`, y las tres columnas de origen.
-6. Bitácora **dentro de la transacción**, dos entradas: `registrarAlta` (el evento existe) y
+   venir nula), `enCurso: datos.enCurso`, `dondeId`, `reportadoPorId: persona.id`,
+   `veredicto: null`, `justificacion: null`, y las tres columnas de origen.
+7. Bitácora **dentro de la transacción**, dos entradas: `registrarAlta` (el evento existe) y
    `registrar` con `campo: 'promoción'`, `nuevo: 'Microsoft Sentinel · {numero}'`,
    `motivo: 'promoción del espejo de Sentinel'`. Sin la segunda, el rastro no responde quién
    decidió que esto entrara al SGSI.
-7. `revalidatePath('/sgsi/sentinel')` y `revalidatePath('/sgsi/eventos')`.
+8. `revalidatePath('/sgsi/sentinel')` y `revalidatePath('/sgsi/eventos')`.
 
 ## La vista
 
@@ -215,12 +236,14 @@ tenía. Nada revienta con un 500.
 | Qué | Cómo |
 |---|---|
 | `aFilas` mapea por nombre | Respuesta con las columnas en otro orden sigue dando lo mismo |
-| `KQL_INCIDENTES` | Contiene `arg_max(TimeGenerated, *) by IncidentNumber`; sin eso el espejo duplica |
+| `KQL_INCIDENTES` | Contiene `arg_max(TimeGenerated, *) by IncidentNumber` (sin eso el espejo duplica) y **no** contiene `ago(` (D11: una sola ventana, la del `timespan`) |
+| `TIMESPAN_SINCRONIZACION` | Es ISO-8601 válido y no está vacío |
 | `claveIncidente` | `42` y `'42'` producen la misma clave |
+| `aTextoJson` | Arreglo parseado y cadena JSON equivalente producen el mismo texto; `null`/`undefined` → `null` |
 | `correoDelPropietario` | JSON válido → correo; JSON roto → `null` sin lanzar; ausente → `null` |
 | `descripcionPromovida` | Compone título y descripción; descripción vacía no deja separador colgando |
 | `sugerirEnCurso` | `Closed` → `false`; `New` y `Active` → `true` |
-| `clasificarSincronizacion` | Mismos datos → 0 nuevos, 0 actualizados (criterio 1); un campo distinto → actualizado; número nuevo → nuevo |
+| `clasificarSincronizacion` | Mismos datos → 0 nuevos, 0 actualizados y **todas** las claves en `sinCambios` (criterio 1 + D9); un campo distinto → actualizado; número nuevo → nuevo; `id` y `sincronizadoEn` distintos NO cuentan como cambio |
 | `variablesSentinelQueFaltan` | Nombra la que falta, no las cuatro; en blanco cuenta como ausente |
 | `sentinel-fallo` | Ninguna frase se repite; 403 habla del **rol** y no de permisos de aplicación; 404 habla del workspace id; cero filas no es fallo |
 
@@ -237,4 +260,10 @@ sincronización, `disponible: false` **junto con** la baja en `IMPLEMENTACIONES`
 
 ## Preguntas abiertas
 
-Ninguna que bloquee.
+- [ ] **El valor de `TIMESPAN_SINCRONIZACION` hay que verificarlo contra el workspace real.**
+  La primera corrida tiene que devolver los 19 incidentes. Una ventana corta de más no rompe
+  nada de forma visible —D6 dice que el trabajo no borra— y ahí está el peligro: el espejo
+  dejaría de crecer en silencio. Se fija con una corrida contra `law-sentinel-cuantico` antes
+  de dar el trabajo por bueno, y el resultado se anota en el comentario de la constante.
+  Ojo: la retención del workspace puede ser más angosta que la ventana; si lo es, manda la
+  retención y eso hay que dejarlo escrito, no descubrirlo después.

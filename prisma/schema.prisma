@@ -3399,6 +3399,14 @@ model EventoSeguridad {
   leccionAprendida  String?    @map("leccion_aprendida")
   fechaCierre       DateTime?  @map("fecha_cierre")
   cerradoPorId      Int?       @map("cerrado_por_id")
+  /// D2 · el vínculo con el espejo de Sentinel vive acá, no en `IncidenteSentinel`. Dos
+  /// columnas para el mismo hecho serían dos verdades, y una referencia de texto (no una
+  /// FK) permite apuntar a un sistema de origen que no tenga tabla espejo propia.
+  origenSistema     SistemaOrigenEvento? @map("origen_sistema")
+  origenIdExterno   String?              @map("origen_id_externo")
+  /// D2 · se guarda, no se compone: la URL trae suscripción, grupo de recursos y
+  /// workspace, y armarla en el SGI incrustaría la topología de Azure en una vista.
+  origenUrl         String?              @map("origen_url")
 
   donde        LugarEvento?         @relation(fields: [dondeId], references: [id])
   motivacion   MotivacionIncidente? @relation(fields: [motivacionId], references: [id])
@@ -3412,6 +3420,10 @@ model EventoSeguridad {
   evidencias   Evidencia[]          @relation("EvidenciaEvento")
 
   @@index([veredicto, creadoEn])
+  /// Nullable a propósito: en Postgres dos filas con NULL no colisionan en un índice
+  /// único, así que todo evento reportado a mano pasa sin tocar esta restricción, mientras
+  /// dos promociones del mismo incidente externo chocan.
+  @@unique([origenSistema, origenIdExterno], map: "evento_origen_unico")
   @@map("evento_seguridad")
 }
 
@@ -3477,6 +3489,57 @@ model ContadorEvento {
   ultimoValor Int @default(0) @map("ultimo_valor")
 
   @@map("contador_evento")
+}
+
+// ─── Espejo de consulta de Microsoft Sentinel ──────────────────────────────────────────
+
+/// D3 · conjunto cerrado a propósito: agregar un sistema de origen exige código nuevo (un
+/// trabajo y un mapeo), es decir migración de todos modos. Texto libre admitiría
+/// `sentinel` y `Sentinel` como dos sistemas distintos.
+enum SistemaOrigenEvento {
+  SENTINEL
+
+  @@map("sistema_origen_evento")
+}
+
+/// Espejo de solo lectura de `SecurityIncident` en Log Analytics. Nunca se escribe hacia
+/// Sentinel desde acá — D6: el trabajo de sincronización tampoco borra filas, así que un
+/// incidente que deja de aparecer conserva su último estado conocido.
+///
+/// `severidadSentinel` y `estadoSentinel` llevan el sufijo (O5): son el vocabulario de
+/// Sentinel, no la severidad del SGSI —derivada de los impactos CID, nunca almacenada
+/// directamente— ni el estado del evento. `clasificacion` se guarda y jamás alimenta
+/// `veredicto`/`justificacion` de un evento promovido.
+model IncidenteSentinel {
+  id                      Int       @id @default(autoincrement())
+  /// D1 · identificador ajeno: nunca se suma ni se ordena como número, por eso es texto y
+  /// no `Int`. `claveIncidente()` en `lib/sig/sentinel.ts` normaliza número y texto antes
+  /// de llegar acá.
+  numeroIncidente         String    @unique @map("numero_incidente")
+  titulo                  String
+  descripcion             String?
+  severidadSentinel       String    @map("severidad_sentinel")
+  estadoSentinel          String    @map("estado_sentinel")
+  clasificacion           String?
+  comentarioClasificacion String?   @map("comentario_clasificacion")
+  creadoEnSentinel        DateTime  @map("creado_en_sentinel")
+  primeraActividad        DateTime? @map("primera_actividad")
+  ultimaActividad         DateTime? @map("ultima_actividad")
+  cerradoEnSentinel       DateTime? @map("cerrado_en_sentinel")
+  url                     String
+  proveedor               String
+  propietarioCorreo       String?   @map("propietario_correo")
+  /// Texto JSON crudo (`aTextoJson()`): explotarlo a tablas inventaría un modelo de
+  /// alertas que el SGI no usa y que Sentinel ya tiene.
+  etiquetas               String?
+  alertas                 String?
+  /// D9 · se escribe explícito en cada corrida, nunca `@updatedAt`: la pregunta es
+  /// «cuándo confirmó el espejo que esto sigue así», y es verdad también cuando nada
+  /// cambió — `@updatedAt` no dispara si el update queda vacío.
+  sincronizadoEn          DateTime  @map("sincronizado_en")
+
+  @@index([estadoSentinel, creadoEnSentinel])
+  @@map("incidente_sentinel")
 }
 
 // ─── Verificaciones programadas y metricas (REQ-SIG-07 §3.3 y §3.4) ────────────────────
