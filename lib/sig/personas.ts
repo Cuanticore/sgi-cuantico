@@ -7,6 +7,15 @@
 // La identidad es el `oid` de Azure, no el correo. Un matrimonio, un apellido corregido o
 // una migración de dominio cambian el UPN sin cambiar a la persona.
 
+/// El prefijo que distingue un oid inventado por nosotros de uno de Azure AD.
+///
+/// Vive acá y no junto al alta manual porque ese archivo es `'use server'`, donde cada
+/// export se convierte en un endpoint RPC invocable desde el navegador. Una constante no es
+/// invocable: exportarla desde ahí rompe el build y —peor— deja el módulo entero sin
+/// exports. Pasó el 16/09/2026 y tumbó un despliegue. Ver `lib/__tests__/use-server.test.ts`.
+export const PREFIJO_OID_MANUAL = 'manual:';
+
+
 export interface EntradaDirectorio {
   oid: string;
   nombre: string;

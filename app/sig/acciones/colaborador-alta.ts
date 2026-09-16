@@ -33,9 +33,10 @@ import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { registrarAlta } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
-
-/// El prefijo que distingue un oid inventado por nosotros de uno de Azure AD.
-export const PREFIJO_OID_MANUAL = 'manual:';
+// Vive en `lib/sig/personas.ts` y no acá: este archivo es `'use server'`, y ahí cada export
+// se vuelve un endpoint RPC invocable desde el navegador. Una constante no es invocable, y
+// exportarla dejaba el modulo ENTERO sin exports — incluido `crearColaborador`.
+import { PREFIJO_OID_MANUAL } from '@/lib/sig/personas';
 
 export interface ColaboradorNuevo {
   nombre: string;

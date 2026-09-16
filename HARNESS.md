@@ -18,6 +18,7 @@ en verde** y reventaron en el primer uso real:
 | `rowCount` inflado | 1963 | el proceso moría por falta de memoria al subir el archivo |
 | Bucle al crear catálogo | 2020 | elegir «crear» no llevaba a ningún lado: se revalidaba para siempre |
 | El mapeo se borraba a sí mismo | 2030 | el servidor rechazaba la decisión que la persona acababa de tomar |
+| `export const` en `'use server'` | 2093 | el despliegue falló: `main` no compilaba |
 
 Los tres comparten la misma forma. **Ninguno era un defecto de una pieza: los tres vivían
 entre las piezas.** Cada unidad hacía bien su trabajo; lo que fallaba era la composición —
@@ -50,10 +51,21 @@ npx prisma generate     # obligatorio antes de tsc, si no da ~30 falsos errores
 npx tsc --noEmit        # 0 errores
 npm run lint            # 0 errores (los 5 warnings preexistentes se toleran)
 npm test                # todo verde
+npm run build           # tiene que compilar
 ```
 
-`next build` **ignora los errores de TypeScript** (`ignoreBuildErrors: true`), así que el
-build no es una red. `tsc --noEmit` es la única verificación de tipos que corre.
+`next build` **ignora los errores de TypeScript** (`ignoreBuildErrors: true`), así que no
+reemplaza a `tsc --noEmit`. Pero tampoco al revés: hay errores que **sólo** el build ve.
+
+**El build entró a esta lista el 16/09/2026, y por una cicatriz.** Un `export const` en un
+archivo `'use server'` tumbó el despliegue de `main`. Los otros tres checks daban verde:
+`tsc` no conoce la regla —no es de tipos, es de la frontera cliente/servidor—, ESLint
+tampoco, y Jest no aplica la directiva. Producción se quedó con la imagen anterior.
+
+Cuando un error de build se pueda convertir en un test, conviértelo: `npm run build` tarda
+más de un minuto y `lib/__tests__/use-server.test.ts` cubre esa misma clase de fallo en
+milisegundos, sobre los 36 archivos a la vez. El build sigue siendo obligatorio igual —
+atrapa lo que todavía no tiene test.
 
 Y el CI **no corre en el PR**: el workflow se dispara con el push a `main`. Si estos
 comandos no se corren a mano antes de mergear, no los corre nadie.
