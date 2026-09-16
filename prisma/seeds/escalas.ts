@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
-import { RUBRICA } from '../../lib/sgsi/madurez';
+import { CATALOGO_RELEVANCIA, RUBRICA } from '../../lib/sgsi/madurez';
 
 const DATA = join(process.cwd(), 'prisma', 'data');
 
@@ -107,31 +107,19 @@ export async function seedEscalas(prisma: PrismaClient): Promise<void> {
     await prisma.umbralRiesgo.upsert({ where: { orden: i + 1 }, update: datos, create: datos });
   }
 
-  // MET-SIG-01 section 7.4. Not in the workbook: today it aggregates with a plain mean,
-  // which the methodology replaces with this weighted-and-capped rule.
-  const relevancias = [
-    {
-      nombre: 'Principal',
-      peso: 3,
-      esPrincipal: true,
-      criterio: 'Sin este control la amenaza no se contiene. Cada amenaza tiene exactamente uno.',
-      orden: 1,
-    },
-    {
-      nombre: 'Complementario',
-      peso: 2,
-      esPrincipal: false,
-      criterio: 'Reduce la amenaza de forma sustantiva, pero no sustituye al principal.',
-      orden: 2,
-    },
-    {
-      nombre: 'De apoyo',
-      peso: 1,
-      esPrincipal: false,
-      criterio: 'Ayuda por vía administrativa o cultural.',
-      orden: 3,
-    },
-  ];
+  // MET-SIG-01 section 7.4, with the 70/20/10 budgets of REQ-SIG-21 section 4.
+  //
+  // The names are NOT written here. `CATALOGO_RELEVANCIA` is the single declaration, shared
+  // with the formula and with the screens: the class a control falls into and the name the
+  // catalogue gives it are one fact, and stating it twice is how «Complementario» ended up
+  // labelling the 10 % group on one tab and the 20 % group on the next.
+  const relevancias = CATALOGO_RELEVANCIA.map((r) => ({
+    nombre: r.nombre,
+    peso: r.peso,
+    esPrincipal: r.esPrincipal,
+    criterio: r.criterio,
+    orden: r.orden,
+  }));
   for (const r of relevancias) {
     await prisma.relevanciaControl.upsert({ where: { nombre: r.nombre }, update: r, create: r });
   }

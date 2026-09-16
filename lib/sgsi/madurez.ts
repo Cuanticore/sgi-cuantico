@@ -357,6 +357,64 @@ export function claseDeControl(control: ControlAgregable): ClaseRelevancia {
   return control.peso >= 2 ? 'secundario' : 'complementario';
 }
 
+/// Una clase de relevancia, con TODO lo que se dice de ella en un solo lugar: cómo la nombra
+/// el catálogo, cuánto peso y presupuesto le toca, y con qué criterio se elige.
+export interface RelevanciaCatalogo {
+  clase: ClaseRelevancia;
+  /// El nombre de `relevancia_control.nombre` — el que ofrece el selector y el que la
+  /// persona que clasifica tiene en la cabeza. NO es el nombre de la clase.
+  nombre: string;
+  peso: number;
+  esPrincipal: boolean;
+  presupuesto: number;
+  criterio: string;
+  orden: number;
+}
+
+/// LA ÚNICA DECLARACIÓN de las tres clases. `prisma/seeds/escalas.ts` la siembra en
+/// `relevancia_control` y la interfaz la lee para rotular, así que el nombre del catálogo y
+/// la clase de la fórmula no pueden separarse.
+///
+/// Estuvieron separadas hasta REQ-SIG-21 y el efecto no fue un nombre distinto: fue un nombre
+/// que señalaba al grupo equivocado. La pantalla imprimía la clase en mayúsculas, de modo que
+/// «COMPLEMENTARIO» en la pestaña Ecuación era el grupo del 10 % mientras «Complementario» en
+/// el selector era el del 20 %. Las dos cosas se leen en la misma ficha.
+export const CATALOGO_RELEVANCIA: readonly RelevanciaCatalogo[] = [
+  {
+    clase: 'principal',
+    nombre: 'Principal',
+    peso: 3,
+    esPrincipal: true,
+    presupuesto: PRESUPUESTO_CLASE.principal,
+    criterio: 'Sin este control la amenaza no se contiene. Cada amenaza tiene exactamente uno.',
+    orden: 1,
+  },
+  {
+    clase: 'secundario',
+    nombre: 'Complementario',
+    peso: 2,
+    esPrincipal: false,
+    presupuesto: PRESUPUESTO_CLASE.secundario,
+    criterio: 'Reduce la amenaza de forma sustantiva, pero no sustituye al principal.',
+    orden: 2,
+  },
+  {
+    clase: 'complementario',
+    nombre: 'De apoyo',
+    peso: 1,
+    esPrincipal: false,
+    presupuesto: PRESUPUESTO_CLASE.complementario,
+    criterio: 'Ayuda por vía administrativa o cultural.',
+    orden: 3,
+  },
+];
+
+/// Lo que el catálogo dice de una clase. Total: las tres están declaradas arriba, así que
+/// no hay caso «no encontrada» que el llamador tenga que manejar.
+export function catalogoDeClase(clase: ClaseRelevancia): RelevanciaCatalogo {
+  return CATALOGO_RELEVANCIA.find((r) => r.clase === clase)!;
+}
+
 /// Lo que una clase aportó a la eficacia bruta. `presupuesto` es el nominal renormalizado
 /// sobre las clases PRESENTES: una amenaza sin complementarios reparte 77.8 / 22.2, no
 /// 70 / 20 dejando un 10 % perdido. Repartir el presupuesto huérfano entre las otras

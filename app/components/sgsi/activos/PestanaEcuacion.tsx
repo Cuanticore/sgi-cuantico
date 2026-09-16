@@ -14,8 +14,9 @@
 import { useState, type ReactNode } from 'react';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import type { DesgloseEficacia, EcuacionResuelta } from '@/lib/sgsi/ecuacion';
-import type { AporteClase, ClaseRelevancia } from '@/lib/sgsi/madurez';
+import type { AporteClase } from '@/lib/sgsi/madurez';
 import type { Catalogos } from './ficha.query';
+import { criterioClase, rotuloClase, TONO_CLASE } from './clases-relevancia';
 
 interface Props {
   codigoAmenaza: string;
@@ -37,27 +38,6 @@ function puntos(valor: number): string {
   return `${(valor * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })} pp`;
 }
 
-/// Rampa ORDINAL de un solo tono (REQ-SIG-21 §7): las tres clases están ordenadas, así que
-/// tres matices distintos dirían que son categorías independientes. Los tres pasos pasan
-/// `scripts/validate_palette.js --mode light --surface "#ffffff" --ordinal`.
-const TONO_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
-  principal: '#1b3a8a',
-  secundario: '#4874c2',
-  complementario: '#93b4e0',
-};
-
-const NOMBRE_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
-  principal: 'PRINCIPAL',
-  secundario: 'SECUNDARIO',
-  complementario: 'COMPLEMENTARIO',
-};
-
-const CRITERIO_CLASE: Readonly<Record<ClaseRelevancia, string>> = {
-  principal: 'Sin este control la amenaza no se contiene. Cada amenaza tiene exactamente uno.',
-  secundario: 'Reduce la amenaza de forma sustantiva, pero no sustituye al principal.',
-  complementario: 'Ayuda por vía administrativa o cultural.',
-};
-
 /// El reparto por clase del paso 5: presupuesto, media dentro de la clase y aporte. No
 /// calcula nada — `desglosarEficaciaAmenaza` ya resolvió cada fila.
 function FilaClase({ aporte }: { aporte: AporteClase }) {
@@ -71,7 +51,7 @@ function FilaClase({ aporte }: { aporte: AporteClase }) {
           style={{ backgroundColor: TONO_CLASE[aporte.clase] }}
         />
         <span className="font-mono text-10_5 tracking-[0.06em] text-primary">
-          {NOMBRE_CLASE[aporte.clase]}
+          {rotuloClase(aporte.clase)}
         </span>
         <span className="font-mono text-10_5 text-muted">
           {porcentaje(aporte.presupuesto)}
@@ -83,7 +63,7 @@ function FilaClase({ aporte }: { aporte: AporteClase }) {
         <span className="ml-auto cifra text-12 text-primary">aporta {puntos(aporte.aporte)}</span>
       </div>
       <p className="pl-[18px] text-10_5 text-faint [text-wrap:pretty]">
-        {CRITERIO_CLASE[aporte.clase]}
+        {criterioClase(aporte.clase)}
       </p>
     </li>
   );
