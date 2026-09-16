@@ -27,7 +27,16 @@ import {
   type FilaLeida,
   type OpcionesCatalogo,
 } from '@/lib/sgsi/plantilla';
-import { leerFilas, esFormatoLegacy, claveLegacy, LEGACY_NORMALIZAR, type Catalogos, type FilaResuelta } from '@/lib/sgsi/plantilla-lectura';
+import {
+  ID_POR_CREAR,
+  LEGACY_NORMALIZAR,
+  claveLegacy,
+  conPendientes,
+  esFormatoLegacy,
+  leerFilas,
+  type Catalogos,
+  type FilaResuelta,
+} from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
 import {
   CATALOGOS_CURABLES,
@@ -301,14 +310,29 @@ async function leer(
 }> {
   const [libro, base] = await Promise.all([abrir(datos), catalogos()]);
   const { matriz, filaDeEncabezado } = libro;
+  // `catalogo` es el REAL —lo que hay hoy en la base— y es contra el que se validan las
+  // resoluciones y se arman las opciones de «mapear a».
   const catalogo: Catalogos = { ...base, alias: indiceDeAlias(resoluciones) };
-  const lectura = leerFilas(matriz, catalogo, filaDeEncabezado);
+  // La lectura, en cambio, va contra el catálogo con las creaciones pendientes puestas: sin
+  // eso el análisis nunca deja de pedir lo que ya se decidió crear, porque analizar no
+  // escribe. Los ids que salgan de ahí son provisionales; la importación relee dentro de su
+  // transacción con los reales.
+  const conCreaciones = conPendientes(catalogo, resoluciones);
+  const lectura = leerFilas(matriz, conCreaciones, filaDeEncabezado);
+  // Los faltantes se reportan contra el catálogo REAL. Si salieran de la lectura de arriba,
+  // desaparecerían en cuanto la persona decide y perdería de vista lo que eligió — además
+  // de que `problemasDeResoluciones` necesita la lista completa para exigir una decisión
+  // por cada uno. Cuando no hay nada decidido las dos lecturas son la misma y no se repite.
+  const faltantes =
+    conCreaciones === catalogo
+      ? lectura.faltantes
+      : leerFilas(matriz, catalogo, filaDeEncabezado).faltantes;
   if (lectura.filas.length === 0) {
     throw new PlantillaError(
       'No encontré filas con datos. Revisa que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
     );
   }
-  return { ...lectura, matriz, filaDeEncabezado, catalogo };
+  return { ...lectura, faltantes, matriz, filaDeEncabezado, catalogo };
 }
 
 /// Las decisiones que la persona tomó sobre los faltantes, tal como viajan en el formulario.
@@ -837,6 +861,17 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
       }
 
       for (const f of resueltas) {
+        // Un id provisional acá seria una clave foranea inexistente. Solo puede pasar si la
+        // relectura de arriba no corrio, y vale mas revertir la transaccion entera que
+        // escribir un activo colgado de la nada.
+        for (const id of [f.custodioId, f.propietarioId, f.ubicacionId, f.entornoId, f.proveedorId]) {
+          if (id === ID_POR_CREAR) {
+            throw new Error(
+              `La fila ${f.fila} quedo apuntando a un catalogo que no se llego a crear.`,
+            );
+          }
+        }
+
         const area = porArea.get(f.areaId);
         const tipo = porTipo.get(f.tipoId);
         if (!area || !tipo) throw new Error(`La fila ${f.fila} quedó sin área o sin tipo.`);

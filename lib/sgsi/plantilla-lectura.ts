@@ -11,11 +11,13 @@
 import {
   agruparFaltantes,
   aplicarAlias,
+  esCreable,
   indiceDeAlias,
   type CatalogoCurable,
   type FaltanteCatalogo,
   type IndiceAlias,
   type RegistroFaltante,
+  type Resolucion,
 } from './catalogos-curables';
 
 import { COLUMNAS_PLANTILLA } from './plantilla';
@@ -181,6 +183,49 @@ export function aTernario(v: string): Ternario {
 /// mistake, not a data mistake.
 function igual(a: string, b: string): boolean {
   return a.localeCompare(b, 'es', { sensitivity: 'base' }) === 0;
+}
+
+/// El id de una fila de catálogo que TODAVÍA NO EXISTE, y que la importación va a crear.
+///
+/// Es negativo para que nunca se confunda con un id real de Postgres, que arranca en 1. Si
+/// uno de éstos llegara a una escritura sería una clave foránea inexistente, así que vale
+/// más que reviente de forma reconocible a que se cuele.
+export const ID_POR_CREAR = -1;
+
+/// El catálogo con las filas que la persona decidió crear, agregadas de forma provisional.
+///
+/// EL ANÁLISIS NO ESCRIBE NADA, y ahí estaba el bucle: un proveedor marcado para crear
+/// seguía sin estar en el catálogo, así que la fila fallaba igual y el faltante volvía a
+/// salir. El botón decía «Aplicar y revalidar» para siempre y el de importar no aparecía
+/// nunca. Elegir «crear» no llevaba a ningún lado.
+///
+/// Con esto el parte dice la verdad —cuántas filas van a quedar listas SI se crea lo que se
+/// decidió— sin tocar la base. La importación relee dentro de su transacción con los ids
+/// reales, así que estos provisionales no sobreviven al análisis.
+///
+/// Los catálogos que no se pueden crear no se tocan: agregar un área provisional diría que
+/// la carga puede seguir cuando el servidor la va a rechazar.
+export function conPendientes(
+  catalogos: Catalogos,
+  resoluciones: readonly Resolucion[],
+): Catalogos {
+  const porCrear = resoluciones.filter((r) => r.accion === 'crear' && esCreable(r.catalogo));
+  if (porCrear.length === 0) return catalogos;
+
+  const sumar = (catalogo: CatalogoCurable, filas: { id: number; nombre: string }[]) => [
+    ...filas,
+    ...porCrear
+      .filter((r) => r.catalogo === catalogo)
+      .map((r) => ({ id: ID_POR_CREAR, nombre: (r as { nombre: string }).nombre })),
+  ];
+
+  return {
+    ...catalogos,
+    cargos: sumar('cargo', catalogos.cargos),
+    proveedores: sumar('proveedor', catalogos.proveedores),
+    ubicaciones: sumar('ubicacion', catalogos.ubicaciones),
+    entornos: sumar('entorno', catalogos.entornos),
+  };
 }
 
 /// One row of cell text per sheet row, header included, in template column order.

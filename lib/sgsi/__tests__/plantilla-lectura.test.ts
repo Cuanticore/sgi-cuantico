@@ -7,7 +7,7 @@
 import { COLUMNAS_PLANTILLA } from '../plantilla';
 import { aTernario, entreCorchetes, esFormatoLegacy, leerFilas, type Catalogos } from '../plantilla-lectura';
 import { indiceDeAlias } from '../catalogos-curables';
-import { LEGACY_NORMALIZAR } from '../plantilla-lectura';
+import { ID_POR_CREAR, LEGACY_NORMALIZAR, conPendientes } from '../plantilla-lectura';
 
 const CATALOGOS: Catalogos = {
   tipos: [
@@ -394,5 +394,78 @@ describe('el número de fila que se reporta', () => {
 
     expect(faltantes[0].filas).toEqual([filas[0].fila]);
     expect(faltantes[0].filas).toEqual([8]);
+  });
+});
+
+describe('lo que se decidió CREAR, durante el análisis', () => {
+  // EL BUCLE. El análisis no escribe nada, así que un proveedor marcado para crear seguía
+  // sin estar en el catálogo: la fila fallaba igual y el faltante volvía a salir. El botón
+  // decía «Aplicar y revalidar» para siempre y el de importar no aparecía nunca, porque
+  // sólo aparece cuando no quedan faltantes. Elegir «crear» no llevaba a ningún lado.
+
+  const conCreacion = (resoluciones: Parameters<typeof conPendientes>[1]) =>
+    leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, proveedor: 'Claude' })],
+      conPendientes(
+        { ...CATALOGOS, alias: indiceDeAlias(resoluciones) },
+        resoluciones,
+      ),
+    );
+
+  it('deja de contarse como faltante: ya está decidido', () => {
+    const { faltantes } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(faltantes).toEqual([]);
+  });
+
+  it('la fila pasa a estar lista, para que el parte diga la verdad', () => {
+    const { filas, resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(filas[0].errores).toEqual([]);
+    expect(resueltas).toHaveLength(1);
+  });
+
+  it('el id es provisional y se reconoce como tal', () => {
+    // La importación relee DENTRO de la transacción con los ids reales. Si uno de éstos
+    // llegara a la escritura sería un id inexistente, así que se marca para poder detectarlo.
+    const { resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Claude' },
+    ]);
+
+    expect(resueltas[0].proveedorId).toBe(ID_POR_CREAR);
+    expect(ID_POR_CREAR).toBeLessThan(0);
+  });
+
+  it('el nombre corregido es el que entra al catálogo provisional', () => {
+    const { faltantes, resueltas } = conCreacion([
+      { catalogo: 'proveedor', valor: 'Claude', accion: 'crear', nombre: 'Anthropic' },
+    ]);
+
+    expect(faltantes).toEqual([]);
+    expect(resueltas).toHaveLength(1);
+  });
+
+  it('un «mapear» no agrega nada al catálogo: apunta a algo que ya está', () => {
+    const resoluciones = [
+      { catalogo: 'proveedor' as const, valor: 'Claude', accion: 'mapear' as const, destino: 'Microsoft' },
+    ];
+    const conMapeo = conPendientes({ ...CATALOGOS, alias: indiceDeAlias(resoluciones) }, resoluciones);
+
+    expect(conMapeo.proveedores).toHaveLength(CATALOGOS.proveedores.length);
+  });
+
+  it('no toca los catálogos que no se pueden crear', () => {
+    // Un área se mapea pero no se crea: agregarla provisionalmente diría que la carga puede
+    // seguir cuando el servidor la va a rechazar.
+    const resoluciones = [
+      { catalogo: 'area' as const, valor: 'Innovación', accion: 'crear' as const, nombre: 'Innovación' },
+    ];
+    const conArea = conPendientes({ ...CATALOGOS, alias: indiceDeAlias(resoluciones) }, resoluciones);
+
+    expect(conArea.areas).toHaveLength(CATALOGOS.areas.length);
   });
 });

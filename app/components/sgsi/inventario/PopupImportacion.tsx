@@ -52,6 +52,10 @@ export default function PopupImportacion({ onCerrar }: Props) {
   // `ResolucionFaltantes` porque viaja en las DOS peticiones: revalidar con las decisiones
   // puestas, y después importar con ellas.
   const [resoluciones, setResoluciones] = useState<Resolucion[]>([]);
+  // Con qué decisiones se corrió el último análisis. Sin esto no se puede distinguir «ya
+  // revalidé con esto» de «cambié algo y el parte quedó viejo», y el botón de importar
+  // ofrecería escribir con un conteo que ya no corresponde.
+  const [analizadasCon, setAnalizadasCon] = useState('[]');
 
   const trabajando = estado === 'analizando' || estado === 'importando';
 
@@ -60,6 +64,15 @@ export default function PopupImportacion({ onCerrar }: Props) {
   useBloqueoDeSalida(trabajando);
 
   const faltantes = analisis?.faltantes ?? [];
+  /// Las decisiones en un orden estable, para comparar por contenido y no por el orden en
+  /// que la persona las fue tomando.
+  const firma = (rs: Resolucion[]): string =>
+    JSON.stringify(
+      [...rs].sort((a, b) =>
+        `${a.catalogo}${a.valor}`.localeCompare(`${b.catalogo}${b.valor}`, 'es'),
+      ),
+    );
+  const parteViejo = firma(resoluciones) !== analizadasCon;
   /// Cuántos nombres siguen sin decisión completa. Un «mapear» sin destino elegido cuenta
   /// como pendiente: la mitad de una decisión no es una decisión.
   const sinDecidir = faltantes.filter((f) => {
@@ -124,6 +137,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
     setAviso(null);
     const r = await analizarPlantilla(formulario(archivo));
     setAnalisis(r);
+    setAnalizadasCon(firma(resoluciones));
     if (r.ok) {
       setEstado('revision');
       setSoloErrores(r.conErrores > 0);
@@ -177,7 +191,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
               >
                 Cancelar
               </button>
-              {faltantes.length > 0 ? (
+              {faltantes.length > 0 && (sinDecidir > 0 || parteViejo) ? (
                 <button
                   type="button"
                   onClick={validar}
