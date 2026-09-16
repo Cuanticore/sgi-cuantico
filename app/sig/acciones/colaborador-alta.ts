@@ -23,20 +23,25 @@
 // existe en el Directorio no tiene uno, y dejarlo vacío no es opción: la columna es NOT NULL
 // porque es la identidad estable que sobrevive a un cambio de correo.
 //
-// Se genera uno con el prefijo `manual:`, que un oid de Azure nunca puede tener —son UUID—,
-// así que las dos poblaciones son distinguibles con una consulta y nunca colisionan. Cuando
-// la sincronización encuentre a esta persona por correo, reemplazará el oid sintético por el
-// real: ese es el momento en que la excepción se cierra.
+// Se genera uno con el prefijo `manual:`. El porqué completo —y cómo se reconoce después—
+// está en `lib/sig/oid-manual.ts`.
 
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { registrarAlta } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
-// Vive en `lib/sig/personas.ts` y no acá: este archivo es `'use server'`, y ahí cada export
-// se vuelve un endpoint RPC invocable desde el navegador. Una constante no es invocable, y
-// exportarla dejaba el modulo ENTERO sin exports — incluido `crearColaborador`.
-import { PREFIJO_OID_MANUAL } from '@/lib/sig/personas';
+// El prefijo vive en `lib/sig/oid-manual.ts` y NO acá: un módulo 'use server' sólo puede
+// exportar funciones asíncronas —cada export es un punto de entrada invocable desde el
+// navegador— y una constante exportada hacía que el compilador descartara todos los exports
+// de este archivo, incluido `crearColaborador`.
+//
+// RESUELTO EN EL REBASE: el mismo defecto se corrigió dos veces. `main` movió la constante a
+// `lib/sig/personas.ts`; esta rama la movió a un módulo propio con su prueba. Se conserva el
+// módulo propio —es la intención del commit que se reaplica— y queda PENDIENTE retirar el
+// `export const PREFIJO_OID_MANUAL` duplicado de `lib/sig/personas.ts`, que ya no lo importa
+// nadie. Dos definiciones de la misma cadena es exactamente cómo una se queda atrás.
+import { PREFIJO_OID_MANUAL } from '@/lib/sig/oid-manual';
 
 export interface ColaboradorNuevo {
   nombre: string;
