@@ -27,6 +27,15 @@ import {
 const NUMERO = `99${String(process.pid).slice(-4)}`;
 const TITULO = `Fuerza bruta SSH de prueba E2E contra mintrace-prod ${NUMERO}`;
 
+/// La FILA del incidente sembrado por esta corrida.
+///
+/// Anclar por fila y no usar `.first()` sobre la tabla es lo que hace que la suite siga
+/// sirviendo cuando el espejo trae incidentes reales: con 19 filas de produccion, «el
+/// primer boton Promover» es el de otro incidente y la prueba pasaria probando otra cosa.
+function filaDelIncidente(page: import('@playwright/test').Page) {
+  return page.getByRole('row').filter({ hasText: `#${NUMERO}` });
+}
+
 test.beforeEach(async () => {
   await limpiarIncidenteSentinel(NUMERO);
   await sembrarIncidenteSentinel({ numeroIncidente: NUMERO, titulo: TITULO });
@@ -88,7 +97,7 @@ test.describe('Promoción a evento del SGSI', () => {
     await entrarComoLiderSig(context);
     await page.goto('/sgsi/sentinel', { waitUntil: 'domcontentloaded' });
 
-    await page.getByRole('button', { name: 'Promover', exact: true }).first().click();
+    await filaDelIncidente(page).getByRole('button', { name: 'Promover', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: `Promover #${NUMERO}` })).toBeVisible();
 
@@ -105,12 +114,12 @@ test.describe('Promoción a evento del SGSI', () => {
     // ESTA es la aserción que se cae si la promoción no guarda. Tras recargar, la celda
     // deja de ofrecer «Promover» y pasa a enlazar el código del evento creado.
     await expect(
-      page.getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }).first(),
+      filaDelIncidente(page).getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }),
       'el incidente no quedó enlazado a un evento: la promoción no guardó',
     ).toBeVisible({ timeout: 30_000 });
 
     await expect(
-      page.getByRole('button', { name: 'Promover', exact: true }),
+      filaDelIncidente(page).getByRole('button', { name: 'Promover', exact: true }),
       'sigue ofreciendo promover un incidente ya promovido',
     ).toHaveCount(0);
   });
@@ -119,15 +128,17 @@ test.describe('Promoción a evento del SGSI', () => {
     await entrarComoLiderSig(context);
     await page.goto('/sgsi/sentinel', { waitUntil: 'domcontentloaded' });
 
-    await page.getByRole('button', { name: 'Promover', exact: true }).first().click();
+    await filaDelIncidente(page).getByRole('button', { name: 'Promover', exact: true }).click();
     await page.getByRole('button', { name: 'Ya terminó' }).click();
     await page.getByRole('button', { name: /^Promover ahora$/ }).click();
-    await expect(page.getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }).first()).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(
+      filaDelIncidente(page).getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }),
+    ).toBeVisible({ timeout: 30_000 });
 
-    // Primera barrera, la ergonómica: la interfaz deja de ofrecerlo.
-    await expect(page.getByRole('button', { name: 'Promover', exact: true })).toHaveCount(0);
+    // Primera barrera, la ergonómica: la interfaz deja de ofrecerlo en ESA fila.
+    await expect(
+      filaDelIncidente(page).getByRole('button', { name: 'Promover', exact: true }),
+    ).toHaveCount(0);
 
     // Segunda barrera, la que de verdad protege: el índice único
     // `(origen_sistema, origen_id_externo)`. Se ataca por debajo de la interfaz porque un
@@ -153,11 +164,11 @@ test.describe('Promoción a evento del SGSI', () => {
     await entrarComoLiderSig(context);
     await page.goto('/sgsi/sentinel', { waitUntil: 'domcontentloaded' });
 
-    await page.getByRole('button', { name: 'Promover', exact: true }).first().click();
+    await filaDelIncidente(page).getByRole('button', { name: 'Promover', exact: true }).click();
     await page.getByRole('button', { name: 'Ya terminó' }).click();
     await page.getByRole('button', { name: /^Promover ahora$/ }).click();
 
-    const enlace = page.getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }).first();
+    const enlace = filaDelIncidente(page).getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ });
     await expect(enlace).toBeVisible({ timeout: 30_000 });
     const codigo = (await enlace.textContent())?.trim() ?? '';
 
