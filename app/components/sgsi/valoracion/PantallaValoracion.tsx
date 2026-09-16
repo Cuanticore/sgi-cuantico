@@ -253,7 +253,18 @@ export default function PantallaValoracion({
 function Encabezado({ umbral }: { umbral: number }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="titulo-pagina">Valoración de activos</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="titulo-pagina mr-auto">Valoración de activos</h1>
+        {/* El acceso PRINCIPAL al informe, y va acá y no en Análisis de riesgos porque el
+            informe cubre el inventario ENTERO —incluidos los activos que no alcanzan el
+            umbral— y ésta es la pantalla que resume ese mismo universo. */}
+        <Link
+          href="/sgsi/informe-valoracion"
+          className="rounded-campo bg-accent-700 px-3 py-1.5 text-11_5 font-semibold text-white hover:bg-accent-800"
+        >
+          Generar informe
+        </Link>
+      </div>
       <p className="parrafo text-13 text-muted">
         Cuánto vale el inventario, qué dimensión lo hace valioso y quién responde por lo que más
         vale. El valor del activo es el mayor de sus dimensiones y se calcula, no se guarda; el

@@ -386,7 +386,19 @@ function Encabezado({
 }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="titulo-pagina">Análisis de riesgos</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="titulo-pagina mr-auto">Análisis de riesgos</h1>
+        {/* Acceso SECUNDARIO, deliberadamente discreto: el informe sale del inventario
+            completo y no del recorte que esta pantalla está mostrando, así que un botón
+            primario acá prometería «informe de lo que estoy viendo», que no es lo que hace.
+            El alcance se elige adentro. */}
+        <Link
+          href="/sgsi/informe-valoracion"
+          className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 font-semibold text-primary hover:bg-surface-hover"
+        >
+          Generar informe
+        </Link>
+      </div>
       <p className="parrafo text-13 text-muted">
         Cuáles activos entran al análisis de riesgos y cómo van: los {totalEnAnalisis} de{' '}
         {totalVigentes} que alcanzan el umbral de {umbral} —«Valoración de activos» resume el
