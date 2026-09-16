@@ -15,6 +15,26 @@
 // que el informe no pueda contradecir a la pantalla de la que sale. Acá solo se cuenta y se
 // agrupa.
 
+import {
+  contarMatriz,
+  ubicarRiesgo,
+  type ColumnaFrecuencia,
+  type FilaImpacto,
+  type MatrizClasica,
+  type RiesgoUbicable,
+} from './matriz-clasica';
+import type { Umbral } from './clasificar';
+
+/// Un riesgo tal como el informe lo necesita para las matrices.
+///
+/// Viene aparte de los activos —y no colgado de cada uno— porque la matriz cuenta RIESGOS,
+/// no activos: un activo con doce amenazas pone doce puntos en la matriz, y colapsarlo a uno
+/// dibujaria una exposicion que no es la que hay.
+export interface RiesgoDelInforme extends RiesgoUbicable {
+  /// `Activo.area.nombre`, ya resuelto: la matriz se arma por proceso.
+  proceso: string;
+}
+
 /// Un activo tal como el informe lo necesita. Es una vista PLANA a propósito: la consulta
 /// resuelve nombres y bandas, y este módulo cuenta. Así la prueba se escribe con literales.
 export interface ActivoDelInforme {
@@ -84,6 +104,16 @@ export interface ProcesoDelInforme {
   porBandaResidual: ConteoEtiquetado[];
   /// Inherente → residual. Es lo que el tratamiento consiguió, dicho en una tabla.
   traslado: CeldaTraslado[];
+  /// La matriz clásica impacto × frecuencia del proceso, inherente y residual.
+  ///
+  /// CUENTA RIESGOS, NO ACTIVOS, y por eso sus totales no cuadran con `enAnalisis`: un
+  /// activo con doce amenazas pone doce puntos. Decirlo acá es necesario porque las dos
+  /// cifras van en la misma página y la pregunta obvia al verlas es por qué difieren.
+  ///
+  /// `null` cuando el proceso no tiene ningún riesgo ubicable — y entonces el informe omite
+  /// las matrices en vez de imprimir dos cuadrículas vacías que parecen un error.
+  matrizInherente: MatrizClasica | null;
+  matrizResidual: MatrizClasica | null;
   /// Los activos del proceso, peor residual primero.
   filas: ActivoDelInforme[];
   /// Vacío cuando el proceso no tiene ninguna aceptación formal — y entonces el informe
@@ -138,6 +168,14 @@ export interface EntradaInforme {
   nivelesDeValor: readonly string[];
   /// Las bandas de riesgo, de la peor a la mejor.
   bandas: readonly string[];
+  /// Los riesgos vivos, para las matrices. Vacío es legítimo —una organización que todavía
+  /// no calculó— y produce capítulos sin matriz, no capítulos rotos.
+  riesgos?: readonly RiesgoDelInforme[];
+  /// Los ejes de la matriz y las bandas con sus cortes. Si falta cualquiera de los tres, no
+  /// hay matriz: es preferible un informe sin matriz a uno con una matriz inventada.
+  filasImpacto?: readonly FilaImpacto[];
+  columnasFrecuencia?: readonly ColumnaFrecuencia[];
+  umbralesRiesgo?: readonly Umbral[];
 }
 
 /// Arma el informe: un capítulo por proceso, ordenados por cuántos activos ponen en el
@@ -150,8 +188,26 @@ export function armarInforme(entrada: EntradaInforme): ProcesoDelInforme[] {
 
   const bandasConSinCalcular = [...entrada.bandas, SIN_CALCULAR];
 
+  // Las ubicaciones se calculan UNA vez para todos los riesgos y después se reparten por
+  // proceso. Ubicar es un logaritmo por riesgo y una búsqueda de banda; hacerlo dentro del
+  // bucle de procesos lo repetiría tantas veces como procesos haya, sobre el mismo dato.
+  const hayEjes =
+    entrada.filasImpacto !== undefined &&
+    entrada.columnasFrecuencia !== undefined &&
+    entrada.umbralesRiesgo !== undefined;
+
+  const ubicacionesPorProceso = new Map<string, ReturnType<typeof ubicarRiesgo>[]>();
+  if (hayEjes) {
+    for (const r of entrada.riesgos ?? []) {
+      const u = ubicarRiesgo(r, entrada.filasImpacto!, entrada.columnasFrecuencia!);
+      ubicacionesPorProceso.set(r.proceso, [...(ubicacionesPorProceso.get(r.proceso) ?? []), u]);
+    }
+  }
+
   const capitulos = [...porProceso.entries()].map(([proceso, activos]) => {
     const enAnalisis = activos.filter((a) => a.entraAlAnalisis);
+    const ubicaciones = ubicacionesPorProceso.get(proceso) ?? [];
+    const conMatriz = hayEjes && ubicaciones.length > 0;
 
     // Peor residual primero. Un activo sin residual calculado va al final y no al principio:
     // «sin calcular» es una deuda del modelo, no el riesgo más alto del proceso.
@@ -196,6 +252,24 @@ export function armarInforme(entrada: EntradaInforme): ProcesoDelInforme[] {
             bandasConSinCalcular.indexOf(a.inherente) - bandasConSinCalcular.indexOf(b.inherente) ||
             bandasConSinCalcular.indexOf(a.residual) - bandasConSinCalcular.indexOf(b.residual),
         ),
+      matrizInherente: conMatriz
+        ? contarMatriz(
+            ubicaciones,
+            'inherente',
+            entrada.filasImpacto!,
+            entrada.columnasFrecuencia!,
+            entrada.umbralesRiesgo!,
+          )
+        : null,
+      matrizResidual: conMatriz
+        ? contarMatriz(
+            ubicaciones,
+            'residual',
+            entrada.filasImpacto!,
+            entrada.columnasFrecuencia!,
+            entrada.umbralesRiesgo!,
+          )
+        : null,
       filas,
       aceptaciones: entrada.aceptaciones.filter((x) => x.proceso === proceso),
     };
