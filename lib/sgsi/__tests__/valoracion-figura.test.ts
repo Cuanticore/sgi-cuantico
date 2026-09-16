@@ -3,6 +3,7 @@
 import {
   ANCHO_TRAZADO,
   RAMPA,
+  ANCHO_MINIMO_SEGMENTO,
   SEPARACION,
   cabeLaEtiqueta,
   colorDeNivelValor,
@@ -123,7 +124,10 @@ describe('segmentos · escala absoluta compartida (D-5)', () => {
   it('los 2 px de separación se descuentan del ancho, salvo en el último', () => {
     const s = segmentos(larga, NIVELES, escala, 4);
     const px = ANCHO_TRAZADO / escala;
-    expect(s[0]!.ancho).toBeCloseTo(Math.max(1, s[0]!.cuenta * px - SEPARACION), 5);
+    expect(s[0]!.ancho).toBeCloseTo(
+      Math.max(ANCHO_MINIMO_SEGMENTO, s[0]!.cuenta * px - SEPARACION),
+      5,
+    );
     const ultimo = s[s.length - 1]!;
     expect(ultimo.ancho).toBeCloseTo(ultimo.cuenta * px, 5);
   });
@@ -219,5 +223,15 @@ describe('cabeLaEtiqueta · un número recortado es peor que ninguno', () => {
   it('la exigencia crece con los dígitos', () => {
     expect(cabeLaEtiqueta(26, 9)).toBe(true);
     expect(cabeLaEtiqueta(26, 230)).toBe(false);
+  });
+});
+
+describe('un nivel con un solo activo sigue siendo visible y apuntable', () => {
+  it('nunca baja del ancho minimo, aunque la escala lo deje en menos de un pixel', () => {
+    // 285 activos en 640 px: un activo mide 2,2 px y, restada la separacion, caia a 1 px.
+    // Cada segmento es un enlace al inventario filtrado, y un blanco de 1 px no es un blanco.
+    const reparto = { valorados: 285, porNivel: [1, 283, 1, 0, 0, 0] };
+    const s = segmentos(reparto as never, NIVELES, 285, 4);
+    for (const seg of s) expect(seg.ancho).toBeGreaterThanOrEqual(ANCHO_MINIMO_SEGMENTO);
   });
 });

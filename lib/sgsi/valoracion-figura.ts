@@ -55,6 +55,18 @@ export const ALTO_BARRA = 26;
 export const SEPARACION = 2;
 export const RADIO_EXTREMO = 4;
 
+/// El ancho mínimo de un segmento con al menos un activo, en px.
+///
+/// Con 285 activos repartidos en 640 px, un nivel con UN activo mide 2,2 px y, restada la
+/// separación, caía a 1 px: invisible, y además imposible de apuntar — cada segmento es un
+/// enlace al inventario filtrado, y un blanco de 1 px no es un blanco.
+///
+/// Inflarlo desplaza a la derecha lo que viene después, así que es una distorsión y hay que
+/// decir cuánta: con seis niveles, el corrimiento máximo acumulado es de unos 5 px sobre
+/// 640, por debajo del 1 %. La cuenta exacta nunca sale del ancho — está en la etiqueta,
+/// en el tooltip y en la tabla de abajo.
+export const ANCHO_MINIMO_SEGMENTO = 3;
+
 /// El color de un nivel de valor. Se recorta a la rampa en vez de fallar: una escala con un
 /// séptimo nivel pintaría el extremo antes que nada.
 export function colorDeNivelValor(valor: number): string {
@@ -119,7 +131,7 @@ export function segmentos(
     // Los 2 px son de SUPERFICIE entre segmentos, no un borde: un borde alrededor de cada
     // relleno engorda la barra y ensucia el corte (§4.5). Se los descuenta al ancho, y el
     // último no lleva para que la barra termine donde la escala dice.
-    const ancho = Math.max(1, ultimo ? bruto : bruto - SEPARACION);
+    const ancho = Math.max(ANCHO_MINIMO_SEGMENTO, ultimo ? bruto : bruto - SEPARACION);
     return {
       valor: s.nivel.valor,
       etiqueta: s.nivel.etiqueta,

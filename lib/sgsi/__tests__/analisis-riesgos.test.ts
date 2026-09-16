@@ -12,6 +12,8 @@
 
 import {
   FILTROS_ANALISIS_VACIOS,
+  consultaDeFiltrosAnalisis,
+  TODAS_CRITICIDADES,
   SIN_ASIGNAR,
   filasAnalisis,
   filtrosAnalisisDesdeUrl,
@@ -225,6 +227,7 @@ describe('§5.3 · URL ⇄ filtros', () => {
     procesos: ['Gestión Tecnológica', 'Gestión Financiera'],
     propietarios: ['COO', 'CFO'],
     personas: ['ana@cuantico.co'],
+    criticidades: ['C1', 'C2', 'C3', 'C4', 'C5'],
   };
 
   it('sin parámetros son los filtros vacíos', () => {
@@ -290,5 +293,45 @@ describe('§11 · ordenarPorCriticidad sigue el RTO, no el código', () => {
     const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.codigo);
     expect(orden[0]).toBe('TEC-GEN-0001'); // C1, el más exigente
     expect(orden.slice(1)).toEqual(['TEC-GEN-0000', 'TEC-GEN-0005']); // orden estable por código
+  });
+});
+
+// REQ-SIG-20 §11 (P9) · el filtro de criticidad. «Sin clasificar» es una respuesta y no la
+// ausencia de filtro: hoy es el estado de casi todo el inventario, y poder aislarlo es lo
+// que permite ir cerrandola.
+describe('filtro de criticidad', () => {
+  const CAT: CatalogosFiltroAnalisis = {
+    procesos: [],
+    propietarios: [],
+    personas: [],
+    criticidades: ['C1', 'C2', 'C3', 'C4', 'C5'],
+  };
+  const leer = (q: string) => filtrosAnalisisDesdeUrl(new URLSearchParams(q), CAT);
+
+  it('un codigo del catalogo se toma tal cual', () => {
+    expect(leer('criticidad=C1').filtros.criticidad).toBe('C1');
+  });
+
+  it('«sin clasificar» viaja por el mismo centinela que propietario y persona', () => {
+    expect(leer(`criticidad=${SIN_ASIGNAR}`).filtros.criticidad).toBe(SIN_ASIGNAR);
+  });
+
+  it('un codigo que no existe se ignora y avisa, en vez de vaciar la lista en silencio', () => {
+    const r = leer('criticidad=C9');
+    expect(r.filtros.criticidad).toBe(TODAS_CRITICIDADES);
+    expect(r.avisos.join(' ')).toMatch(/criticidad/);
+  });
+
+  it('sin el parametro queda en «todas»', () => {
+    expect(leer('').filtros.criticidad).toBe(TODAS_CRITICIDADES);
+  });
+
+  it('no ensucia el enlace cuando esta en su valor por omision', () => {
+    expect(parametrosDeFiltrosAnalisis(FILTROS_ANALISIS_VACIOS).criticidad).toBeUndefined();
+  });
+
+  it('y si viaja al enlace, vuelve igual', () => {
+    const filtros = { ...FILTROS_ANALISIS_VACIOS, criticidad: 'C2' };
+    expect(leer(consultaDeFiltrosAnalisis(filtros).slice(1)).filtros.criticidad).toBe('C2');
   });
 });

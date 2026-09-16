@@ -47,6 +47,11 @@ export { SIN_ASIGNAR };
 export const TODOS_PROCESOS = 'Todos los procesos';
 export const TODOS_PROPIETARIOS_ANALISIS = 'Todos los propietarios';
 export const TODAS_PERSONAS_ANALISIS = 'Todas las personas';
+/// REQ-SIG-20 §11 (P9) · la criticidad declarada por el negocio. Para «sin clasificar» se
+/// reusa el centinela `SIN_ASIGNAR` que ya usan propietario y persona — es una opción REAL
+/// del desplegable y no la ausencia de filtro: hoy es el estado de casi todo el inventario,
+/// y poder aislarlo es lo que permite ir cerrando la clasificación.
+export const TODAS_CRITICIDADES = 'Todas las criticidades';
 
 /// «4 · 5 · ambos» del §5.3. La lista de esta página solo contiene activos que ya alcanzan
 /// el umbral, así que `'ambos'` no es un tercer filtro sino el estado sin filtrar.
@@ -63,6 +68,10 @@ export interface FiltrosAnalisis {
   proceso: string;
   propietario: string;
   persona: string;
+  /// El CÓDIGO de la criticidad (`C1`..`C5`), `SIN_CRITICIDAD`, o `TODAS_CRITICIDADES`.
+  /// Por código y no por id: el id es un detalle de la base y el código es el contrato con
+  /// el negocio, igual que en `criticidad-coherencia.ts`.
+  criticidad: string;
   valor: ValorFiltroAnalisis;
   /// Reusa `ColorRenglon` de `riesgo-activo.ts` sin cambios (tarea 3.11). `null` = Todos.
   bandaResidual: ColorRenglon | null;
@@ -73,6 +82,7 @@ export const FILTROS_ANALISIS_VACIOS: FiltrosAnalisis = {
   proceso: TODOS_PROCESOS,
   propietario: TODOS_PROPIETARIOS_ANALISIS,
   persona: TODAS_PERSONAS_ANALISIS,
+  criticidad: TODAS_CRITICIDADES,
   valor: 'ambos',
   bandaResidual: null,
   estadoPlan: 'todos',
@@ -222,6 +232,12 @@ function coincideActivo(
     } else if (a.personaCorreo !== f.persona) return false;
   }
 
+  if (excluir !== 'criticidad' && f.criticidad !== TODAS_CRITICIDADES) {
+    if (f.criticidad === SIN_ASIGNAR) {
+      if (a.criticidad !== null) return false;
+    } else if (a.criticidad !== f.criticidad) return false;
+  }
+
   if (excluir !== 'valor' && f.valor !== 'ambos' && a.valor !== f.valor) return false;
 
   if (excluir !== 'bandaResidual' && f.bandaResidual !== null) {
@@ -358,6 +374,9 @@ export interface CatalogosFiltroAnalisis {
   propietarios: readonly string[];
   /// Correos.
   personas: readonly string[];
+  /// Los códigos `C1`..`C5`, en el orden del catálogo. Sin `SIN_CRITICIDAD`: esa opción la
+  /// agrega la pantalla, porque no es un nivel del catálogo sino la ausencia de uno.
+  criticidades: readonly string[];
 }
 
 export interface ParametrosLeiblesAnalisis {
@@ -441,6 +460,16 @@ export function filtrosAnalisisDesdeUrl(
         avisos,
         true,
       ),
+      // `admiteSinAsignar` en true: «Sin clasificar» es una respuesta del desplegable, no
+      // un código de criticidad inválido — y hoy es el estado de casi todo el inventario.
+      criticidad: delCatalogo(
+        params.get('criticidad'),
+        catalogos.criticidades,
+        TODAS_CRITICIDADES,
+        'criticidad',
+        avisos,
+        true,
+      ),
       valor,
       bandaResidual,
       estadoPlan,
@@ -456,6 +485,7 @@ export function parametrosDeFiltrosAnalisis(filtros: FiltrosAnalisis): Record<st
   if (filtros.proceso !== TODOS_PROCESOS) p.proceso = filtros.proceso;
   if (filtros.propietario !== TODOS_PROPIETARIOS_ANALISIS) p.propietario = filtros.propietario;
   if (filtros.persona !== TODAS_PERSONAS_ANALISIS) p.persona = filtros.persona;
+  if (filtros.criticidad !== TODAS_CRITICIDADES) p.criticidad = filtros.criticidad;
   if (filtros.valor !== 'ambos') p.valor = String(filtros.valor);
   if (filtros.bandaResidual !== null) p.bandaResidual = filtros.bandaResidual;
   if (filtros.estadoPlan !== 'todos') p.estadoPlan = filtros.estadoPlan;
