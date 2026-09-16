@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/hallazgos/[codigo]/Ficha.client.tsx
+// app/sgsi/hallazgos/[codigo]/Ficha.client.tsx
 //
 // Cinco pestañas con sus marcas (Obligatorio · Con método · Si aplica · Opcional ·
 // No aplica); las que el tipo no exige se atenúan. La franja inferior fija lleva el

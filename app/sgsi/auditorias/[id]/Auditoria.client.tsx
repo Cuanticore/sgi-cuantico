@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/auditorias/[id]/Auditoria.client.tsx
+// app/sgsi/auditorias/[id]/Auditoria.client.tsx
 //
 // Cuatro pestañas: Plan, Ejecución, Actas e Informe. El informe preliminar es el
 // borrador del auditor; emitir el final congela y promueve NC/OM a Mejora (C5).

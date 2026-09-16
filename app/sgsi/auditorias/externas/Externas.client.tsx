@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/auditorias/externas/Externas.client.tsx
+// app/sgsi/auditorias/externas/Externas.client.tsx
 //
 // Lista con filtros y la ficha: entidad, fechas, alcance, el aviso de que el informe
 // adjunto es obligatorio (C8) y los hallazgos capturados.

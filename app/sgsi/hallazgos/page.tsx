@@ -1,4 +1,4 @@
-// app/sig/hallazgos/page.tsx
+// app/sgsi/hallazgos/page.tsx
 //
 // La grilla del artboard Main.bcd: KPIs arriba, chips de tipo, toggles de vencidos y
 // reincidentes, y la tabla con el semáforo del plazo. El estado se calcula (B3, B8).

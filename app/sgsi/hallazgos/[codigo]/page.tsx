@@ -1,4 +1,4 @@
-// app/sig/hallazgos/[codigo]/page.tsx
+// app/sgsi/hallazgos/[codigo]/page.tsx
 //
 // La ficha de cinco pestañas del artboard Hallazgo.bcd, con las marcas EXIGE del flujo
 // escalonado. Las pestañas que el tipo no exige se atenúan, no se ocultan.

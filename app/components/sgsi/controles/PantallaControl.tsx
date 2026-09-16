@@ -688,7 +688,7 @@ export default function PantallaControl({
                   {hallazgosAbiertos.map((h) => (
                     <a
                       key={h.codigo}
-                      href={`/sig/hallazgos/${h.codigo}`}
+                      href={`/sgsi/hallazgos/${h.codigo}`}
                       className="flex items-center gap-2 rounded-campo px-2.5 py-1.5 text-11_5 transition-colors"
                       style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
                     >

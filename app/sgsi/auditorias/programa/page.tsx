@@ -1,8 +1,8 @@
-// app/sig/auditorias/programa/page.tsx
+// app/sgsi/auditorias/programa/page.tsx
 //
 // FOR-CAL-04: el programa anual de auditoría. Esta pantalla NO existía.
 //
-// `/sig/auditorias` es la lista plana de auditorías ejecutadas; el lienzo Programa pide
+// `/sgsi/auditorias` es la lista plana de auditorías ejecutadas; el lienzo Programa pide
 // otra cosa: el programa del año con su alcance, objetivo, criterios y métodos, y la
 // matriz de procesos por mes. Los dos modelos estaban —`ProgramaAuditoria` y
 // `AuditoriaProgramada`— y las tres acciones que los escriben no tenían quien las llamara.

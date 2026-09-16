@@ -1,4 +1,4 @@
-// app/sig/normas/page.tsx
+// app/sgsi/normas/page.tsx
 //
 // El catálogo de numerales (decisión 3.1.1): norma, auditable, veces auditado y cuándo
 // fue la última vez.

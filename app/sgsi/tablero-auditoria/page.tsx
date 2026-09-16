@@ -1,4 +1,4 @@
-// app/sig/tablero-auditoria/page.tsx
+// app/sgsi/tablero-auditoria/page.tsx
 //
 // El tablero de auditoría: programa cumplido, cobertura de la norma numeral por numeral,
 // notas por tipo, hallazgos por proceso y el tiempo del cierre al informe. Todo calculado

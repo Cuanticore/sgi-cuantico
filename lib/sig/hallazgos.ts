@@ -1,4 +1,4 @@
-// lib/sig/hallazgos.ts
+// lib/sgsi/hallazgos.ts
 //
 // El estado se calcula (B3, B8), el flujo escalonado por tipo es una tabla (spec §4),
 // y el consecutivo anual no lleva el tipo (B1). Puro a propósito: son las reglas que

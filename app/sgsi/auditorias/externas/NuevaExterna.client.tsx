@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/auditorias/externas/NuevaExterna.client.tsx
+// app/sgsi/auditorias/externas/NuevaExterna.client.tsx
 //
 // `registrarAuditoriaExterna` existía desde el plan C y ninguna pantalla la invocaba: la
 // pantalla listaba externas y no había forma de registrar una. Con la tabla vacía eso

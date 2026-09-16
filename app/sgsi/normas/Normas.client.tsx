@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/normas/Normas.client.tsx
+// app/sgsi/normas/Normas.client.tsx
 //
 // Selector de norma, cifras y la tabla de numerales con la barra de veces auditado
 // (nunca rojo, ≥3 verde, resto ámbar). Marcar un numeral como no auditable lo saca

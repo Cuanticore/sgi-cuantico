@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/normas/CargarNorma.client.tsx
+// app/sgsi/normas/CargarNorma.client.tsx
 //
 // Reemplaza el `alert()` que decía «los numerales son un catálogo, no una constante del
 // código». La frase era cierta y no había nada detrás.

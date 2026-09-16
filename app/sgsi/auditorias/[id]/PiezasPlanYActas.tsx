@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/auditorias/[id]/PiezasPlanYActas.tsx
+// app/sgsi/auditorias/[id]/PiezasPlanYActas.tsx
 //
 // Las dos piezas que conectan las acciones que nadie llamaba.
 //

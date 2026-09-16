@@ -1,4 +1,4 @@
-// app/sig/auditorias/page.tsx
+// app/sgsi/auditorias/page.tsx
 //
 // El listado de auditorías del año, con su estado calculado y el enlace a la ficha.
 
@@ -48,7 +48,7 @@ export default async function AuditoriasPage() {
           </p>
         </div>
         <Link
-          href="/sig/auditorias/programa"
+          href="/sgsi/auditorias/programa"
           className="ml-auto flex-none rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-secondary"
         >
           Programa de auditoría →
@@ -72,7 +72,7 @@ export default async function AuditoriasPage() {
               <tr key={f.id} className="border-t border-border-default">
                 <td className="px-4 py-3">
                   <Link
-                    href={`/sig/auditorias/${f.id}`}
+                    href={`/sgsi/auditorias/${f.id}`}
                     className="font-medium text-primary"
                     style={{ color: 'var(--hf-brand-nav)' }}
                   >

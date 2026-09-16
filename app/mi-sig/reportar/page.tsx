@@ -4,7 +4,7 @@
 // SIG lo clasifica después.
 //
 // Vive bajo /mi-sig y no bajo /sig porque reportar es un acto personal, no una tarea de
-// Operación. Estuvo en `/sig/hallazgos/nuevo`, y ahí el layout de Operación la cerraba con
+// Operación. Estuvo en `/sgsi/hallazgos/nuevo`, y ahí el layout de Operación la cerraba con
 // `operacion:ver` — un permiso que el Colaborador no tiene. El resultado era que
 // `mejora:reportar` existía en el modelo y ninguna ruta lo honraba: la acción de servidor
 // aceptaba a cualquiera con sesión, y la pantalla para invocarla era inalcanzable.

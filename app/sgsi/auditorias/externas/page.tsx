@@ -1,4 +1,4 @@
-// app/sig/auditorias/externas/page.tsx
+// app/sgsi/auditorias/externas/page.tsx
 //
 // C8: las externas y a proveedores se registran — entidad, fechas, alcance e informe.
 

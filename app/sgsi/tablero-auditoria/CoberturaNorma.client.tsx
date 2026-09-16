@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/tablero-auditoria/CoberturaNorma.client.tsx
+// app/sgsi/tablero-auditoria/CoberturaNorma.client.tsx
 //
 // La cobertura numeral por numeral, agrupada por capítulo.
 //

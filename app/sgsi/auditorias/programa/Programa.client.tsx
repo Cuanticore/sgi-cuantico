@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/auditorias/programa/Programa.client.tsx
+// app/sgsi/auditorias/programa/Programa.client.tsx
 //
 // La matriz del lienzo: procesos en las filas, los doce meses en las columnas, y la marca
 // de cada celda con su leyenda escrita al pie.
@@ -100,7 +100,7 @@ export default function ProgramaClient({
         <span className="ml-auto flex flex-none items-center gap-2">
           <span className="flex items-center gap-2 rounded-campo border border-border-field bg-surface px-3 py-1.5">
             <button
-              onClick={() => router.push(`/sig/auditorias/programa?anio=${anio - 1}`)}
+              onClick={() => router.push(`/sgsi/auditorias/programa?anio=${anio - 1}`)}
               aria-label="Año anterior"
               className="text-12 text-muted"
             >
@@ -110,7 +110,7 @@ export default function ProgramaClient({
               {anio}
             </span>
             <button
-              onClick={() => router.push(`/sig/auditorias/programa?anio=${anio + 1}`)}
+              onClick={() => router.push(`/sgsi/auditorias/programa?anio=${anio + 1}`)}
               aria-label="Año siguiente"
               className="text-12 text-muted"
             >
@@ -118,7 +118,7 @@ export default function ProgramaClient({
             </button>
           </span>
           <Link
-            href="/sig/auditorias"
+            href="/sgsi/auditorias"
             className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-secondary"
           >
             Ver las auditorías
@@ -142,7 +142,7 @@ export default function ProgramaClient({
             <span key={a}>
               {n > 0 && ' · '}
               <Link
-                href={`/sig/auditorias/programa?anio=${a}`}
+                href={`/sgsi/auditorias/programa?anio=${a}`}
                 className="font-medium"
                 style={{ color: 'var(--hf-brand-nav)' }}
               >
@@ -258,7 +258,7 @@ export default function ProgramaClient({
                       <td className="px-2 py-2.5">
                         {f.auditoriaId ? (
                           <Link
-                            href={`/sig/auditorias/${f.auditoriaId}`}
+                            href={`/sgsi/auditorias/${f.auditoriaId}`}
                             className="rounded-[4px] px-2 py-0.5 font-mono text-8_5 uppercase"
                             style={{ background: e.bg, color: e.fg }}
                           >

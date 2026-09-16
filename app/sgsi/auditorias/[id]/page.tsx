@@ -1,4 +1,4 @@
-// app/sig/auditorias/[id]/page.tsx
+// app/sgsi/auditorias/[id]/page.tsx
 //
 // La ficha de cuatro pestañas: Plan (matriz proceso × numeral), Ejecución (notas por
 // tipo), Actas y Informe (preliminar/final con la emisión que promueve a Mejora).

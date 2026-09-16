@@ -1,6 +1,6 @@
 'use client';
 
-// app/sig/hallazgos/Grilla.client.tsx
+// app/sgsi/hallazgos/Grilla.client.tsx
 //
 // KPIs, chips de tipo y toggles; la tabla con el semáforo del plazo y los badges de
 // tipo y estado del artboard. Cada fila navega a la ficha.
@@ -173,7 +173,7 @@ export default function GrillaClient({
                 >
                   <td className="px-4 py-3">
                     <Link
-                      href={`/sig/hallazgos/${f.codigo}`}
+                      href={`/sgsi/hallazgos/${f.codigo}`}
                       className="font-mono text-11 font-medium"
                       style={{ color: 'var(--hf-brand-nav)' }}
                     >

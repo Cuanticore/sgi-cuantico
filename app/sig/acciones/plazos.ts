@@ -76,7 +76,7 @@ export async function guardarPlazoDeHallazgo(
     });
 
     revalidatePath('/sig/plazos');
-    revalidatePath('/sig/mejora');
+    revalidatePath('/sgsi/mejora');
     return {
       ok: true,
       mensaje: 'Plazo guardado. Los hallazgos ya abiertos conservan el plazo con el que nacieron.',

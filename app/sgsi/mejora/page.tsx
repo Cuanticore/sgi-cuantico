@@ -1,4 +1,4 @@
-// app/sig/mejora/page.tsx
+// app/sgsi/mejora/page.tsx
 //
 // Las cuatro cifras y las cuatro tarjetas del artboard TableroMejora: embudo por
 // estado, por tipo, por origen y días hasta el cierre contra el plazo parametrizado.

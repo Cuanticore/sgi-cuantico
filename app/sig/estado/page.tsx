@@ -183,7 +183,7 @@ export default async function EstadoPage() {
 
   // ── Indicador 4 · Programa de auditoría ─────────────────────────────────────────────
   //
-  // El mismo criterio que la matriz de `/sig/auditorias/programa`: una auditoría programada
+  // El mismo criterio que la matriz de `/sgsi/auditorias/programa`: una auditoría programada
   // está cumplida cuando alguna de sus auditorías emitió informe. Sin informe emitido la
   // auditoría ocurrió pero no cerró, y el programa anual se mide por lo que entregó.
   const programadas = programa?.programadas ?? [];
