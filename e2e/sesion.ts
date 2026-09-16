@@ -60,7 +60,7 @@ export async function iniciarSesion(contexto: BrowserContext, baseURL: string): 
 // La regla del arnés —«ningún spec de este directorio puede escribir»— no se relaja: se hace
 // cumplir por código. `exigirBaseDeDesarrollo()` corta la corrida si `DATABASE_URL` no apunta
 // al Postgres local del `docker-compose.dev.yml`. Una promesa escrita en un comentario la
-// rompe quien no lo leyó; una excepción no.
+// rompe quien no la leyó; una excepción no.
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
 import { PrismaClient } from '@prisma/client';
@@ -116,7 +116,6 @@ export async function cerrarCliente(): Promise<void> {
 /// mismo rol porque `ALIAS` en `lib/sgsi/permisos.ts` reconoce ambos. Acá se usa el object id
 /// a propósito: es **el que Azure emite de verdad** en el claim `groups`, así que el camino
 /// que se ejercita es el de producción.
-
 export const GRUPO_LIDERES_SIG = '2e0f4290-e91c-4f45-a663-77ece2d2a50e';
 
 export interface Identidad {
@@ -164,31 +163,70 @@ export async function iniciarSesionComo(
 }
 
 /// Deja la persona en la base, sin duplicar si la prueba corre dos veces.
-export async function sembrarPersona(identidad: Identidad): Promise<{ id: number }
+export async function sembrarPersona(identidad: Identidad): Promise<{ id: number }> {
+  return cliente().persona.upsert({
+    where: { correo: identidad.correo },
+    update: { nombre: identidad.nombre, activa: true },
+    create: {
+      oid: `e2e-${identidad.correo}`,
+      correo: identidad.correo,
+      nombre: identidad.nombre,
+      activa: true,
+    },
+    select: { id: true },
+  });
+}
 
-/// Atajo para el caso común: persona sembrada y sesión iniciada con rol de seguridad.
+/// Atajo para el caso común: persona sembrada y sesión con rol de seguridad.
 export async function entrarComoLiderSig(
   contexto: BrowserContext,
   correo = 'e2e.lider@cuantico.com',
-): Promise<{ id: number }
+): Promise<{ id: number }> {
+  const persona = await sembrarPersona({ correo, nombre: 'Líder SIG de pruebas' });
+  await iniciarSesionComo(contexto, {
+    correo,
+    nombre: 'Líder SIG de pruebas',
+    grupos: [GRUPO_LIDERES_SIG],
+  });
+  return persona;
+}
 
 /// El otro lado de la moneda: alguien autenticado SIN permisos de decisión.
 export async function entrarComoColaborador(
   contexto: BrowserContext,
   correo = 'e2e.colaborador@cuantico.com',
-): Promise<{ id: number }
+): Promise<{ id: number }> {
+  const persona = await sembrarPersona({ correo, nombre: 'Colaborador de pruebas' });
+  await iniciarSesionComo(contexto, { correo, nombre: 'Colaborador de pruebas', grupos: [] });
+  return persona;
+}
 
 /// Deja un incidente en la tabla espejo sin pasar por Azure.
 ///
-/// La sincronización real se prueba aparte: lo que estas pruebas ejercitan es la VISTA y
-/// la promoción, que empiezan cuando la fila ya está. Sembrar directo evita que una
-/// credencial ausente o un workspace lento conviertan una prueba de interfaz en una
-/// prueba de red.
+/// La sincronización real se prueba aparte: lo que estas pruebas ejercitan es la VISTA y la
+/// promoción, que empiezan cuando la fila ya está. Sembrar directo evita que una credencial
+/// ausente o un workspace lento conviertan una prueba de interfaz en una prueba de red.
 export async function sembrarIncidenteSentinel(datos: {
   numeroIncidente: string;
   titulo: string;
   severidadSentinel?: string;
   estadoSentinel?: string;
+}): Promise<void> {
+  const ahora = new Date();
+  const comun = {
+    titulo: datos.titulo,
+    severidadSentinel: datos.severidadSentinel ?? 'Medium',
+    estadoSentinel: datos.estadoSentinel ?? 'New',
+    creadoEnSentinel: ahora,
+    url: `https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/pruebas/${datos.numeroIncidente}`,
+    proveedor: 'Microsoft XDR',
+    sincronizadoEn: ahora,
+  };
+  await cliente().incidenteSentinel.upsert({
+    where: { numeroIncidente: datos.numeroIncidente },
+    update: comun,
+    create: { numeroIncidente: datos.numeroIncidente, ...comun },
+  });
 }
 
 /// Intenta crear un SEGUNDO evento desde el mismo incidente. Debe fallar.
@@ -214,45 +252,12 @@ export async function intentarSegundaPromocion(numeroIncidente: string): Promise
   });
 }
 
-/// Intenta crear un SEGUNDO evento desde el mismo incidente. Debe fallar.
-///
-/// Ataca por debajo de la interfaz a propósito: que el botón desaparezca es ergonomía, y
-/// un segundo intento no tiene por qué llegar por un clic — puede venir de dos pestañas
-/// abiertas, de una llamada repetida a la acción o de un reintento del servidor. Lo que
-/// esta función comprueba es la barrera que sí aguanta eso: el índice único
-/// `(origen_sistema, origen_id_externo)` sobre `evento_seguridad`.
-///
-/// Se resuelve rechazando; el llamador afirma con `rejects.toThrow()`.
-export async function intentarSegundaPromocion(numeroIncidente: string): Promise<void> {
-  const db = cliente();
-  const persona = await db.persona.findFirstOrThrow({ select: { id: true } });
-  await db.eventoSeguridad.create({
-    data: {
-      codigo: `EVT-DUP-${numeroIncidente}`,
-      descripcion: 'Segundo intento de promoción del mismo incidente. No debe entrar.',
-      fechaOcurrencia: new Date(),
-      enCurso: false,
-      reportadoPorId: persona.id,
-      origenSistema: 'SENTINEL',
-      origenIdExterno: numeroIncidente,
-      origenUrl: 'https://portal.azure.com/#pruebas',
-    },
-  });
-}
-
-/// Borra el rastro de un incidente sembrado y el evento que se haya promovido desde él,
-/// para que la suite pueda repetirse sin intervención manual.
+/// Borra el rastro de un incidente sembrado y el evento promovido desde él, para que la suite
+/// pueda repetirse sin intervención manual.
 export async function limpiarIncidenteSentinel(numeroIncidente: string): Promise<void> {
   const db = cliente();
   await db.eventoSeguridad.deleteMany({
     where: { origenSistema: 'SENTINEL', origenIdExterno: numeroIncidente },
   });
   await db.incidenteSentinel.deleteMany({ where: { numeroIncidente } });
-}
-
-export async function cerrarCliente(): Promise<void> {
-  if (clienteCache) {
-    await clienteCache.$disconnect();
-    clienteCache = null;
-  }
 }
