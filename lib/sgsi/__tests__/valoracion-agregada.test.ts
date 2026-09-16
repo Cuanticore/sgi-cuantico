@@ -44,8 +44,10 @@ function activo(
   valores: Record<string, number | null>,
   propietario: string | null = 'CEO',
   persona: ActivoAgregable['persona'] = null,
+  tipo = '[D] Datos / Información',
+  subtipo = '[int] Datos de gestión interna',
 ): ActivoAgregable {
-  return { codigo, propietario, persona, valores };
+  return { codigo, propietario, persona, valores, tipo, subtipo };
 }
 
 // Un inventario chico pero con todos los casos borde del §9 adentro.

@@ -58,6 +58,10 @@ export async function leerValoracion(): Promise<DatosValoracion> {
         // (nota E9): el cargo dice quién responde por el activo y sobrevive a la rotación, la
         // persona dice quién lo tiene en la mano. La pantalla no los mezcla.
         persona: { select: { nombre: true, correo: true, activa: true } },
+        // La clasificación MAGERIT, para poder agrupar por QUÉ ES el activo. Los dos son
+        // obligatorios en el modelo, así que no hay caso «sin clasificar» que contemplar.
+        tipo: { select: { codigo: true, nombre: true } },
+        subtipo: { select: { codigo: true, nombre: true } },
         valores: {
           select: { dimension: { select: { codigo: true } }, valor: { select: { valor: true } } },
         },
@@ -85,6 +89,8 @@ export async function leerValoracion(): Promise<DatosValoracion> {
       // Solo viajan las dimensiones activas: una desactivada con valor guardado no es un
       // criterio de la pantalla.
       valores: Object.fromEntries(codigosActivos.map((c) => [c, porDimension.get(c) ?? null])),
+      tipo: `${a.tipo.codigo} ${a.tipo.nombre}`,
+      subtipo: `${a.subtipo.codigo} ${a.subtipo.nombre}`,
     };
   });
 

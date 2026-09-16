@@ -99,12 +99,24 @@ export default function PantallaValoracion({
     [base, criterioVigente],
   );
 
+  // La Tabla B pasó de «custodio persona» a «tipo y subtipo».
+  //
+  // La anterior no se dibujaba nunca: la pareja activo↔persona está en cero y la pantalla
+  // dedicaba una sección entera a explicar por qué no había tabla. Esa explicación era
+  // correcta y seguía siendo una sección que no informaba de nada.
+  //
+  // El tipo y el subtipo, en cambio, son obligatorios en el modelo: TODO activo los tiene,
+  // así que esta tabla siempre tiene algo que decir — y dice algo que ninguna otra pantalla
+  // contesta: qué clase de activo concentra los valores altos. «Los datos valen más que los
+  // equipos» deja de ser una intuición.
   const tablaB = useMemo(
     () =>
       tablaAgrupada({
         ...base,
-        agrupador: 'persona',
+        agrupador: 'subtipo',
         criterios: criteriosDeTabla,
+        // Sin fila «sin asignar»: la clasificación MAGERIT es obligatoria, así que esa fila
+        // nunca tendría nada. Una fila que no puede tener contenido es ruido.
         incluirSinAsignar: false,
       }),
     [base, criteriosDeTabla],
@@ -183,62 +195,32 @@ export default function PantallaValoracion({
       {/* Tabla B · custodio (persona) × los cuatro criterios × nivel. */}
       <section className="mt-5 rounded-tarjeta border border-border-default bg-surface p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-15 font-bold text-primary">Custodio persona × los cuatro criterios</h2>
+          <h2 className="text-15 font-bold text-primary">Tipo y subtipo × los cuatro criterios</h2>
+          <span className="text-12 text-faint">
+            {tablaB.filas.length} subtipos con activos · orden por ≥ {umbral}
+          </span>
         </div>
 
-        {/* La línea de encuadre, que va ENCIMA y no en una nota al pie: una matriz de 24 columnas
-            que arranca casi vacía, sin explicación, parece rota (§6.6). */}
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-12_5 text-secondary">
-            <span className="font-mono font-semibold tabular-nums text-primary">{conPersona}</span>{' '}
-            de{' '}
-            <span className="font-mono tabular-nums">{activos.length}</span> activos están
-            entregados a una persona. Los otros{' '}
-            <span className="font-mono tabular-nums">{activos.length - conPersona}</span> no tienen
-            custodio persona asignado.
-          </p>
-          <Link
-            href={urlDeInventario({ persona: '__sin__' })}
-            className="text-12 font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
-          >
-            ver en el inventario →
-          </Link>
-        </div>
+        <p className="parrafo mt-1 text-12 text-muted">
+          Qué clase de activo concentra los valores altos. Cada fila es un subtipo MAGERIT con
+          su tipo debajo, y la clasificación es obligatoria, así que todos los{' '}
+          <span className="font-mono tabular-nums">{activos.length}</span> activos están en
+          alguna fila — no hay «sin clasificar» que explicar.{' '}
+          <span className="font-semibold">Valor final</span> es el máximo de las dimensiones,
+          lo mismo que «Valor del activo (máx D·I·C)» de la matriz.
+        </p>
 
-        {conPersona === 0 ? (
-          <p className="parrafo mt-3 text-11_5 text-faint">
-            La tabla no se dibuja porque no hay a quién listar, y eso es el estado normal hoy: la
-            pareja activo↔persona no se carga desde ningún libro. Se escribe de a un activo por vez
-            desde el popup de asignación de equipos, y cargarla desde un Excel es un requerimiento
-            aparte. No es que falten personas en el sistema: es que esa asignación todavía no se
-            hizo. Una matriz de {criteriosDeTabla.length * niveles.length} columnas vacías no
-            informa de nada.
-          </p>
-        ) : (
-          <>
-            <p className="parrafo mt-1 text-12 text-muted">
-              Solo los activos entregados a alguien. Los cuatro grupos describen los mismos activos
-              de cada persona, así que sus totales por fila coinciden.{' '}
-              <span className="font-semibold">Valor final</span> es el máximo de las dimensiones —lo
-              mismo que «Valor del activo (máx D·I·C)» de la matriz—.
-            </p>
-            <div className="mt-3">
-              <TablaValoracion
-                tabla={tablaB}
-                criterios={criteriosDeTabla}
-                niveles={niveles}
-                umbral={umbral}
-                agrupador="persona"
-                encabezadoAgrupador="Custodio (persona)"
-                arrastreDeCriterio={arrastreDeCriterio}
-                // Sin esto, el encabezado de columna llevaría a todo el inventario y el número no
-                // coincidiría con el total de la columna: el mismo defecto del §7.4, en otra
-                // puerta.
-                arrastreDeColumna={{ conPersona: 1 }}
-              />
-            </div>
-          </>
-        )}
+        <div className="mt-3">
+          <TablaValoracion
+            tabla={tablaB}
+            criterios={criteriosDeTabla}
+            niveles={niveles}
+            umbral={umbral}
+            agrupador="subtipo"
+            encabezadoAgrupador="Subtipo (y su tipo)"
+            arrastreDeCriterio={arrastreDeCriterio}
+          />
+        </div>
       </section>
     </main>
   );
