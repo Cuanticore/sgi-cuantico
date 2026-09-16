@@ -82,3 +82,33 @@ export function reemplazarActivoEnOrigen(
     partes.justificacion,
   );
 }
+
+/// El consecutivo que se puede emitir sin chocar, dado lo que dice el contador y lo que
+/// dice la serie.
+///
+/// ── POR QUÉ NO ALCANZA CON EL CONTADOR ──────────────────────────────────────────────────
+///
+/// `ContadorCodigo` está indexado por **(área, tipo)** y el código se forma con **(prefijo,
+/// abreviatura)**. Parece lo mismo y no lo es: la carga del V19 preservó los códigos del
+/// libro, y ahí hay activos cuyo prefijo NO corresponde a su proceso — «134 códigos con
+/// prefijo TEC pero sólo 122 activos en Gestión Tecnológica». Esos códigos ocupan números de
+/// la serie `TEC-…` sin haber incrementado el contador de (Gestión Tecnológica, tipo).
+///
+/// Resultado: el contador puede ir por detrás del máximo real de su serie, y el número que
+/// entrega ya está tomado. La escritura entonces choca contra la única de `Activo.codigo` y
+/// la operación se cae — que es exactamente lo que impedía mover un activo de proceso.
+///
+/// La corrección es mirar las dos fuentes y quedarse con la mayor. El contador sigue siendo
+/// la autoridad de «cuántos emití»; la serie es la autoridad de «cuáles están tomados».
+export function siguienteConsecutivo(delContador: number, maximoDeLaSerie: number): number {
+  return Math.max(delContador, maximoDeLaSerie + 1);
+}
+
+/// El consecutivo de un código `AAA-TTT-NNNN`, o 0 si no se puede leer.
+///
+/// Devuelve 0 —y no `null`— porque quien la usa busca un MÁXIMO: un código ilegible no debe
+/// hacer fallar el cálculo, sólo no aportar nada.
+export function consecutivoDe(codigo: string): number {
+  const n = Number(codigo.slice(-4));
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}

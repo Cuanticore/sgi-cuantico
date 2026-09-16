@@ -8,13 +8,17 @@
 // of scope. Both are handled by regenerating, never by deleting.
 
 import { revalidatePath } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import {
   codigoDebeReemitirse,
+  consecutivoDe,
   formatearCodigoActivo,
   reemplazarActivoEnOrigen,
+  siguienteConsecutivo,
+  type DescriptoresCodigo,
 } from '@/lib/sgsi/codigo-activo';
 import {
   cargarActivo,
@@ -23,6 +27,67 @@ import {
   type DatosOverlayActivo,
 } from '@/app/components/sgsi/activos/ficha.query';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
+
+/// Emite el siguiente código libre de la serie `PREFIJO-ABREV-NNNN` y deja el contador
+/// apuntando ahí.
+///
+/// ── POR QUÉ NO ES `contador + 1` A SECAS ────────────────────────────────────────────────
+///
+/// Era, y por eso mover un activo de proceso no dejaba guardar. `ContadorCodigo` está
+/// indexado por **(área, tipo)**; el código se forma con **(prefijo, abreviatura)**. No es lo
+/// mismo: la carga del V19 preservó los códigos del libro, y hay activos cuyo prefijo no
+/// corresponde a su proceso —134 códigos `TEC-…` contra 122 activos en Gestión Tecnológica—.
+/// Esos ocupan números de la serie sin haber incrementado el contador del par. El contador
+/// entonces entrega un número ya tomado, la única de `Activo.codigo` aborta la transacción, y
+/// lo que el usuario ve es «no me deja cambiar de proceso».
+///
+/// Acá se mira también la serie y se toma el mayor de los dos. `ultimoValor` queda escrito con
+/// el número emitido —no incrementado a ciegas—, así que el contador se pone al día en la
+/// primera emisión que descubre el desfase, y las siguientes vuelven a ser un incremento
+/// normal.
+///
+/// SE MIRAN LOS CÓDIGOS DE TODOS LOS ACTIVOS, vivos y dados de baja. Un número retirado no
+/// vuelve a la bolsa: reusarlo haría que dos activos distintos compartieran identificador a lo
+/// largo del tiempo, y la bitácora dejaría de poder responder de quién habla cada registro.
+///
+/// El `upsert` sigue adelante para tomar el cerrojo de la fila del contador antes de leer la
+/// serie: dos altas simultáneas del mismo par se serializan ahí, y la segunda lee un máximo
+/// que ya incluye lo que escribió la primera.
+async function emitirCodigo(
+  tx: Prisma.TransactionClient,
+  areaId: number,
+  tipoId: number,
+  descriptores: DescriptoresCodigo,
+): Promise<string> {
+  const contador = await tx.contadorCodigo.upsert({
+    where: { areaId_tipoId: { areaId, tipoId } },
+    update: { ultimoValor: { increment: 1 } },
+    create: { areaId, tipoId, ultimoValor: 1 },
+  });
+
+  const serie = `${descriptores.prefijoArea}-${descriptores.abreviaturaTipo}-`;
+  const tomados = await tx.activo.findMany({
+    where: { codigo: { startsWith: serie } },
+    select: { codigo: true },
+  });
+  const maximo = tomados.reduce((m, a) => Math.max(m, consecutivoDe(a.codigo ?? '')), 0);
+
+  const consecutivo = siguienteConsecutivo(contador.ultimoValor, maximo);
+  if (consecutivo > 9999) {
+    throw new Error(
+      `Se agotó el espacio de numeración para ${descriptores.prefijoArea}-${descriptores.abreviaturaTipo}.`,
+    );
+  }
+
+  if (consecutivo !== contador.ultimoValor) {
+    await tx.contadorCodigo.update({
+      where: { areaId_tipoId: { areaId, tipoId } },
+      data: { ultimoValor: consecutivo },
+    });
+  }
+
+  return formatearCodigoActivo(descriptores, consecutivo);
+}
 
 export interface CambioValoracion {
   codigoActivo: string;
@@ -107,10 +172,15 @@ export interface DatosGenerales {
   nombre?: string;
   descripcion?: string | null;
   /// The MAGERIT classification. Changing the type changes WHICH THREATS apply, so the
-  /// asset's whole risk set is regenerated — and the code stays as it is: it is immutable
-  /// and never reused, so an asset that moves from one type to another keeps a code whose
-  /// abbreviation no longer matches. REQ-SIG-01 is explicit about that, and the change
-  /// goes to the bitácora instead.
+  /// asset's whole risk set is regenerated.
+  ///
+  /// EL CÓDIGO YA NO ES INMUTABLE. Lo era —REQ-SIG-01 §3— y dejó de serlo a pedido: un
+  /// `TEC-…` dentro de Gestión Estratégica es una etiqueta que miente. Mover el activo de
+  /// proceso o de tipo REEMITE el código con el siguiente consecutivo libre de la serie
+  /// destino (`emitirCodigo`), y lo que sostiene que no se pierda la historia es que el
+  /// código viejo sigue resolviendo al mismo activo: queda una fila de bitácora
+  /// anterior→nuevo que `cargarActivo` sabe recorrer, y los planes se reapuntan en la misma
+  /// transacción. El número que el activo deja atrás no vuelve a la bolsa.
   areaId?: number;
   tipoId?: number;
   subtipoId?: number;
@@ -219,17 +289,7 @@ export async function guardarDatosGenerales(
         };
 
         if (activo.codigo !== null && codigoDebeReemitirse(antes, despues)) {
-          const contador = await tx.contadorCodigo.upsert({
-            where: { areaId_tipoId: { areaId: areaDespues.id, tipoId: tipoDespues.id } },
-            update: { ultimoValor: { increment: 1 } },
-            create: { areaId: areaDespues.id, tipoId: tipoDespues.id, ultimoValor: 1 },
-          });
-          if (contador.ultimoValor > 9999) {
-            throw new Error(
-              `Se agotó el espacio de numeración para ${despues.prefijoArea}-${despues.abreviaturaTipo}.`,
-            );
-          }
-          codigoNuevo = formatearCodigoActivo(despues, contador.ultimoValor);
+          codigoNuevo = await emitirCodigo(tx, areaDespues.id, tipoDespues.id, despues);
         }
       }
 
@@ -561,18 +621,10 @@ export async function crearActivo(
     const dimensiones = await prisma.dimension.findMany();
 
     const creado = await prisma.$transaction(async (tx) => {
-      const contador = await tx.contadorCodigo.upsert({
-        where: { areaId_tipoId: { areaId: area.id, tipoId: tipo.id } },
-        update: { ultimoValor: { increment: 1 } },
-        create: { areaId: area.id, tipoId: tipo.id, ultimoValor: 1 },
+      const codigo = await emitirCodigo(tx, area.id, tipo.id, {
+        prefijoArea: area.prefijo!,
+        abreviaturaTipo: tipo.abreviatura,
       });
-      if (contador.ultimoValor > 9999) {
-        throw new Error(
-          `Se agotó el espacio de numeración para ${area.prefijo}-${tipo.abreviatura}.`,
-        );
-      }
-
-      const codigo = `${area.prefijo}-${tipo.abreviatura}-${String(contador.ultimoValor).padStart(4, '0')}`;
 
       const activo = await tx.activo.create({
         data: {

@@ -2022,7 +2022,7 @@ function DatosGenerales({
           }))}
           // The prefix forms the code, but the code already assigned never changes: this
           // edit moves who answers for the asset, not its identifier.
-          titulo="El prefijo del proceso forma el código, pero un código ya asignado no cambia: la modificación queda en la bitácora."
+          titulo="El prefijo del proceso forma el código: al guardar, el activo recibe el siguiente código libre del proceso destino. El código anterior sigue resolviendo a este activo y la cadena queda en la bitácora."
         />
       </Campo>
 
