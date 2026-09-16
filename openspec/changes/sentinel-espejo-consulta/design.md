@@ -260,10 +260,27 @@ sincronización, `disponible: false` **junto con** la baja en `IMPLEMENTACIONES`
 
 ## Preguntas abiertas
 
-- [ ] **El valor de `TIMESPAN_SINCRONIZACION` hay que verificarlo contra el workspace real.**
-  La primera corrida tiene que devolver los 19 incidentes. Una ventana corta de más no rompe
-  nada de forma visible —D6 dice que el trabajo no borra— y ahí está el peligro: el espejo
-  dejaría de crecer en silencio. Se fija con una corrida contra `law-sentinel-cuantico` antes
-  de dar el trabajo por bueno, y el resultado se anota en el comentario de la constante.
-  Ojo: la retención del workspace puede ser más angosta que la ventana; si lo es, manda la
-  retención y eso hay que dejarlo escrito, no descubrirlo después.
+- [x] ~~**El valor de la ventana hay que verificarlo contra el workspace real.**~~
+  **RESUELTO el 2026-09-15**, medido contra `law-sentinel-cuantico`
+  (customerId `a38e310c-7fad-42ad-9375-9a3c102e8b12`):
+
+  | Ventana | Incidentes deduplicados |
+  |---|---|
+  | `P1D` | 3 |
+  | `P7D` | **19** |
+  | `P30D` | **19** |
+  | `P90D` | 19 |
+
+  Retención: el workspace tiene 30 días por omisión, pero la tabla `SecurityIncident`
+  está configurada en **730 días interactivos / 2556 totales** (fase F2, para evidencia
+  ISO). O sea que la retención **no** es más angosta que la ventana y no manda sobre ella
+  —el riesgo que esta pregunta anticipaba no se materializa.
+
+  **Decisión: `P30D` por omisión**, configurable por entorno. Los 19 incidentes actuales
+  caben en 7 días, así que `P30D` deja margen amplio sin truncar. El primer llenado puede
+  querer una ventana mayor; por eso es configurable y no una constante.
+
+  Nota de implementación: quedó como función pura `ventanaDeSincronizacion(entorno)` en vez
+  de la constante `TIMESPAN_SINCRONIZACION` que este documento proponía más arriba, para que
+  el override por variable de entorno quede cubierto por jest en lugar de leer `process.env`
+  dentro del cliente de red.

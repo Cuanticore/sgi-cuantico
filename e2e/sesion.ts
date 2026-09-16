@@ -214,6 +214,32 @@ export async function intentarSegundaPromocion(numeroIncidente: string): Promise
   });
 }
 
+/// Intenta crear un SEGUNDO evento desde el mismo incidente. Debe fallar.
+///
+/// Ataca por debajo de la interfaz a propósito: que el botón desaparezca es ergonomía, y
+/// un segundo intento no tiene por qué llegar por un clic — puede venir de dos pestañas
+/// abiertas, de una llamada repetida a la acción o de un reintento del servidor. Lo que
+/// esta función comprueba es la barrera que sí aguanta eso: el índice único
+/// `(origen_sistema, origen_id_externo)` sobre `evento_seguridad`.
+///
+/// Se resuelve rechazando; el llamador afirma con `rejects.toThrow()`.
+export async function intentarSegundaPromocion(numeroIncidente: string): Promise<void> {
+  const db = cliente();
+  const persona = await db.persona.findFirstOrThrow({ select: { id: true } });
+  await db.eventoSeguridad.create({
+    data: {
+      codigo: `EVT-DUP-${numeroIncidente}`,
+      descripcion: 'Segundo intento de promoción del mismo incidente. No debe entrar.',
+      fechaOcurrencia: new Date(),
+      enCurso: false,
+      reportadoPorId: persona.id,
+      origenSistema: 'SENTINEL',
+      origenIdExterno: numeroIncidente,
+      origenUrl: 'https://portal.azure.com/#pruebas',
+    },
+  });
+}
+
 /// Borra el rastro de un incidente sembrado y el evento que se haya promovido desde él,
 /// para que la suite pueda repetirse sin intervención manual.
 export async function limpiarIncidenteSentinel(numeroIncidente: string): Promise<void> {

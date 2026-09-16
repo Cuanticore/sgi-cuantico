@@ -17,6 +17,7 @@ import {
   cerrarCliente,
   entrarComoColaborador,
   entrarComoLiderSig,
+  intentarSegundaPromocion,
   limpiarIncidenteSentinel,
   sembrarIncidenteSentinel,
 } from './sesion';
@@ -112,6 +113,37 @@ test.describe('Promoción a evento del SGSI', () => {
       page.getByRole('button', { name: 'Promover', exact: true }),
       'sigue ofreciendo promover un incidente ya promovido',
     ).toHaveCount(0);
+  });
+
+  test('un incidente ya promovido no se puede promover de nuevo', async ({ page, context }) => {
+    await entrarComoLiderSig(context);
+    await page.goto('/sgsi/sentinel', { waitUntil: 'domcontentloaded' });
+
+    await page.getByRole('button', { name: 'Promover', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Ya terminó' }).click();
+    await page.getByRole('button', { name: /^Promover ahora$/ }).click();
+    await expect(page.getByRole('link', { name: /^EVT-\d{4}-\d{4}$/ }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Primera barrera, la ergonómica: la interfaz deja de ofrecerlo.
+    await expect(page.getByRole('button', { name: 'Promover', exact: true })).toHaveCount(0);
+
+    // Segunda barrera, la que de verdad protege: el índice único
+    // `(origen_sistema, origen_id_externo)`. Se ataca por debajo de la interfaz porque un
+    // segundo intento no tiene por qué llegar por un clic — puede venir de una llamada
+    // repetida a la acción, de dos pestañas abiertas, o de un reintento del servidor.
+    // Si esto NO lanza, el evento se duplicaría y el espejo tendría dos registros de
+    // gestión para el mismo incidente.
+    // Se afirma sobre el CÓDIGO del error y el nombre de la restricción, no sobre «lanzó
+    // algo». Un `toThrow()` pelado también pasaría si fallara por una persona inexistente
+    // o por otra restricción cualquiera, y entonces la prueba estaría en verde sin haber
+    // comprobado nada. Verificado a mano: P2002 sobre `evento_origen_unico`, campos
+    // `["origen_sistema","origen_id_externo"]`.
+    await expect(
+      intentarSegundaPromocion(NUMERO),
+      'la base aceptó promover dos veces el mismo incidente: el índice único no protege',
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 
   test('el evento promovido entra SIN veredicto, para que lo evalúe una persona', async ({
