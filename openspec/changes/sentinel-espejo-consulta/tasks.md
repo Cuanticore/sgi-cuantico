@@ -19,7 +19,7 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 0 — Migración de base de datos [secuencial, bloquea 1.3/3/4/5]
 
-- [ ] **0.1** — En `prisma/schema.prisma`: agregar `enum SistemaOrigenEvento { SENTINEL }`,
+- [x] **0.1** — En `prisma/schema.prisma`: agregar `enum SistemaOrigenEvento { SENTINEL }`,
   el modelo `IncidenteSentinel` (D1–D9 del diseño; `numeroIncidente String @unique`,
   `severidadSentinel`/`estadoSentinel` con sufijo, `etiquetas`/`alertas` como texto JSON,
   `sincronizadoEn` explícito) y en `EventoSeguridad`: `origenSistema`, `origenIdExterno`,
@@ -39,17 +39,17 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 1 — Módulos puros (TDD estricto) [1.1 y 1.2 en paralelo entre sí; 1.3 depende de 1.1]
 
-- [ ] **1.1** RED — `lib/sig/__tests__/sentinel-fallo.test.ts`: casos para
+- [x] **1.1** RED — `lib/sig/__tests__/sentinel-fallo.test.ts`: casos para
   `clasificarTokenSentinel`/`clasificarConsultaSentinel`/`explicarFalloSentinel` (403→
   `SIN_ROL` con frase de **rol** Log Analytics Reader, no "permiso de aplicación"; 404→
   `WORKSPACE_NO_EXISTE`; 400 con token válido→`CONSULTA_INVALIDA`; sin `tables`/columnas→
   `TABLA_AUSENTE`; 0 filas NO es fallo). Debe fallar (módulo no existe).
   → Spec: *Noisy failure on missing configuration or upstream errors*.
   - Verificar: `npm test -- sentinel-fallo` falla por import faltante.
-- [ ] **1.2** GREEN — `lib/sig/sentinel-fallo.ts`: implementar `FalloSentinel` (8 variantes)
+- [x] **1.2** GREEN — `lib/sig/sentinel-fallo.ts`: implementar `FalloSentinel` (8 variantes)
   y las tres funciones hasta que 1.1 pase.
   - Verificar: `npm test -- sentinel-fallo` verde, ninguna frase repetida entre variantes.
-- [ ] **1.3** RED — `lib/sig/__tests__/sentinel.test.ts`: `aFilas` (columnas en otro orden
+- [x] **1.3** RED — `lib/sig/__tests__/sentinel.test.ts`: `aFilas` (columnas en otro orden
   da lo mismo), `KQL_INCIDENTES` (contiene `arg_max(TimeGenerated, *) by IncidentNumber`,
   NO contiene `ago(`), `claveIncidente` (`42` y `'42'` iguales), `aTextoJson` (array
   parseado == cadena JSON equivalente; `null`/`undefined`→`null`), `correoDelPropietario`
@@ -63,7 +63,7 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
   → Spec: *Idempotent upsert*, *Dedup via arg_max*, *Refresh scope excludes promoted
   state*, *Sentinel vocabulary in its own column*.
   - Verificar: `npm test -- lib/sig/__tests__/sentinel.test.ts` falla por import faltante.
-- [ ] **1.4** GREEN — `lib/sig/sentinel.ts`: implementar todo lo listado en 1.3, incluida
+- [x] **1.4** GREEN — `lib/sig/sentinel.ts`: implementar todo lo listado en 1.3, incluida
   `ventanaDeSincronizacion(entorno): string` (default `'P30D'`, override por
   `SENTINEL_TIMESPAN_SINCRONIZACION`; comentario documentando que P30D cubre los 19
   incidentes medidos en el workspace real con retención de 730 días, y que un primer
@@ -73,14 +73,14 @@ Restricción dura: la migración se genera y aplica SOLO contra la base dev del 
 
 ## Fase 2 — Cliente de red [depende de 1.2 y 1.4]
 
-- [ ] **2.1** — `lib/sig/sentinel-consulta.ts` (`import 'server-only'`):
+- [x] **2.1** — `lib/sig/sentinel-consulta.ts` (`import 'server-only'`):
   `tokenDeLogAnalytics()` y `consultarLogAnalytics(kql)`. Comprueba
   `variablesSentinelQueFaltan` antes de llamar; usa `ventanaDeSincronizacion(process.env)`
   como único `timespan` (D11 — el KQL nunca lleva `ago()`); todo `catch` cae en `SIN_RED`,
   nunca lanza.
   → Spec: *One-way flow — never writes to Sentinel*, *Noisy failure on missing config*.
   - Sin jest (red real). Verificar: `npx tsc --noEmit` sin errores de tipos.
-- [ ] **2.2** — Añadir a `.env.example`: bloque `SENTINEL_TENANT_ID`,
+- [x] **2.2** — Añadir a `.env.example`: bloque `SENTINEL_TENANT_ID`,
   `SENTINEL_CLIENT_ID`, `SENTINEL_CLIENT_SECRET`, `SENTINEL_WORKSPACE_ID`,
   `SENTINEL_TIMESPAN_SINCRONIZACION` (comentada, con nota de que sin ella cae en `P30D`).
   Explicar por qué no reusa `AZURE_AD_*` ni `SHAREPOINT_*` (RBAC distinto).
