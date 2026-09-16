@@ -19,6 +19,7 @@ import type { EstadoAccion } from '@prisma/client';
 import PopupAccion from './PopupAccion';
 import FranjaSinPlan, { type FilaFranjaSinPlan } from './FranjaSinPlan';
 import GanttPlanes from './GanttPlanes';
+import ImportarPlanes from './ImportarPlanes';
 
 export interface AccionVista {
   codigo: string;
@@ -142,6 +143,7 @@ export default function PlanesTratamiento({
   // El tablero responde otra pregunta —«¿cuáles no van a llegar?»— y se entra a él a
   // propósito, no por sorpresa.
   const [vista, setVista] = useState<'tabla' | 'tablero'>('tabla');
+  const [importando, setImportando] = useState(false);
   const [estados, setEstados] = useState<Record<string, string>>({});
   const [eliminadas, setEliminadas] = useState<string[]>([]);
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -247,6 +249,15 @@ export default function PlanesTratamiento({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImportando(true)}
+            title="Cargar el formato FOR-SIG-13 «Plan de Tratamiento y Mejora». Primero muestra qué pasaría; nada se escribe hasta confirmar."
+            className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 font-semibold text-primary transition-colors hover:bg-surface-hover"
+          >
+            Importar FOR-SIG-13
+          </button>
+
           {/* El conmutador de vista. Dos pestañas y no un icono: «Tablero» dice lo que hay
               del otro lado, y un icono de barras habría que adivinarlo. */}
           <div className="flex overflow-hidden rounded-campo border border-border-field">
@@ -528,6 +539,8 @@ export default function PlanesTratamiento({
         </div>
       </div>
       )}
+
+      {importando && <ImportarPlanes onCerrar={() => setImportando(false)} />}
 
       {editando && (
         <PopupAccion
