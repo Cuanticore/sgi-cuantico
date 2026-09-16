@@ -5,6 +5,8 @@
 
 import {
   codigoDebeReemitirse,
+  consecutivoDe,
+  siguienteConsecutivo,
   formatearCodigoActivo,
   reemplazarActivoEnOrigen,
 } from '../codigo-activo';
@@ -123,5 +125,41 @@ describe('reemplazarActivoEnOrigen', () => {
       reemplazarActivoEnOrigen(conSeparadores, 'TEC-DAT-0009', 'EST-DAT-0031')!,
     );
     expect(partes!.justificacion).toBe('Acordado con el comité · pendiente | ver acta 2026-09');
+  });
+});
+
+// ===========================================================================
+// El consecutivo disponible — por que el contador solo no alcanza
+// ===========================================================================
+
+describe('siguienteConsecutivo', () => {
+  it('cuando el contador va adelante, manda el contador', () => {
+    expect(siguienteConsecutivo(40, 12)).toBe(40);
+  });
+
+  it('cuando la serie va adelante, se salta por encima de ella', () => {
+    // El caso real: la carga del V19 preservo codigos `TEC-…` de activos que no estan en
+    // Gestion Tecnologica, asi que ocupan numeros de la serie sin haber incrementado el
+    // contador de ese par. El contador entrega 23 y `TEC-DAT-0134` ya existe.
+    expect(siguienteConsecutivo(23, 134)).toBe(135);
+  });
+
+  it('empatados, el contador ya es el siguiente', () => {
+    expect(siguienteConsecutivo(10, 9)).toBe(10);
+  });
+
+  it('una serie vacia deja mandar al contador', () => {
+    expect(siguienteConsecutivo(1, 0)).toBe(1);
+  });
+});
+
+describe('consecutivoDe', () => {
+  it('lee los cuatro digitos finales', () => {
+    expect(consecutivoDe('TEC-DAT-0134')).toBe(134);
+  });
+
+  it('un codigo ilegible aporta 0 en vez de romper el maximo', () => {
+    expect(consecutivoDe('roto')).toBe(0);
+    expect(consecutivoDe('TEC-DAT-ABCD')).toBe(0);
   });
 });

@@ -9,7 +9,7 @@
 | **Destinatario** | Equipo de desarrollo (ejecución asistida con Claude Code) |
 | **Extiende** | REQ-SIG-02 (contenidos, asignaciones y cierre) · `docs/handoff_a/contenidos-capacitacion.md` |
 | **Paquete de prueba** | `scorm_package_2004.zip` (18 KB, 17 archivos) · **verificado**, ver §2 |
-| **Estado** | Decisiones D-1 a D-5 cerradas (§12) · listo para ejecutar. **D-4 quedó decidida el 08/09/2026** (correo y nombre); lo único abierto es si existe cobertura contractual para la transferencia a un proveedor de cursos, y eso no bloquea la construcción. |
+| **Estado** | Decisiones D-1 a D-5 cerradas (§12) · **construido**. Verificado contra el código el 16/09/2026 con cuatro defectos corregidos — ver **§16**, que además lista lo que falta para abrir el curso de Coursebox. **D-4 quedó decidida el 08/09/2026** (correo y nombre); lo único abierto es si existe cobertura contractual para la transferencia a un proveedor de cursos, y eso no bloquea la construcción. |
 
 ---
 
@@ -364,3 +364,57 @@ SCORM_INTENTO_ABANDONO_MINUTOS=720
 - **No es una herramienta de autoría**: no crea ni edita cursos.
 - **No convierte el paquete en evidencia congelada cuando es un despacho** (D-1). Publica lo que sabe y dice lo que no.
 - **No verifica la cobertura contractual** de la transferencia de correo y nombre a un proveedor de cursos (D-4). Envía lo decidido, lo advierte en pantalla y lo registra; que exista el contrato es de gobierno.
+
+---
+
+## 16 · Verificación contra el código construido · 16/09/2026
+
+Revisión pedida antes de cargar el curso de Coursebox en producción: **qué soporta realmente el player, qué haría falta para abrir ese paquete, y cómo viajan el nombre y el correo al proveedor.** Todo lo de abajo sale de leer el código, no de haberlo visto correr: no hay base de datos ni orígenes configurados en este entorno.
+
+### 16.1 · El paquete de Coursebox pasa los cinco filtros
+
+| Lo que trae el paquete (§2) | Lo que hace el código |
+|---|---|
+| `<schemaversion>2004 3rd Edition</schemaversion>` | Está en `EDICIONES_SOPORTADAS` (`scorm-manifiesto.ts`) ✔ |
+| Un solo `<item>` con `identifierref` | La regla exige exactamente uno; dos se rechazan con motivo ✔ |
+| `href="index.html"`, presente en el zip | Se verifica que el archivo exista ✔ |
+| `index.html` con `https://my.coursebox.ai/...` inline | `dominiosDe` lo encuentra → clase **DESPACHO** ✔ |
+| Carga *script* y abre *iframe* al tercero | La CSP le da `script-src`, `frame-src` y `connect-src` a ese dominio ✔ |
+
+La frontera de origen (§4) es lo que hace que funcione: el SCO cuelga de un iframe hijo del runner **y del mismo origen**, así que el driver de Coursebox encuentra `API_1484_11` subiendo por `window.parent`, como manda el estándar.
+
+### 16.2 · Cómo viajan el nombre y el correo a Coursebox
+
+1. `abrirIntento` pone `persona.correo` en `cmi.learner_id` y `persona.nombre` en `cmi.learner_name` (`app/mi-sig/acciones/curso.ts`). **El identificador es el correo corporativo**, no un id interno.
+2. Viajan por `postMessage` al origen de contenido, con origen destino explícito —nunca `'*'`—.
+3. En el runner quedan en memoria, de acceso **`RO`**: el curso los lee y no los puede cambiar.
+4. El driver de Coursebox, que corre dentro de *nuestro* `index.html`, los lee con `GetValue` y sustituye los marcadores de la URL del iframe:
+   `https://my.coursebox.ai/scormxd/access?course_token=…&student_id=<correo>&student_name=<nombre>`
+
+**Van en la cadena de consulta de un GET**, así que quedan en los logs de acceso del proveedor y pueden aparecer en la cabecera `Referer` de lo que esa página pida después. No es lo mismo que enviarlos en el cuerpo de un POST, y para un dato personal la diferencia importa: es materia de D-4 y del contrato, no de desarrollo.
+
+Nada más de la persona sale desde nuestro lado. El resto del modelo —avance, nota, tiempo, `suspend_data`— se queda entre la aplicación y el origen de contenido, que son nuestros. Lo que Coursebox recoja por su cuenta una vez cargado su iframe (IP, agente, cookies propias) ya no lo vemos ni lo controlamos.
+
+El rastro está bien resuelto: se escribe una fila de bitácora por cada lanzamiento de un paquete de despacho, con el dominio destino, **incluso en modo repaso** —ahí no se crea intento pero los dos datos viajan igual—.
+
+### 16.3 · Cuatro defectos encontrados, y corregidos el mismo día
+
+**a · El token duraba 15 minutos y no se renovaba nunca.** Era el bloqueante real. Se emitía al abrir el curso y `firmarIntento` no se llamaba en ningún otro lado, así que a partir del minuto 15 **todo guardado se rechazaba**: el autoguardado de cada 60 s y el commit final de `Terminate`. Una inducción de 40 minutos terminaba con la persona habiendo hecho el curso entero y la asignación sin cerrar.
+
+Corregido en dos partes: la vigencia por defecto pasa a **una hora** (`VIGENCIA_POR_DEFECTO`) y **cada guardado aceptado devuelve un token nuevo** que el player adopta. Como se guarda cada 60 s, el token se renueva unas sesenta veces antes de acercarse a su vencimiento; la hora es el techo para una máquina que se suspende, no la vida esperada. La vigencia larga no afloja nada porque el token no es la única llave: `guardarIntento` comprueba además la sesión y que el intento sea de quien escribe.
+
+**b · El aviso de rechazo decía algo que no había pasado.** Cualquier fallo de guardado se le mostraba a la persona como *«este intento ya se cerró»* —falso: el intento seguía abierto y lo vencido era el token—. Ahora el motivo lo dice el servidor (`motivoDe` separa *vencido* de *inválido*) y el runner lo muestra. La firma se comprueba **siempre antes** de mirar la fecha: decir «vencido» sobre una firma que no cuadra le confirmaría a quien prueba secretos que acertó el suyo.
+
+**c · Sin secreto configurado, los tokens se firmaban con uno escrito en el repositorio.** `secreto()` caía a `'sgi-dev-secret'`, que es público: cualquiera que lea el código podía fabricar un token para el intento de otra persona. Ahora en producción **falla al abrir el curso** en vez de arrancar inseguro en silencio.
+
+**d · Un despacho podía clasificarse como autocontenido.** El análisis miraba únicamente el HTML de entrada. Coursebox pone su dominio ahí, así que su paquete salía bien; pero un proveedor que arme la URL dentro de su propio `.js` se habría clasificado `AUTOCONTENIDO`, con la CSP negándole el dominio —pantalla en blanco— y, peor, **la ficha afirmándole a un auditor que «el contenido no sale de la aplicación» mientras el correo y el nombre salían igual**. Ahora se miran también los `<script src>` locales que el SCO carga, y se filtran los namespaces XML (`w3.org`, `imsglobal.org`, …) que son URLs pero no orígenes de contenido — sin ese filtro, un SVG inline convertiría cualquier curso en un «despacho que comparte datos con w3.org», mentira en la otra dirección.
+
+Además, `worker-src` no estaba declarada y caía a `default-src 'none'`: un curso con Web Worker moría sin decir por qué. `form-action` se queda en `'none'` a propósito.
+
+### 16.4 · Lo que todavía hace falta para abrir el curso
+
+1. **Los dos orígenes no están configurados en ningún entorno** —ni `.env`, ni el de producción—. Hoy `abrirIntento` se niega y ningún curso abre. Hace falta el subdominio, su DNS, su certificado, el `server` de nginx de `deploy/origen-cursos.nginx.example`, y `SCORM_ORIGEN_CONTENIDO` + `SCORM_ORIGEN_APP`. Quedaron documentadas en `.env.example`.
+2. **`SGI_RUTAS_SECRETO` definido** en producción; si no, la aplicación ahora falla a propósito (16.3 c).
+3. **La primera ejecución de punta a punta**, que es lo único que no se puede sustituir por análisis: subir el zip, lanzarlo, ver el curso de Coursebox dentro del player, terminarlo y comprobar que la asignación quedó cerrada con su nota.
+
+Y un riesgo que sólo se verá ahí: **`connect-src` habilita únicamente los dominios que el paquete declaró.** Si el driver de Coursebox llama a otro host —un `api.` o un `cdn.`— la petición se bloquea. Es lo primero que hay que mirar en la consola si el curso queda en blanco.

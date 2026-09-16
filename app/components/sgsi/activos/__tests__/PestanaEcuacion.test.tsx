@@ -112,7 +112,12 @@ describe('PestanaEcuacion — el desglose por clase cuando hay relevancia asigna
 
     expect(screen.getByText(/Media ponderada acotada por el control principal/i)).toBeInTheDocument();
     expect(screen.getByText('PRINCIPAL')).toBeInTheDocument();
-    expect(screen.getByText('COMPLEMENTARIO')).toBeInTheDocument();
+    // «DE APOYO», que es como el CATÁLOGO nombra a la clase `complementario` y como la ofrece
+    // el selector con el que se clasifica. Esta línea exigía «COMPLEMENTARIO» y por eso el
+    // rótulo cruzado nunca se puso rojo: el control del fixture es De apoyo (peso 1, el 10 %),
+    // y en el catálogo «Complementario» es el otro grupo, el del 20 %.
+    expect(screen.getByText('DE APOYO')).toBeInTheDocument();
+    expect(screen.queryByText('COMPLEMENTARIO')).not.toBeInTheDocument();
     // Sin secundarios, el presupuesto se renormaliza y la pantalla lo dice en las dos
     // clases presentes: 70/10 pasa a 87.5/12.5.
     expect(screen.getAllByText(/renormalizado/i)).toHaveLength(2);

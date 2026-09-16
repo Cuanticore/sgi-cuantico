@@ -15,6 +15,19 @@
 /// exports. Pasó el 16/09/2026 y tumbó un despliegue. Ver `lib/__tests__/use-server.test.ts`.
 export const PREFIJO_OID_MANUAL = 'manual:';
 
+/// Si este `oid` es de los que inventamos, y por lo tanto la persona todavía no está en el
+/// Directorio.
+///
+/// Se pregunta por el prefijo y no por `Persona.origen`: `origen` es una declaración que
+/// alguien puede editar, y el oid es el hecho. El día que las dos discrepen, la que dice la
+/// verdad sobre si hay cuenta en Azure es ésta.
+///
+/// La garantía que lo sostiene: un oid de Azure es un UUID y un UUID no lleva dos puntos, así
+/// que el prefijo es imposible de producir por accidente desde el Directorio.
+export function esOidManual(oid: string | null | undefined): boolean {
+  return typeof oid === 'string' && oid.startsWith(PREFIJO_OID_MANUAL);
+}
+
 
 export interface EntradaDirectorio {
   oid: string;

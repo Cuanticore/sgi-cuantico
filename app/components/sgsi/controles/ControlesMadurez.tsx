@@ -10,6 +10,10 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ESCALONES_SELECCIONABLES,
+  UMBRAL_BRECHA,
+  UMBRAL_GESTIONADO,
+  descriptorDeNivel,
   eficaciaDeNivel,
   esAplicable,
   media,
@@ -74,27 +78,26 @@ interface Props {
   directorio?: { nombre: string; correo: string }[];
 }
 
-/// The scale label carries its efficacy, in the select and in the distribution alike.
-const ESCALA = [
-  { nivel: 0, nombre: 'Inexistente' },
-  { nivel: 1, nombre: 'Inicial / ad hoc' },
-  { nivel: 2, nombre: 'Reproducible pero intuitivo' },
-  { nivel: 3, nombre: 'Proceso definido' },
-  { nivel: 4, nombre: 'Gestionado y medible' },
-  { nivel: 5, nombre: 'Optimizado' },
-];
+/// REQ-SIG-24 §3 · la escala ya no se declara acá.
+///
+/// Había una copia local de los seis niveles CMM INDEXADA POR POSICIÓN —`ESCALA[nivel]`—, y
+/// con la escala de porcentaje el nivel vale 0, 10, 20 … 90: `ESCALA[70]` es `undefined` y
+/// la pantalla entera reventaba con un TypeError. Fue una caída real en producción. La
+/// rúbrica vive en `lib/sgsi/madurez.ts` y se busca POR VALOR, no por posición.
+const ESCALA = ESCALONES_SELECCIONABLES;
 
 function etiquetaEscala(nivel: number): string {
-  const e = ESCALA[nivel];
-  return `L${nivel} — ${e.nombre} · ${Math.round(eficaciaDeNivel(nivel) * 100)}%`;
+  const nombre = descriptorDeNivel(nivel);
+  const pct = Math.round(eficaciaDeNivel(nivel) * 100);
+  return nombre === null ? `${nivel} % · ${pct}%` : `${nivel} % — ${nombre}`;
 }
 
-/// Levels print as "L3", never "L3,0". The decimal survives only when it is not zero,
-/// which happens for a median across an even count.
+/// Los escalones se imprimen como «70 %». El decimal sobrevive sólo cuando no es cero, que
+/// es lo que pasa con una mediana sobre una cantidad par.
 function nivelTexto(v: number | null): string {
   if (v === null) return '—';
   const redondeado = Math.round(v * 10) / 10;
-  return `L${redondeado.toString().replace('.', ',')}`;
+  return `${redondeado.toString().replace('.', ',')} %`;
 }
 
 /// The typographic minus, never a hyphen.
@@ -104,16 +107,18 @@ function delta(n: number): string {
   return r > 0 ? `+${r}` : `−${Math.abs(r)}`;
 }
 
-/// CMM traffic light: L0-L1 red, L2-L3 orange, L4-L5 green. L3 is orange — a defined
-/// process is not yet the target.
+/// Umbrales en PUNTOS: rojo hasta 10 %, ámbar bajo el escalón gestionado (70 %), verde a
+/// partir de él. Antes eran `<= 1` y `<= 3` sobre la escala ordinal, y el 70 % quedaba en
+/// ámbar por el mismo motivo por el que L3 lo estaba: un proceso documentado y aplicado
+/// todavía no es el objetivo si no se mide ni se prueba.
 function semaforo(nivel: number | null): { fg: string; bg: string; bd: string } {
   if (nivel === null) {
     return { fg: 'var(--hf-cmm-nulo-fg)', bg: 'var(--hf-cmm-nulo-bg)', bd: 'var(--hf-cmm-nulo-bd)' };
   }
-  if (nivel <= 1) {
+  if (nivel <= 10) {
     return { fg: 'var(--hf-cmm-rojo-fg)', bg: 'var(--hf-cmm-rojo-bg)', bd: 'var(--hf-cmm-rojo-bd)' };
   }
-  if (nivel <= 3) {
+  if (nivel < UMBRAL_GESTIONADO) {
     return {
       fg: 'var(--hf-cmm-naranja-fg)',
       bg: 'var(--hf-cmm-naranja-bg)',
@@ -238,7 +243,12 @@ export default function ControlesMadurez({
     },
     { clave: 'indice', titulo: 'Índice de madurez', valor: `${m.indice.toFixed(1)}%`, pie: 'media de la eficacia' },
     { clave: 'tipico', titulo: 'Nivel típico', valor: nivelTexto(m.nivelTipico), pie: 'mediana del nivel' },
-    { clave: 'gestionados', titulo: 'Gestionados en L3+', valor: m.enGestionado, pie: `${m.pctGestionado.toFixed(1)}%` },
+    {
+      clave: 'gestionados',
+      titulo: `Gestionados desde ${UMBRAL_GESTIONADO} %`,
+      valor: m.enGestionado,
+      pie: `${m.pctGestionado.toFixed(1)}%`,
+    },
     { clave: 'objetivo', titulo: 'Cumplen su objetivo', valor: m.enObjetivo, pie: `de ${m.aplicables}` },
     { clave: 'brechas', titulo: 'Brechas prioritarias', valor: m.brechas, pie: 'en L2 o menos' },
   ] as const;
@@ -293,7 +303,7 @@ export default function ControlesMadurez({
           >
             <option value="todos">Todos</option>
             <option value="brechas">Solo brechas L2−</option>
-            <option value="gestionados">Solo gestionados L3+</option>
+            <option value="gestionados">Solo gestionados ({UMBRAL_GESTIONADO} % o más)</option>
             <option value="objetivo">Solo en objetivo</option>
             <option value="plan">Solo en el plan de tratamiento</option>
             <option value="parciales">Solo alcance adaptado</option>
@@ -671,7 +681,9 @@ function PorDominio({
           if (delDominio.length === 0) return null;
           const evaluados = delDominio.filter((c) => c.actual !== null);
           const niveles = evaluados.map((c) => c.actual as number);
-          const enGestionado = evaluados.filter((c) => (c.actual as number) >= 3).length;
+          const enGestionado = evaluados.filter(
+            (c) => (c.actual as number) >= UMBRAL_GESTIONADO,
+          ).length;
           const pct = (enGestionado / evaluados.length) * 100;
           const eficaciaMedia = media(evaluados.map((c) => eficaciaDeNivel(c.actual))) * 100;
 
@@ -1031,9 +1043,9 @@ function desdeClave(clave: string): Filtro {
 function pasa(c: ControlVista, f: Filtro): boolean {
   switch (f.tipo) {
     case 'brechas':
-      return esAplicable(c.soa) && c.actual !== null && c.actual <= 2;
+      return esAplicable(c.soa) && c.actual !== null && c.actual <= UMBRAL_BRECHA;
     case 'gestionados':
-      return esAplicable(c.soa) && c.actual !== null && c.actual >= 3;
+      return esAplicable(c.soa) && c.actual !== null && c.actual >= UMBRAL_GESTIONADO;
     case 'objetivo':
       return esAplicable(c.soa) && c.actual !== null && c.objetivo !== null && c.actual >= c.objetivo;
     case 'plan':

@@ -62,7 +62,14 @@ export default function PanelCierre({
             }))
           : undefined,
       archivo:
-        archivo && (tarjeta.tipo === 'TAREA' || tarjeta.tipo === 'CAPACITACION')
+        archivo &&
+        (tarjeta.tipo === 'TAREA' ||
+          tarjeta.tipo === 'CAPACITACION' ||
+          // REQ-SIG-26 · D-3 · la constancia que emita la plataforma externa. Es la única
+          // evidencia que puede existir de un curso que la aplicación no ve, y por eso se
+          // acepta; opcional, porque no toda plataforma emite certificado y un requisito
+          // que no se puede cumplir termina en gente adjuntando cualquier captura.
+          (tarjeta.tipo === 'CURSO_VIRTUAL' && tarjeta.claseCurso === 'ENLACE'))
           ? { nombre: archivo.name, mime: archivo.type || 'application/octet-stream', bytes }
           : undefined,
     });
@@ -100,7 +107,15 @@ export default function PanelCierre({
     //
     // Presentarlos igual sería mentir en los dos sentidos: prometer un seguimiento que no
     // existe, o esconder el que sí existe.
-    const externo = !tarjeta.tienePaqueteScorm && tarjeta.documentoUrl !== null;
+    //
+    // REQ-SIG-26 · LA CLASE YA NO SE INFIERE. Antes era
+    // `!tarjeta.tienePaqueteScorm && tarjeta.documentoUrl !== null`, y con eso un curso al
+    // que todavía no le habían subido el zip era indistinguible de uno al que le faltaba el
+    // enlace: los dos caían en «no tiene contenido cargado» y nadie sabía qué pedirle a
+    // quien lo publicó. Ahora la clase la declara quien crea el curso.
+    const externo = tarjeta.claseCurso === 'ENLACE';
+    // Qué le falta a este curso para poder hacerse — y la respuesta depende de la clase.
+    const incompleto = externo ? tarjeta.documentoUrl === null : !tarjeta.tienePaqueteScorm;
     return (
       <aside
         className="fixed inset-y-0 right-0 z-40 flex w-[396px] flex-col overflow-y-auto bg-surface shadow-xl"
@@ -131,14 +146,64 @@ export default function PanelCierre({
         </header>
 
         <div className="flex flex-1 flex-col gap-5 px-5 py-5">
-          <p className="text-12_5 leading-relaxed text-primary">
-            Esta capacitación es un curso en línea. Se cierra sola cuando el curso reporta que
-            la terminaste: no hay que registrar asistencia ni nota a mano.
-          </p>
-          {tarjeta.exigeEvaluacion && tarjeta.notaMinima !== null && (
-            <p className="text-12 leading-relaxed text-muted">
-              Se aprueba con {tarjeta.notaMinima} o más. Si el curso reporta menos, el intento
-              queda registrado y la asignación sigue abierta para repetir la evaluación.
+          {externo ? (
+            <>
+              {/* D-3 · la pantalla dice QUÉ está declarando la persona, antes de que lo
+                  declare. Es la diferencia entre lo que un auditor puede afirmar y lo que
+                  no, dicha en el momento en que se decide. */}
+              <p className="text-12_5 leading-relaxed text-primary">
+                Este curso se hace en {tarjeta.documentoNombre ?? 'la plataforma del proveedor'},
+                fuera de la aplicación.{' '}
+                <strong className="font-semibold">Desde acá no se ve tu avance</strong>, así
+                que cuando lo termines tenés que declararlo vos.
+              </p>
+              <p className="text-12 leading-relaxed text-muted [text-wrap:pretty]">
+                Lo que queda registrado es tu declaración, no un resultado del curso: la
+                aplicación no puede verificarlo. Si la plataforma te entrega un certificado,
+                adjuntalo —es la única constancia que puede existir de esto.
+              </p>
+              {!incompleto && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="etiqueta-campo">Constancia · opcional</span>
+                  <input
+                    type="file"
+                    onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+                    className="rounded-campo border border-border-field bg-surface px-3 py-2 text-11_5"
+                  />
+                </label>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-12_5 leading-relaxed text-primary">
+                {tarjeta.tipo === 'CURSO_VIRTUAL' ? 'Este es un curso' : 'Esta capacitación es un curso'}{' '}
+                en línea. Se cierra solo cuando el curso reporta que lo terminaste: no hay que
+                registrar asistencia ni nota a mano.
+              </p>
+              {tarjeta.exigeEvaluacion && tarjeta.notaMinima !== null && (
+                <p className="text-12 leading-relaxed text-muted">
+                  Se aprueba con {tarjeta.notaMinima} o más. Si el curso reporta menos, el
+                  intento queda registrado y la asignación sigue abierta para repetir la
+                  evaluación.
+                </p>
+              )}
+            </>
+          )}
+
+          {error !== null && (
+            <p
+              className="rounded-campo px-3 py-2 text-12 [text-wrap:pretty]"
+              style={{ background: 'var(--hf-danger-bg)', color: 'var(--hf-danger-text)' }}
+            >
+              {error}
+            </p>
+          )}
+          {mensaje !== null && (
+            <p
+              className="rounded-campo px-3 py-2 text-12 [text-wrap:pretty]"
+              style={{ background: 'var(--hf-accent-100)', color: 'var(--hf-accent-700)' }}
+            >
+              {mensaje}
             </p>
           )}
         </div>
@@ -147,14 +212,20 @@ export default function PanelCierre({
           className="flex items-center gap-2 px-5 py-4"
           style={{ borderTop: '1px solid var(--hf-hairline-strong)' }}
         >
+          {/* REQ-SIG-26 · el aviso de lo que falta dice CUÁL de las dos cosas falta. Antes
+              era un genérico «no tiene contenido cargado» que servía para las dos, y con eso
+              el «avisale a quien lo publicó» no era una instrucción que alguien pudiera
+              cumplir: quien lo publicó tampoco sabía qué le estaban pidiendo. */}
           <span className="flex-1 font-mono text-9_5 leading-relaxed text-label">
-            {tarjeta.tienePaqueteScorm
-              ? iniciado
-                ? 'Retomás donde quedaste. El resultado lo reporta el curso.'
-                : 'El resultado lo reporta el curso.'
+            {incompleto
+              ? externo
+                ? 'Este curso todavía no tiene el enlace cargado. Avisale a quien lo publicó: no hay nada que abrir.'
+                : 'Este curso todavía no tiene el paquete cargado. Avisale a quien lo publicó: no hay nada que iniciar.'
               : externo
-                ? 'El curso se abre en la plataforma externa. Desde acá no se ve tu avance, así que al terminarlo tenés que declararlo vos.'
-                : 'Este curso todavía no tiene contenido cargado. Avisale a quien lo publicó: no hay nada que iniciar.'}
+                ? 'El curso se abre en la plataforma externa. Al terminarlo, volvé acá y declaralo.'
+                : iniciado
+                  ? 'Retomás donde quedaste. El resultado lo reporta el curso.'
+                  : 'El resultado lo reporta el curso.'}
           </span>
           <button
             onClick={alCerrar}
@@ -162,7 +233,7 @@ export default function PanelCierre({
           >
             Cancelar
           </button>
-          {tarjeta.tienePaqueteScorm && (
+          {!externo && tarjeta.tienePaqueteScorm && (
             <a
               href={`/mi-sig/curso/${tarjeta.id}`}
               className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
@@ -171,18 +242,31 @@ export default function PanelCierre({
               {accion} el curso
             </a>
           )}
-          {externo && (
-            // `noopener` no es opcional: la pestaña que se abre podría manipular la nuestra
-            // por `window.opener`, y ésta es una sesión autenticada del SIG.
-            <a
-              href={tarjeta.documentoUrl ?? '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
-              style={{ background: 'var(--hf-accent-500)' }}
-            >
-              Abrir el curso ↗
-            </a>
+          {externo && !incompleto && (
+            <>
+              {/* `noopener` no es opcional: la pestaña que se abre podría manipular la
+                  nuestra por `window.opener`, y ésta es una sesión autenticada del SIG. */}
+              <a
+                href={tarjeta.documentoUrl ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-campo border border-border-field bg-surface px-4 py-2 text-12_5 font-medium text-secondary"
+              >
+                Abrir el curso ↗
+              </a>
+              {/* REQ-SIG-26 §7.1 · EL BOTÓN QUE NO EXISTÍA. El panel ofrecía abrir el curso
+                  y nada para registrar que se terminó: la persona lo hacía, volvía, y la
+                  asignación le seguía figurando pendiente sin nada que apretar.
+                  «Declarar que lo terminé» y no «Registrar»: nombra lo que el acto es. */}
+              <button
+                onClick={registrar}
+                disabled={enviando}
+                className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300 disabled:opacity-50"
+                style={{ background: 'var(--hf-accent-500)' }}
+              >
+                {enviando ? 'Registrando…' : 'Declarar que lo terminé'}
+              </button>
+            </>
           )}
         </footer>
       </aside>

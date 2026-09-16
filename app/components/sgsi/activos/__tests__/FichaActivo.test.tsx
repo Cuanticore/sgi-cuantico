@@ -646,3 +646,144 @@ describe('REQ-SIG-20 §10 (D5, tareas 4.14-4.15) · diálogo de notas de fin de 
     expect(screen.queryByText('PopupPlanCritico: TEC-GEN-0004 · A.24')).not.toBeInTheDocument();
   });
 });
+
+// ===========================================================================
+// REQ-SIG-21 §7 · los controles, agrupados por relevancia
+// ===========================================================================
+//
+// La tabla listaba los controles en una sola tira plana y ponía la relevancia como un texto
+// gris al lado del nombre. Con siete controles eso no se lee: no se ve cuál es el que manda,
+// ni cuántos acompañan, ni por qué la eficacia dio lo que dio. El reparto 70/20/10 estaba
+// calculado desde REQ-SIG-21 y no se veía por ninguna parte de esta pestaña.
+//
+// Se agrupa por CLASE, con el nombre del catálogo —Principal, Complementario, De apoyo— y no
+// con el de la fórmula. Ver `lib/sgsi/__tests__/clases-relevancia.test.ts`.
+
+describe('REQ-SIG-21 §7 · la tabla de controles va agrupada por relevancia', () => {
+  const AMENAZA_CLASIFICADA: AmenazaCatalogo = {
+    id: 1,
+    codigo: 'A.24',
+    nombre: 'Denegación de servicio',
+    grupo: 'Grupo A',
+    nota: null,
+    frecuenciaId: 1,
+    degradacion: { D: 1, I: 1, C: 1 },
+    tipos: [1],
+    controles: [
+      // A propósito DESORDENADOS: el orden de llegada es el del catálogo, y la pantalla
+      // tiene que reagruparlos ella. Si el test los diera ya ordenados, pasaría aunque la
+      // pantalla no agrupara nada.
+      {
+        codigo: 'A.5.26',
+        nombre: 'Respuesta a los incidentes de seguridad de la información',
+        nivel: 90,
+        soa: 'si',
+        peso: 1,
+        esPrincipal: false,
+        relevancia: 'De apoyo',
+        evidencia: '',
+      },
+      {
+        codigo: 'A.8.14',
+        nombre: 'Redundancia de las instalaciones de tratamiento de la información',
+        nivel: 70,
+        soa: 'si',
+        peso: 3,
+        esPrincipal: true,
+        relevancia: 'Principal',
+        evidencia: '',
+      },
+      {
+        codigo: 'A.8.6',
+        nombre: 'Gestión de la capacidad',
+        nivel: 90,
+        soa: 'si',
+        peso: 2,
+        esPrincipal: false,
+        relevancia: 'Complementario',
+        evidencia: '',
+      },
+    ],
+  };
+
+  function abrirAmenaza(amenaza: AmenazaCatalogo) {
+    render(
+      <FichaActivo
+        activo={activo('TEC-GEN-0004', 5)}
+        catalogos={CATALOGOS}
+        amenazas={[amenaza]}
+        navegacion={{ codigos: ['TEC-GEN-0004'] }}
+        pestanaInicial="amenazas"
+      />,
+    );
+    fireEvent.click(screen.getByText(amenaza.codigo).closest('[role="button"]')!);
+  }
+
+  it('cada clase tiene su encabezado, con el nombre del catálogo y su presupuesto', () => {
+    abrirAmenaza(AMENAZA_CLASIFICADA);
+
+    // «Complementario» es el 20 % y «De apoyo» el 10 %, que es como los nombra el selector
+    // con el que se clasifica. La clase interna de la fórmula —`secundario`— no sale a
+    // pantalla en ninguna parte.
+    expect(screen.getByRole('group', { name: /Principal/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Complementario/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /De apoyo/ })).toBeInTheDocument();
+    expect(screen.queryByText(/SECUNDARIO/)).not.toBeInTheDocument();
+
+    expect(screen.getByRole('group', { name: /Principal/ })).toHaveTextContent('70%');
+    expect(screen.getByRole('group', { name: /Complementario/ })).toHaveTextContent('20%');
+    expect(screen.getByRole('group', { name: /De apoyo/ })).toHaveTextContent('10%');
+  });
+
+  it('cada control queda DENTRO de su grupo, no sólo debajo del encabezado', () => {
+    abrirAmenaza(AMENAZA_CLASIFICADA);
+
+    // Un `getByText` suelto pasaría aunque los tres controles siguieran en una tira plana.
+    // Lo que se fija acá es la contención: el principal está en el grupo del principal.
+    expect(screen.getByRole('group', { name: /Principal/ })).toHaveTextContent('A.8.14');
+    expect(screen.getByRole('group', { name: /Complementario/ })).toHaveTextContent('A.8.6');
+    expect(screen.getByRole('group', { name: /De apoyo/ })).toHaveTextContent('A.5.26');
+
+    expect(screen.getByRole('group', { name: /Principal/ })).not.toHaveTextContent('A.5.26');
+    expect(screen.getByRole('group', { name: /De apoyo/ })).not.toHaveTextContent('A.8.14');
+  });
+
+  it('los grupos van en orden de presupuesto: primero el que más pesa', () => {
+    abrirAmenaza(AMENAZA_CLASIFICADA);
+
+    const etiquetas = screen
+      .getAllByRole('group')
+      .map((g) => g.getAttribute('aria-label') ?? '')
+      .filter((e) => /Principal|Complementario|De apoyo/.test(e));
+
+    expect(etiquetas[0]).toMatch(/Principal/);
+    expect(etiquetas[1]).toMatch(/Complementario/);
+    expect(etiquetas[2]).toMatch(/De apoyo/);
+  });
+
+  it('un control sin relevancia cae en «sin clasificar», que no es un cuarto presupuesto', () => {
+    // Puede pasar: `relevanciaId` es nullable y asociar un control desde el popup no obliga a
+    // clasificarlo. Meterlo en cualquiera de las tres clases le inventaría un peso, y dejarlo
+    // fuera de la tabla lo escondería. Va aparte y se dice.
+    abrirAmenaza({
+      ...AMENAZA_CLASIFICADA,
+      controles: [
+        ...AMENAZA_CLASIFICADA.controles,
+        {
+          codigo: 'A.5.30',
+          nombre: 'Preparación de las TIC para la continuidad del negocio',
+          nivel: 50,
+          soa: 'si',
+          peso: 1,
+          esPrincipal: false,
+          relevancia: null,
+          evidencia: '',
+        },
+      ],
+    });
+
+    const sinClasificar = screen.getByRole('group', { name: /Sin clasificar/i });
+    expect(sinClasificar).toHaveTextContent('A.5.30');
+    expect(sinClasificar).not.toHaveTextContent('%');
+  });
+});

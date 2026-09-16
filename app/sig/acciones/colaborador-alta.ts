@@ -23,19 +23,24 @@
 // existe en el Directorio no tiene uno, y dejarlo vacío no es opción: la columna es NOT NULL
 // porque es la identidad estable que sobrevive a un cambio de correo.
 //
-// Se genera uno con el prefijo `manual:`, que un oid de Azure nunca puede tener —son UUID—,
-// así que las dos poblaciones son distinguibles con una consulta y nunca colisionan. Cuando
-// la sincronización encuentre a esta persona por correo, reemplazará el oid sintético por el
-// real: ese es el momento en que la excepción se cierra.
+// Se genera uno con el prefijo `manual:`. El porqué completo —y cómo se reconoce después,
+// con `esOidManual`— está en `lib/sig/personas.ts`.
 
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { registrarAlta } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/sesion';
-// Vive en `lib/sig/personas.ts` y no acá: este archivo es `'use server'`, y ahí cada export
-// se vuelve un endpoint RPC invocable desde el navegador. Una constante no es invocable, y
-// exportarla dejaba el modulo ENTERO sin exports — incluido `crearColaborador`.
+// El prefijo vive en `lib/sig/oid-manual.ts` y NO acá: un módulo 'use server' sólo puede
+// exportar funciones asíncronas —cada export es un punto de entrada invocable desde el
+// navegador— y una constante exportada hacía que el compilador descartara todos los exports
+// de este archivo, incluido `crearColaborador`.
+//
+// SE ARREGLÓ DOS VECES, y ya está consolidado: `main` movió la constante a
+// `lib/sig/personas.ts` (PR #17) y esta rama la había movido a un módulo propio sin verlo.
+// Gana la de `main` —es el módulo de identidad del Directorio, que es de lo que habla el
+// prefijo— y el módulo duplicado se eliminó. Dos definiciones de la misma cadena es
+// exactamente cómo una se queda atrás.
 import { PREFIJO_OID_MANUAL } from '@/lib/sig/personas';
 
 export interface ColaboradorNuevo {

@@ -59,6 +59,7 @@ export async function generarAsignaciones(): Promise<ResultadoGeneracion> {
 import {
   validarCierre,
   cierraLaAsignacion,
+  elCursoCierraSolo,
   esExtemporaneo,
   aprobadoDe,
   type RespuestaCierre,
@@ -76,6 +77,15 @@ export interface DatosCerrar {
   motivo?: string;
   /// Anexo opcional (TAREA y CAPACITACION): se guarda como Evidencia con registroId.
   archivo?: { nombre: string; mime: string; bytes: number[] };
+}
+
+/// REQ-SIG-26 · `crearContenido` devuelve además QUÉ creó. El alta de un curso virtual de
+/// clase paquete encadena `crearContenido` + `subirPaqueteScorm`, y la segunda necesita el
+/// id de la primera; el código, además, es lo que el aviso nombra cuando el zip no pasa y
+/// el contenido sí quedó.
+export interface ResultadoCreacion extends Resultado {
+  id?: number;
+  codigo?: string;
 }
 
 export interface ResultadoCierre extends Resultado {
@@ -127,17 +137,38 @@ export async function cerrarAsignacion(
     // decía el plan, habría cerrado también el camino de R5. Y `esAdministrativo` ya pasó
     // por `autorConPermiso('operacion:administrar')` unas líneas arriba, de modo que la
     // excepción no la puede tomar cualquiera.
-    if (contenido.tipo === 'CAPACITACION' && !esAdministrativo && datos.asistio !== undefined) {
+    //
+    // REQ-SIG-26 §6.3 · ANTES ESTA COMPUERTA SÓLO MIRABA `CAPACITACION`, y el tipo nuevo
+    // pasaba de largo: `validarCierre` tampoco tenía caso para `CURSO_VIRTUAL`, así que un
+    // POST vacío desde el navegador cerraba un curso que nadie abrió. La regla se mudó a
+    // `elCursoCierraSolo` —pura y probada— y acá queda sólo la compuerta.
+    //
+    // Se quitó también la condición `datos.asistio !== undefined`. Para una CAPACITACION no
+    // hacía daño porque `validarCierre` exige la asistencia y el cierre caía ahí igual; para
+    // un curso virtual habría sido la fuga entera, porque de ése no se exige ningún campo.
+    if (!esAdministrativo) {
       const conPaquete = await prisma.paqueteScorm.findFirst({
         where: { contenidoId: contenido.id },
         select: { id: true },
       });
-      if (conPaquete !== null) {
+      if (
+        elCursoCierraSolo({
+          tipo: contenido.tipo,
+          claseCurso: contenido.claseCurso,
+          tienePaquete: conPaquete !== null,
+        })
+      ) {
         return {
           ok: false,
+          // El mensaje dice qué hacer, no sólo que no. Y distingue el curso que todavía no
+          // se puede hacer del que sí: mandar a «Abrir el curso» a alguien cuyo curso no
+          // tiene paquete cargado es mandarlo a una puerta que no existe.
           mensaje:
-            'Esta capacitación tiene un curso en línea: se cierra con el curso, no declarando ' +
-            'asistencia. Abrila desde «Abrir el curso».',
+            conPaquete === null
+              ? 'Este curso todavía no tiene el paquete cargado, así que no hay nada que ' +
+                'hacer ni que declarar. Avisale a quien lo publicó.'
+              : 'Este contenido es un curso en línea: se cierra con el curso, no declarando ' +
+                'asistencia. Abrilo desde «Abrir el curso».',
           extemporaneo: false,
           administrativo: false,
           cerrada: false,
@@ -606,6 +637,10 @@ export interface DatosContenido {
   tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA' | 'CURSO_VIRTUAL';
   titulo: string;
   descripcion: string;
+  /// REQ-SIG-26 · sólo para `CURSO_VIRTUAL`, y obligatoria ahí. `PAQUETE` se recorre dentro
+  /// de la aplicación y lo cierra el curso; `ENLACE` se abre en la plataforma del proveedor
+  /// y lo cierra la declaración de la persona.
+  claseCurso?: 'PAQUETE' | 'ENLACE';
   procedimientoOrigen?: string;
   documentoCodigo?: string;
   documentoNombre?: string;
@@ -627,13 +662,40 @@ function validarDatosContenido(datos: DatosContenido): string[] {
   if (datos.tipo === 'VERIFICACION' && (!datos.items || datos.items.length === 0)) {
     errores.push('una verificación necesita al menos un ítem');
   }
+
+  // REQ-SIG-26 · el invariante de `claseCurso`: existe si y sólo si el contenido es un
+  // curso virtual. La base no lo impone —la columna es opcional y sin default, porque un
+  // `DEFAULT 'PAQUETE'` le pondría clase de curso a las lecturas— así que lo sostiene esta
+  // función, que es la única puerta por la que se crean y editan contenidos.
+  if (datos.tipo === 'CURSO_VIRTUAL') {
+    if (!datos.claseCurso) {
+      errores.push('un curso virtual tiene que declarar si es paquete SCORM o enlace externo');
+    }
+    // Un curso de enlace sin enlace no es un curso incompleto: es un curso que no existe.
+    // El de paquete SÍ puede nacer vacío —el zip se sube después, y a veces el proveedor
+    // todavía no lo entregó—, y la pantalla avisa que nadie podrá iniciarlo hasta entonces.
+    if (datos.claseCurso === 'ENLACE') {
+      const url = datos.documentoUrl?.trim() ?? '';
+      if (!url) {
+        errores.push('un curso de enlace externo necesita el enlace');
+      } else if (!url.startsWith('https://')) {
+        // No es cosmético: la pestaña se abre desde una sesión autenticada del SIG.
+        errores.push('el enlace del curso tiene que empezar por https://');
+      }
+    }
+  } else if (datos.claseCurso !== undefined) {
+    // Se rechaza en vez de ignorarse en silencio. Un campo que el servidor descarta sin
+    // decirlo es la clase de cosa que alguien da por guardada durante meses.
+    errores.push('sólo un curso virtual puede declarar clase de curso');
+  }
+
   return errores;
 }
 
 /// R10: editar un contenido que ya generó asignaciones sube su versión; los registros
 /// cerrados conservan la versión que se realizó.
-export async function crearContenido(datos: DatosContenido): Promise<Resultado> {
-  return ejecutar<Resultado>(async () => {
+export async function crearContenido(datos: DatosContenido): Promise<ResultadoCreacion> {
+  return ejecutar<ResultadoCreacion>(async () => {
     const autor = await autorConPermiso('operacion:escribir');
     const errores = validarDatosContenido(datos);
     if (errores.length > 0) return { ok: false, mensaje: errores.join('. ') };
@@ -645,7 +707,11 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
       select: { id: true },
     });
 
-    await prisma.$transaction(async (tx) => {
+    // REQ-SIG-26 · el id SALE de la transacción porque el alta de un curso virtual de clase
+    // paquete son DOS pasos: éste emite el código, y sólo entonces `subirPaqueteScorm`
+    // tiene a qué colgar el zip. Sin el id, el formulario tendría que buscar «el contenido
+    // que acabo de crear» por título, que es adivinar.
+    const nacido = await prisma.$transaction(async (tx) => {
       const contador = await tx.contadorContenido.upsert({
         where: { tipo: datos.tipo },
         update: { ultimoValor: { increment: 1 } },
@@ -659,6 +725,7 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
           tipo: datos.tipo,
           titulo: datos.titulo,
           descripcion: datos.descripcion,
+          claseCurso: datos.tipo === 'CURSO_VIRTUAL' ? (datos.claseCurso ?? null) : null,
           procedimientoOrigen: datos.procedimientoOrigen ?? null,
           documentoCodigo: datos.documentoCodigo ?? null,
           documentoNombre: datos.documentoNombre ?? null,
@@ -698,9 +765,18 @@ export async function crearContenido(datos: DatosContenido): Promise<Resultado> 
         },
       });
       await registrarAlta(tx, autor, 'contenido_sig', String(creado.id));
+      return { id: creado.id, codigo: creado.codigo };
     });
 
-    return { ok: true, mensaje: 'Contenido creado.' };
+    return {
+      ok: true,
+      // El código va en el mensaje, no sólo en el campo: cuando el alta de un curso encadena
+      // la subida del paquete y el zip falla, esto es lo único que le dice a la persona qué
+      // contenido quedó creado — y por lo tanto que no tiene que crearlo otra vez.
+      mensaje: `Contenido ${nacido.codigo} creado.`,
+      id: nacido.id,
+      codigo: nacido.codigo,
+    };
   });
 }
 
@@ -733,7 +809,10 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
     // la duración, el texto leído es el mismo y pedir un acuse nuevo sobre un documento
     // idéntico es ruido que entrena a la gente a firmar sin leer.
     const conAsignaciones = contenido._count.obligaciones > 0;
-    const textoCambio = cambiaElTexto(contenido, datos);
+    // REQ-SIG-26 · D-2 · el tipo decide qué cuenta como «texto que la persona lee». En un
+    // curso virtual, el enlace es dónde está el curso y no qué dice: corregir una URL rota
+    // no publica una versión nueva ni le pide un acuse a quien ya lo hizo.
+    const textoCambio = cambiaElTexto(contenido, datos, contenido.tipo);
     const version = versionTrasEditar(contenido.version, conAsignaciones && textoCambio);
     const persona = await prisma.persona.findUnique({
       where: { correo: autor },
@@ -834,9 +913,32 @@ export async function editarContenido(id: number, datos: DatosEditarContenido): 
           ...(datos.modalidad !== undefined && { modalidad: datos.modalidad }),
           ...(datos.exigeEvaluacion !== undefined && { exigeEvaluacion: datos.exigeEvaluacion }),
           ...(datos.notaMinima !== undefined && { notaMinima: datos.notaMinima }),
+          // REQ-SIG-26 · cambiar de clase se permite, y NO borra nada: un curso que pasa de
+          // enlace a paquete conserva su `documentoUrl`, que es el rastro de dónde estuvo
+          // antes y lo que explica los registros cerrados contra la clase anterior.
+          ...(datos.claseCurso !== undefined && { claseCurso: datos.claseCurso }),
           version,
         },
       });
+
+      // El cambio de clase deja rastro aparte. Es la clase de cambio que después hay que
+      // poder explicar: de él depende si el registro de una persona es evidencia de que
+      // hizo el curso —lo reportó el reproductor— o la declaración de que lo hizo.
+      if (datos.claseCurso !== undefined && datos.claseCurso !== contenido.claseCurso) {
+        await registrar({ bitacora: tx.bitacora }, autor, [
+          {
+            tabla: 'contenido_sig',
+            registroId: String(id),
+            campo: 'clase_curso',
+            anterior: contenido.claseCurso,
+            nuevo: datos.claseCurso,
+            motivo:
+              datos.claseCurso === 'ENLACE'
+                ? 'pasa a enlace externo · el cierre vuelve a ser una declaración de la persona'
+                : 'pasa a paquete SCORM · el cierre lo hace el curso',
+          },
+        ]);
+      }
 
       if (plan) {
         // El orden se libera antes de reasignarlo. La unique (contenidoId, orden) no

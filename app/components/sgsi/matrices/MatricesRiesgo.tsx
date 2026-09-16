@@ -19,6 +19,17 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { clasificar } from '@/lib/sgsi/clasificar';
+import {
+  columnaDeFrecuencia,
+  type ColumnaFrecuencia,
+  type FilaImpacto,
+} from '@/lib/sgsi/matriz-clasica';
+
+// Los ejes viven en `lib/sgsi/matriz-clasica.ts` desde que el informe de valoración imprime
+// la misma matriz: la casilla a la que cae un riesgo la tiene que decidir UNA sola función, o
+// el informe que se firma y la pantalla que se mira pueden terminar diciendo cosas distintas.
+// Se re-exportan acá porque `app/sgsi/matrices/page.tsx` los importa de este módulo.
+export type { ColumnaFrecuencia, FilaImpacto } from '@/lib/sgsi/matriz-clasica';
 
 export interface ActivoVista {
   codigo: string;
@@ -46,20 +57,6 @@ export interface FilaRiesgo {
   /// Null while the efficacy of the controls that mitigate the threat is unknown.
   aroResidual: number | null;
   riesgoResidual: number | null;
-}
-
-/// A band of umbral_impacto plus the midpoint that gives the row's cells their colour.
-export interface FilaImpacto {
-  nombre: string;
-  desde: number;
-  hasta: number;
-  medio: number;
-}
-
-export interface ColumnaFrecuencia {
-  nombre: string;
-  lectura: string;
-  vecesAno: number;
 }
 
 export interface BandaVista {
@@ -154,26 +151,9 @@ export default function MatricesRiesgo({
   // once for the whole set instead of on every keystroke. The filter then only decides
   // which coordinates are counted.
   const coordenadas = useMemo(() => {
-    const columnaDe = (veces: number): number => {
-      // The frequency scale is geometric — 0,01 · 0,1 · 1 · 10 · 100 — so the nearest
-      // column is the nearest in orders of magnitude, not in plain distance. Plain
-      // distance would put an ARO of 5,5 in the "una vez al año" column when it is
-      // nearer, decade for decade, to "cada mes". (The prototype uses plain distance;
-      // this is a deliberate deviation, and it only ever moves residual values, since
-      // an inherent ARO always lands exactly on a point of the scale.)
-      if (!(veces > 0)) return 0; // efficacy of 100% drives the ARO to zero
-      const log = Math.log10(veces);
-      let mejor = 0;
-      let distancia = Infinity;
-      for (let j = 0; j < columnas.length; j++) {
-        const d = Math.abs(Math.log10(columnas[j].vecesAno) - log);
-        if (d < distancia) {
-          distancia = d;
-          mejor = j;
-        }
-      }
-      return mejor;
-    };
+    // La regla —la columna más cercana EN ÓRDENES DE MAGNITUD, no en distancia lisa— está
+    // en `lib/sgsi/matriz-clasica.ts`, probada, y es la misma que usa el informe.
+    const columnaDe = (veces: number): number => columnaDeFrecuencia(veces, columnas);
 
     return filas.map((f) => {
       const banda = clasificar(f.impacto, filasImpacto);
@@ -706,8 +686,13 @@ function TarjetaMatriz({
 /// The residual matrix while the residual risk is unknown.
 ///
 /// This card exists instead of a grid on purpose. Efficacy comes from the maturity of
-/// the controls mapped to each threat, and no threat has that mapping yet, so the
-/// efficacy is unknown — not zero. With efficacy zero the residual ARO equals the
+/// the controls mapped to each threat; when a threat has no EVALUATED control, its
+/// efficacy is unknown — not zero.
+///
+/// Desde REQ-SIG-21 (16-sep-2026) las 57 amenazas tienen su control principal designado y
+/// ningún riesgo vigente queda sin residual, así que esta tarjeta ya no aparece con los
+/// datos de hoy. Se conserva porque la causa que la dispara sigue siendo posible: una
+/// amenaza nueva sin controles mapeados, o con todos sus controles sin evaluar. With efficacy zero the residual ARO equals the
 /// inherent one and this matrix would come out cell for cell identical to the one beside
 /// it: consistent with its inputs and wrong as a report. Greying the grid would not fix
 /// it either, because a grid of empty cells reads as "everything is in the lowest band".
@@ -731,15 +716,15 @@ function TarjetaResidualSinCalcular({ total }: { total: number }) {
       <div className="flex flex-1 flex-col items-start justify-center gap-3 rounded-campo border border-dashed border-warn-border bg-warn-100 px-5 py-6">
         <span className="cifra text-22 text-warn-text">Sin calcular</span>
         <p className="text-12 leading-relaxed text-warn-text [text-wrap:pretty]">
-          Ninguna amenaza tiene todavía controles con relevancia asignada, así que la
-          eficacia de los controles es <strong>desconocida, no cero</strong>. Los{' '}
+          Las amenazas de este filtro no tienen ningún control <strong>evaluado</strong>,
+          así que su eficacia es <strong>desconocida, no cero</strong>. Los{' '}
           {miles(total)} riesgos del filtro tienen el residual en blanco.
         </p>
         <p className="text-11_5 leading-relaxed text-warn-text [text-wrap:pretty]">
           Dibujar aquí la matriz suponiendo eficacia cero la dejaría idéntica, casilla por
           casilla, a la inherente: un informe coherente con sus datos de entrada y
-          equivocado. Esta matriz aparece sola en cuanto se registre la relevancia de los
-          pares control–amenaza.
+          equivocado. Esta matriz aparece sola en cuanto esas amenazas tengan al menos un
+          control con su madurez evaluada.
         </p>
       </div>
 

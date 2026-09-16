@@ -18,6 +18,8 @@ import {
 import type { EstadoAccion } from '@prisma/client';
 import PopupAccion from './PopupAccion';
 import FranjaSinPlan, { type FilaFranjaSinPlan } from './FranjaSinPlan';
+import GanttPlanes from './GanttPlanes';
+import ImportarPlanes from './ImportarPlanes';
 
 export interface AccionVista {
   codigo: string;
@@ -28,6 +30,9 @@ export interface AccionVista {
   aprueba: string;
   fechaObjetivo: string | null;
   fechaAprobacion: string | null;
+  /// Necesaria para el tablero: un plan cerrado tarde ya no es una deuda abierta, y sin esta
+  /// fecha se quedaría en rojo compitiendo por atención con lo que sí está pendiente.
+  fechaCierre: string | null;
   estado: string;
   avance: number;
   verificacion: string;
@@ -134,6 +139,11 @@ export default function PlanesTratamiento({
   sinPlan?: FilaFranjaSinPlan[];
 }) {
   const [filtro, setFiltro] = useState<Filtro>('todas');
+  // La tabla sigue siendo la vista por omisión: es el registro, y es lo que un auditor pide.
+  // El tablero responde otra pregunta —«¿cuáles no van a llegar?»— y se entra a él a
+  // propósito, no por sorpresa.
+  const [vista, setVista] = useState<'tabla' | 'tablero'>('tabla');
+  const [importando, setImportando] = useState(false);
   const [estados, setEstados] = useState<Record<string, string>>({});
   const [eliminadas, setEliminadas] = useState<string[]>([]);
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -238,6 +248,36 @@ export default function PlanesTratamiento({
           </p>
         </div>
 
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImportando(true)}
+            title="Cargar el formato FOR-SIG-13 «Plan de Tratamiento y Mejora». Primero muestra qué pasaría; nada se escribe hasta confirmar."
+            className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 font-semibold text-primary transition-colors hover:bg-surface-hover"
+          >
+            Importar FOR-SIG-13
+          </button>
+
+          {/* El conmutador de vista. Dos pestañas y no un icono: «Tablero» dice lo que hay
+              del otro lado, y un icono de barras habría que adivinarlo. */}
+          <div className="flex overflow-hidden rounded-campo border border-border-field">
+            {(['tabla', 'tablero'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVista(v)}
+                aria-pressed={vista === v}
+                className={`px-3 py-1.5 text-12 font-semibold transition-colors ${
+                  vista === v
+                    ? 'bg-accent-700 text-white'
+                    : 'bg-surface text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                {v === 'tabla' ? 'Tabla' : 'Tablero'}
+              </button>
+            ))}
+          </div>
+
         <select
           value={filtro}
           onChange={(e) => setFiltro(e.target.value as Filtro)}
@@ -250,6 +290,7 @@ export default function PlanesTratamiento({
           <option value="MITIGAR">Solo mitigar</option>
           <option value="ACEPTAR">Solo aceptar</option>
         </select>
+        </div>
       </header>
 
       {sinPlan && <FranjaSinPlan filas={sinPlan} />}
@@ -291,16 +332,42 @@ export default function PlanesTratamiento({
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        {kpis.map((k) => (
-          <div key={k.titulo} className="rounded-tarjeta border border-border-default bg-surface px-4 py-3">
-            <p className="etiqueta-campo">{k.titulo}</p>
-            <p className="cifra mt-1.5 text-22 text-primary">{k.valor}</p>
-            {k.pie && <p className="mt-1 text-10 leading-tight text-faint">{k.pie}</p>}
-          </div>
-        ))}
-      </div>
+      {/* Los seis KPI son de la TABLA: cuentan el registro. El tablero trae sus propias
+          cuatro tarjetas, que cuentan otra cosa —plazos, no volumen— y apilar las diez
+          convertiría la cabecera en un muro de cifras sin jerarquía. */}
+      {vista === 'tabla' && (
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          {kpis.map((k) => (
+            <div key={k.titulo} className="rounded-tarjeta border border-border-default bg-surface px-4 py-3">
+              <p className="etiqueta-campo">{k.titulo}</p>
+              <p className="cifra mt-1.5 text-22 text-primary">{k.valor}</p>
+              {k.pie && <p className="mt-1 text-10 leading-tight text-faint">{k.pie}</p>}
+            </div>
+          ))}
+        </div>
+      )}
 
+      {vista === 'tablero' && (
+        <GanttPlanes
+          // El MISMO filtro que la tabla. Dos vistas de la misma pantalla que responden a
+          // filtros distintos es la forma más rápida de que alguien lea una cifra creyendo
+          // que corresponde a lo que tenía seleccionado.
+          planes={visibles.map((a) => ({
+            codigo: a.codigo,
+            accion: a.accion,
+            tipo: a.tipo,
+            responsable: a.responsable,
+            fechaAprobacion: a.fechaAprobacion,
+            fechaObjetivo: a.fechaObjetivo,
+            fechaCierre: a.fechaCierre,
+            estado: a.estado,
+            avance: a.avance,
+            control: a.control?.codigo ?? null,
+          }))}
+        />
+      )}
+
+      {vista === 'tabla' && (
       <div className="tabla-ancha rounded-tarjeta border border-border-default bg-surface">
         <div style={{ minWidth: 1420 }}>
           <table className="w-full border-collapse text-12">
@@ -471,6 +538,9 @@ export default function PlanesTratamiento({
           </table>
         </div>
       </div>
+      )}
+
+      {importando && <ImportarPlanes onCerrar={() => setImportando(false)} />}
 
       {editando && (
         <PopupAccion

@@ -3,8 +3,12 @@
 Reglas obligatorias para todo cambio que entre a `main`. No son recomendaciones.
 
 En este repo **mergear a `main` despliega a producción**: el workflow `Build and Deploy`
-corre en el push a `main`, no en el PR. No hay paso intermedio, no hay staging, no hay
-revisión después del merge. Lo que se mergea, sale.
+corre en el push a `main`. No hay paso intermedio, no hay staging, no hay revisión después
+del merge. Lo que se mergea, sale.
+
+Por eso el despliegue verifica antes de construir, y el PR verifica antes de dejar mergear:
+un rojo en `main` no es un build roto, es producción sin desplegar. Ver
+[Quién corre esto, y cuándo](#quién-corre-esto-y-cuándo).
 
 ---
 
@@ -47,12 +51,34 @@ comentarios, formato, tipos sin efecto en runtime, documentación—.
 ## Regla 2 · Ningún PR sin los tres checks en limpio
 
 ```bash
+npm run verificar         # prisma generate && tsc --noEmit && lint && test
+npm run verificar:build   # los cuatro de arriba, y además el build
+```
+
+Es un solo comando y encadenado con `&&`: el primero que se pone rojo corta, y el código de
+salida es distinto de cero. Con `;` los cuatro correrían igual y saldría el del último — una
+suite roja seguida de un lint verde daría salida 0.
+
+Lo que corre por dentro, y por qué está en ese orden:
+
+```bash
 npx prisma generate     # obligatorio antes de tsc, si no da ~30 falsos errores
 npx tsc --noEmit        # 0 errores
 npm run lint            # 0 errores (los 5 warnings preexistentes se toleran)
 npm test                # todo verde
 npm run build           # tiene que compilar
 ```
+
+**No los copies a mano en otro lado.** Que el PR, el despliegue y tu terminal corran
+exactamente la misma invocación es lo que impide que las tres listas se separen; el día que
+se separen, la que se queda corta sigue dando verde y nadie se entera.
+`lib/__tests__/despliegue-verificado.test.ts` es lo que sostiene esa igualdad.
+
+Una advertencia sobre `tsc`: `tsconfig.json` trae `incremental: true` y el caché
+(`tsconfig.tsbuildinfo`) puede quedar rancio y reportar errores de código que ya se arregló.
+Falla del lado seguro —alarma de más, nunca de menos—, pero si ves un error que no aparece en
+el archivo que nombra, borra `tsconfig.tsbuildinfo` y vuelve a correr. En CI no pasa: cada
+ejecución arranca de un checkout limpio.
 
 `next build` **ignora los errores de TypeScript** (`ignoreBuildErrors: true`), así que no
 reemplaza a `tsc --noEmit`. Pero tampoco al revés: hay errores que **sólo** el build ve.
@@ -67,8 +93,39 @@ más de un minuto y `lib/__tests__/use-server.test.ts` cubre esa misma clase de 
 milisegundos, sobre los 36 archivos a la vez. El build sigue siendo obligatorio igual —
 atrapa lo que todavía no tiene test.
 
-Y el CI **no corre en el PR**: el workflow se dispara con el push a `main`. Si estos
-comandos no se corren a mano antes de mergear, no los corre nadie.
+### Quién corre esto, y cuándo
+
+Hasta el 16/09/2026 la respuesta era «tú, a mano, o nadie»: el único workflow se disparaba con
+el push a `main` y empezaba construyendo la imagen. Ni los tipos, ni ESLint, ni las pruebas
+eran condición para llegar a producción. Ahora son tres momentos:
+
+| Cuándo | Qué corre | Qué pasa si se pone rojo |
+|---|---|---|
+| Tu terminal, antes del PR | `npm run verificar:build` | te enteras en segundos, que es lo barato |
+| El PR (`Verificación`) | `npm run verificar:build` | el PR queda en rojo antes de mergear |
+| El push a `main` (`Build and Deploy`) | `npm run verificar` | **no se construye nada**: el contenedor viejo sigue sirviendo |
+
+El despliegue no corre el build en ese paso porque lo corre el `docker buildx build` de dos
+pasos más abajo: compilar dos veces no agrega información. El PR sí lo corre, porque ahí no
+hay imagen que construir y es justo el error que tumbó el despliegue del 16/09/2026.
+
+Correrlo a mano antes del PR **sigue siendo lo correcto**, y no por disciplina: el CI tarda
+minutos y tu terminal tarda segundos.
+
+> **Pendiente de configuración en GitHub, y hasta que se haga esto el gate del PR no bloquea
+> nada.** El workflow `Verificación` corre en cada PR, pero GitHub deja mergear un PR con el
+> check en rojo mientras ese check no esté marcado como obligatorio. Se hace una sola vez, en
+> `Settings → Branches → Add branch ruleset` (o `Add rule`) sobre `main`:
+>
+> - **Require status checks to pass before merging**, y agregar el check llamado `verificar`.
+>   Aparece en la lista después de la primera ejecución del workflow: si todavía no corrió
+>   nunca, GitHub no lo ofrece.
+> - **Require branches to be up to date before merging** — sin esto, dos PR que pasan por
+>   separado pueden romper `main` al mergearse uno detrás del otro. Es el caso de los tres
+>   bugs de arriba: el defecto vivía entre las piezas, no en una.
+>
+> Requiere permisos de administración sobre el repositorio. El gate del push a `main` **no
+> depende de esto** y bloquea desde el primer despliegue.
 
 ## Regla 3 · Ningún merge sin prueba de punta a punta, cuando aplica
 
@@ -126,18 +183,62 @@ Cuando no aplica, dilo y di por qué. Una línea alcanza.
 
 ## Lo que este harness todavía no puede exigir de forma automática
 
-**No hay runner de pruebas de punta a punta.** `@playwright/test` está en las
-`devDependencies`, pero no existe `playwright.config.*` ni un solo spec. La dependencia
-declarada sin arnés es peor que no tenerla: en el `package.json` parece cubierto y no cubre
-nada.
+De las tres reglas, **sólo la 2 está automatizada.** Conviene tenerlo presente: el CI en verde
+dice que los checks pasaron, no que la Regla 1 y la Regla 3 se cumplieron.
 
-Mientras eso siga así, la Regla 3 se cumple **a mano**, y el recorrido escrito en el PR es la
-única evidencia que queda. Funciona, pero no se repite solo: no protege contra la regresión
-de dentro de tres meses, que es justo cuando nadie se acuerda de por qué existía la regla.
+**La marca de *required* no está puesta.** El workflow `Verificación` corre en cada PR, pero
+GitHub deja mergear un PR con un check en rojo mientras ese check no esté marcado como
+obligatorio en la protección de rama. Hasta que alguien con permisos de administración corra
+el comando de la Regla 2, el gate del PR **informa pero no bloquea**. El del push a `main` sí
+bloquea desde el primer día: ahí no hay nada que marcar, el despliegue simplemente no ocurre.
 
-Montar Playwright y automatizar el recorrido de carga de activos es la primera deuda a pagar.
-Cuando exista, esta sección se reemplaza por el comando que lo corre, y la Regla 3 pasa a ser
-verificable como las otras dos.
+**Nadie verifica que el test se haya visto en rojo primero.** La Regla 1 es la más importante
+de las tres y es la única que no deja rastro: un test escrito después del arreglo pasa igual y
+se ve idéntico en el diff. No hay forma razonable de automatizar eso; queda en la honestidad
+de quien escribe y en lo que diga el PR.
+
+**El runner de punta a punta ya existe, y cubre un solo recorrido.** Desde el 16/09/2026 hay
+`playwright.config.ts` y `e2e/`. Deja de ser cierto que la dependencia esté declarada sin arnés;
+sigue siendo cierto que casi todo se prueba a mano.
+
+---
+
+## El runner de punta a punta
+
+```powershell
+$env:DATABASE_URL = '…'   # una base con datos reales; hoy, el túnel SSM
+npm run e2e
+```
+
+Levanta `next dev` solo —o reutiliza el que esté corriendo— y corre los specs de `e2e/`.
+Chromium, un trabajador, **sin reintentos**: un recorrido que sólo pasa a veces no es evidencia.
+
+**No está en `verificar:build`, y es a propósito.** Necesita una base con datos reales, que hoy
+es producción por el túnel. Encadenarlo a los checks locales haría que `npm run verificar`
+fallara en cualquier máquina sin túnel, y la respuesta a eso siempre termina siendo saltárselo.
+
+**La sesión se acuña, no se inicia.** `/tecnologia/:path*` está detrás de Azure AD, y
+automatizar un inicio de sesión corporativo arrastraría MFA y las credenciales de una persona a
+un archivo. `e2e/sesion.ts` firma un token con el mismo `NEXTAUTH_SECRET` de la aplicación y lo
+pone como cookie, con el grupo `Líderes SIG` que exige la puerta del layout. Sin el secreto la
+cookie no vale nada, así que no debilita ninguna puerta. Si mañana cambia el nombre del grupo,
+el recorrido falla — y tiene que fallar.
+
+**Los specs de `e2e/` sólo leen.** Es la regla que hace tolerable correr contra producción:
+navegar y hacer clic sí, escribir nunca. Lo que necesite escribir va a la suite unitaria, con
+datos armados a mano.
+
+| Spec | Recorrido | Pasos |
+|---|---|---|
+| `e2e/grafo.spec.ts` | `/tecnologia/grafo` · filtro por Nivel 1/2/3, frontera, acomodo determinista | 13 |
+
+**Lo que sigue a mano.** El recorrido de carga de activos —el que motivó tres de las cuatro
+cicatrices de arriba— todavía no tiene spec, y es la siguiente deuda. Mientras tanto ese flujo
+se prueba a mano y el recorrido escrito en el PR es la única evidencia que queda.
+
+`test-results/` no entra al repositorio. Las trazas y capturas de un recorrido fallido llevan la
+pantalla entera —códigos de activo, IP, nombres de servidores—, que es exactamente el mapa que
+el layout de `/tecnologia` se niega a mostrar sin el grupo del Directorio.
 
 ---
 

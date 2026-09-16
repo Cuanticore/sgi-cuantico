@@ -182,6 +182,42 @@ function lista(items: readonly string[]): string {
   return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
 }
 
+/// **Filtrar por un nivel es filtrar por su RAMA, no por el nivel exacto.**
+///
+/// El activo apunta al grado 3 (E2), así que comparar `a.nivelId === nivelId` devolvería cero
+/// activos para cualquier nivel 1 o 2. Acá un activo pertenece a la rama si su cadena hacia la
+/// raíz pasa por el nivel pedido.
+///
+/// `nivelId === null` **no es un caso degenerado: es una opción del filtro.** Devuelve los
+/// activos sin clasificar, que son trabajo pendiente conocido y no un error.
+///
+/// La cadena se calcula una vez por nivel distinto y no una por activo: con trescientos
+/// activos y treinta niveles, la diferencia es entre treinta recorridos y trescientos.
+export function activosDeRama(
+  nivelId: number | null,
+  niveles: readonly Nivel[],
+  activos: readonly { id: number; nivelId: number | null }[],
+): Set<number> {
+  if (nivelId === null) {
+    return new Set(activos.filter((a) => a.nivelId === null).map((a) => a.id));
+  }
+  // Un nivel 3 huérfano devuelve una cadena que no llega a la raíz, y entonces el activo no
+  // pertenece a esa raíz. Se deja así a propósito: el dato roto queda visible en vez de
+  // repartido al azar.
+  const enRama = new Map<number, boolean>();
+  const salida = new Set<number>();
+  for (const a of activos) {
+    if (a.nivelId === null) continue;
+    let pertenece = enRama.get(a.nivelId);
+    if (pertenece === undefined) {
+      pertenece = cadenaDeNivel(a.nivelId, niveles).some((x) => x.id === nivelId);
+      enRama.set(a.nivelId, pertenece);
+    }
+    if (pertenece) salida.add(a.id);
+  }
+  return salida;
+}
+
 export const ETIQUETA_CLASE: Record<ClaseNivel, string> = {
   EMPRESA: 'Empresa',
   PRODUCTOS: 'Productos',

@@ -1,0 +1,69 @@
+name: Verificación
+
+# EL GATE, PERO ANTES DE MERGEAR.
+#
+# `Build and Deploy` también verifica, y eso no vuelve redundante a este workflow: son dos
+# momentos distintos. Allá el rojo aparece cuando el cambio YA está en `main` —la rama
+# protegida queda rota y hay que arreglarla con prisa, que es como se cometen los segundos
+# errores—. Acá aparece mientras el cambio todavía es un PR que nadie mergeó.
+#
+# En este repo mergear a `main` despliega a producción. No hay staging ni revisión después
+# del merge: lo que se mergea, sale. Así que éste es, literalmente, el último punto donde un
+# problema cuesta barato.
+on:
+  pull_request:
+    branches: [main]
+  # Para poder pedirlo a mano sobre una rama sin abrir el PR todavía.
+  workflow_dispatch:
+
+# Empujar tres veces seguidas a un PR no debería dejar tres verificaciones compitiendo por el
+# único runner que hay —que además es el servidor de producción—. Sólo interesa la última.
+concurrency:
+  group: verificacion-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    # El runner es self-hosted y vive EN el host de producción. Un PR desde un fork ejecutaría
+    # código de un desconocido en esa máquina, así que se limita a las ramas de este mismo
+    # repositorio: quien puede abrir una rama acá ya puede empujar a `main`, y no se le concede
+    # nada nuevo. Un PR desde un fork no falla: se queda sin correr, y se ve que no corrió.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 # el mismo major que `node:22-alpine` en el Dockerfile
+          cache: npm
+
+      # Acá SÍ se corre el build, y es la diferencia con el paso equivalente del despliegue.
+      #
+      # Allá la imagen se construye de todos modos en el paso siguiente, así que compilar dos
+      # veces no agrega información. Acá no hay imagen: si el build no entra, el PR se ve
+      # verde y el fallo aparece después del merge, cuando ya es un despliegue caído. Es
+      # exactamente lo que pasó el 16/09/2026.
+      #
+      # Cuesta más de un minuto. Es el minuto más barato de todo el recorrido.
+      - name: Verificación — tipos, lint, pruebas y build
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verificar:build
+
+      # El workspace del runner persiste entre ejecuciones y `node_modules` pesa alrededor de
+      # un giga. En esta máquina eso importa: el despliegue #41 murió con `No space left on
+      # device` y por eso existe el preflight de disco en `deploy.yml`. Se limpia siempre,
+      # incluso con la verificación en rojo, que es justo cuando uno se olvidaría.
+      #
+      # El caché de npm (`~/.npm`) NO se toca: es lo que hace que el `npm ci` siguiente no
+      # vuelva a bajar el árbol entero de internet.
+      - name: Liberar el espacio de node_modules
+        if: always()
+        run: rm -rf node_modules .next

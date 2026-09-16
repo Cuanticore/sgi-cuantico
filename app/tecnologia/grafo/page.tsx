@@ -5,23 +5,36 @@
 // **Las columnas no son niveles: son distancia a la dependencia más profunda**, y por eso
 // la flecha siempre va hacia la derecha. Un activo de nivel 3 puede quedar a la izquierda
 // de uno de nivel 1 sin que nada esté mal: son dos ordenamientos distintos del mismo
-// inventario.
+// inventario. El filtro por Nivel 1 / 2 / 3 usa el segundo; el acomodo, el primero.
+//
+// **Esta página no calcula el acomodo.** Manda los datos crudos y deja que el cliente los
+// encadene: al filtrar, columnas y orden se recalculan sobre el subgrafo visible, y un número
+// de columna calculado acá sería un segundo origen del mismo dato — la forma exacta que
+// tuvieron los tres bugs que originaron el harness de este repo.
 
 import { prisma } from '@/lib/db';
-import { columnasDelGrafo, type Arista } from '@/lib/sig/dependencias';
+import type { Arista } from '@/lib/sig/dependencias';
 import GrafoClient from './Grafo.client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function GrafoPage() {
-  const [activos, valores, dependencias, despliegues] = await Promise.all([
-    // Sólo los activos que participan del grafo o de la jerarquía de contención. Dibujar
-    // los 247 sin ninguna relación llenaría la columna 0 de cajas sueltas y taparía las
-    // pocas cadenas que sí hay.
+  const [activos, niveles, valores, dependencias, despliegues] = await Promise.all([
+    // **Van TODOS los activos vigentes, no sólo los que participan de una relación.** Sin
+    // filtro el cliente sigue dibujando únicamente los conectados —llenar la columna 0 de
+    // cajas sueltas taparía las pocas cadenas que hay—, pero al filtrar una rama esa razón
+    // desaparece y «qué activos de MINTRACE nadie conectó con nada» pasa a ser el hallazgo.
+    // No se puede responder eso con los activos que la consulta descartó.
     prisma.activo.findMany({
       where: { activo: true },
-      select: { id: true, codigo: true, nombre: true, superiorId: true },
+      select: { id: true, codigo: true, nombre: true, superiorId: true, nivelId: true },
       orderBy: { codigo: 'asc' },
+    }),
+    // E1 · la jerarquía completa. El activo apunta al nivel 3 y los grados 1 y 2 se derivan
+    // subiendo por `padreId`, así que el filtro necesita la tabla entera para poder subir.
+    prisma.nivelActivo.findMany({
+      select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true },
+      orderBy: [{ grado: 'asc' }, { orden: 'asc' }, { id: 'asc' }],
     }),
     prisma.activoValor.findMany({ select: { activoId: true, valor: { select: { valor: true } } } }),
     prisma.dependenciaActivo.findMany({ select: { activoId: true, dependeDeId: true, tipo: true } }),
@@ -44,24 +57,10 @@ export default async function GrafoPage() {
     if (previo === undefined || v.valor.valor > previo) criticidad.set(v.activoId, v.valor.valor);
   }
 
-  const grafo: Arista[] = dependencias;
-  const conRelacion = new Set<number>();
-  for (const d of grafo) {
-    conRelacion.add(d.activoId);
-    conRelacion.add(d.dependeDeId);
-  }
-  for (const a of activos) {
-    if (a.superiorId !== null && activos.some((x) => x.id === a.superiorId)) {
-      conRelacion.add(a.id);
-      conRelacion.add(a.superiorId);
-    }
-  }
-
   // D-3 · las aristas de despliegue, sin repetir el par: veinte despliegues del mismo activo
   // en el mismo servidor son UNA relación «corre en», no veinte líneas encimadas.
   const vistas = new Set<string>();
   const aristasDespliegue: { activoId: number; servidorId: number }[] = [];
-  const enDespliegue = new Set<number>();
   for (const d of despliegues) {
     const activoId = d.activoId as number;
     const servidorId = d.servidorId as number;
@@ -70,36 +69,31 @@ export default async function GrafoPage() {
     if (vistas.has(clave)) continue;
     vistas.add(clave);
     aristasDespliegue.push({ activoId, servidorId });
-    enDespliegue.add(activoId);
-    enDespliegue.add(servidorId);
   }
 
-  // Los nodos que SÓLO existen en el grafo por un despliegue viajan marcados. El
-  // interruptor de D-3 nace apagado, así que dibujarlos siempre metería cajas sueltas en el
-  // modo por omisión — justo la legibilidad que la decisión quiso conservar.
-  const dibujables = activos.filter((a) => conRelacion.has(a.id) || enDespliegue.has(a.id));
-  const columnas = columnasDelGrafo(
-    dibujables.map((a) => a.id),
-    grafo,
-  );
+  const vigentes = new Set(activos.map((a) => a.id));
+  const grafo: Arista[] = dependencias;
 
   return (
     <GrafoClient
-      nodos={dibujables.map((a) => ({
+      nodos={activos.map((a) => ({
         id: a.id,
         codigo: a.codigo,
         nombre: a.nombre,
-        columna: columnas.get(a.id) ?? 0,
         criticidad: criticidad.get(a.id) ?? null,
-        soloDespliegue: !conRelacion.has(a.id),
+        nivelId: a.nivelId,
       }))}
       despliegues={aristasDespliegue}
       dependencias={grafo}
       // La contención se dibuja punteada y aparte: «está dentro de» no es «depende de», y
       // mezclarlas en una sola línea sería exactamente la confusión que el modelo separa.
+      // Viajan todos los pares cuyo padre siga vigente: recortarlos acá según si el hijo
+      // además tiene una dependencia dejaba al cliente sin poder decir quién está realmente
+      // suelto.
       contencion={activos
-        .filter((a) => a.superiorId !== null && conRelacion.has(a.id))
+        .filter((a) => a.superiorId !== null && vigentes.has(a.superiorId))
         .map((a) => ({ hijoId: a.id, padreId: a.superiorId as number }))}
+      niveles={niveles}
       totalActivos={activos.length}
     />
   );

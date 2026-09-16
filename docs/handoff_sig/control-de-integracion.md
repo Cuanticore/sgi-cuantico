@@ -1,6 +1,8 @@
 # Control de integración del SIG
 
-**Fecha:** 02/09/2026 · **Estado:** revisión integral · **Fuente:** `prisma/schema.prisma` en la rama actual, más las políticas de `1. Gobierno de la Seguridad` (PDF v2, 31/08/2026) y `8. Continuidad del Negocio`.
+**Fecha:** 02/09/2026 · **Actualizado:** 16/09/2026 (§3.2.2 y brecha 12) · **Estado:** revisión integral · **Fuente:** `prisma/schema.prisma` en la rama actual, más las políticas de `1. Gobierno de la Seguridad` (PDF v2, 31/08/2026) y `8. Continuidad del Negocio`.
+
+> Lo agregado después del 02/09/2026 va fechado en su propia sección. El cuerpo original no se reescribe: un documento de control que se edita en silencio deja de servir para saber qué se sabía y cuándo.
 
 Este documento no propone funcionalidad nueva. Responde dos preguntas: **si los módulos están realmente conectados** y **qué tareas exige el sistema documental que la aplicación todavía no puede generar**. Todo lo que se afirma acá está verificado contra el esquema, no contra las specs.
 
@@ -145,6 +147,20 @@ Detectados el 02/09/2026 al revisar si Mi SIG cubre capacitación, evaluación d
 
 Lo que sí queda cubierto: los contenidos diferenciados por rol que pide la política —codificación segura para desarrollo, accesos privilegiados para quien administra plataformas— se resuelven con el alcance por cargo, que ya existe.
 
+### 3.2.2 El curso virtual se puede crear pero no publicar
+
+Detectado el 16/09/2026 al revisar el alta de contenidos. Especificado en [curso-virtual-paquete-o-enlace.md](curso-virtual-paquete-o-enlace.md) (REQ-SIG-26) y **construido el mismo día**. Lo que queda es correr la migración `20260916140000_curso_virtual_clase` contra una base: está escrita a mano y no se ejecutó contra ninguna.
+
+REQ-SIG-24 creó `CURSO_VIRTUAL` como tipo propio y construyó el lado del colaborador. **No construyó el lado de quien publica**, y el resultado es un callejón sin salida: el colaborador lee *«avisale a quien lo publicó»* y quien lo publicó no tiene dónde cargar el curso. No falta un campo: faltan las dos vías —el cargador de paquete SCORM está detrás de `tipo === 'CAPACITACION'` (`Contenidos.client.tsx:603`) y los campos de enlace detrás de `tipo === 'LECTURA'` (`:520`, `:277-281`)—, y `subirPaqueteScorm` rechaza el tipo nuevo en el servidor (`scorm.ts:53`) con un mensaje que cita la premisa `P1` que REQ-SIG-24 revirtió.
+
+**Dos cosas que no son «funcionalidad que falta» y hay que mirar aparte:**
+
+**a) Hay una fuga de cierre abierta.** `PanelCierre.tsx:81-83` afirma que el servidor rechaza el cierre manual de un curso. No lo rechaza: la compuerta de `tareas.ts:130` sólo cubre `CAPACITACION`, y `validarCierre` (`lib/sig/cierre.ts:56-84`) no tiene caso para `CURSO_VIRTUAL`, así que el `switch` lo atraviesa sin errores. **Un curso virtual con paquete se puede cerrar invocando la acción desde el navegador, sin abrirlo nunca** — que es justo lo que P14 existe para impedir. La pantalla lo esconde bien, y por eso no se había visto.
+
+**b) Un curso de clase enlace externo no se puede cerrar por ninguna vía.** El panel ofrece «Abrir el curso ↗» y ningún botón para registrar que se terminó.
+
+La clase del curso —paquete SCORM o enlace externo— **se declara** en el modelo (`ContenidoSig.claseCurso`, D-1 del requerimiento) y no se deriva de qué campos quedaron vacíos: sin eso, un curso al que todavía no le subieron nada es indistinguible de uno al que le falta el enlace.
+
 ### 3.3 Deberes por evento, no periódicos
 
 No son tareas del motor de obligaciones, y conviene dejarlo dicho para que no se intenten modelar ahí: revocación de accesos el mismo día de la desvinculación; inducción de seguridad antes de otorgar accesos; notificación de incidentes del proveedor dentro de las 24 horas; actualización del inventario al crear, modificar, trasladar o dar de baja un activo; vencimiento a 90 días de una excepción de dispositivo. Los tres primeros son disparadores del módulo de personas; el cuarto es el inventario mismo; el quinto es un plazo, no una periodicidad.
@@ -197,5 +213,8 @@ Brechas abiertas, en orden de impacto. Las decisiones del 02/09/2026 están en [
 | 9 | Operación del SGSI | **D13** — spec escrita 02/09/2026, sin construir |
 | 10 | Permiso de auditor por asignación — `PerfilAuditor.aprobadoEn` sí se exige, la habilitación por asignación no se construyó | Pendiente |
 | 11 | Tres comentarios obsoletos en `lib/sgsi/permisos.ts` y uno en `app/sgsi/acciones/controles.ts:502` que describen un modelo de roles retirado | Limpieza |
+| 12 | **Curso virtual sin lado de publicación (§3.2.2)** — y la fuga de cierre de §3.2.2 a) | **REQ-SIG-26** — **cerrada el 16/09/2026**: especificada y construida. Falta correr la migración contra una base (§13 del requerimiento) |
 
 Las catorce periodicidades (§3.2) dejan de ser brecha de software con D7 y pasan a ser brecha documental: hay que llevarlas al comité.
+
+**La brecha 12 no es como las once anteriores.** Las otras son cosas que nunca se construyeron; ésta es un tipo de contenido que **se construyó a medias y quedó inutilizable**, más una compuerta de seguridad que el código afirma tener y no tiene. La fuga de §3.2.2 a) no debería esperar al resto del requerimiento.

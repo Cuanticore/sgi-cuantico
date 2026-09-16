@@ -276,6 +276,144 @@ export function columnasDelGrafo(
   return columna;
 }
 
+/// **D5 · el orden vertical dentro de una columna, por baricentro.**
+///
+/// Hasta acá las cajas se apilaban en el orden en que venían de la consulta —por código—, así
+/// que ninguna quedaba cerca de aquello con lo que se conecta y toda arista era una diagonal
+/// larga. Cada pasada reordena una columna por el promedio de los índices de sus vecinos del
+/// lado contrario; las pasadas alternan de izquierda a derecha y de derecha a izquierda.
+///
+/// Es el algoritmo clásico de reducción de cruces, no un motor de acomodo: aritmética sobre
+/// dos mapas, sin fuerzas ni simulación.
+///
+/// **Determinista, y eso no es un detalle.** El grafo se dibuja a mano porque «un mapa que se
+/// mueve solo no se puede señalar con el dedo en una reunión». Por eso:
+///
+/// - el orden inicial y todos los empates se rompen por `desempate` —el código— y, si también
+///   empata, por id. Nunca por el orden de llegada de las filas;
+/// - un nodo sin vecinos de ese lado **conserva su índice** en vez de irse al tope: empujarlo
+///   al cero desplazaría a los que sí tienen una razón para estar ahí.
+///
+/// Devuelve `id → índice dentro de su columna`, siempre `0..n-1` sin huecos.
+export function ordenDentroDeColumnas(
+  columnas: ReadonlyMap<number, number>,
+  aristas: readonly Arista[],
+  desempate: ReadonlyMap<number, string>,
+  pasadas = 3,
+): Map<number, number> {
+  const clave = (id: number) => desempate.get(id) ?? String(id);
+  // El orden base no depende del orden de inserción de `columnas`: se ordena todo primero y
+  // se agrupa después.
+  const ids = [...columnas.keys()].sort((x, y) => {
+    const cx = columnas.get(x) as number;
+    const cy = columnas.get(y) as number;
+    if (cx !== cy) return cx - cy;
+    const kx = clave(x);
+    const ky = clave(y);
+    return kx === ky ? x - y : kx < ky ? -1 : 1;
+  });
+
+  const porColumna = new Map<number, number[]>();
+  const indice = new Map<number, number>();
+  for (const id of ids) {
+    const c = columnas.get(id) as number;
+    const previos = porColumna.get(c);
+    if (previos === undefined) {
+      porColumna.set(c, [id]);
+      indice.set(id, 0);
+    } else {
+      indice.set(id, previos.length);
+      previos.push(id);
+    }
+  }
+
+  // El lado se decide por la columna y no por la dirección de la arista: así una arista que
+  // salte varias columnas sigue contando, y una cuyos extremos no estén ambos dibujados se
+  // descarta sola.
+  const izquierda = new Map<number, number[]>();
+  const derecha = new Map<number, number[]>();
+  for (const a of aristas) {
+    const ca = columnas.get(a.activoId);
+    const cb = columnas.get(a.dependeDeId);
+    if (ca === undefined || cb === undefined || ca === cb) continue;
+    const [menor, mayor] = ca < cb ? [a.activoId, a.dependeDeId] : [a.dependeDeId, a.activoId];
+    (izquierda.get(mayor) ?? izquierda.set(mayor, []).get(mayor) as number[]).push(menor);
+    (derecha.get(menor) ?? derecha.set(menor, []).get(menor) as number[]).push(mayor);
+  }
+
+  const columnasOrdenadas = [...porColumna.keys()].sort((x, y) => x - y);
+
+  for (let p = 0; p < pasadas; p += 1) {
+    const haciaLaDerecha = p % 2 === 0;
+    const recorrido = haciaLaDerecha ? columnasOrdenadas : [...columnasOrdenadas].reverse();
+    const vecinosDe = haciaLaDerecha ? izquierda : derecha;
+    for (const c of recorrido) {
+      const enColumna = porColumna.get(c) as number[];
+      const baricentro = new Map<number, number>();
+      for (const id of enColumna) {
+        const vecinos = vecinosDe.get(id) ?? [];
+        baricentro.set(
+          id,
+          vecinos.length === 0
+            ? (indice.get(id) as number)
+            : vecinos.reduce((s, v) => s + (indice.get(v) as number), 0) / vecinos.length,
+        );
+      }
+      enColumna.sort((x, y) => {
+        const bx = baricentro.get(x) as number;
+        const by = baricentro.get(y) as number;
+        if (bx !== by) return bx - by;
+        const kx = clave(x);
+        const ky = clave(y);
+        return kx === ky ? x - y : kx < ky ? -1 : 1;
+      });
+      enColumna.forEach((id, i) => indice.set(id, i));
+    }
+  }
+
+  return indice;
+}
+
+export interface SubgrafoFiltrado {
+  /// Los activos de la rama elegida. Son el tema de la pantalla.
+  sujeto: Set<number>;
+  /// Lo que sostiene a la rama sin pertenecer a ella: la infraestructura de `EMPRESA`, los
+  /// externos. Contexto, no sujeto.
+  frontera: Set<number>;
+  /// Sólo las que tocan al menos un sujeto.
+  aristas: Arista[];
+}
+
+/// **D2 · filtrar define quién es el SUJETO; lo que lo sostiene se dibuja como frontera.**
+///
+/// MINTRACE no se sostiene solo: su infraestructura vive en `EMPRESA` y sus externos no
+/// cuelgan de ningún producto. Esconderlos dibujaría un MINTRACE apoyado en nada, que es lo
+/// contrario de lo que este grafo promete responder.
+///
+/// **La frontera es de UN salto y las aristas frontera↔frontera no se dibujan.** Dos saltos
+/// es el grafo entero disfrazado, y unir dos nodos de contexto entre sí lo trae de vuelta por
+/// la puerta de atrás. Se dibuja una arista si y sólo si al menos uno de sus extremos es
+/// sujeto.
+///
+/// Un sujeto sin ninguna arista sigue en el subgrafo (D11): con el filtro puesto, «qué activos
+/// de la rama nadie conectó con nada» es el hallazgo, no un efecto secundario.
+export function subgrafoDeRama(
+  sujeto: ReadonlySet<number>,
+  aristas: readonly Arista[],
+): SubgrafoFiltrado {
+  const frontera = new Set<number>();
+  const dibujadas: Arista[] = [];
+  for (const a of aristas) {
+    const deDentro = sujeto.has(a.activoId);
+    const aDentro = sujeto.has(a.dependeDeId);
+    if (!deDentro && !aDentro) continue;
+    dibujadas.push(a);
+    if (!deDentro) frontera.add(a.activoId);
+    if (!aDentro) frontera.add(a.dependeDeId);
+  }
+  return { sujeto: new Set(sujeto), frontera, aristas: dibujadas };
+}
+
 /// Los vecinos directos de un activo, en las dos direcciones y con el sentido dicho en
 /// palabras. Es lo que el panel del grafo muestra al elegir un nodo.
 export function vecinosDirectos(

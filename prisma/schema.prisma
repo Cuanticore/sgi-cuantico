@@ -934,6 +934,25 @@ enum TipoAccion {
   @@map("tipo_accion")
 }
 
+/// De qué matriz sale el plan. FOR-SIG-13 «Plan de Tratamiento y Mejora» es UNA matriz con
+/// dos clases, y así es como la organización las gestiona: en la misma reunión y en el mismo
+/// tablero.
+///
+/// ES UNA COLUMNA Y NO UN TEXTO DENTRO DE `origen`. Enterrarla ahí la habría hecho
+/// irrecuperable para filtrar, para contar y para volver a exportar el formato — y el formato
+/// se reexporta, porque es el que el cliente llena. `origen` sigue siendo la justificación en
+/// prosa que pide ISO/IEC 27001 6.1.3; la clase es un dato.
+///
+/// TRATAMIENTO nace de un riesgo del análisis; MEJORA nace de un hallazgo, una auditoría o
+/// una oportunidad. Se distinguen porque a TRATAMIENTO se le puede exigir el riesgo que lo
+/// motiva y a MEJORA no — exigírselo a las dos dejaría fuera la mitad de la matriz.
+enum ClasePlan {
+  TRATAMIENTO
+  MEJORA
+
+  @@map("clase_plan")
+}
+
 enum EstadoAccion {
   NO_INICIADA
   EN_EJECUCION
@@ -959,7 +978,18 @@ enum VerificacionEficacia {
 model AccionPlan {
   id                 Int                  @id @default(autoincrement())
   codigo             String               @unique // PT-001
+  /// FOR-SIG-13 columna «Actividad»: QUÉ se hace, en una línea.
   accion             String
+  /// FOR-SIG-13 columna «Descripción»: el detalle de la actividad.
+  ///
+  /// Separada de `accion` y no concatenada con ella porque el formato las separa y un auditor
+  /// las lee distinto: «Actividad» es lo que se promete y «Descripción» es cómo. Juntarlas en
+  /// un campo haría que reexportar el formato no pudiera volver a partirlas.
+  descripcion        String?
+  /// De qué matriz sale. Por omisión TRATAMIENTO: es lo que eran todos los planes que existían
+  /// antes de que el formato trajera las dos clases, y suponer lo contrario los reclasificaría
+  /// a todos en silencio.
+  clase              ClasePlan            @default(TRATAMIENTO)
   tipo               TipoAccion
   /// Required when tipo is MITIGAR.
   controlId          Int?                 @map("control_id")
@@ -974,7 +1004,17 @@ model AccionPlan {
   recursos           String?
   estado             EstadoAccion         @default(NO_INICIADA)
   avance             Int                  @default(0)
+  /// La evidencia del CIERRE: lo que demuestra que la acción se hizo.
   evidencia          String?
+  /// FOR-SIG-13 columnas «Seguimiento» y «Fecha de seguimiento»: la última revisión de avance.
+  ///
+  /// No es `evidencia` y por eso no se reusa el campo. La evidencia prueba que la acción
+  /// terminó; el seguimiento dice cómo iba en una fecha, y hay muchos seguimientos antes de
+  /// que haya una evidencia. Guardar el último en su propio par de campos permite además
+  /// contestar «¿hace cuánto que nadie mira este plan?», que es la pregunta que un comité de
+  /// seguimiento hace de verdad.
+  seguimiento        String?
+  fechaSeguimiento   DateTime?            @map("fecha_seguimiento") @db.Date
   fechaCierre        DateTime?            @map("fecha_cierre") @db.Date
   madurezAlcanzadaId Int?                 @map("madurez_alcanzada_id")
   madurezObjetivoId  Int?                 @map("madurez_objetivo_id")
@@ -1352,6 +1392,19 @@ model ContenidoSig {
   declaracion     String?
   notaMinima      Decimal? @map("nota_minima")
 
+  // CURSO_VIRTUAL · REQ-SIG-26
+  /// Cuál de las dos clases de curso es. `NULL` en todo lo que no sea CURSO_VIRTUAL.
+  ///
+  /// SE DECLARA, no se deriva de si hay paquete o URL cargados (D-1). Sin este campo, un
+  /// curso al que todavía no le subieron el zip es indistinguible de uno al que le falta el
+  /// enlace, y el aviso que lee el colaborador no puede decir cuál de las dos falta —la
+  /// misma confusión entre «no sé» y «cero» que este repo no admite en ninguna otra parte.
+  ///
+  /// Nullable a propósito y SIN valor por defecto: un LECTURA con clase de curso sería una
+  /// mentira tipada. El invariante es «no nula si y sólo si el tipo es CURSO_VIRTUAL», y lo
+  /// sostiene `validarDatosContenido` en el servidor, no una restricción de la base.
+  claseCurso ClaseCurso? @map("clase_curso")
+
   items        ItemVerificacion[]
   obligaciones Obligacion[]
   asignaciones Asignacion[]
@@ -1360,7 +1413,12 @@ model ContenidoSig {
 
   actas ActaAceptacion[]
 
-  /// P1 · un curso SCORM es una CAPACITACION con paquete, no un tipo nuevo de contenido.
+  /// Los paquetes SCORM del contenido.
+  ///
+  /// REQ-SIG-26 · antes decía «P1 · un curso SCORM es una CAPACITACION con paquete, no un
+  /// tipo nuevo de contenido». **REQ-SIG-24 revirtió esa premisa**: `CURSO_VIRTUAL` es un
+  /// tipo propio, y un paquete cuelga de una CAPACITACION —por lo ya creado— o de un
+  /// CURSO_VIRTUAL de clase PAQUETE. La compuerta vive en `subirPaqueteScorm`.
   paquetes PaqueteScorm[]
 
   @@map("contenido_sig")
@@ -4046,6 +4104,22 @@ model ComponenteTercero {
 // su resultado —completó, aprobó, con qué nota, cuánto tiempo, en qué intento—
 // deja de ser una afirmación de la persona sobre sí misma.
 // ============================================================================
+
+/// REQ-SIG-26 · las dos maneras en que un curso virtual llega a la organización. La
+/// diferencia no es de presentación: decide si el registro de una persona es evidencia de
+/// que hizo el curso o la declaración de que lo hizo, y un auditor necesita separarlas.
+enum ClaseCurso {
+  /// SCORM 2004. El curso vive dentro de la aplicación, el reproductor reporta avance y
+  /// resultado, y la asignación la cierra el curso. Incluye el paquete de DESPACHO: ahí el
+  /// contenido lo entrega un tercero, pero la persona no sale de la aplicación.
+  PAQUETE
+  /// El curso vive en la plataforma del proveedor y se abre en otra pestaña. La aplicación
+  /// no ve nada de lo que pasa del otro lado —no hay avance que reanudar ni nota que
+  /// recibir—, así que el cierre vuelve a ser una declaración de la persona.
+  ENLACE
+
+  @@map("clase_curso")
+}
 
 enum ClasePaquete {
   /// Los archivos están en el paquete y se sirven desde el origen aislado. `zipSha256`

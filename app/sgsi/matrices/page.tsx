@@ -167,10 +167,13 @@ export default async function MatricesPage() {
       impacto: Number(r.impacto),
       aro,
       riesgo: Number(r.riesgoPotencial),
-      // Null on purpose and null all the way to the screen: no threat has controls with
-      // a relevance assigned yet, so the efficacy is UNKNOWN, not zero. Substituting
-      // zero here would draw a residual matrix identical to the inherent one — the
-      // report that is arithmetically consistent with its inputs and completely wrong.
+      // Null travels all the way to the screen when it happens: a threat with no EVALUATED
+      // control has UNKNOWN efficacy, not zero. Substituting zero here would draw a residual
+      // matrix identical to the inherent one — the report that is arithmetically consistent
+      // with its inputs and completely wrong.
+      //
+      // Desde REQ-SIG-21 ningún riesgo vigente llega con el residual en null; el camino se
+      // conserva porque la condición que lo produce sigue siendo posible.
       aroResidual: r.frecuenciaResidual === null ? null : Number(r.frecuenciaResidual),
       riesgoResidual: r.riesgoResidual === null ? null : Number(r.riesgoResidual),
     });

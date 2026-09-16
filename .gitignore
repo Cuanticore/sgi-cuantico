@@ -75,3 +75,11 @@ var/respaldos/
 # Volcados del parte de importacion (Errores.txt y similares). Llevan nombres de activos
 # reales de la organizacion: son datos de trabajo, no codigo.
 Errores.txt
+
+# Salida de Playwright. Las trazas y capturas de un recorrido fallido llevan la pantalla
+# entera: codigos de activo, IP, nombres de servidores. Es el mapa que el propio layout de
+# /tecnologia se niega a mostrar sin el grupo del Directorio, y no entra al repositorio.
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

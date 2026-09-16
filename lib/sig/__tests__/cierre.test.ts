@@ -7,6 +7,7 @@
 import {
   validarCierre,
   cierraLaAsignacion,
+  elCursoCierraSolo,
   esVencida,
   esExtemporaneo,
   aprobadoDe,
@@ -135,6 +136,69 @@ describe('validarCierre — VERIFICACION', () => {
 describe('validarCierre — TAREA', () => {
   it('no exige nada más que la nota, que es opcional', () => {
     expect(validarCierre({ tipo: 'TAREA', nota: undefined })).toEqual([]);
+  });
+});
+
+// P14 · REQ-SIG-26 §6.3 · EL DEFECTO QUE ESTO CIERRA.
+//
+// `PanelCierre.tsx` afirmaba que el servidor rechaza el cierre manual de un curso. No lo
+// rechazaba: la compuerta de `tareas.ts` sólo miraba CAPACITACION, y `validarCierre` no
+// tiene caso para CURSO_VIRTUAL —el `switch` lo atraviesa sin errores—. Con eso, un curso
+// virtual con paquete se cerraba invocando la accion desde el navegador, SIN ASISTENCIA,
+// SIN NOTA Y SIN UN SOLO INTENTO DEL REPRODUCTOR. La pantalla lo escondia bien, que es por
+// lo que nadie lo vio.
+//
+// La regla vive aca, pura, en vez de como un `if` dentro de la accion: es una regla de
+// negocio —quien puede declarar que hizo un curso— y tiene que poder probarse sin levantar
+// Postgres ni una sesion.
+describe('elCursoCierraSolo (P14)', () => {
+  it('un curso virtual de clase paquete NO se cierra a mano', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CURSO_VIRTUAL', claseCurso: 'PAQUETE', tienePaquete: true }),
+    ).toBe(true);
+  });
+
+  // Aunque TODAVIA no le hayan subido el zip. Sin esto, la ventana entre crear el curso y
+  // cargarlo seria justo el rato en que cualquiera puede declararse aprobado.
+  it('sigue sin cerrarse a mano aunque el paquete no este cargado', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CURSO_VIRTUAL', claseCurso: 'PAQUETE', tienePaquete: false }),
+    ).toBe(true);
+  });
+
+  // La clase ENLACE es la excepcion, y no es una fuga: la aplicacion no ve nada de lo que
+  // pasa en la plataforma del proveedor, asi que la declaracion de la persona es el UNICO
+  // mecanismo de cierre que existe. Bloquearla dejaria la asignacion abierta para siempre.
+  it('un curso virtual de clase enlace SI se cierra por declaracion', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CURSO_VIRTUAL', claseCurso: 'ENLACE', tienePaquete: false }),
+    ).toBe(false);
+  });
+
+  // Falla CERRADA. Un curso virtual sin clase no deberia existir —la migracion lo rellena y
+  // el servidor lo exige—, pero si aparece uno, lo que NO puede pasar es que se cierre a
+  // mano: entre negar un cierre legitimo y admitir uno inventado, se niega.
+  it('un curso virtual sin clase declarada se bloquea', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CURSO_VIRTUAL', claseCurso: null, tienePaquete: true }),
+    ).toBe(true);
+  });
+
+  // Lo de antes no cambia: una CAPACITACION con paquete sigue cerrandose con el curso.
+  it('una capacitacion con paquete tampoco se cierra a mano', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CAPACITACION', claseCurso: null, tienePaquete: true }),
+    ).toBe(true);
+  });
+
+  it('una capacitacion sin paquete se cierra declarando asistencia, como siempre', () => {
+    expect(
+      elCursoCierraSolo({ tipo: 'CAPACITACION', claseCurso: null, tienePaquete: false }),
+    ).toBe(false);
+  });
+
+  it.each(['LECTURA', 'VERIFICACION', 'TAREA'] as const)('%s no la toca', (tipo) => {
+    expect(elCursoCierraSolo({ tipo, claseCurso: null, tienePaquete: false })).toBe(false);
   });
 });
 

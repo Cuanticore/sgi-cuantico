@@ -108,6 +108,75 @@ describe('analizarManifiesto · un paquete autocontenido', () => {
   });
 });
 
+// EL DEFECTO QUE ESTO CIERRA.
+//
+// El analisis miraba UNICAMENTE el HTML de entrada. Coursebox pone su dominio ahi mismo, asi
+// que su paquete se clasificaba bien; pero un despacho de otro proveedor que arme la URL
+// dentro de su propio `.js` se clasificaba **AUTOCONTENIDO**, con dos consecuencias:
+//
+//   · la CSP le negaba el dominio y el curso quedaba en pantalla en blanco, y
+//   · la ficha le afirmaba a un auditor que «el contenido no sale de la aplicacion»,
+//     mientras el correo y el nombre de cada persona salian igual.
+//
+// La segunda es la grave: es una evidencia falsa, no una molestia.
+describe('analizarManifiesto · el dominio escondido en el .js del lanzador', () => {
+  it('encuentra el dominio aunque no este en el HTML', () => {
+    const r = analizarManifiesto(
+      AUTOCONTENIDO,
+      ['imsmanifest.xml', 'shared/launch.html', 'shared/driver.js'],
+      {
+        'shared/launch.html': '<script src="driver.js"></script><iframe id="curso"></iframe>',
+        // La ruta se resuelve contra la carpeta del SCO, no contra la raiz del paquete.
+        'shared/driver.js': 'var REMOTO = "https://cursos.proveedor.com/launch";',
+      },
+    );
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.paquete.clase).toBe('DESPACHO');
+    expect(r.paquete.dominiosExternos).toEqual(['https://cursos.proveedor.com']);
+  });
+
+  // Acotado a lo que el SCO CARGA. Un `.js` que el paquete trae pero nadie referencia no
+  // corre nunca, y meterlo en la CSP seria abrirle un dominio a codigo muerto.
+  it('no mira un .js que el SCO no carga', () => {
+    const r = analizarManifiesto(
+      AUTOCONTENIDO,
+      ['imsmanifest.xml', 'shared/launch.html', 'shared/sobrante.js'],
+      {
+        'shared/launch.html': '<h1>Inducción</h1>',
+        'shared/sobrante.js': 'fetch("https://analytics.ejemplo.com/ping")',
+      },
+    );
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.paquete.clase).toBe('AUTOCONTENIDO');
+  });
+
+  // Los namespaces XML son URLs y NO son origenes de contenido: nadie descarga nada de
+  // `www.w3.org/2000/svg`. Colarlos convertiria cualquier paquete con un SVG en un
+  // «DESPACHO que comparte correo y nombre con w3.org», que es mentira en la otra
+  // direccion, y ademas le abriria el dominio en la CSP.
+  it('los namespaces XML no son dominios externos', () => {
+    const r = analizarManifiesto(AUTOCONTENIDO, ['imsmanifest.xml', 'shared/launch.html'], {
+      'shared/launch.html':
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>' +
+        '<!-- http://www.imsglobal.org/xsd/imscp_v1p1 http://www.adlnet.org/xsd/adlcp_v1p3 -->',
+    });
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.paquete.clase).toBe('AUTOCONTENIDO');
+    expect(r.paquete.dominiosExternos).toEqual([]);
+  });
+
+  // Coursebox sigue saliendo igual: su dominio esta inline en el HTML de entrada.
+  it('el paquete de Coursebox sigue dando DESPACHO con su dominio', () => {
+    const r = analizarManifiesto(ENTREGADO, ['imsmanifest.xml', 'index.html'], {
+      'index.html':
+        '<script src="https://my.coursebox.ai/assets/scripts/scormxd-driver.min.js"></script>',
+    });
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.paquete.clase).toBe('DESPACHO');
+    expect(r.paquete.dominiosExternos).toEqual(['https://my.coursebox.ai']);
+  });
+});
+
 describe('analizarManifiesto · lo que se rechaza con motivo', () => {
   // D-3 · fase 1 es un solo SCO. Ejecutar el primero y dar por hecho el curso completo
   // sería peor que rechazarlo: la asignación se cerraría con medio curso visto.

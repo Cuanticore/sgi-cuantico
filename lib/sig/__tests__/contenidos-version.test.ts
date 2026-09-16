@@ -37,31 +37,123 @@ describe('versionTrasEditar (R10)', () => {
 
 describe('cambiaElTexto', () => {
   it('detecta un cambio en el titulo', () => {
-    expect(cambiaElTexto(ACTUAL, { titulo: 'Política de seguridad' })).toBe(true);
+    expect(cambiaElTexto(ACTUAL, { titulo: 'Política de seguridad' }, 'LECTURA')).toBe(true);
   });
 
   it('detecta un cambio en la referencia al documento', () => {
     // Un acuse contra «POL-SIG-02 v2» no dice nada si esa URL pasa a apuntar a la v3.
-    expect(cambiaElTexto(ACTUAL, { documentoUrl: 'https://sharepoint/v3.pdf' })).toBe(true);
-    expect(cambiaElTexto(ACTUAL, { documentoVersion: '3' })).toBe(true);
+    expect(cambiaElTexto(ACTUAL, { documentoUrl: 'https://sharepoint/v3.pdf' }, 'LECTURA')).toBe(
+      true,
+    );
+    expect(cambiaElTexto(ACTUAL, { documentoVersion: '3' }, 'LECTURA')).toBe(true);
   });
 
   // El caso que evita la version de mas: si solo cambio la modalidad o la duracion, el
   // texto que la persona leyo es el MISMO.
   it('un campo que no se lee no cuenta como cambio de texto', () => {
-    expect(cambiaElTexto(ACTUAL, {})).toBe(false);
+    expect(cambiaElTexto(ACTUAL, {}, 'LECTURA')).toBe(false);
   });
 
   // Guardar el formulario sin tocar nada manda todos los campos con su valor actual. Eso
   // no es un cambio, y tratarlo como tal versionaria en cada guardado.
   it('reenviar el mismo valor NO es un cambio', () => {
-    expect(cambiaElTexto(ACTUAL, { titulo: ACTUAL.titulo, descripcion: ACTUAL.descripcion })).toBe(
+    expect(
+      cambiaElTexto(ACTUAL, { titulo: ACTUAL.titulo, descripcion: ACTUAL.descripcion }, 'LECTURA'),
+    ).toBe(false);
+  });
+
+  it('un campo de documento que pasa a nulo si cuenta', () => {
+    expect(cambiaElTexto(ACTUAL, { documentoUrl: null }, 'LECTURA')).toBe(true);
+  });
+});
+
+// REQ-SIG-26 · D-2 · en un CURSO_VIRTUAL, `documentoUrl` es DONDE esta el curso, no que
+// dice. Corregir una URL rota no es publicar una version nueva del curso, y subir la
+// version por eso le pide un acuse nuevo a gente que ya lo hizo.
+//
+// La distincion no es cosmetica: en una LECTURA la URL apunta al documento que se LEE, y
+// cambiarla apunta a otro documento. Ahi versionar es correcto, y sigue igual.
+describe('cambiaElTexto · CURSO_VIRTUAL (REQ-SIG-26 · D-2)', () => {
+  const CURSO: TextoVersionado = {
+    titulo: 'Inducción Corporativa Cuantico',
+    descripcion: 'Curso de inducción para todo el personal.',
+    documentoCodigo: null,
+    documentoNombre: 'Coursebox',
+    documentoVersion: null,
+    documentoUrl: 'https://my.coursebox.ai/curso/induccion',
+  };
+
+  it('corregir el enlace del curso NO sube la version', () => {
+    expect(
+      cambiaElTexto(
+        CURSO,
+        { documentoUrl: 'https://my.coursebox.ai/c/induccion-2026' },
+        'CURSO_VIRTUAL',
+      ),
+    ).toBe(false);
+  });
+
+  it('cambiar la plataforma tampoco', () => {
+    expect(cambiaElTexto(CURSO, { documentoNombre: 'Otra plataforma' }, 'CURSO_VIRTUAL')).toBe(
       false,
     );
   });
 
-  it('un campo de documento que pasa a nulo si cuenta', () => {
-    expect(cambiaElTexto(ACTUAL, { documentoUrl: null })).toBe(true);
+  it('cambiar el titulo SI sube la version', () => {
+    expect(cambiaElTexto(CURSO, { titulo: 'Inducción Corporativa 2027' }, 'CURSO_VIRTUAL')).toBe(
+      true,
+    );
+  });
+
+  it('cambiar la descripcion SI sube la version', () => {
+    expect(cambiaElTexto(CURSO, { descripcion: 'Otro alcance' }, 'CURSO_VIRTUAL')).toBe(true);
+  });
+
+  // El mismo cambio, sobre el mismo campo, con otro tipo: en una LECTURA sigue contando.
+  it('en una LECTURA el enlace sigue contando', () => {
+    expect(cambiaElTexto(ACTUAL, { documentoUrl: 'https://sharepoint/v3.pdf' }, 'LECTURA')).toBe(
+      true,
+    );
+  });
+});
+
+// REQ-SIG-26 · D-2 · en un CURSO_VIRTUAL, `documentoUrl` es DONDE esta el curso, no que
+// dice. Corregir una URL rota no es publicar una version nueva del curso: subir la version
+// por eso le pide un acuse nuevo a gente que ya lo hizo.
+//
+// La distincion no es cosmetica. En una LECTURA la URL apunta al documento que se lee, y
+// cambiarla apunta a OTRO documento: ahi versionar es correcto y sigue igual.
+describe('cambiaElTexto · CURSO_VIRTUAL (REQ-SIG-26 · D-2)', () => {
+  const CURSO: TextoVersionado = {
+    titulo: 'Inducción Corporativa Cuantico',
+    descripcion: 'Curso de inducción para todo el personal.',
+    documentoCodigo: null,
+    documentoNombre: 'Coursebox',
+    documentoVersion: null,
+    documentoUrl: 'https://my.coursebox.ai/curso/induccion',
+  };
+
+  it('corregir el enlace del curso NO sube la version', () => {
+    expect(
+      cambiaElTexto(CURSO, { documentoUrl: 'https://my.coursebox.ai/c/induccion-2026' }, 'CURSO_VIRTUAL'),
+    ).toBe(false);
+  });
+
+  it('cambiar la plataforma tampoco', () => {
+    expect(cambiaElTexto(CURSO, { documentoNombre: 'Otra plataforma' }, 'CURSO_VIRTUAL')).toBe(false);
+  });
+
+  it('cambiar el titulo SI sube la version', () => {
+    expect(cambiaElTexto(CURSO, { titulo: 'Inducción Corporativa 2027' }, 'CURSO_VIRTUAL')).toBe(true);
+  });
+
+  it('cambiar la descripcion SI sube la version', () => {
+    expect(cambiaElTexto(CURSO, { descripcion: 'Otra cosa' }, 'CURSO_VIRTUAL')).toBe(true);
+  });
+
+  // La misma URL, el mismo cambio, otro tipo: en una LECTURA sigue contando.
+  it('en una LECTURA el enlace sigue contando', () => {
+    expect(cambiaElTexto(ACTUAL, { documentoUrl: 'https://sharepoint/v3.pdf' }, 'LECTURA')).toBe(true);
   });
 });
 

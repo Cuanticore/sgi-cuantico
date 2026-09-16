@@ -66,10 +66,14 @@ export interface PaqueteFila {
   subidoEn: string;
 }
 
+/// REQ-SIG-26 · las dos clases de curso virtual. `null` en todo lo que no es un curso.
+export type ClaseCurso = 'PAQUETE' | 'ENLACE';
+
 export interface ContenidoFila {
   id: number;
   codigo: string;
   tipo: string;
+  claseCurso: ClaseCurso | null;
   titulo: string;
   descripcion: string;
   procedimientoOrigen: string | null;
@@ -114,6 +118,26 @@ interface ItemEnEdicion {
 
 let contadorClaves = 0;
 const nuevaClave = () => `nuevo-${++contadorClaves}`;
+
+/// REQ-SIG-26 · las dos clases de curso, con el texto que explica la CONSECUENCIA y no sólo
+/// el nombre. La diferencia decide si el registro de una persona es evidencia de que hizo el
+/// curso o la declaración de que lo hizo, y eso hay que leerlo antes de elegir, no después.
+const CLASES_CURSO: { clase: ClaseCurso; etiqueta: string; consecuencia: string }[] = [
+  {
+    clase: 'PAQUETE',
+    etiqueta: 'Paquete SCORM',
+    consecuencia:
+      'Se recorre dentro de la aplicación. El curso reporta el avance y el resultado, y la ' +
+      'asignación se cierra sola.',
+  },
+  {
+    clase: 'ENLACE',
+    etiqueta: 'Enlace externo',
+    consecuencia:
+      'Se abre en la plataforma del proveedor. Desde acá no se ve el avance, así que al ' +
+      'terminarlo la persona lo declara.',
+  },
+];
 
 function aEdicion(items: ItemFila[]): ItemEnEdicion[] {
   return items.map((i) => ({
@@ -252,11 +276,16 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
   const [duracion, setDuracion] = useState(contenido.duracionHoras?.toString() ?? '');
   const [exigeEvaluacion, setExigeEvaluacion] = useState(contenido.exigeEvaluacion);
   const [notaMinima, setNotaMinima] = useState(contenido.notaMinima?.toString() ?? '');
+  const [claseCurso, setClaseCurso] = useState<ClaseCurso>(contenido.claseCurso ?? 'PAQUETE');
   const [items, setItems] = useState<ItemEnEdicion[]>(() => aEdicion(contenido.items));
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
 
-  const subiraVersion = contenido.usos.length > 0;
+  // REQ-SIG-26 · D-2 · corregir el enlace de un curso NO sube la versión: es dónde está el
+  // curso, no qué dice. El aviso de R10 no tiene que prometer lo contrario.
+  const subiraVersion =
+    contenido.usos.length > 0 &&
+    !(tipo === 'CURSO_VIRTUAL' && titulo === contenido.titulo && descripcion === contenido.descripcion);
 
   function mover(indice: number, salto: -1 | 1) {
     const destino = indice + salto;
@@ -284,6 +313,16 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
         duracionHoras: duracion.trim() === '' ? undefined : Number(duracion),
         exigeEvaluacion,
         notaMinima: notaMinima.trim() === '' ? undefined : Number(notaMinima),
+      }),
+      // REQ-SIG-26 · la clase viaja siempre, y el enlace sólo cuando la clase lo usa. Mandar
+      // el enlace de un curso que pasó a paquete no lo borra —el rastro de dónde estuvo se
+      // conserva— pero tampoco hay que reescribirlo desde un campo que ya no se ve.
+      ...(tipo === 'CURSO_VIRTUAL' && {
+        claseCurso,
+        ...(claseCurso === 'ENLACE' && {
+          documentoNombre: docNombre.trim() || undefined,
+          documentoUrl: docUrl.trim() || undefined,
+        }),
       }),
       ...(tipo === 'VERIFICACION' && {
         items: items.map((i) => ({
@@ -600,6 +639,21 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
           </div>
         )}
 
+        {/* REQ-SIG-26 · el lado que faltaba. Antes esto era `tipo === 'CAPACITACION'` y un
+            curso virtual no veía NUNCA el cargador: se podía crear y no publicar por
+            ninguna vía, mientras el colaborador leía «avisale a quien lo publicó». */}
+        {tipo === 'CURSO_VIRTUAL' && (
+          <CursoVirtual
+            contenido={contenido}
+            clase={claseCurso}
+            onClase={setClaseCurso}
+            plataforma={docNombre}
+            onPlataforma={setDocNombre}
+            enlace={docUrl}
+            onEnlace={setDocUrl}
+          />
+        )}
+
         {tipo === 'CAPACITACION' && <PaquetesScorm contenido={contenido} />}
 
         <Historial contenido={contenido} />
@@ -660,17 +714,27 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
 /// El análisis del manifiesto lo devuelve la acción en su mensaje —edición, archivos,
 /// clase y dominios—, así que no se adivina nada en el cliente: la clase se detecta al
 /// analizar y se lee de la fila guardada.
-function PaquetesScorm({ contenido }: { contenido: ContenidoFila }) {
+function PaquetesScorm({
+  contenido,
+  bloqueado = false,
+}: {
+  contenido: ContenidoFila;
+  /// REQ-SIG-26 · la clase se cambió en pantalla y todavía no se guardó. Subir ahora lo
+  /// rechazaría el servidor, que sigue leyendo la clase anterior: se dice en vez de dejar
+  /// que la persona elija un archivo para nada.
+  bloqueado?: boolean;
+}) {
   const [subiendo, setSubiendo] = useState(false);
   const [mensajeScorm, setMensajeScorm] = useState<{ ok: boolean; texto: string } | null>(null);
 
   const paquetes = contenido.paquetes;
   const vigente = paquetes[0] ?? null;
+  const esCurso = contenido.tipo === 'CURSO_VIRTUAL';
 
   return (
     <div className="flex flex-col gap-2.5">
       <Regla
-        etiqueta="Curso SCORM 2004 · REQ-SIG-14"
+        etiqueta={esCurso ? 'Paquete del curso · SCORM 2004' : 'Curso SCORM 2004 · REQ-SIG-14'}
         cola={
           paquetes.length === 0
             ? 'sin paquete'
@@ -683,12 +747,42 @@ function PaquetesScorm({ contenido }: { contenido: ContenidoFila }) {
       {/* Que el cierre deje de ser manual no es un detalle de implementación: es lo que
           quien configura el contenido tiene que saber antes de subir el archivo. */}
       <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
-        Con un paquete cargado, esta capacitación{' '}
-        <strong className="font-semibold">deja de cerrarse a mano</strong>: el formulario de
-        asistencia y nota desaparece de la bandeja y el cierre lo hace el curso cuando reporta
-        que terminó (P14). Sólo se acepta SCORM 2004 y un único SCO; un paquete con dos SCO se
-        rechaza con el motivo.
+        {esCurso ? 'Este curso ' : 'Con un paquete cargado, esta capacitación '}
+        <strong className="font-semibold">
+          {esCurso ? 'no se cierra a mano' : 'deja de cerrarse a mano'}
+        </strong>
+        : el formulario de asistencia y nota no aparece en la bandeja y el cierre lo hace el
+        curso cuando reporta que terminó (P14). Sólo se acepta SCORM 2004 y un único SCO; un
+        paquete con dos SCO se rechaza con el motivo.
       </p>
+
+      {/* Sin paquete, el curso existe pero nadie puede hacerlo. Es el estado que produce el
+          «avisale a quien lo publicó» del otro lado, y quien lo publica tiene que leerlo
+          acá para saber que la pelota es suya. */}
+      {esCurso && paquetes.length === 0 && (
+        <p
+          className="rounded-tarjeta px-3 py-2.5 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={{
+            background: 'var(--hf-warn-100)',
+            color: 'var(--hf-warn-text)',
+            border: '1px solid var(--hf-warn-border)',
+          }}
+        >
+          Este curso todavía no tiene contenido:{' '}
+          <strong className="font-semibold">nadie puede iniciarlo</strong>. Quien lo tenga
+          asignado ve un aviso diciendo que avise a quien lo publicó.
+        </p>
+      )}
+
+      {bloqueado && (
+        <p
+          className="rounded-campo px-3 py-2 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
+        >
+          Guardá primero el cambio de clase: hasta entonces el servidor sigue teniendo este
+          curso como de enlace externo y va a rechazar el paquete.
+        </p>
+      )}
 
       <form
         className="flex flex-wrap items-center gap-2.5"
@@ -710,11 +804,12 @@ function PaquetesScorm({ contenido }: { contenido: ContenidoFila }) {
           name="archivo"
           accept=".zip"
           required
-          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-11_5"
+          disabled={bloqueado}
+          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-11_5 disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={subiendo}
+          disabled={subiendo || bloqueado}
           className="rounded-campo px-3.5 py-2 text-11_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300 disabled:opacity-50"
           style={{ background: 'var(--hf-accent-500)' }}
         >
@@ -788,6 +883,139 @@ function PaquetesScorm({ contenido }: { contenido: ContenidoFila }) {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// El curso virtual · REQ-SIG-26
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Un curso virtual llega de dos maneras, y la ficha muestra **sólo la de la clase
+/// declarada**. Enseñar las dos y dejar que el usuario adivine cuál gana es exactamente lo
+/// que produce el curso con enlace y paquete a la vez, del que nadie sabe qué rige.
+///
+/// La clase se guarda al apretar «Guardar», como el resto de la ficha. El paquete NO: se
+/// sube solo, en el momento, porque el zip pasa por el analizador y su resultado es una
+/// conversación aparte —qué edición, cuántos archivos, si es despacho y con qué dominios—.
+function CursoVirtual({
+  contenido,
+  clase,
+  onClase,
+  plataforma,
+  onPlataforma,
+  enlace,
+  onEnlace,
+}: {
+  contenido: ContenidoFila;
+  clase: ClaseCurso;
+  onClase: (c: ClaseCurso) => void;
+  plataforma: string;
+  onPlataforma: (v: string) => void;
+  enlace: string;
+  onEnlace: (v: string) => void;
+}) {
+  const tienePaquete = contenido.paquetes.length > 0;
+  // El cambio de clase todavía no está guardado, y decirlo evita que alguien suba un zip
+  // contra un curso que el servidor sigue teniendo como de enlace —y reciba el rechazo.
+  const clasePendiente = clase !== (contenido.claseCurso ?? 'PAQUETE');
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Regla
+        etiqueta="Clase del curso · REQ-SIG-26"
+        cola={contenido.claseCurso === null ? 'sin declarar' : undefined}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        {CLASES_CURSO.map((c) => {
+          const activo = clase === c.clase;
+          return (
+            <button
+              key={c.clase}
+              onClick={() => onClase(c.clase)}
+              aria-pressed={activo}
+              className="flex max-w-[46ch] flex-col gap-1 rounded-tarjeta px-3.5 py-2.5 text-left"
+              style={{
+                background: activo ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                border: `1px solid ${activo ? 'var(--hf-brand-border)' : 'var(--hf-border-field)'}`,
+              }}
+            >
+              <span
+                className="text-12_5 font-semibold"
+                style={{ color: activo ? 'var(--hf-brand-nav)' : 'var(--hf-text-secondary-soft)' }}
+              >
+                {c.etiqueta}
+              </span>
+              <span className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
+                {c.consecuencia}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Cambiar de clase no borra nada, y hay que decirlo: alguien que ve desaparecer el
+          campo del enlace supone que se perdió, y vuelve a pegarlo «por las dudas». */}
+      {clasePendiente && (
+        <p
+          className="rounded-campo px-3 py-2 text-11_5 leading-relaxed [text-wrap:pretty]"
+          style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
+        >
+          La clase cambia cuando guardes, no ahora.{' '}
+          <strong className="font-semibold">No se borra nada</strong>: el enlace que ya tenía
+          queda guardado aunque deje de usarse, y los registros cerrados contra la clase
+          anterior se siguen explicando con él.
+        </p>
+      )}
+
+      {clase === 'ENLACE' ? (
+        <>
+          <div className="grid grid-cols-[200px_1fr] gap-3">
+            <Campo etiqueta="Plataforma">
+              <input
+                value={plataforma}
+                onChange={(e) => onPlataforma(e.target.value)}
+                placeholder="Coursebox"
+                className="entrada-campo"
+              />
+            </Campo>
+            <Campo etiqueta="Enlace del curso">
+              <input
+                value={enlace}
+                onChange={(e) => onEnlace(e.target.value)}
+                placeholder="https://my.coursebox.ai/…"
+                className="entrada-campo"
+                style={{ color: 'var(--hf-brand-nav)' }}
+              />
+            </Campo>
+          </div>
+          <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+            Este curso se abre en la plataforma del proveedor.{' '}
+            <strong className="font-semibold text-secondary">
+              Desde acá no se ve el avance de nadie
+            </strong>
+            : no hay nota que recibir ni avance que reanudar, y al terminarlo cada persona lo
+            declara. Lo que queda registrado es esa declaración, no un resultado del curso.
+          </p>
+          {tienePaquete && (
+            // Contradicción real: el servidor deja el paquete donde está, pero lo que rige
+            // pasa a ser el enlace. Un paquete escondido del que nadie sabe es peor que uno
+            // nombrado.
+            <p
+              className="rounded-campo px-3 py-2 text-11_5 leading-relaxed [text-wrap:pretty]"
+              style={{ background: 'var(--hf-warn-100)', color: 'var(--hf-warn-text)' }}
+            >
+              Este curso además tiene {contenido.paquetes.length} paquete(s) cargado(s) de
+              cuando era de clase paquete. No se borran, pero{' '}
+              <strong className="font-semibold">dejan de usarse</strong>: como enlace externo
+              el curso se abre afuera.
+            </p>
+          )}
+        </>
+      ) : (
+        <PaquetesScorm contenido={contenido} bloqueado={clasePendiente} />
       )}
     </div>
   );
@@ -894,6 +1122,10 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
   const [exigeEvaluacion, setExigeEvaluacion] = useState(false);
   const [notaMinima, setNotaMinima] = useState('');
   const [items, setItems] = useState<string[]>(['']);
+  const [claseCurso, setClaseCurso] = useState<ClaseCurso>('PAQUETE');
+  // El zip del alta. Opcional: un curso se crea hoy y el proveedor entrega el paquete
+  // mañana, y obligarlo acá haría que el curso no se pueda ni empezar a configurar.
+  const [zip, setZip] = useState<File | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -927,6 +1159,13 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
         exigeEvaluacion,
         notaMinima: notaMinima.trim() === '' ? undefined : Number(notaMinima),
       }),
+      ...(tipo === 'CURSO_VIRTUAL' && {
+        claseCurso,
+        ...(claseCurso === 'ENLACE' && {
+          documentoNombre: docNombre.trim() || undefined,
+          documentoUrl: docUrl.trim() || undefined,
+        }),
+      }),
       ...(tipo === 'VERIFICACION' && {
         items: items
           .map((t) => t.trim())
@@ -935,12 +1174,36 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
       }),
     };
     const r = await crearContenido(datos);
-    setOcupado(false);
-    if (r.ok) {
-      window.location.reload();
+    if (!r.ok) {
+      setOcupado(false);
+      setError(r.mensaje);
       return;
     }
-    setError(r.mensaje);
+
+    // EL ALTA DE UN CURSO DE PAQUETE SON DOS PASOS, Y HAY QUE CONTARLOS COMO DOS.
+    //
+    // `crearContenido` emite el código; sólo entonces existe algo a qué colgarle el zip. Si
+    // el paquete no pasa el análisis, **el contenido queda creado igual y no se borra**: un
+    // «no se pudo crear» sería falso, y quien lo lea va a crearlo otra vez y va a terminar
+    // con dos cursos. Lo que se dice es qué quedó hecho, qué no, y dónde se termina.
+    if (tipo === 'CURSO_VIRTUAL' && claseCurso === 'PAQUETE' && zip !== null && r.id !== undefined) {
+      const datosZip = new FormData();
+      datosZip.set('contenidoId', String(r.id));
+      datosZip.set('archivo', zip);
+      const subida = await subirPaqueteScorm(datosZip);
+      setOcupado(false);
+      if (!subida.ok) {
+        setError(
+          `El contenido ${r.codigo} quedó creado, pero el paquete NO se aceptó: ` +
+            `${subida.mensaje} · Subilo desde la ficha del curso cuando lo tengas corregido; ` +
+            'no lo crees de nuevo.',
+        );
+        return;
+      }
+    }
+
+    setOcupado(false);
+    window.location.reload();
   }
 
   return (
@@ -1091,6 +1354,95 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
               className="entrada-campo font-mono disabled:opacity-50"
             />
           </Campo>
+        </div>
+      )}
+
+      {/* REQ-SIG-26 · lo que faltaba. Elegir «Curso Virtual» no cambiaba NADA en pantalla:
+          no se podía decir si el curso era un paquete o un enlace, ni adjuntar ninguno de
+          los dos, y el curso nacía imposible de completar. */}
+      {tipo === 'CURSO_VIRTUAL' && (
+        <div className="flex flex-col gap-2.5">
+          <span className="etiqueta-campo">Cómo llega el curso</span>
+          <div className="flex flex-wrap gap-2">
+            {CLASES_CURSO.map((c) => {
+              const activo = claseCurso === c.clase;
+              return (
+                <button
+                  key={c.clase}
+                  onClick={() => setClaseCurso(c.clase)}
+                  aria-pressed={activo}
+                  className="flex max-w-[46ch] flex-col gap-1 rounded-tarjeta px-3.5 py-2.5 text-left"
+                  style={{
+                    background: activo ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
+                    border: `1px solid ${activo ? 'var(--hf-brand-border)' : 'var(--hf-border-field)'}`,
+                  }}
+                >
+                  <span
+                    className="text-12_5 font-semibold"
+                    style={{
+                      color: activo ? 'var(--hf-brand-nav)' : 'var(--hf-text-secondary-soft)',
+                    }}
+                  >
+                    {c.etiqueta}
+                  </span>
+                  <span className="text-11 leading-relaxed text-muted [text-wrap:pretty]">
+                    {c.consecuencia}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {claseCurso === 'ENLACE' ? (
+            <div className="grid grid-cols-[200px_1fr] gap-3">
+              <Campo etiqueta="Plataforma">
+                <input
+                  value={docNombre}
+                  onChange={(e) => setDocNombre(e.target.value)}
+                  placeholder="Coursebox"
+                  className="entrada-campo"
+                />
+              </Campo>
+              <Campo etiqueta="Enlace del curso">
+                <input
+                  value={docUrl}
+                  onChange={(e) => setDocUrl(e.target.value)}
+                  placeholder="https://my.coursebox.ai/…"
+                  className="entrada-campo"
+                />
+              </Campo>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Campo etiqueta="Paquete SCORM · opcional">
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setZip(e.target.files?.[0] ?? null)}
+                  className="rounded-campo border border-border-field bg-surface px-3 py-2 text-11_5"
+                />
+              </Campo>
+              {/* La frase es el contrato con el colaborador que después va a leer «avisale
+                  a quien lo publicó». Sin ella, el curso nace vacío y nadie sabe por qué. */}
+              <p className="text-11_5 leading-relaxed text-muted [text-wrap:pretty]">
+                {zip === null ? (
+                  <>
+                    Sin archivo, el curso{' '}
+                    <strong className="font-semibold text-secondary">
+                      queda creado pero nadie va a poder iniciarlo
+                    </strong>{' '}
+                    hasta que subas el paquete desde la ficha.
+                  </>
+                ) : (
+                  <>
+                    El archivo se analiza al crear: edición, número de SCO y dominios
+                    externos. Si no pasa, el contenido queda creado igual y el paquete se
+                    sube después desde la ficha.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1316,6 +1668,35 @@ function Extra({
             : contenido.usos.map((u) => u.alcance).join(' · ')}
         </span>
       </Campo>
+    );
+  }
+
+  // REQ-SIG-26 · antes este tipo caía hasta la rama de TAREA y mostraba «Evidencia · Nota y
+  // anexo», que no es nada de lo que un curso virtual guarda. Lo que define a un curso es su
+  // CLASE —de ella depende si el cierre es automático o declarado— y quién lo tiene asignado.
+  if (tipo === 'CURSO_VIRTUAL') {
+    const clase = contenido.claseCurso;
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <Campo etiqueta="Clase del curso">
+          <span className="entrada-campo">
+            {clase === 'ENLACE'
+              ? 'Enlace externo · lo declara la persona'
+              : clase === 'PAQUETE'
+                ? 'Paquete SCORM · lo cierra el curso'
+                : // Un curso sin clase no es «uno normal»: es uno que nadie puede hacer ni
+                  // cerrar, y el servidor lo rechaza. Se avisa con los tokens de faltante.
+                  'Sin declarar'}
+          </span>
+        </Campo>
+        <Campo etiqueta="Aplica a">
+          <span className="entrada-campo">
+            {contenido.usos.length === 0
+              ? 'Sin asignar'
+              : contenido.usos.map((u) => u.alcance).join(' · ')}
+          </span>
+        </Campo>
+      </div>
     );
   }
 

@@ -3,7 +3,7 @@
 // Qué hace válido un cierre y qué se deduce de las fechas. Puro a propósito: R4 manda
 // que la validación viva en el servidor, y esta es la única copia de esas reglas.
 
-import type { TipoContenido, ValorRespuesta } from '@prisma/client';
+import type { ClaseCurso, TipoContenido, ValorRespuesta } from '@prisma/client';
 
 import { esDiaPosterior } from './fechas';
 
@@ -49,6 +49,36 @@ export function cierraLaAsignacion(datos: DatosCierre): boolean {
   return aprobadoDe(datos.calificacion, datos.notaMinima) !== false;
 }
 
+/// P14 · ¿el cierre lo hace el CURSO, y por lo tanto la persona no puede declararlo a mano?
+///
+/// REQ-SIG-26 §6.3 · esta regla existía sólo como un `if` dentro de `cerrarAsignacion` y
+/// sólo miraba `CAPACITACION`. Un `CURSO_VIRTUAL` con paquete quedaba fuera, y como
+/// `validarCierre` tampoco tiene caso para ese tipo, el cierre pasaba: se podía declarar
+/// aprobado un curso que nadie abrió, invocando la acción desde el navegador. La pantalla
+/// no lo ofrecía, y por eso el agujero no se veía.
+///
+/// Vive acá por dos razones. Es una regla de negocio —quién puede declarar que hizo un
+/// curso— y se prueba sin Postgres; y una compuerta que sólo existe en la pantalla no es
+/// una compuerta, porque toda exportación de un archivo `'use server'` es invocable desde
+/// el navegador.
+///
+/// **Falla cerrada.** Un `CURSO_VIRTUAL` sin clase declarada no debería existir —la
+/// migración la rellena y `validarDatosContenido` la exige—, pero si aparece uno, se
+/// bloquea: entre negar un cierre legítimo y admitir uno inventado, se niega.
+///
+/// La clase `ENLACE` es la excepción, y no es una fuga: la aplicación no ve nada de lo que
+/// pasa en la plataforma del proveedor, así que la declaración de la persona es el único
+/// mecanismo de cierre que existe. Bloquearla dejaría la asignación abierta para siempre.
+export function elCursoCierraSolo(datos: {
+  tipo: TipoContenido;
+  claseCurso?: ClaseCurso | null;
+  tienePaquete: boolean;
+}): boolean {
+  if (datos.tipo === 'CURSO_VIRTUAL') return datos.claseCurso !== 'ENLACE';
+  if (datos.tipo === 'CAPACITACION') return datos.tienePaquete;
+  return false;
+}
+
 /// Devuelve los errores del cierre; vacío significa válido. La interfaz ayuda, no decide.
 export function validarCierre(datos: DatosCierre): string[] {
   const errores: string[] = [];
@@ -80,6 +110,15 @@ export function validarCierre(datos: DatosCierre): string[] {
       break;
 
     case 'TAREA':
+      break;
+
+    // REQ-SIG-26 · el caso está escrito aunque no exija nada, y eso es deliberado: hasta
+    // acá el tipo caía por el hueco del `switch` y devolvía «válido» sin que nadie lo
+    // hubiera decidido. Lo que impide el cierre a mano de un curso con paquete es
+    // `elCursoCierraSolo`, no esta función; lo que llega hasta acá es un curso de clase
+    // ENLACE, y de ése no hay nada más que pedir —la asistencia y la nota las tendría el
+    // proveedor, no nosotros—.
+    case 'CURSO_VIRTUAL':
       break;
   }
 

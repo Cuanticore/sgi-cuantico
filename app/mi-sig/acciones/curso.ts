@@ -14,18 +14,29 @@ import { registrar } from '@/lib/sgsi/bitacora';
 import { veredictoDelIntento } from '@/lib/sig/scorm-cierre';
 import { aDuracion, aSegundos, sumarDuraciones } from '@/lib/sig/scorm-tiempo';
 import { modeloInicial, validarEscritura } from '@/lib/sig/scorm-modelo';
-import { firmarIntento, verificarIntento } from '@/lib/sig/scorm-token';
+import { firmarIntento, motivoDe, verificarIntento } from '@/lib/sig/scorm-token';
 
 /// La misma cadena que `lib/sgsi/anexo-archivo.ts`: si el token del intento y la firma de
 /// descarga de un anexo derivaran de secretos distintos, una rotación arreglaría uno y
 /// dejaría el otro firmando con el valor de desarrollo sin que nada avise.
 function secreto(): string {
-  return (
-    process.env.SGI_RUTAS_SECRETO ??
-    process.env.AUTH_SECRET ??
-    process.env.NEXTAUTH_SECRET ??
-    'sgi-dev-secret'
-  );
+  const configurado =
+    process.env.SGI_RUTAS_SECRETO ?? process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (configurado !== undefined && configurado.trim() !== '') return configurado;
+
+  // EN PRODUCCIÓN NO HAY RESPALDO. El valor de reserva está escrito en este archivo y el
+  // repositorio es legible: firmar tokens de producción con él equivale a no firmarlos —
+  // cualquiera que lea el código puede fabricar uno para el intento de otra persona.
+  //
+  // Se rompe acá y fuerte, en vez de arrancar y ser inseguro en silencio. Es un fallo de
+  // configuración del despliegue y tiene que verse el primer día, no en una auditoría.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'SGI_RUTAS_SECRETO no está configurado. Los tokens del player SCORM se firman con él, ' +
+        'y sin secreto propio cualquiera puede fabricar uno. Definilo en el entorno.',
+    );
+  }
+  return 'sgi-dev-secret';
 }
 
 export interface Apertura {
@@ -187,6 +198,13 @@ export async function abrirIntento(asignacionId: number): Promise<Apertura> {
 export interface Guardado {
   ok: boolean;
   mensaje?: string;
+  /// Un token FRESCO en cada guardado aceptado.
+  ///
+  /// Sin esto el token se emitía una sola vez al abrir el curso y nada lo renovaba: pasada
+  /// su vigencia, el autoguardado y el commit final de `Terminate` se rechazaban, y la
+  /// persona terminaba el curso con la asignación sin cerrar. Como el player guarda cada
+  /// 60 s, con esto el token se renueva sesenta veces antes de acercarse a su vencimiento.
+  token?: string;
 }
 
 /// P5 · el servidor NO acepta el modelo sin validarlo. Un cliente puede mandar
@@ -202,7 +220,18 @@ export async function guardarIntento(
   if (!correo) return { ok: false, mensaje: 'sin sesión' };
 
   const verificado = verificarIntento(token, secreto());
-  if (verificado === null) return { ok: false, mensaje: 'el token del intento no es válido' };
+  if (verificado === null) {
+    // El mensaje distingue las dos causas, porque mandan a arreglar cosas distintas: un
+    // vencido es «volvé a abrir el curso» y un inválido es «alguien tocó la petición».
+    // Antes las dos llegaban a la pantalla como «este intento ya se cerró», que era falso.
+    return {
+      ok: false,
+      mensaje:
+        motivoDe(token, secreto()) === 'vencido'
+          ? 'la sesión del curso venció. Volvé a abrirlo: tu avance guardado no se pierde.'
+          : 'el token del intento no es válido',
+    };
+  }
 
   const intento = await prisma.intentoScorm.findUnique({
     where: { id: verificado.intentoId },
@@ -374,5 +403,11 @@ export async function guardarIntento(
     ]);
   });
 
-  return { ok: true, mensaje: veredicto?.motivo };
+  // El token se renueva SÓLO en el camino aceptado: renovarlo tras un rechazo le daría vida
+  // nueva a una ejecución que el servidor acaba de negar.
+  return {
+    ok: true,
+    mensaje: veredicto?.motivo,
+    token: firmarIntento(verificado.intentoId, secreto()),
+  };
 }

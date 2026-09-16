@@ -95,6 +95,14 @@ import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/li
 import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
 import { resolverEcuacion, type EcuacionResuelta } from '@/lib/sgsi/ecuacion';
 import { esCriticidadSospechosa } from '@/lib/sgsi/criticidad-coherencia';
+import {
+  catalogoDeClase,
+  claseDeControl,
+  CLASES_RELEVANCIA,
+  type AporteClase,
+  type ClaseRelevancia,
+} from '@/lib/sgsi/madurez';
+import { rotuloClase, TONO_CLASE } from './clases-relevancia';
 import { formatearSla } from '@/lib/sgsi/criticidad-sla';
 import { cadenaDeNivel } from '@/lib/sig/niveles';
 import type { Catalogo } from '@/lib/sgsi/catalogos';
@@ -201,10 +209,22 @@ const COLUMNAS_AMENAZAS =
   '54px minmax(85px, 0.5fr) 72px 72px 72px 104px 112px 52px 104px 104px 32px';
 const ANCHO_MINIMO_AMENAZAS = 1120;
 
-/// 66+90+214+228+92+30 = 720px of columns plus 24px of row padding. This grid lives
-/// inside the expanded detail, which is already inside the scroller above.
-const COLUMNAS_CONTROLES = '66px minmax(90px, 0.6fr) 214px 228px 92px 30px';
-const ANCHO_MINIMO_CONTROLES = 744;
+/// El nombre del control es la única columna elástica y la que decide si la fila se lee. Con
+/// el diálogo topado en `max-w-4xl` le quedaban ~90px y «Seguridad de la información para el
+/// uso de servicios en la nube» se partía en CUATRO líneas, con lo cual cada fila medía lo que
+/// midiera su nombre y la tabla dejaba de leerse como tabla.
+///
+/// El piso de 300px es el que hace caber en una línea al nombre más largo del catálogo ISO a
+/// 12px. Las columnas fijas suman 66+214+228+92+30 = 630px más 24px de padding de fila, así
+/// que el mínimo total es 954 y el diálogo se ensanchó a 1344px (`ANCHO_DIALOGO_AMENAZA`)
+/// para dárselos con holgura.
+const COLUMNAS_CONTROLES = '66px minmax(300px, 1fr) 214px 228px 92px 30px';
+const ANCHO_MINIMO_CONTROLES = 954;
+
+/// 1344px — un 50 % más que el `max-w-4xl` (896px) que el diálogo tenía. No es una cifra
+/// estética: es lo que necesita `COLUMNAS_CONTROLES` para que el nombre del control quepa en
+/// una línea sin comerse las dos columnas que mueven el cálculo (madurez y efecto).
+const ANCHO_DIALOGO_AMENAZA = 1344;
 
 /// Severity ramp, most severe first. Indexed by the band's POSITION in umbral_riesgo
 /// rather than by its name, so renaming a band never silently turns it grey.
@@ -2022,7 +2042,7 @@ function DatosGenerales({
           }))}
           // The prefix forms the code, but the code already assigned never changes: this
           // edit moves who answers for the asset, not its identifier.
-          titulo="El prefijo del proceso forma el código, pero un código ya asignado no cambia: la modificación queda en la bitácora."
+          titulo="El prefijo del proceso forma el código: al guardar, el activo recibe el siguiente código libre del proceso destino. El código anterior sigue resolviendo a este activo y la cadena queda en la bitácora."
         />
       </Campo>
 
@@ -3504,7 +3524,8 @@ function RenglonAmenaza({
           onClick={() => onAbrir(codigo)}
         >
           <div
-            className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-tarjeta border border-border-default bg-surface shadow-lg"
+            className="max-h-[85vh] w-full overflow-auto rounded-tarjeta border border-border-default bg-surface shadow-lg"
+            style={{ maxWidth: ANCHO_DIALOGO_AMENAZA }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -4029,6 +4050,23 @@ function DetalleAmenaza({
 /// plan es del CONTROL y vive allá, así que esto lleva hasta él en vez de duplicarlo acá.
 /// Sin plan, el botón que abre el mismo popup que el guardado de un residual crítico dispara
 /// solo. Decidir «Mitigar» y no tener dónde registrar con qué, era el salto que faltaba.
+///
+/// ── SE PUEDE PLANIFICAR SOBRE CUALQUIER BANDA ───────────────────────────────────────────
+///
+/// Antes sólo se ofrecía sobre residual Crítico: REQ-SIG-20 §7 lo pide desde ahí, y abrirlo a
+/// todo parecía convertir el plan en un campo más en vez de una respuesta a algo.
+///
+/// La realidad desmintió el razonamiento. Con las 272 relevancias control–amenaza todavía sin
+/// asignar, la eficacia se agrega como media simple y TODOS los residuales salen reducidos:
+/// 0 en banda Crítico, 0 en Alto. Con la puerta puesta, no había un solo riesgo en toda la
+/// organización desde el cual registrar un plan — y en particular era imposible registrar una
+/// ACEPTACIÓN formal, que es lo que el informe de valoración necesita para tener qué mostrar.
+/// La puerta no estaba protegiendo el rigor del registro; estaba impidiendo que existiera.
+///
+/// El énfasis se conserva: en Crítico el botón es sólido y dice que el riesgo EXIGE plan; en
+/// las demás bandas es discreto y dice que se puede. La diferencia entre «hay que» y «se
+/// puede» la sigue marcando la pantalla, que es donde corresponde — no una restricción que
+/// deja a la organización sin manera de decidir.
 function PlanDelRiesgo({
   plan,
   onCrear,
@@ -4039,11 +4077,9 @@ function PlanDelRiesgo({
   onCrear: () => void;
   /// En modo creación todavía no hay activo con código, y sin él no hay riesgo que cubrir.
   habilitado: boolean;
-  /// El residual está en banda Crítico. El plan se registra DESDE ahí y solo desde ahí
-  /// (REQ-SIG-20 §7): es la banda que obliga a planificar, y abrir el registro para
-  /// cualquier residual convertiría el plan en un campo más en vez de una respuesta a algo.
-  /// Un plan que YA existe se enseña igual, esté el riesgo en la banda que esté — puede
-  /// haber bajado justamente porque el plan funcionó.
+  /// El residual está en banda Crítico. Ya no decide SI se ofrece el botón, sino con cuánto
+  /// énfasis: es la banda que obliga a planificar, y eso se dice, no se impone escondiendo la
+  /// opción.
   esCritico: boolean;
 }) {
   if (plan !== null) {
@@ -4058,25 +4094,117 @@ function PlanDelRiesgo({
     );
   }
 
-  // Sin plan y fuera de la banda Crítico no se ofrece nada. No es un botón deshabilitado:
-  // un control apagado invita a preguntarse qué falta para encenderlo, y acá no falta nada
-  // — simplemente este riesgo no exige plan.
-  if (!esCritico) return null;
-
   return (
     <button
       type="button"
       onClick={onCrear}
       disabled={!habilitado}
       title={
-        habilitado
-          ? 'Registra un plan de tratamiento sobre el control que más mueve este riesgo, con el activo y la amenaza de los que nace.'
-          : 'El activo todavía no existe: no hay riesgo al que asociarle un plan.'
+        !habilitado
+          ? 'El activo todavía no existe: no hay riesgo al que asociarle un plan.'
+          : esCritico
+            ? 'Este residual está en banda Crítico: exige plan. Se registra sobre el control que más mueve el riesgo.'
+            : 'Registra un plan sobre este riesgo — mitigar, aceptar, transferir o evitar. Este residual no lo exige, pero la decisión se puede dejar escrita.'
       }
-      className="flex-none rounded-campo border border-dashed border-accent-border bg-accent-50 px-2.5 py-1 text-11_5 font-semibold text-accent-700 transition-colors hover:bg-accent-100 disabled:opacity-40"
+      className={
+        esCritico
+          ? 'flex-none rounded-campo border border-accent-500 bg-accent-100 px-2.5 py-1 text-11_5 font-semibold text-accent-700 transition-colors hover:bg-accent-border disabled:opacity-40'
+          : 'flex-none rounded-campo border border-dashed border-accent-border bg-transparent px-2.5 py-1 text-11_5 font-medium text-secondary-soft transition-colors hover:bg-accent-50 hover:text-accent-700 disabled:opacity-40'
+      }
     >
-      + Crear plan de acción
+      {esCritico ? '+ Crear plan de acción' : '+ Plan de tratamiento'}
     </button>
+  );
+}
+
+/// Un bloque de la tabla: una clase de relevancia, o la bolsa de los que nadie clasificó.
+/// `clase` en null NO es una cuarta clase — es la ausencia de decisión, y por eso no lleva
+/// presupuesto ni entra al reparto.
+interface GrupoControles {
+  clase: ClaseRelevancia | null;
+  controles: ControlEnFila[];
+}
+
+/// Reparte los controles en sus clases, EN ORDEN DE PRESUPUESTO: primero el que manda.
+///
+/// El orden no es cosmético. La pregunta que trae a alguien a esta tabla es «¿por qué la
+/// eficacia dio esto?», y la respuesta casi siempre es el principal: su nivel pone el techo,
+/// así que es el único cuya insuficiencia es una brecha. En una tira plana ordenada por
+/// código ISO, ese control aparecía en cualquier parte.
+///
+/// Los sin clasificar van al final y aparte. Meterlos en una clase les inventaría un peso;
+/// dejarlos fuera de la tabla los escondería, y siguen contando en la media plana v2.
+function agruparPorRelevancia(controles: ControlEnFila[]): GrupoControles[] {
+  const grupos: GrupoControles[] = CLASES_RELEVANCIA.map((clase) => ({
+    clase,
+    controles: controles.filter(
+      (c) => c.relevancia !== null && claseDeControl(c) === clase,
+    ),
+  }));
+  const sinClasificar = controles.filter((c) => c.relevancia === null);
+  if (sinClasificar.length > 0) grupos.push({ clase: null, controles: sinClasificar });
+  return grupos.filter((g) => g.controles.length > 0);
+}
+
+/// La cabecera de un grupo: cuánto presupuesto tiene esa clase y qué aportó de verdad.
+///
+/// El presupuesto NOMINAL (70/20/10) se muestra siempre, porque es la regla. El
+/// renormalizado sólo cuando difiere — pasa cuando una clase no tiene controles y su
+/// presupuesto se reparte entre las presentes (70/20 → 77.8/22.2). Decir sólo el
+/// renormalizado escondería la regla; decir sólo el nominal mentiría sobre la cuenta.
+function CabeceraGrupo({ clase, cuantos, aporte }: {
+  clase: ClaseRelevancia | null;
+  cuantos: number;
+  aporte: AporteClase | null;
+}) {
+  if (clase === null) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-b border-hairline bg-subtle px-3 py-1.5">
+        <span
+          aria-hidden
+          className="h-2.5 w-2.5 flex-none self-center rounded-[2px] border border-dashed border-border-field"
+        />
+        <span className="font-mono text-9_5 tracking-[0.06em] text-label">SIN CLASIFICAR</span>
+        <span className="text-10_5 text-faint [text-wrap:pretty]">
+          {cuantos === 1 ? 'Este control no tiene' : `Estos ${cuantos} controles no tienen`}{' '}
+          relevancia asignada, así que no entran al reparto por clase. Se asigna en «Asociar
+          controles».
+        </span>
+      </div>
+    );
+  }
+
+  const catalogo = catalogoDeClase(clase);
+  const renormalizado =
+    aporte !== null && Math.abs(aporte.presupuesto - aporte.presupuestoNominal) > 1e-9;
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-b border-hairline bg-subtle px-3 py-1.5">
+      <span
+        aria-hidden
+        className="h-2.5 w-2.5 flex-none self-center rounded-[2px]"
+        style={{ backgroundColor: TONO_CLASE[clase] }}
+      />
+      <span className="font-mono text-9_5 tracking-[0.06em] text-primary">
+        {rotuloClase(clase)}
+      </span>
+      <span className="font-mono text-9_5 text-muted">
+        {porcentaje(catalogo.presupuesto)}
+        {renormalizado && ` → ${porcentaje(aporte!.presupuesto)} sin las clases vacías`}
+        {' · '}
+        {cuantos} {cuantos === 1 ? 'control' : 'controles'}
+        {aporte !== null && ` · media ${porcentaje(aporte.media)}`}
+      </span>
+      {aporte !== null && (
+        <span className="ml-auto font-mono text-10 text-primary">
+          aporta {(aporte.aporte * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} pp
+        </span>
+      )}
+      <p className="w-full text-10_5 text-faint [text-wrap:pretty]">
+        {catalogo.criterio}
+        {clase === 'principal' && ' Su nivel es el techo de la eficacia de la amenaza.'}
+      </p>
+    </div>
   );
 }
 
@@ -4104,6 +4232,18 @@ function GrillaControles({
   const quitados = delCatalogo - f.controles.length;
   const [administrando, setAdministrando] = useState<{ codigo: string; nombre: string } | null>(
     null,
+  );
+
+  // CERO ARITMÉTICA PROPIA. La media de cada clase y lo que aporta ya vienen resueltas en
+  // `desglosarEficaciaAmenaza`; acá sólo se indexan por clase para colgarlas del encabezado.
+  // Recalcularlas sería una segunda aritmética que podría discrepar de la que escribe el
+  // residual — que es exactamente la forma de los bugs que HARNESS.md documenta.
+  //
+  // El mapa viene vacío cuando la amenaza se agrega con la regla v2 (sin principal
+  // designado): ahí no hay reparto por clase que mostrar y los encabezados salen sin media
+  // ni aporte, sólo con su presupuesto nominal.
+  const aportePorClase = new Map<string, AporteClase>(
+    (f.ecuacion.desgloseEficacia?.agregacion.clases ?? []).map((a) => [a.clase, a]),
   );
 
   return (
@@ -4139,7 +4279,22 @@ function GrillaControles({
             <div />
           </div>
 
-          {f.controles.map((c) => {
+          {agruparPorRelevancia(f.controles).map((grupo) => (
+            <div
+              key={grupo.clase ?? 'sin-clasificar'}
+              role="group"
+              aria-label={
+                grupo.clase === null
+                  ? `Sin clasificar · ${grupo.controles.length} controles de ${codigo}`
+                  : `${catalogoDeClase(grupo.clase).nombre} · ${porcentaje(catalogoDeClase(grupo.clase).presupuesto)} de la eficacia de ${codigo}`
+              }
+            >
+              <CabeceraGrupo
+                clase={grupo.clase}
+                cuantos={grupo.controles.length}
+                aporte={aportePorClase.get(grupo.clase ?? '') ?? null}
+              />
+              {grupo.controles.map((c) => {
             const clave = `${codigo}·${c.codigo}`;
             const color = semaforo(c.nivel);
             return (
@@ -4150,14 +4305,13 @@ function GrillaControles({
               >
                 <div className="font-mono text-11 font-semibold text-accent-500">{c.codigo}</div>
                 <div className="pr-3.5 leading-snug text-primary" title={c.nombre}>
+                  {/* La relevancia ya no va acá: la dice el grupo. Lo que sí queda es el
+                      `no aplica` del SOA, que es lo único de la fila que la saca del
+                      cálculo y que el encabezado del grupo no puede decir. */}
                   {c.nombre}
-                  {/* Relevance is what weights the control inside the threat's efficacy,
-                      and the principal one caps it. Both are worth seeing here. */}
-                  <span className="ml-1.5 font-mono text-9_5 text-label">
-                    {c.relevancia}
-                    {c.esPrincipal ? ' · techo' : ''}
-                    {c.soa === 'no' ? ' · no aplica' : ''}
-                  </span>
+                  {c.soa === 'no' && (
+                    <span className="ml-1.5 font-mono text-9_5 text-label">· no aplica</span>
+                  )}
                 </div>
                 <div className="pr-3">
                   <select
@@ -4203,7 +4357,9 @@ function GrillaControles({
                 </div>
               </div>
             );
-          })}
+              })}
+            </div>
+          ))}
 
           {f.controles.length === 0 && (
             <p className="px-3 py-4 text-11_5 text-muted [text-wrap:pretty]">
