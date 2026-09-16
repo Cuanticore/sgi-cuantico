@@ -80,6 +80,12 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
             Reportar hallazgo
           </Link>
           <Link
+            href="/mi-sig/mis-datos"
+            className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
+          >
+            Mis datos
+          </Link>
+          <Link
             href="/mi-sig/historial"
             className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
           >
