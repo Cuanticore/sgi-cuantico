@@ -24,7 +24,7 @@ export interface CapacidadBrecha {
   capacidad: string;
   corto: string;
   controles: number;
-  enL3: number;
+  enGestionado: number;
   mediana: number;
   eficacia: number;
   objetivo: number;
@@ -49,8 +49,8 @@ export interface DatosInicio {
   total: number;
   aplicables: number;
   noAplicables: number;
-  enL3: number;
-  pctL3: number;
+  enGestionado: number;
+  pctGestionado: number;
   enObjetivo: number;
   nivelTipico: number;
   nivelMedio: number;
@@ -121,13 +121,13 @@ export async function leerInicio(): Promise<DatosInicio> {
     .map(([capacidad, cs]) => {
       const evaluados = cs.filter((c) => c.actual !== null);
       const niveles = evaluados.map((c) => c.actual!.nivel!);
-      const enL3 = evaluados.filter((c) => (c.actual!.nivel!) >= 3).length;
+      const enGestionado = evaluados.filter((c) => (c.actual!.nivel!) >= 3).length;
       const conBase = cs.filter((c) => c.lineaBase !== null);
       return {
         capacidad,
         corto: cs[0].capacidad.nombreCorto,
         controles: cs.length,
-        enL3,
+        enGestionado,
         mediana: mediana(niveles),
         eficacia: media(evaluados.map((c) => eficaciaDeNivel(c.actual!.nivel!))) * 100,
         objetivo: media(
@@ -179,8 +179,8 @@ export async function leerInicio(): Promise<DatosInicio> {
     total: m.total,
     aplicables: m.aplicables,
     noAplicables: m.noAplicables,
-    enL3: m.enL3,
-    pctL3: m.pctL3,
+    enGestionado: m.enGestionado,
+    pctGestionado: m.pctGestionado,
     enObjetivo: m.enObjetivo,
     nivelTipico: m.nivelTipico,
     nivelMedio: m.nivelMedio,

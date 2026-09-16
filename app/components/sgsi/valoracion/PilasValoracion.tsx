@@ -202,19 +202,36 @@ export default function PilasValoracion({
         <span className="font-mono text-9_5 text-faint" style={{ width: ANCHO_ROTULO - 12, flex: 'none' }}>
           ┃ UMBRAL {umbral} · A LA DERECHA DE LA MARCA ENTRA AL ANÁLISIS
         </span>
+        {/* EL NÚMERO VA DENTRO DEL CUADRITO, y no es decoración.
+
+            Seis pasos de un solo tono entre el piso de contraste sobre blanco (2,13:1) y el
+            navy de marca no alcanzan a separarse: el peor par adyacente queda en ΔE 9,5 con
+            visión normal, muy por debajo del 15 que hace falta para distinguirlos de a dos.
+            Y no es un defecto del escalonado — re-escalonarlo empeora el peor par, porque
+            los dos extremos están fijos y no hay más recorrido perceptual que repartir.
+
+            Si el color no puede cargar solo la identidad, la carga otra cosa. El número
+            dentro del cuadrito es esa otra cosa: la leyenda deja de depender del color, y
+            de paso sirve igual en escala de grises, impresa y para quien no distingue
+            azules. */}
         {niveles.map((n) => (
           <span key={n.valor} className="flex items-center gap-1.5 text-11 text-secondary-soft">
             <span
               aria-hidden
-              className="inline-block"
+              className="inline-flex items-center justify-center font-mono text-9 font-bold tabular-nums"
               style={{
                 width: 16,
-                height: 11,
+                height: 13,
                 borderRadius: 2,
                 background: colorDeNivelValor(n.valor),
+                // El mismo corte que usan los segmentos de la barra: del 3 en adelante el
+                // fondo es lo bastante oscuro como para pedir tinta blanca.
+                color: n.valor >= 3 ? '#ffffff' : 'var(--hf-text-primary)',
                 flex: 'none',
               }}
-            />
+            >
+              {n.valor}
+            </span>
             {n.etiqueta}
           </span>
         ))}

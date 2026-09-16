@@ -111,6 +111,19 @@ export default function TablaValoracion({
 
   if (tabla.filas.length === 0) return null;
 
+  /// La fila, traducida a los filtros que el inventario entiende.
+  ///
+  /// Con `subtipo` la clave es compuesta —`tipo|subtipo`— porque dos tipos distintos pueden
+  /// tener un subtipo con el mismo nombre y agrupar sólo por el nombre los fundiría en una
+  /// fila. Pero el inventario filtra por los dos por separado, así que la clave se parte acá
+  /// en vez de mandarle una cadena que no sabría interpretar.
+  const filtrosDeFila = (clave: string): Record<string, string | number> => {
+    if (agrupador !== 'subtipo') return { [agrupador]: clave };
+    const corte = clave.indexOf('|');
+    if (corte < 0) return { subtipo: clave };
+    return { tipo: clave.slice(0, corte), subtipo: clave.slice(corte + 1) };
+  };
+
   return (
     <div className="tabla-ancha">
       <table
@@ -233,7 +246,7 @@ export default function TablaValoracion({
                 <Link
                   href={urlDeInventario({
                     ...arrastreDeCriterio(criterios[0]!.clave),
-                    [agrupador]: f.clave,
+                    ...filtrosDeFila(f.clave),
                   })}
                   className="flex min-w-0 flex-col"
                   title={`Abrir el inventario de ${f.etiqueta}`}
@@ -287,7 +300,7 @@ export default function TablaValoracion({
                         <Link
                           href={urlDeInventario({
                             ...arrastreDeCriterio(c.clave),
-                            [agrupador]: f.clave,
+                            ...filtrosDeFila(f.clave),
                             valor: n.valor,
                           })}
                           title={`${f.etiqueta} · ${c.etiqueta} · ${n.etiqueta} · ${cuenta} ${
@@ -315,7 +328,7 @@ export default function TablaValoracion({
                   <Link
                     href={urlDeInventario({
                       ...arrastreDeCriterio(criterios[0]!.clave),
-                      [agrupador]: f.clave,
+                      ...filtrosDeFila(f.clave),
                       valorMinimo: umbral,
                     })}
                     title={`${f.etiqueta} · ${f.desdeUmbral} activos con valor ${umbral} o más`}

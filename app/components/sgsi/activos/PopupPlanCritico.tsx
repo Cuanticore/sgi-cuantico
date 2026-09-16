@@ -225,7 +225,7 @@ export default function PopupPlanCritico({
             <Campo etiqueta="Madurez actual">
               <div className="rounded-campo border border-border-field bg-subtle px-2.5 py-1.5 text-12_5 text-secondary">
                 {prefill.control?.madurezActual !== null && prefill.control?.madurezActual !== undefined
-                  ? `L${prefill.control.madurezActual}`
+                  ? `${prefill.control.madurezActual} %`
                   : 'Sin evaluar'}
               </div>
             </Campo>
@@ -239,7 +239,7 @@ export default function PopupPlanCritico({
                 <option value="">Sin definir</option>
                 {prefill.escalaMadurez.map((m) => (
                   <option key={m.id} value={m.id}>
-                    L{m.nivel} — {m.nombre}
+                    {m.nivel} % — {m.nombre}
                   </option>
                 ))}
               </select>

@@ -387,7 +387,7 @@ function FilaEjecucion({
         </span>
         {e.autor !== null && <span className="font-mono text-10 text-faint">{e.autor}</span>}
         {e.hallazgo !== null && (
-          <a href={`/sig/hallazgos/${e.hallazgo}`} className="font-mono text-9_5 font-medium text-accent hover:underline">
+          <a href={`/sgsi/hallazgos/${e.hallazgo}`} className="font-mono text-9_5 font-medium text-accent hover:underline">
             {e.hallazgo}
           </a>
         )}

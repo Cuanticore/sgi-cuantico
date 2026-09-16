@@ -14,12 +14,174 @@
 // never as "the organisation's maturity": an L5 offsetting an L0 hides exactly what
 // needs managing.
 
-/// CMM level to efficacy, per PILAR (CCN-CERT). The big jump is L2 to L3.
-export const EFICACIA_POR_NIVEL = [0, 0.1, 0.5, 0.9, 0.95, 1] as const;
+// ---------------------------------------------------------------------------------------
+// LA ESCALA (REQ-SIG-24 §3)
+// ---------------------------------------------------------------------------------------
+//
+// Once escalones de 0 a 100, de diez en diez. La eficacia ES el número: no hay curva que
+// interpretar. La escala anterior —L0-L5 con la curva PILAR— tenía UN SOLO VALOR entre el
+// 30 % y el 90 %, que es el tramo donde el residual cambia de banda, y tres escalones
+// apiñados en el techo, donde ya no cambia nada. Ese agujero es la razón por la que un
+// control «definido pero sin prueba» tenía que elegir entre 50 % y 90 %.
 
-export function eficaciaDeNivel(nivel: number | null): number {
-  if (nivel === null || nivel < 0 || nivel > 5) return 0;
-  return EFICACIA_POR_NIVEL[nivel];
+/// La curva PILAR/CCN-CERT que rigió hasta REQ-SIG-24. Se conserva EXPORTADA por dos
+/// motivos concretos, no por nostalgia: la migración la necesita para traducir por
+/// eficacia (L3→90, L4→90), y la línea base del GAP del 2 de marzo de 2026 está expresada
+/// en ella. No la use ningún camino de cálculo.
+export const EFICACIA_CMM_HISTORICA = [0, 0.1, 0.5, 0.9, 0.95, 1] as const;
+
+/// Los once escalones válidos. El 100 existe en el catálogo por completitud de la escala;
+/// la interfaz no lo ofrece (§3) y el motor lo acota en 0.95 (`EFICACIA_MAXIMA`).
+export const ESCALONES = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
+
+/// `nivel → eficacia`, tal como la trae `EscalaMadurez`. La proyección del catálogo, no
+/// una copia de la curva: es lo que permite que editar un escalón no sea recompilar.
+export type TablaEficacia = ReadonlyMap<number, number>;
+
+/// REQ-SIG-24 §3 · LA RÚBRICA. El descriptor de cada escalón, y es el requerimiento, no un
+/// anexo: un porcentaje sin ancla se elige por sensación, y la sensación fue la que llevó
+/// el índice del 5.1 % al 86.6 % en un ciclo.
+///
+/// LA REGLA DE ORO PARA CALIFICAR: *el escalón intermedio es «el nivel de abajo, con la
+/// evidencia que falta»*. `A.8.14 Redundancia` con evidencia «redundancia en AWS, sin
+/// prueba formal de conmutación» no es 90 %: es 70 %, y el sistema lo dice solo.
+///
+/// Vive acá y no en cada pantalla porque tres componentes la mostraban con su propia copia
+/// de la escala —`PantallaControl`, `PopupControl` y `ControlesMadurez`— y tres copias de
+/// una tabla de criterio es como la segunda queda desactualizada sin que nada falle.
+///
+/// `seleccionable: false` en el 100 % es el §3 del requerimiento: la eficacia 1.0 daría
+/// residual exactamente 0 y el riesgo desaparecería del registro. El escalón existe en el
+/// catálogo por completitud de la escala; la interfaz no lo ofrece.
+export interface EscalonRubrica {
+  nivel: number;
+  nombre: string;
+  seleccionable: boolean;
+  /// El nivel CMM al que equivale, cuando equivale a alguno. Sirve para leer la línea base
+  /// del GAP del 2 de marzo de 2026, que está expresada en la escala vieja.
+  equivaleA: string | null;
+}
+
+export const RUBRICA: readonly EscalonRubrica[] = [
+  { nivel: 0, nombre: 'No existe. Nadie lo hace.', seleccionable: true, equivaleA: 'L0' },
+  {
+    nivel: 10,
+    nombre: 'Reactivo: se hace cuando algo pasa, sin método ni constancia.',
+    seleccionable: true,
+    equivaleA: 'L1',
+  },
+  {
+    nivel: 20,
+    nombre: 'Se hace por iniciativa de una persona; se cae si esa persona falta.',
+    seleccionable: true,
+    equivaleA: null,
+  },
+  {
+    nivel: 30,
+    nombre: 'Práctica reconocible y repetida, no escrita.',
+    seleccionable: true,
+    equivaleA: null,
+  },
+  {
+    nivel: 40,
+    nombre: 'Escrita parcialmente; se aplica de forma desigual entre casos o áreas.',
+    seleccionable: true,
+    equivaleA: null,
+  },
+  {
+    nivel: 50,
+    nombre: 'Documentada y repetible; sin evidencia de que se aplique siempre.',
+    seleccionable: true,
+    equivaleA: 'L2',
+  },
+  {
+    nivel: 60,
+    nombre: 'Documentada, comunicada y aplicada; el registro es incompleto.',
+    seleccionable: true,
+    equivaleA: null,
+  },
+  {
+    nivel: 70,
+    nombre: 'Documentada, comunicada, aplicada y registrada. Sin medición ni prueba.',
+    seleccionable: true,
+    equivaleA: 'L3',
+  },
+  {
+    nivel: 80,
+    nombre: 'Con una medición o una prueba ejecutada y registrada; los resultados no se revisan.',
+    seleccionable: true,
+    equivaleA: null,
+  },
+  {
+    nivel: 90,
+    nombre: 'Medido, revisado periódicamente, y las desviaciones se corrigen.',
+    seleccionable: true,
+    equivaleA: 'L4',
+  },
+  {
+    nivel: 100,
+    nombre: 'Reservado. Ningún control elimina un riesgo.',
+    seleccionable: false,
+    equivaleA: 'L5',
+  },
+];
+
+/// Los escalones que la interfaz ofrece — la rúbrica menos el 100 % (§3, criterio 3).
+export const ESCALONES_SELECCIONABLES: readonly EscalonRubrica[] = RUBRICA.filter(
+  (e) => e.seleccionable,
+);
+
+/// El descriptor de un escalón, para etiquetas. Nunca inventa: un escalón que no está en la
+/// rúbrica devuelve null y quien llama decide cómo decir «desconocido».
+export function descriptorDeNivel(nivel: number | null): string | null {
+  if (nivel === null) return null;
+  return RUBRICA.find((e) => e.nivel === nivel)?.nombre ?? null;
+}
+
+/// El escalón desde el cual un control cuenta como GESTIONADO. Equivale al viejo «L3+»:
+/// documentado, comunicado, aplicado y registrado.
+export const UMBRAL_GESTIONADO = 70;
+
+/// Hasta acá, el control es una BRECHA concreta con dueño y fecha. Equivale al viejo
+/// «L2 o menos».
+export const UMBRAL_BRECHA = 50;
+
+/// La eficacia de un escalón.
+///
+/// Con `tabla`, manda el catálogo — es el camino que usan `generarRiesgos` y la Ecuación,
+/// y el que hace que editar un escalón no sea recompilar (§8.1).
+///
+/// Sin `tabla`, cae en la identidad `nivel / 100`, que es válida porque la escala sembrada
+/// es lineal y la siembra lo verifica. Es el camino de las PANTALLAS, que formatean
+/// etiquetas sin tener el catálogo a mano. El día que la escala deje de ser lineal, la
+/// siembra falla y hay que pasar la tabla también acá.
+///
+/// UN ESCALÓN DESCONOCIDO ES UN DATO ROTO, NO UN CERO. La versión anterior devolvía 0 para
+/// cualquier nivel fuera de 0..5, y por eso un nivel de la escala vieja sobrevivido a la
+/// migración habría bajado la eficacia en silencio en vez de avisar. `null` sigue siendo
+/// 0 porque los llamadores ya filtran los no evaluados antes de llegar acá — «sin evaluar»
+/// nunca entra a una media.
+export function eficaciaDeNivel(nivel: number | null, tabla?: TablaEficacia): number {
+  if (nivel === null) return 0;
+
+  if (tabla !== undefined) {
+    const e = tabla.get(nivel);
+    if (e === undefined) {
+      throw new Error(
+        `eficaciaDeNivel: el escalón ${nivel} no está en el catálogo de madurez. ` +
+          'Un escalón que la tabla no trae es un dato roto, no una eficacia de cero.',
+      );
+    }
+    return e;
+  }
+
+  if (!Number.isInteger(nivel) || nivel < 0 || nivel > 100 || nivel % 10 !== 0) {
+    throw new Error(
+      `eficaciaDeNivel: ${nivel} no es un escalón de la escala (0 a 100, de diez en diez). ` +
+        'Si viene de la escala vieja L0-L5, la migración de REQ-SIG-24 no lo alcanzó.',
+    );
+  }
+  return nivel / 100;
 }
 
 export function media(valores: readonly number[]): number {
@@ -66,10 +228,11 @@ export function validarNuevoSoa(soa: EstadoSoa, justificacion: string): string[]
   return errores;
 }
 
-/// Rule 2: a control whose scope coverage is partial rarely sustains L4/L5 in an audit.
-/// Only an advertencia, not a rejection — the warning is shown to the author, who decides.
+/// Rule 2: a control whose scope coverage is partial rarely sustains the top rung in an
+/// audit. Only an advertencia, not a rejection — the warning is shown to the author, who
+/// decides.
 export function advertenciaParcialNivelAlto(actual: number | null): boolean {
-  return actual !== null && actual >= 4;
+  return actual !== null && actual >= 90;
 }
 
 export interface ControlMadurez {
@@ -86,12 +249,13 @@ export interface MetricasMadurez {
   noAplicables: number;
   /// Mean of efficacy, as a percentage. The headline metric.
   indice: number;
-  /// Median of the level.
+  /// Median of the rung, in points.
   nivelTipico: number;
-  /// Mean of the level. REFERENCE ONLY — never report this as "the maturity".
+  /// Mean of the rung. REFERENCE ONLY — never report this as "the maturity".
   nivelMedio: number;
-  enL3: number;
-  pctL3: number;
+  /// Controls at `UMBRAL_GESTIONADO` (70 %) or above — el viejo «L3+».
+  enGestionado: number;
+  pctGestionado: number;
   enObjetivo: number;
   brechas: number;
   avanceMedio: number;
@@ -101,7 +265,10 @@ export interface MetricasMadurez {
   conLineaBase: number;
 }
 
-export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasMadurez {
+export function metricasMadurez(
+  controles: readonly ControlMadurez[],
+  tabla?: TablaEficacia,
+): MetricasMadurez {
   const aplicables = controles.filter((c) => esAplicable(c.soa));
   const parciales = aplicables.filter((c) => c.soa === 'parcial').length;
   // A non-applicable control is excluded from every average. Letting a single zero in
@@ -113,13 +280,15 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
   const evaluados = aplicables.filter((c) => c.actual !== null);
   const niveles = evaluados.map((c) => c.actual as number);
 
-  const enL3 = evaluados.filter((c) => (c.actual as number) >= 3).length;
+  const enGestionado = evaluados.filter(
+    (c) => (c.actual as number) >= UMBRAL_GESTIONADO,
+  ).length;
   const enObjetivo = evaluados.filter(
     (c) => c.objetivo !== null && (c.actual as number) >= c.objetivo,
   ).length;
-  // Gaps are never aggregated into a decimal: a control at L1 is a concrete action
+  // Gaps are never aggregated into a decimal: a control at 10 % is a concrete action
   // with an owner and a date. This counts them, it does not average them.
-  const brechas = evaluados.filter((c) => (c.actual as number) <= 2).length;
+  const brechas = evaluados.filter((c) => (c.actual as number) <= UMBRAL_BRECHA).length;
   const brechaTotal = evaluados.reduce(
     (suma, c) => suma + Math.max(0, (c.objetivo ?? 0) - (c.actual as number)),
     0,
@@ -133,11 +302,11 @@ export function metricasMadurez(controles: readonly ControlMadurez[]): MetricasM
     aplicables: aplicables.length,
     parciales,
     noAplicables: controles.length - aplicables.length,
-    indice: media(evaluados.map((c) => eficaciaDeNivel(c.actual))) * 100,
+    indice: media(evaluados.map((c) => eficaciaDeNivel(c.actual, tabla))) * 100,
     nivelTipico: mediana(niveles),
     nivelMedio: media(niveles),
-    enL3,
-    pctL3: evaluados.length === 0 ? 0 : (enL3 / evaluados.length) * 100,
+    enGestionado,
+    pctGestionado: evaluados.length === 0 ? 0 : (enGestionado / evaluados.length) * 100,
     enObjetivo,
     brechas,
     avanceMedio: media(avances),
@@ -262,9 +431,17 @@ export interface DesgloseEficaciaAmenaza {
 /// expresamente descartada: cuatro controles en L3 arrojarían 99,995 %. La eficacia
 /// MAGERIT no es una probabilidad independiente de bloqueo sino un grado de calidad de
 /// implantación, y los controles que opera la misma organización comparten modos de fallo.
+/// La tolerancia del techo: cuánto puede la media superar al principal antes de que el
+/// techo la recorte. Era 0.05 —medio nivel en la curva CMM, donde L3 y L4 distaban cinco
+/// puntos—. En la escala nueva la unidad es el escalón, así que pasa a **0.10**: un
+/// escalón. Mantenerla en 0.05 habría hecho el techo el doble de duro sin que nadie lo
+/// decidiera, sólo porque cambió la escala debajo.
+export const DELTA_TECHO = 0.1;
+
 export function desglosarEficaciaAmenaza(
   controles: readonly ControlAgregable[],
-  delta = 0.05,
+  delta = DELTA_TECHO,
+  tabla?: TablaEficacia,
 ): DesgloseEficaciaAmenaza {
   const sinEvaluar = controles.filter((c) => c.nivel === null).length;
   const evaluados = controles.filter((c) => c.nivel !== null);
@@ -315,7 +492,7 @@ export function desglosarEficaciaAmenaza(
     const sumaPesos = evaluados.reduce((a, c) => a + c.peso, 0);
     if (sumaPesos === 0) return { ...vacio, regla: 'media-simple', error: null };
     const ponderada =
-      evaluados.reduce((a, c) => a + c.peso * eficaciaDeNivel(c.nivel), 0) / sumaPesos;
+      evaluados.reduce((a, c) => a + c.peso * eficaciaDeNivel(c.nivel, tabla), 0) / sumaPesos;
     return {
       regla: 'media-simple',
       clases: [],
@@ -339,7 +516,7 @@ export function desglosarEficaciaAmenaza(
 
   const clases: AporteClase[] = presentes.map((g) => {
     const presupuesto = PRESUPUESTO_CLASE[g.clase] / presupuestoTotal;
-    const mediaClase = media(g.miembros.map((c) => eficaciaDeNivel(c.nivel)));
+    const mediaClase = media(g.miembros.map((c) => eficaciaDeNivel(c.nivel, tabla)));
     return {
       clase: g.clase,
       presupuestoNominal: PRESUPUESTO_CLASE[g.clase],
@@ -353,7 +530,7 @@ export function desglosarEficaciaAmenaza(
   const bruta = clases.reduce((a, c) => a + c.aporte, 0);
 
   // El techo, tal cual estaba: MIN( bruta , e(principal) + δ ).
-  const techo = eficaciaDeNivel(principal.nivel) + delta;
+  const techo = eficaciaDeNivel(principal.nivel, tabla) + delta;
   const eficacia = Math.min(bruta, techo);
 
   return {
@@ -374,9 +551,10 @@ export function desglosarEficaciaAmenaza(
 /// el techo. Escribir cero haría que toda matriz residual saliera idéntica a la inherente.
 export function eficaciaAmenaza(
   controles: readonly ControlAgregable[],
-  delta = 0.05,
+  delta = DELTA_TECHO,
+  tabla?: TablaEficacia,
 ): number | null {
-  return desglosarEficaciaAmenaza(controles, delta).eficacia;
+  return desglosarEficaciaAmenaza(controles, delta, tabla).eficacia;
 }
 
 /// Validación pura de designar un control como Principal de una amenaza (§4 y §8).

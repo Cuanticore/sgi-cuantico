@@ -23,8 +23,8 @@ const FIXTURE = {
   activoNombre: 'MINTRACE producción',
   amenazaCodigo: 'A.24',
   amenazaNombre: 'Denegación de servicio',
-  control: { id: 5, codigo: 'A.8.20', nombre: 'Protección contra DoS', madurezActual: 2 },
-  madurezObjetivoSugerida: 3,
+  control: { id: 5, codigo: 'A.8.20', nombre: 'Protección contra DoS', madurezActual: 50 },
+  madurezObjetivoSugerida: 90,
   responsable: { id: 9, nombre: 'Yuliet Rojas' },
   apruebaSugerido: { id: 12, nombre: 'Comité del SIG' },
   fechaObjetivo: '2026-12-15',
@@ -33,8 +33,8 @@ const FIXTURE = {
     { id: 12, nombre: 'Comité del SIG' },
   ],
   escalaMadurez: [
-    { id: 30, nivel: 2, nombre: 'Repetible' },
-    { id: 31, nivel: 3, nombre: 'Definido' },
+    { id: 30, nivel: 50, nombre: 'Repetible' },
+    { id: 31, nivel: 90, nombre: 'Definido' },
   ],
 };
 
@@ -61,8 +61,8 @@ describe('PopupPlanCritico — prellenado (spec "Popup prefill sources")', () =>
     expect(screen.getByText(/R-0123 — MINTRACE producción × Denegación de servicio/)).toBeInTheDocument();
 
     // Madurez actual → objetivo
-    expect(screen.getByText('L2')).toBeInTheDocument();
-    expect(screen.getByLabelText('Madurez objetivo')).toHaveValue('31'); // L3 — Definido
+    expect(screen.getByText('50 %')).toBeInTheDocument();
+    expect(screen.getByLabelText('Madurez objetivo')).toHaveValue('31'); // 90 % — Definido
 
     // Responsable — editable, prellenado con el propietario del activo
     expect(screen.getByLabelText('Responsable')).toHaveValue('9');

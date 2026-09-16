@@ -260,9 +260,9 @@ export async function alternarAuditable(requisitoId: number, motivo: string): Pr
       ]);
     });
 
-    revalidatePath('/sig/normas');
+    revalidatePath('/sgsi/normas');
     // El tablero lee la misma cobertura: sin esto seguiría mostrando el denominador viejo.
-    revalidatePath('/sig/tablero-auditoria');
+    revalidatePath('/sgsi/tablero-auditoria');
 
     return {
       ok: true,

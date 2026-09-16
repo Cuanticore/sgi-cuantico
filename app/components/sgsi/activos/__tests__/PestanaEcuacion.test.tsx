@@ -26,8 +26,8 @@ function renderPestana() {
     degradaciones: { D: '1.00', I: '0', C: '0' },
     aro: 1,
     controles: [
-      { codigo: 'A.8.20', nivel: 3, peso: 1, esPrincipal: false, relevancia: null },
-      { codigo: 'A.8.6', nivel: 3, peso: 1, esPrincipal: false, relevancia: null },
+      { codigo: 'A.8.20', nivel: 90, peso: 1, esPrincipal: false, relevancia: null },
+      { codigo: 'A.8.6', nivel: 90, peso: 1, esPrincipal: false, relevancia: null },
     ],
   });
 
@@ -91,8 +91,8 @@ describe('PestanaEcuacion — el desglose por clase cuando hay relevancia asigna
       degradaciones: { D: '1.00', I: '0', C: '0' },
       aro: 1,
       controles: [
-        { codigo: 'A.8.20', nivel: 2, peso: 3, esPrincipal: true, relevancia: 'Principal' },
-        { codigo: 'A.8.6', nivel: 4, peso: 1, esPrincipal: false, relevancia: 'De apoyo' },
+        { codigo: 'A.8.20', nivel: 0, peso: 3, esPrincipal: true, relevancia: 'Principal' },
+        { codigo: 'A.8.6', nivel: 90, peso: 1, esPrincipal: false, relevancia: 'De apoyo' },
       ],
     });
 
@@ -125,8 +125,14 @@ describe('PestanaEcuacion — el desglose por clase cuando hay relevancia asigna
   it('cuando el techo actúa, lo dice y nombra al principal como la única palanca', () => {
     renderConRelevancia();
 
-    // Principal en L2 (50 %) y un complementario en L4: la bruta renormalizada llega a
-    // 87.5 % × 0.5 + 12.5 % × 0.95 = 56.25 %, y el techo la corta a 55 %.
+    // Principal en 0 % —el control no existe— y un complementario en 90 %: la bruta
+    // renormalizada llega a 87.5 % × 0 + 12.5 % × 0.9 = 11.25 %, y el techo la corta a
+    // 10 % (0 + δ). Es el caso que justifica el techo: sin él, el presupuesto de las otras
+    // clases dejaría la amenaza en 11 % de eficacia con su control clave inexistente.
+    //
+    // La fixture pasó de un principal en 50 % a uno en 0 % PORQUE δ subió a un escalón
+    // (REQ-SIG-24): con el principal en 50 % el techo queda en 60 % y la bruta en 55 %, así
+    // que ya no recorta nada y la prueba habría dejado de ejercer lo que dice ejercer.
     expect(screen.getByText(/El techo actúa/i)).toBeInTheDocument();
     expect(screen.getByText(/Subir el control\s+principal es lo único que mueve este riesgo/i)).toBeInTheDocument();
   });

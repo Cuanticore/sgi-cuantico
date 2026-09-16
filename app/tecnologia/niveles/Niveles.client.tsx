@@ -110,7 +110,20 @@ export default function NivelesClient({
                           setNombreProducto('');
                         }
                   }
-                  onDesactivar={null}
+                  // Un nivel 1 tambien se puede retirar. Estaba en `null` —sin boton— y eso
+                  // dejaba sin salida a una raiz que sobra: los tres grados 1 son un catalogo
+                  // corto y cerrado, pero «cerrado» no quiere decir «eterno». `EMPRESA` sin
+                  // nada debajo es exactamente ese caso.
+                  //
+                  // No hace falta una regla nueva: `desactivarNivel` ya se niega si el nivel
+                  // tiene hijos activos o activos apuntandole, y dice cuales. Asi que ofrecer
+                  // el boton no abre ningun agujero — la guarda que importa vive en el
+                  // servidor, donde no se la puede saltar llamando a la accion directamente.
+                  onDesactivar={() => {
+                    const motivo =
+                      window.prompt(`¿Por qué se retira «${r.nombre}»? Queda en la bitácora.`) ?? '';
+                    if (motivo.trim() !== '') void correr(() => desactivarNivel(r.id, motivo));
+                  }}
                 />
                 {plantillaEn === r.id && (
                   <div className="ml-6 flex flex-wrap items-end gap-2 rounded-campo border border-border-field bg-subtle px-3 py-2.5">

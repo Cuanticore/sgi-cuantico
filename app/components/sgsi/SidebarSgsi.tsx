@@ -116,6 +116,23 @@ const GRUPOS: Grupo[] = [
     ],
   },
   {
+    // Llegaron de la pestaña Actividades el 15/09/2026. Van DESPUÉS de Operación y antes de
+    // Configuración porque siguen el ciclo: primero lo que la organización tiene y lo que la
+    // amenaza, después lo que pasa día a día, y por último cómo se comprueba que el sistema
+    // funciona. Las URLs se movieron con ellos y las viejas redirigen.
+    titulo: 'Mejora y auditoría',
+    tituloCorto: 'AUD',
+    items: [
+      { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sgsi/hallazgos' },
+      { etiqueta: 'Acciones', abreviatura: 'ACC', href: '/sgsi/mejora' },
+      { etiqueta: 'Programa anual', abreviatura: 'PRG', href: '/sgsi/auditorias/programa' },
+      { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sgsi/auditorias' },
+      { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sgsi/auditorias/externas' },
+      { etiqueta: 'Tablero de auditoría', abreviatura: 'TAU', href: '/sgsi/tablero-auditoria' },
+      { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sgsi/normas' },
+    ],
+  },
+  {
     titulo: 'Configuración',
     tituloCorto: '···',
     sub: true,

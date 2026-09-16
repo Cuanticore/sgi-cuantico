@@ -12,6 +12,8 @@
 
 import {
   FILTROS_ANALISIS_VACIOS,
+  consultaDeFiltrosAnalisis,
+  TODAS_CRITICIDADES,
   SIN_ASIGNAR,
   filasAnalisis,
   filtrosAnalisisDesdeUrl,
@@ -50,8 +52,17 @@ function riesgo(p: Partial<RiesgoAnalizable> = {}): RiesgoAnalizable {
     potencial: '25',
     residual: '25',
     obsoleto: false,
+    // A.24 degrada sólo disponibilidad — la amenaza del caso de MINTRACE.
+    degradacion: { D: 1, I: 0, C: 0 },
     ...p,
   };
+}
+
+/// Un control principal designado, con su nivel en puntos (REQ-SIG-24). Sin él, la amenaza
+/// cae en `sin-principal` y la brecha NO SE PUEDE EVALUAR — que es el estado real de las 57
+/// amenazas hoy, mientras REQ-SIG-21 no asigne las 272 relevancias.
+function conPrincipal(nivel: number | null, p: Partial<RiesgoAnalizable> = {}): RiesgoAnalizable {
+  return riesgo({ principal: { codigo: 'A.8.14', nivel }, ...p });
 }
 
 function activo(p: Partial<ActivoAnalizable> = {}): ActivoAnalizable {
@@ -59,6 +70,7 @@ function activo(p: Partial<ActivoAnalizable> = {}): ActivoAnalizable {
     codigo: 'TEC-GEN-0001',
     nombre: 'Activo de prueba',
     valor: 4,
+    valores: { D: 4, I: 4, C: 4 },
     criticidad: null,
     proceso: 'Gestión Tecnológica',
     propietario: 'Chief Operating Officer',
@@ -115,21 +127,55 @@ describe('§5.1 · las cinco tarjetas, desde la distribución (tarea 3.8)', () =
     expect(tarjetas.sinPlan).toBeNull();
   });
 
-  it('RESIDUAL CRÍTICO sí se puede contar hoy, sin resolutor: es solo la banda del residual', () => {
-    const critico = activo({ codigo: 'TEC-GEN-0001', riesgos: [riesgo({ residual: '25' })] });
-    const alto = activo({ codigo: 'TEC-GEN-0002', riesgos: [riesgo({ residual: '15', potencial: '15' })] });
-    const tarjetas = tarjetasAnalisis(datos([critico, alto]), FILTROS_ANALISIS_VACIOS);
-    expect(tarjetas.residualCritico).toBe(1);
+  // REQ-SIG-24 §7 · la tarjeta ya no lee la banda del residual, que es inalcanzable: lee la
+  // BRECHA. Estos activos tienen `valores.D = 4` y la amenaza degrada sólo D, así que la
+  // exigencia por valor es 70 % (§6).
+  it('CON BRECHA cuenta brechas MEDIDAS, y lo no evaluable va aparte', () => {
+    const conBrecha = activo({ codigo: 'TEC-GEN-0001', riesgos: [conPrincipal(50)] });
+    const cubierto = activo({ codigo: 'TEC-GEN-0002', riesgos: [conPrincipal(70)] });
+    // Sin principal designado: no es «cumple», es «no se sabe».
+    const noEvaluable = activo({ codigo: 'TEC-GEN-0003', riesgos: [riesgo()] });
+
+    const tarjetas = tarjetasAnalisis(
+      datos([conBrecha, cubierto, noEvaluable]),
+      FILTROS_ANALISIS_VACIOS,
+    );
+    expect(tarjetas.conBrecha).toBe(1);
+    expect(tarjetas.sinDeterminar).toBe(1);
   });
 
-  it('con resolutor, SIN PLAN cuenta los activos con algún riesgo Crítico sin plan activo', () => {
+  it('un activo cuya brecha no se puede evaluar NO cuenta como que no requiere plan', () => {
+    // Es la diferencia entera entre «no falta nada» y «nadie miró». Hoy cubre las 57
+    // amenazas, así que esta cifra mide cuánto del análisis todavía no se puede hacer.
+    const sinPrincipal = activo({ riesgos: [riesgo()] });
+    const filas = filasAnalisis(datos([sinPrincipal]), FILTROS_ANALISIS_VACIOS);
+    expect(filas[0].estadoPlan).toBe('sin-determinar');
+  });
+
+  it('el principal designado pero sin evaluar tampoco es cumplimiento', () => {
+    const filas = filasAnalisis(
+      datos([activo({ riesgos: [conPrincipal(null)] })]),
+      FILTROS_ANALISIS_VACIOS,
+    );
+    expect(filas[0].estadoPlan).toBe('sin-determinar');
+  });
+
+  it('la columna Brecha lleva los puntos que faltan', () => {
+    const filas = filasAnalisis(
+      datos([activo({ riesgos: [conPrincipal(50)] })]),
+      FILTROS_ANALISIS_VACIOS,
+    );
+    expect(filas[0].peorBrecha).toBe(20);
+  });
+
+  it('con resolutor, SIN PLAN cuenta los activos con alguna BRECHA sin plan activo', () => {
     const conPlan = activo({
       codigo: 'TEC-GEN-0001',
-      riesgos: [riesgo({ amenazaCodigo: 'A.24', residual: '25' })],
+      riesgos: [conPrincipal(50, { amenazaCodigo: 'A.24' })],
     });
     const sinPlan = activo({
       codigo: 'TEC-GEN-0002',
-      riesgos: [riesgo({ amenazaCodigo: 'A.11', residual: '25' })],
+      riesgos: [conPrincipal(50, { amenazaCodigo: 'A.11' })],
     });
     const resolver: ResolverDeudaPlan = (r) => r.activoCodigo === 'TEC-GEN-0001';
 
@@ -199,8 +245,14 @@ describe('§5.3 · seis filtros rescopan lista y tarjetas a la vez (tarea 3.8)',
 
   it('estadoPlan', () => {
     const filtros: FiltrosAnalisis = { ...FILTROS_ANALISIS_VACIOS, estadoPlan: 'no-requiere' };
-    // B tiene residual Alto (15), no Crítico: no requiere plan.
-    expect(filasAnalisis(datos(activos), filtros).map((f) => f.codigo)).toEqual(['TEC-GEN-0002']);
+    // REQ-SIG-24 §7 · «no requiere» ya no es «su residual no llega a Crítico» sino «su
+    // principal alcanza lo exigido». Con la exigencia por valor en 70 %, A en 50 % tiene
+    // brecha y B en 90 % está cubierto.
+    const conBrecha = activo({ codigo: 'TEC-GEN-0001', riesgos: [conPrincipal(50)] });
+    const cubierto = activo({ codigo: 'TEC-GEN-0002', riesgos: [conPrincipal(90)] });
+    expect(
+      filasAnalisis(datos([conBrecha, cubierto]), filtros).map((f) => f.codigo),
+    ).toEqual(['TEC-GEN-0002']);
   });
 
   it('las tarjetas y la lista nunca se contradicen bajo ninguna combinación de filtros', () => {
@@ -225,6 +277,7 @@ describe('§5.3 · URL ⇄ filtros', () => {
     procesos: ['Gestión Tecnológica', 'Gestión Financiera'],
     propietarios: ['COO', 'CFO'],
     personas: ['ana@cuantico.co'],
+    criticidades: ['C1', 'C2', 'C3', 'C4', 'C5'],
   };
 
   it('sin parámetros son los filtros vacíos', () => {
@@ -290,5 +343,45 @@ describe('§11 · ordenarPorCriticidad sigue el RTO, no el código', () => {
     const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.codigo);
     expect(orden[0]).toBe('TEC-GEN-0001'); // C1, el más exigente
     expect(orden.slice(1)).toEqual(['TEC-GEN-0000', 'TEC-GEN-0005']); // orden estable por código
+  });
+});
+
+// REQ-SIG-20 §11 (P9) · el filtro de criticidad. «Sin clasificar» es una respuesta y no la
+// ausencia de filtro: hoy es el estado de casi todo el inventario, y poder aislarlo es lo
+// que permite ir cerrandola.
+describe('filtro de criticidad', () => {
+  const CAT: CatalogosFiltroAnalisis = {
+    procesos: [],
+    propietarios: [],
+    personas: [],
+    criticidades: ['C1', 'C2', 'C3', 'C4', 'C5'],
+  };
+  const leer = (q: string) => filtrosAnalisisDesdeUrl(new URLSearchParams(q), CAT);
+
+  it('un codigo del catalogo se toma tal cual', () => {
+    expect(leer('criticidad=C1').filtros.criticidad).toBe('C1');
+  });
+
+  it('«sin clasificar» viaja por el mismo centinela que propietario y persona', () => {
+    expect(leer(`criticidad=${SIN_ASIGNAR}`).filtros.criticidad).toBe(SIN_ASIGNAR);
+  });
+
+  it('un codigo que no existe se ignora y avisa, en vez de vaciar la lista en silencio', () => {
+    const r = leer('criticidad=C9');
+    expect(r.filtros.criticidad).toBe(TODAS_CRITICIDADES);
+    expect(r.avisos.join(' ')).toMatch(/criticidad/);
+  });
+
+  it('sin el parametro queda en «todas»', () => {
+    expect(leer('').filtros.criticidad).toBe(TODAS_CRITICIDADES);
+  });
+
+  it('no ensucia el enlace cuando esta en su valor por omision', () => {
+    expect(parametrosDeFiltrosAnalisis(FILTROS_ANALISIS_VACIOS).criticidad).toBeUndefined();
+  });
+
+  it('y si viaja al enlace, vuelve igual', () => {
+    const filtros = { ...FILTROS_ANALISIS_VACIOS, criticidad: 'C2' };
+    expect(leer(consultaDeFiltrosAnalisis(filtros).slice(1)).filtros.criticidad).toBe('C2');
   });
 });

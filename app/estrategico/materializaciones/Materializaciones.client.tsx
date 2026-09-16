@@ -144,7 +144,7 @@ export default function MaterializacionesClient({
                   <td className="px-4 py-3">
                     {f.hallazgo ? (
                       <a
-                        href={`/sig/hallazgos/${f.hallazgo.codigo}`}
+                        href={`/sgsi/hallazgos/${f.hallazgo.codigo}`}
                         className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 font-semibold"
                         style={
                           f.hallazgo.cerrado

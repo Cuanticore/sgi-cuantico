@@ -58,6 +58,10 @@ export interface ActivoAgregable {
   /// El custodio **persona** (`Activo.personaId`), no el cargo. Nulo en casi todo el
   /// inventario: se escribe de a un activo por vez desde el popup de REQ-SIG-16 (§6.6).
   persona: PersonaCustodia | null;
+  /// La clasificación MAGERIT, para agrupar por QUÉ ES el activo. Obligatoria en el modelo,
+  /// así que acá no son nulables: un activo sin tipo no puede existir.
+  tipo: string;
+  subtipo: string;
   /// Código de dimensión → nivel. Una dimensión **ausente o nula** es SIN VALORAR, que no es
   /// un 0: nadie la miró, y confundirlas infla el nivel más bajo (§9).
   valores: Readonly<Record<string, number | null>>;
@@ -247,7 +251,13 @@ export function dimensionesQueMandan(p: ParametrosAgregacion): Dominancia {
   };
 }
 
-export type Agrupador = 'propietario' | 'persona';
+/// Por quién responde el activo, quién lo tiene en la mano, o QUÉ ES.
+///
+/// `subtipo` es distinto de los otros dos en algo que importa: los otros agrupan por una
+/// persona o un cargo —algo que puede faltar— y éste por la clasificación MAGERIT, que es
+/// obligatoria. Por eso su tabla no lleva fila «sin asignar»: no puede haber activos sin
+/// subtipo, y una fila que nunca tendría nada es ruido.
+export type Agrupador = 'propietario' | 'persona' | 'subtipo';
 
 export interface FilaAgrupada {
   /// Lo que viaja en la URL: el nombre del cargo, el correo de la persona, o `SIN_ASIGNAR`.
@@ -292,8 +302,11 @@ export interface ParametrosTabla extends ParametrosAgregacion {
 /// totales, la fila «sin asignar» y el contrato de clic — cinco cosas que tienen que
 /// comportarse igual y que iban a divergir.
 export function tablaAgrupada(p: ParametrosTabla): TablaAgrupada {
-  const claveDe = (a: ActivoAgregable): string | null =>
-    p.agrupador === 'propietario' ? a.propietario : (a.persona?.correo ?? null);
+  const claveDe = (a: ActivoAgregable): string | null => {
+    if (p.agrupador === 'propietario') return a.propietario;
+    if (p.agrupador === 'subtipo') return `${a.tipo}|${a.subtipo}`;
+    return a.persona?.correo ?? null;
+  };
 
   const grupos = new Map<string, { etiqueta: string; subtitulo: string | null; inactiva: boolean; activos: ActivoAgregable[] }>();
   const sinAsignar: ActivoAgregable[] = [];
@@ -310,8 +323,17 @@ export function tablaAgrupada(p: ParametrosTabla): TablaAgrupada {
       continue;
     }
     grupos.set(k, {
-      etiqueta: p.agrupador === 'propietario' ? k : (a.persona?.nombre ?? k),
-      subtitulo: p.agrupador === 'persona' ? (a.persona?.correo ?? null) : null,
+      etiqueta:
+        p.agrupador === 'propietario' ? k : p.agrupador === 'subtipo' ? a.subtipo : (a.persona?.nombre ?? k),
+      // El TIPO va de subtítulo y no concatenado en la etiqueta: «[D] Datos / Información»
+      // se repite en cada uno de sus subtipos, y repetirlo en la celda principal empuja el
+      // nombre del subtipo —que es lo que distingue una fila de otra— fuera de la vista.
+      subtitulo:
+        p.agrupador === 'persona'
+          ? (a.persona?.correo ?? null)
+          : p.agrupador === 'subtipo'
+            ? a.tipo
+            : null,
       inactiva: p.agrupador === 'persona' ? a.persona?.activa === false : false,
       activos: [a],
     });

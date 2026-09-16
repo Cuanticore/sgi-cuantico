@@ -32,6 +32,7 @@
 import Decimal from 'decimal.js';
 import { calcularRiesgo, impactoDimension, valorActivo, type ValoresDimension } from './formulas';
 import {
+  DELTA_TECHO,
   desglosarEficaciaAmenaza,
   eficaciaDeNivel,
   type DesgloseEficaciaAmenaza,
@@ -128,7 +129,7 @@ const DIMENSIONES: readonly DimensionRiesgo[] = ['D', 'I', 'C'];
 /// para que el mismo cálculo sirva a la ficha (edición) y a la pestaña Ecuación
 /// (lectura).
 export function resolverEcuacion(entrada: EntradaEcuacion): EcuacionResuelta {
-  const delta = entrada.deltaTechoEficacia ?? 0.05;
+  const delta = entrada.deltaTechoEficacia ?? DELTA_TECHO;
 
   const valor = valorActivo(entrada.valores);
 

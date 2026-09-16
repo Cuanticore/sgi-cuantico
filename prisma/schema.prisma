@@ -472,6 +472,19 @@ model Control {
   lineaBaseId        Int?      @map("linea_base_id")
   actualId           Int?      @map("actual_id")
   objetivoId         Int?      @map("objetivo_id")
+  /// REQ-SIG-24 §5 · cuándo alguien miró este control con la RÚBRICA NUEVA.
+  ///
+  /// `null` no es un dato faltante: es la marca de que el nivel viene de la traducción
+  /// automática de la escala L0-L5 y que nadie lo recalificó todavía. La traducción fue por
+  /// eficacia —L3 y L4 caen los dos en 90 %— así que preserva el número pero NO el
+  /// descriptor: 90 % en la escala nueva significa «medido, revisado y corregido», que es
+  /// bastante más de lo que L3 afirmaba.
+  ///
+  /// Es lo que permite reportar dos índices, traducido y recalificado, cuya diferencia mide
+  /// cuánto del tablero sigue descansando en la escala vieja. Misma mecánica que
+  /// «declarado, no verificado» de REQ-SIG-22 §3.3, y por el mismo motivo: una marca visible
+  /// es lo único que impide que una traducción se lea como una evaluación.
+  recalificadoEn     DateTime? @map("recalificado_en")
   /// Evidence of the rating. The written justification of a non-applicable control now
   /// lives in `justificacionSoa`; this column holds the evidence of the maturity level
   /// when the control applies.
@@ -1069,6 +1082,21 @@ model Persona {
   correoPersonal             String?          @map("correo_personal")
   ciudad                     String?
   direccion                  String?
+  /// REQ-SIG-25 · datos que la propia persona mantiene desde Mi SIG.
+  ///
+  /// **Son datos personales y algunos son SENSIBLES.** La EPS revela estado de afiliación al
+  /// sistema de salud y la fecha de nacimiento permite inferir edad: los dos entran al
+  /// inventario de tratamientos (`TratamientoDatosPersonales`) con su finalidad propia, y no
+  /// aparecen en ninguna exportación del censo. Se recoge lo mínimo para lo que se usan —
+  /// afiliación, emergencias y cumpleaños— y nada más.
+  fechaNacimiento            DateTime?        @map("fecha_nacimiento") @db.Date
+  eps                        String?
+  arl                        String?
+  /// La clave del archivo en el almacén de la aplicación. `null` cuando no hay foto propia:
+  /// entonces se muestra la del Directorio, que NO se copia acá — es del Directorio y él
+  /// manda sobre ella, igual que sobre el nombre y el correo.
+  fotoClave                  String?          @map("foto_clave")
+  fotoActualizadaEn          DateTime?        @map("foto_actualizada_en")
   /// C6 · se repite al promover a un cargo con acceso Confidencial o privilegios de
   /// administracion. Deber por evento, no periodico.
   verificacionAntecedentesEn DateTime?        @map("verificacion_antecedentes_en") @db.Date
@@ -1112,6 +1140,8 @@ model Persona {
   /// Los activos `[P] Personal` que esta cuenta ENCARNA. Distinto de `activosACargo`, que
   /// son los que custodia.
   activosQueEncarna        ActivoPersona[]
+  hijos                    HijoColaborador[]              @relation("HijoDePersona")
+  autoevaluaciones         AutoevaluacionPuesto[]         @relation("AutoevaluacionDePersona")
   productosResponsable     Producto[]                     @relation("ProductoResponsable")
   sistemasPropietario      Sistema[]                      @relation("SistemaPropietario")
   sistemasTecnico          Sistema[]                      @relation("SistemaResponsableTecnico")
@@ -1195,6 +1225,17 @@ enum TipoContenido {
   LECTURA
   VERIFICACION
   TAREA
+  /// REQ-SIG-24 · un curso que se recorre dentro de la aplicación, no un documento que se
+  /// lee ni una sesión a la que se asiste.
+  ///
+  /// **Por qué es un tipo propio y no una Capacitación con paquete.** El reproductor SCORM
+  /// ya existía y se activaba cuando una CAPACITACION resultaba tener paquete cargado: el
+  /// tipo decía una cosa y el comportamiento dependía de un adjunto. Quien creaba el
+  /// contenido no podía saber, al elegir el tipo, si la persona iba a declarar su
+  /// asistencia o a recorrer un curso — lo descubría después, según si alguien había subido
+  /// el zip. Declararlo de entrada es lo que permite que la bandeja diga «Iniciar» en vez
+  /// de «Leer» sin tener que adivinar.
+  CURSO_VIRTUAL
 
   @@map("tipo_contenido")
 }
@@ -1470,6 +1511,74 @@ model MiembroGrupoInteres {
   @@unique([grupoId, personaId])
   @@index([personaId])
   @@map("miembro_grupo_interes")
+}
+
+/// REQ-SIG-25 · los hijos de un colaborador.
+///
+/// **Es el mismo caso que `ContactoEmergencia` y merece el mismo trato**: son datos
+/// personales de un tercero que no firmó nada — un menor, casi siempre. Eso obliga a lo
+/// mismo que la P9 exige para los contactos:
+///
+///   1. entra al inventario de tratamientos con finalidad propia («beneficios y celebraciones
+///      del personal»); un dato personal que no está en el RAT es un hallazgo;
+///   2. **se recoge lo mínimo**: nombre, fecha de nacimiento y género. No hay documento, ni
+///      colegio, ni foto. Para saludar un cumpleaños y otorgar un beneficio no se necesitan;
+///   3. sólo lo ve quien tiene `personas:administrar` y la propia persona, y **no aparece en
+///      ninguna exportación** del censo.
+///
+/// Tabla y no columnas porque la cantidad es variable, exactamente igual que los contactos.
+model HijoColaborador {
+  id              Int       @id @default(autoincrement())
+  personaId       Int       @map("persona_id")
+  nombre          String
+  fechaNacimiento DateTime  @map("fecha_nacimiento") @db.Date
+  genero          Genero
+  creadoEn        DateTime  @default(now()) @map("creado_en")
+
+  persona Persona @relation("HijoDePersona", fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@index([personaId])
+  @@map("hijo_colaborador")
+}
+
+/// Las tres opciones. `NO_DECLARA` existe y no es un relleno: preguntar el género y no
+/// admitir que alguien prefiera no decirlo convierte un dato opcional en obligatorio.
+enum Genero {
+  FEMENINO
+  MASCULINO
+  NO_DECLARA
+
+  @@map("genero")
+}
+
+/// REQ-SIG-25 · la autoevaluación del puesto de trabajo (FOR-SIG-13, exigida por POL-TAL-01).
+///
+/// **Una fila por corrida, nunca un estado que se sobreescribe.** La autoevaluación se hace
+/// al vincularse y anualmente, y la pregunta que un auditor hace es «¿qué respondió en
+/// 2026?» — no «¿qué responde hoy?». Guardar la última pisando la anterior dejaría esa
+/// pregunta sin respuesta y convertiría un registro en un formulario.
+///
+/// `respuestas` es JSON porque el cuestionario de FOR-SIG-13 es del documento y no del
+/// esquema: cambiar una pregunta no puede exigir una migración, y una fila de 2026 tiene que
+/// seguir leyéndose con las preguntas de 2026 aunque el formulario de 2027 sea otro. Por eso
+/// viaja también `formularioVersion`.
+model AutoevaluacionPuesto {
+  id                 Int      @id @default(autoincrement())
+  personaId          Int      @map("persona_id")
+  /// Cuándo la respondió la persona.
+  respondidaEn       DateTime @default(now()) @map("respondida_en")
+  /// La versión del cuestionario con la que se respondió. Sin esto, las respuestas de un año
+  /// se leerían contra las preguntas de otro.
+  formularioVersion  String   @map("formulario_version")
+  /// `{ "<clave de pregunta>": "<respuesta>" }`, tal como el formulario las produjo.
+  respuestas         Json
+  /// Lo que la persona quiso agregar por fuera de las preguntas.
+  observaciones      String?
+
+  persona Persona @relation("AutoevaluacionDePersona", fields: [personaId], references: [id])
+
+  @@index([personaId])
+  @@map("autoevaluacion_puesto")
 }
 
 /// **P9 · dato personal de un tercero que nunca autorizó nada.** Es la madre, la pareja o el

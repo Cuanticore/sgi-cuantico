@@ -17,6 +17,23 @@ const nextConfig = {
   // mantenga cierto en la próxima edición.
   //
   // `X-Robots-Tag: noindex` acompaña: una URL con un token indexada es un token publicado.
+  // Mejora y Auditoría se mudaron de `/sig/*` a `/sgsi/*` el 15/09/2026, porque son parte
+  // del sistema de gestión y no de la operación diaria de tareas.
+  //
+  // LAS REDIRECCIONES NO SON OPCIONALES. Las URLs viejas están en actas, en correos de
+  // notificación ya enviados y en los favoritos de quien trabaja ahí todos los días. Un 404
+  // sobre `/sig/hallazgos` no le dice a nadie que la pantalla existe con otra dirección: le
+  // dice que la pantalla ya no está.
+  //
+  // `permanent: false` (307) y no 308: un permanente se queda cacheado en el navegador de
+  // cada persona y sobrevive a que alguna vez decidamos volver atrás.
+  redirects() {
+    return ['hallazgos', 'mejora', 'auditorias', 'tablero-auditoria', 'normas'].flatMap((r) => [
+      { source: `/sig/${r}`, destination: `/sgsi/${r}`, permanent: false },
+      { source: `/sig/${r}/:path*`, destination: `/sgsi/${r}/:path*`, permanent: false },
+    ]);
+  },
+
   headers() {
     return [
       {

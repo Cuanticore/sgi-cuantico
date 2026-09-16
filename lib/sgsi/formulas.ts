@@ -79,6 +79,16 @@ export function riesgoPotencial(impacto: Decimal.Value, aro: Decimal.Value): Dec
   return redondear(new Decimal(impacto).times(aro));
 }
 
+/// REQ-SIG-24 §4 · el techo del motor. NINGÚN CONTROL ELIMINA UN RIESGO.
+///
+/// Con eficacia 1.0 el residual sale exactamente 0 y el riesgo desaparece del registro,
+/// del tablero y del plan. La escala nueva no ofrece el 100 % en la interfaz, pero eso
+/// cubre una sola de las cuatro puertas: quedan un `UPDATE` por script, la agregación de
+/// REQ-SIG-21 (que compone medias y un techo propio), la excepción de madurez de
+/// `Riesgo.madurezId`, y el propio catálogo `EscalaMadurez`, que es editable. El invariante
+/// es del modelo, así que vive donde vive el modelo — acá, en el único camino aritmético.
+export const EFICACIA_MAXIMA = 0.95;
+
 /// Efficacy reduces how often the threat materialises, and nothing else.
 export function aroResidual(aro: Decimal.Value, eficacia: Decimal.Value): Decimal {
   return redondear(new Decimal(aro).times(new Decimal(1).minus(eficacia)));
@@ -101,6 +111,12 @@ export interface SalidaRiesgo {
   riesgoPotencial: Decimal;
   frecuenciaResidual: Decimal;
   riesgoResidual: Decimal;
+  /// REQ-SIG-24 §4 · true sólo cuando el techo EFECTIVAMENTE recortó la eficacia de
+  /// entrada. Acotar es recortar: una eficacia que ya venía en 0.95 no se marca. Es la
+  /// misma convención que `techoActua` de la agregación (REQ-SIG-21 §7), y existe para que
+  /// el paso 6 de la Ecuación pueda decir por qué el número que muestra no es el que se
+  /// le pasó.
+  eficaciaAcotada: boolean;
 }
 
 /// The single arithmetic path. Every figure in the application comes through here, so
@@ -108,12 +124,20 @@ export interface SalidaRiesgo {
 export function calcularRiesgo(entrada: EntradaRiesgo): SalidaRiesgo {
   const impacto = impactoAcumulado(entrada.valores, entrada.degradaciones);
   const potencial = riesgoPotencial(impacto, entrada.aro);
-  const frecuenciaResidual = aroResidual(entrada.aro, entrada.eficacia);
+
+  // El techo, antes de tocar la frecuencia: lo que se acota es la eficacia, no el
+  // resultado. Acotar el residual después daría el mismo número y dejaría la frecuencia
+  // residual mintiendo — y esa cifra también se muestra, en el paso 6.
+  const pedida = new Decimal(entrada.eficacia);
+  const acotada = Decimal.min(pedida, EFICACIA_MAXIMA);
+
+  const frecuenciaResidual = aroResidual(entrada.aro, acotada);
   return {
     impacto,
     riesgoPotencial: potencial,
     frecuenciaResidual,
     riesgoResidual: riesgoResidual(impacto, frecuenciaResidual),
+    eficaciaAcotada: pedida.gt(EFICACIA_MAXIMA),
   };
 }
 

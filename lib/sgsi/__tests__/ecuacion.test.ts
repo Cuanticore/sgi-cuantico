@@ -20,8 +20,8 @@ const ENTRADA_TEC_GEN_0004_A24: EntradaEcuacion = {
   degradaciones: { D: '1.00', I: '0', C: '0' },
   aro: 1,
   controles: [
-    { codigo: 'A.8.20', nivel: 3, peso: 1, esPrincipal: false, relevancia: null },
-    { codigo: 'A.8.6', nivel: 3, peso: 1, esPrincipal: false, relevancia: null },
+    { codigo: 'A.8.20', nivel: 90, peso: 1, esPrincipal: false, relevancia: null },
+    { codigo: 'A.8.6', nivel: 90, peso: 1, esPrincipal: false, relevancia: null },
   ],
 };
 
@@ -120,10 +120,10 @@ describe('resolverEcuacion — excepciones surgen en su propio paso, con justifi
   it('una excepción de madurez reemplaza la eficacia agregada por la del nivel elegido', () => {
     const entrada: EntradaEcuacion = {
       ...ENTRADA_TEC_GEN_0004_A24,
-      excepcionMadurez: { nivel: 2, justificacion: 'El principal quedó fuera de servicio esta semana' },
+      excepcionMadurez: { nivel: 50, justificacion: 'El principal quedó fuera de servicio esta semana' },
     };
     const r = resolverEcuacion(entrada);
-    expect(r.eficacia).toBeCloseTo(0.5, 10); // eficaciaDeNivel(2)
+    expect(r.eficacia).toBeCloseTo(0.5, 10); // eficaciaDeNivel(50)
     expect(r.excepcionMadurez.activa).toBe(true);
     expect(r.excepcionMadurez.justificacion).toContain('principal quedó fuera de servicio');
   });
@@ -158,16 +158,16 @@ describe('resolverEcuacion — paso 5 expandible, hoy siempre degrada sin releva
     const entrada: EntradaEcuacion = {
       ...ENTRADA_TEC_GEN_0004_A24,
       controles: [
-        { codigo: 'A.8.20', nivel: 2, peso: 3, esPrincipal: true, relevancia: 'Principal' },
-        { codigo: 'A.8.6', nivel: 4, peso: 1, esPrincipal: false, relevancia: 'De apoyo' },
+        { codigo: 'A.8.20', nivel: 50, peso: 3, esPrincipal: true, relevancia: 'Principal' },
+        { codigo: 'A.8.6', nivel: 90, peso: 1, esPrincipal: false, relevancia: 'De apoyo' },
       ],
     };
     const r = resolverEcuacion(entrada);
     expect(r.desgloseEficacia!.sinRelevanciaAsignada).toBe(false);
     expect(r.desgloseEficacia!.principal).not.toBeNull();
     expect(r.desgloseEficacia!.principal!.codigo).toBe('A.8.20');
-    // eficaciaDeNivel(2) = 0.5, techo = 0.5 + 0.05
-    expect(r.desgloseEficacia!.principal!.techo).toBeCloseTo(0.55, 10);
+    // eficaciaDeNivel(50) = 0.5, techo = 0.5 + δ, y δ pasó a ser un escalón (0.10).
+    expect(r.desgloseEficacia!.principal!.techo).toBeCloseTo(0.6, 10);
     // El techo efectivamente cubre la eficacia final, tal como exige MET-SIG-01 §7.4.
     expect(r.eficacia).toBeLessThanOrEqual(r.desgloseEficacia!.principal!.techo);
   });

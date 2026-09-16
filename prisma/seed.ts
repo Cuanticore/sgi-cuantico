@@ -11,6 +11,7 @@ import 'dotenv/config';
 
 import { seedEscalas } from './seeds/escalas';
 import { seedCriticidad } from './seeds/criticidad';
+import { seedCompromisos } from './seeds/compromisos';
 import { seedLicencias } from './seeds/licencias';
 import { seedMagerit } from './seeds/magerit';
 import { seedObligaciones } from './seeds/obligaciones';
@@ -46,6 +47,18 @@ async function main(): Promise<void> {
   console.log('Sembrando la criticidad de negocio (REQ-SIG-20 §11)…');
   const niveles = await seedCriticidad(prisma);
   console.log(`  ${niveles} niveles de criticidad.`);
+
+  // REQ-SIG-02 · los documentos que se firman. Va ANTES de las obligaciones porque una
+  // obligación puede apuntar a uno de ellos, y el contenido tiene que existir primero.
+  console.log('Sembrando los documentos que se firman (REQ-SIG-02)…');
+  const compromisos = await seedCompromisos(prisma);
+  console.log(
+    `  ${compromisos.creados} creados, ${compromisos.actualizados} actualizados` +
+      (compromisos.intactos > 0
+        ? `, ${compromisos.intactos} intactos porque ya tienen actas firmadas: su declaración ` +
+          'no se pisa desde el seed, se corrige desde Contenidos subiendo la versión.'
+        : '.'),
+  );
 
   // REQ-SIG-17 · va DESPUÉS de seedMagerit, que es quien siembra áreas y cargos: los
   // destinos de alcance de las 27 obligaciones se resuelven contra esos dos catálogos.

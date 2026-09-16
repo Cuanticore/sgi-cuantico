@@ -11,8 +11,13 @@
 // control a la mayoría de la organización — y esa cifra está a la vista para que la
 // decisión se pueda discutir con el dato delante.
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
+import { crearColaborador } from '@/app/sig/acciones/colaborador-alta';
+import AltaColaborador from './AltaColaborador';
+import PopupPersona, { type CatalogosDelPopup } from '@/app/sig/personas/PopupPersona';
+import type { PersonaFila } from '@/app/sig/personas/Personas.client';
 
 type Filtro = 'todos' | 'activos' | 'inactivos' | 'anomalia';
 
@@ -46,13 +51,44 @@ export default function ColaboradoresClient({
   anomalias,
   composicion,
   tiposDeContrato,
+  areas,
+  cargos,
+  administra,
+  ultimaSincronizacion,
+  censo,
+  catalogosDelPopup,
+  bloqueoDisponible,
 }: {
   filas: ColaboradorFila[];
   anomalias: AnomaliaFila[];
   composicion: { etiqueta: string; n: number }[];
   tiposDeContrato: { id: number; nombre: string }[];
+  areas: { id: number; nombre: string }[];
+  cargos: { id: number; nombre: string }[];
+  administra: boolean;
+  /// La última corrida del Directorio, como texto ya formateado por el servidor. `null`
+  /// cuando nunca corrió: decir «nunca» es un dato, y una fecha inventada no lo es.
+  ultimaSincronizacion: string | null;
+  /// Las MISMAS filas del censo. Esta pantalla lista colaboradores por su vinculación y el
+  /// censo los lista por su cuenta; el popup edita a la persona, que es una sola — así que
+  /// la fila rica viaja desde la misma lectura en vez de mapearse dos veces.
+  censo: PersonaFila[];
+  catalogosDelPopup: CatalogosDelPopup;
+  bloqueoDisponible: boolean;
 }) {
+  const router = useRouter();
+  const [pendiente, iniciar] = useTransition();
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [dandoDeAlta, setDandoDeAlta] = useState(false);
+  const [editando, setEditando] = useState<PersonaFila | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('activos');
+
+  const sincronizar = (): void =>
+    iniciar(async () => {
+      const r = await sincronizarDirectorio();
+      setAviso({ ok: r.ok, texto: r.mensaje });
+      if (r.ok) router.refresh();
+    });
 
   const conteos = useMemo(
     () => ({
@@ -86,6 +122,82 @@ export default function ColaboradoresClient({
               calcula de la fecha de retiro, así que el tipo de contrato sobrevive al retiro.
             </p>
           </div>
+          {/* Las acciones superiores. El Directorio manda sobre quién existe, así que
+              sincronizar es la primera: antes de dar de alta a alguien a mano conviene ver
+              si el Directorio ya lo trajo. */}
+          {administra && (
+            <div className="ml-auto flex flex-none flex-col items-end gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={pendiente}
+                  onClick={sincronizar}
+                  className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5 text-secondary transition-colors hover:bg-app disabled:opacity-40"
+                >
+                  {pendiente ? 'Sincronizando…' : 'Sincronizar con el Directorio'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDandoDeAlta(true)}
+                  className="rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white"
+                  style={{ background: 'var(--hf-brand-nav)' }}
+                >
+                  + Nuevo colaborador
+                </button>
+              </div>
+              <span className="font-mono text-9_5 text-label">
+                {ultimaSincronizacion === null
+                  ? 'el Directorio nunca se sincronizó'
+                  : `última sincronización · ${ultimaSincronizacion}`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {aviso && (
+          <p
+            className="mt-3 max-w-[100ch] text-12 [text-wrap:pretty]"
+            style={{ color: aviso.ok ? 'var(--hf-accent-700)' : 'var(--hf-danger-text)' }}
+          >
+            {aviso.texto}
+          </p>
+        )}
+
+        {editando !== null && (
+          <PopupPersona
+            persona={editando}
+            catalogos={catalogosDelPopup}
+            administra={administra}
+            bloqueoDisponible={bloqueoDisponible}
+            onCerrar={() => {
+              setEditando(null);
+              router.refresh();
+            }}
+            // La reasignación de pendientes vive en el censo, donde está su acción y su
+            // estado. Acá no se ofrece en vez de ofrecerla rota.
+            pieDeDatosBase={null}
+          />
+        )}
+
+        {dandoDeAlta && (
+          <AltaColaborador
+            tiposDeContrato={tiposDeContrato}
+            areas={areas}
+            cargos={cargos}
+            onCerrar={() => setDandoDeAlta(false)}
+            onCrear={async (datos) => {
+              const r = await crearColaborador(datos);
+              setAviso({ ok: r.ok, texto: r.mensaje });
+              if (r.ok) {
+                setDandoDeAlta(false);
+                router.refresh();
+              }
+              return r.ok;
+            }}
+          />
+        )}
+
+        <div className="mt-4 flex items-start gap-5">
           <nav className="ml-auto flex flex-none flex-wrap items-center gap-1.5">
             {(['todos', 'activos', 'inactivos', 'anomalia'] as const).map((f) => {
               const activo = filtro === f;
@@ -142,9 +254,21 @@ export default function ColaboradoresClient({
                   <td className="px-4 py-3">
                     {/* La ficha es el destino de la lista. Sin enlace la ruta existe y no se
                         alcanza, que es el defecto que ya aparecio dos veces en este repo. */}
-                    <Link href={`/sig/colaboradores/${f.id}`} className="font-medium text-primary hover:underline">
+                    {/* El nombre ABRE EL EDITOR y ya no lleva al expediente. Es la pantalla
+                        integradora: lo que se hace acá noventa veces de cada cien es
+                        corregir un contrato, un área o una pertenencia, y para eso había que
+                        irse a otra pantalla. El expediente sigue a un clic, desde el propio
+                        popup. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const persona = censo.find((c) => c.id === f.id) ?? null;
+                        setEditando(persona);
+                      }}
+                      className="text-left font-medium text-primary hover:underline"
+                    >
                       {f.nombre}
-                    </Link>
+                    </button>
                     <div className="font-mono text-10_5 text-muted">{f.correo}</div>
                   </td>
                   <td className="px-4 py-3">

@@ -39,7 +39,7 @@ export default function TableroInicio({ datos: d }: { datos: DatosInicio }) {
             { etiqueta: 'No aplicables con justificación', valor: d.noAplicables, filtro: 'noAplican' },
             {
               etiqueta: 'Gestionados en L3 o superior',
-              valor: `${d.enL3} · ${d.pctL3.toFixed(1)}%`,
+              valor: `${d.enGestionado} · ${d.pctGestionado.toFixed(1)}%`,
               filtro: 'gestionados',
             },
             { etiqueta: 'Cumplen su objetivo', valor: d.enObjetivo, filtro: 'objetivo' },
@@ -199,7 +199,7 @@ export function BrechaPorCapacidad({ datos: d }: { datos: DatosInicio }) {
               {c.corto}
             </span>
             <span className="text-right font-mono text-10_5 tabular-nums text-muted">
-              {c.enL3}/{c.controles}
+              {c.enGestionado}/{c.controles}
             </span>
             <span className="text-right font-mono text-10_5 tabular-nums text-muted">
               {nivelTexto(c.mediana)}

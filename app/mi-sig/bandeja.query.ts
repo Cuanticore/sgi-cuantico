@@ -11,7 +11,7 @@ export type EstadoBandeja = 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
 
 export interface TarjetaBandeja {
   id: number;
-  tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA';
+  tipo: 'CAPACITACION' | 'LECTURA' | 'VERIFICACION' | 'TAREA' | 'CURSO_VIRTUAL';
   /// Cualquier tipo puede exigir firma. Cuando la exige, el cierre pasa por los tres pasos
   /// de leer/aceptar/firmar en vez del panel normal.
   exigeFirma: boolean;
@@ -37,6 +37,10 @@ export interface TarjetaBandeja {
   /// nota desaparece. Dejar los dos caminos abiertos permitiría declararse aprobado en el
   /// curso que no se abrió, y anularía la razón de ser del player.
   tienePaqueteScorm: boolean;
+  /// REQ-SIG-24 · si esta asignación ya tiene un intento del curso empezado. Es lo único
+  /// que separa «Iniciar» de «Reanudar», y se pregunta acá —no en el cliente— porque la
+  /// bandeja ya trae todo lo que la tarjeta necesita decir.
+  cursoIniciado: boolean;
   documentoVersion: string | null;
   documentoUrl: string | null;
   documentoNombre: string | null;
@@ -89,6 +93,9 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
         },
       },
       cerradaPorPersona: { select: { nombre: true } },
+      // `take: 1` porque la pregunta es binaria: si hay AL MENOS un intento empezado. No
+      // interesa cuál ni cuántos — eso lo cuenta el historial.
+      intentosScorm: { where: { estado: 'EN_CURSO' }, select: { id: true }, take: 1 },
     },
   });
 
@@ -123,6 +130,7 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       declaracion: contenido?.declaracion ?? null,
       notaMinima: contenido?.notaMinima ? Number(contenido.notaMinima) : null,
       tienePaqueteScorm: (contenido?.paquetes.length ?? 0) > 0,
+      cursoIniciado: f.intentosScorm.length > 0,
       documentoVersion: contenido?.documentoVersion ?? null,
       documentoUrl: contenido?.documentoUrl ?? null,
       documentoNombre: contenido?.documentoNombre ?? null,

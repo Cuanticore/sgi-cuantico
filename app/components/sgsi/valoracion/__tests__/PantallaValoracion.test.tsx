@@ -7,7 +7,7 @@
 // módulos puros de `lib/sgsi/`, que es donde vive la decisión. Acá se comprueba solo lo que
 // depende de que el texto esté escrito y visible.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import PantallaValoracion from '../PantallaValoracion';
 import type { ActivoAgregable, DimensionActiva, NivelEscala } from '@/lib/sgsi/valoracion-agregada';
 
@@ -31,8 +31,10 @@ function activo(
   valores: Record<string, number | null>,
   propietario: string | null = 'CEO',
   persona: ActivoAgregable['persona'] = null,
+  tipo = '[D] Datos / Información',
+  subtipo = '[int] Datos de gestión interna',
 ): ActivoAgregable {
-  return { codigo, propietario, persona, valores };
+  return { codigo, propietario, persona, valores, tipo, subtipo };
 }
 
 const CON_EMPATE: ActivoAgregable[] = [
@@ -112,8 +114,13 @@ describe('la Tabla A siempre muestra la fila «Sin propietario» (§6.1)', () =>
   });
 });
 
-describe('el caso vacío de la Tabla B, que es el estado del primer día (§6.6)', () => {
-  it('muestra la línea de encuadre con el 0 de N y el enlace, y no dibuja la matriz', () => {
+describe('la Tabla B agrupa por tipo y subtipo (§6.6, reemplaza al custodio persona)', () => {
+  // La tabla anterior agrupaba por custodio PERSONA y no se dibujaba nunca: esa pareja esta
+  // en cero, asi que la pantalla dedicaba una seccion entera a explicar por que no habia
+  // tabla. El tipo y el subtipo son obligatorios en el modelo, asi que esta SIEMPRE tiene
+  // algo que decir.
+
+  it('siempre se dibuja, aunque ningun activo tenga custodio persona', () => {
     render(
       <PantallaValoracion
         activos={CON_EMPATE}
@@ -123,45 +130,49 @@ describe('el caso vacío de la Tabla B, que es el estado del primer día (§6.6)
         conPersona={0}
       />,
     );
-    expect(screen.getByText(/activos están entregados a una persona/i)).toBeInTheDocument();
-    expect(screen.getByText(/no tienen custodio persona asignado/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ver en el inventario/i })).toHaveAttribute(
-      'href',
-      '/sgsi/inventario?persona=__sin__',
-    );
-    // La explicación de POR QUÉ está vacía: sin ella, 24 columnas vacías parecen una pantalla
-    // rota. Y la causa es la asignación que no se hizo, no que falten personas.
-    expect(screen.getByText(/no se carga desde ningún libro/i)).toBeInTheDocument();
+    expect(screen.getByText('Subtipo (y su tipo)')).toBeInTheDocument();
+    // Y ya no queda rastro de la seccion que explicaba por que no habia tabla.
+    expect(screen.queryByText(/no se carga desde ningún libro/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Custodio (persona)')).not.toBeInTheDocument();
   });
 
-  it('con una persona asignada sí la dibuja, con los cuatro grupos', () => {
-    const conPersona = [
-      ...CON_EMPATE,
-      activo('P-1', { D: 1, I: 1, C: 4 }, 'CEO', {
-        nombre: 'Juan Felipe Ruiz',
-        correo: 'jruiz@cuantico.co',
-        activa: true,
-      }),
-    ];
+  it('el subtipo encabeza la fila y el tipo va debajo, no concatenados', () => {
+    // El tipo se repite en todos los subtipos que cuelgan de el; ponerlo en la etiqueta
+    // principal empujaria fuera de vista al subtipo, que es lo que distingue una fila de otra.
     render(
       <PantallaValoracion
-        activos={conPersona}
+        activos={[
+          activo('A-1', { D: 4, I: 4, C: 1 }, 'CEO', null, '[D] Datos', '[int] Gestión interna'),
+          activo('A-2', { D: 1, I: 1, C: 5 }, 'CEO', null, '[D] Datos', '[per] Datos personales'),
+          activo('A-3', { D: 2, I: 2, C: 2 }, 'CEO', null, '[HW] Equipos', '[pc] Informática personal'),
+        ]}
         dimensiones={DIMENSIONES}
         escala={ESCALA}
         umbral={4}
-        conPersona={1}
+        conPersona={0}
       />,
     );
-    expect(screen.getByText('Custodio (persona)')).toBeInTheDocument();
-    expect(screen.getByText('Juan Felipe Ruiz')).toBeInTheDocument();
-    expect(screen.getByText('jruiz@cuantico.co')).toBeInTheDocument();
-    // «Valor final» es el nombre del máximo en la Tabla B (D-9): encabeza el cuarto grupo, y la
-    // línea de arriba dice que es lo mismo que «Valor del activo (máx D·I·C)».
-    expect(screen.getAllByText('Valor final').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/es el máximo de las dimensiones/i)).toBeInTheDocument();
+    expect(screen.getByText('[int] Gestión interna')).toBeInTheDocument();
+    expect(screen.getByText('[per] Datos personales')).toBeInTheDocument();
+    expect(screen.getByText('[pc] Informática personal')).toBeInTheDocument();
+    // Dos subtipos comparten tipo: el tipo aparece una vez por FILA, no fundido con el nombre.
+    expect(screen.getAllByText('[D] Datos').length).toBe(2);
+  });
+
+  it('todos los activos caen en alguna fila: no hay «sin clasificar»', () => {
+    render(
+      <PantallaValoracion
+        activos={CON_EMPATE}
+        dimensiones={DIMENSIONES}
+        escala={ESCALA}
+        umbral={4}
+        conPersona={0}
+      />,
+    );
+    expect(screen.getByText(/no hay «sin clasificar» que explicar/i)).toBeInTheDocument();
   });
 });
+
 
 describe('el inventario vacío no dibuja cuatro barras de ancho cero (§9)', () => {
   it('deja una línea y un enlace', () => {
@@ -220,5 +231,45 @@ describe('una cuarta dimensión activa da una quinta pila y una quinta fila (§9
     );
     expect(screen.getAllByText('Autenticidad').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/alcanzan el umbral de 4/i)).toBeInTheDocument();
+  });
+});
+
+describe('la grafica de cada tabla', () => {
+  // PLEGADA POR OMISION, y no es indecision: la tabla es el dato exacto y quien entra viene
+  // casi siempre a buscar un numero. Abrirla por omision empujaria la tabla media pantalla
+  // hacia abajo para responder una pregunta que nadie hizo todavia.
+  it('nace plegada: la tabla no se corre para abajo', () => {
+    render(
+      <PantallaValoracion
+        activos={CON_EMPATE}
+        dimensiones={DIMENSIONES}
+        escala={ESCALA}
+        umbral={4}
+        conPersona={0}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Ver la gráfica por propietario/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByText(/escala absoluta/i)).not.toBeInTheDocument();
+  });
+
+  it('se abre y trae sus filtros', () => {
+    render(
+      <PantallaValoracion
+        activos={CON_EMPATE}
+        dimensiones={DIMENSIONES}
+        escala={ESCALA}
+        umbral={4}
+        conPersona={0}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Ver la gráfica por propietario/i }));
+    // El filtro por criterio y el del umbral son los dos que la hacen util.
+    expect(screen.getAllByText('CRITERIO').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText(/Sólo los que alcanzan 4/i)).toBeInTheDocument();
+    // Y dice que la escala es absoluta: el largo significa cuantos activos, no un porcentaje.
+    expect(screen.getAllByText(/escala absoluta/i).length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -317,7 +317,7 @@ export default function EventoClient({
                       <span className="text-12 leading-snug text-primary [text-wrap:pretty]">
                         {h.descripcion}
                       </span>
-                      <a href={`/sig/hallazgos/${h.codigo}`} className="font-mono text-9_5 text-accent hover:underline">
+                      <a href={`/sgsi/hallazgos/${h.codigo}`} className="font-mono text-9_5 text-accent hover:underline">
                         {h.codigo} · origen «incidente» · en Mejora
                       </a>
                     </span>

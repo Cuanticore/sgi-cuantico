@@ -58,10 +58,12 @@ const COMPLEMENTARIO = (nivel: number | null): ControlAgregable => ({
   esPrincipal: false,
 });
 
-/// La amenaza de §4: un principal de nivel variable, dos secundarios en L4 (media 95 %) y
-/// un complementario en L3 (90 %).
+/// La amenaza de §4: un principal de nivel variable, dos secundarios en 90 % y un
+/// complementario en 90 %. En la escala CMM eran L4 (95 %) y L3 (90 %); esos dos escalones
+/// colapsan en 90 % (REQ-SIG-24 §5), que es el mismo colapso que la traducción aplica a los
+/// 75 controles declarados hoy en L3 y L4.
 function amenazaDeLaTabla(nivelPrincipal: number | null): ControlAgregable[] {
-  return [PRINCIPAL(nivelPrincipal), SECUNDARIO(4), SECUNDARIO(4), COMPLEMENTARIO(3)];
+  return [PRINCIPAL(nivelPrincipal), SECUNDARIO(90), SECUNDARIO(90), COMPLEMENTARIO(90)];
 }
 
 /// El residual sobre el inherente 32 de §3.1, por la MISMA `calcularRiesgo` que escribe
@@ -81,20 +83,30 @@ function residualSobreInherente32(eficacia: number): { residual: number; banda: 
 }
 
 describe('REQ-SIG-21 §4 · la tabla, con techo y sin techo', () => {
-  // | Principal | sin techo            | con techo             |
-  // | L4        | 94.5 % -> 1.76 Medio | 94.5 % -> 1.76 Medio  |
-  // | L2        | 63.0 % -> 11.84 Alto | 55.0 % -> 14.40 Alto  |
-  // | L1        | 35.0 % -> 20.80 Alto | 15.0 % -> 27.20 Crítico
-  // | L0        | 28.0 % -> 23.04 Alto |  5.0 % -> 30.40 Crítico
+  // La tabla de §4, recalculada en la escala de REQ-SIG-24 y con δ = un escalón.
+  //
+  // | Principal | sin techo             | con techo              |
+  // | 90 %      | 90.0 % ->  3.20 Medio | 90.0 % ->  3.20 Medio  |
+  // | 70 %      | 76.0 % ->  7.68 Alto  | 76.0 % ->  7.68 Alto   |
+  // | 50 %      | 62.0 % -> 12.16 Alto  | 60.0 % -> 12.80 Alto   |
+  // | 10 %      | 34.0 % -> 21.12 Alto  | 20.0 % -> 25.60 Crítico|
+  // |  0 %      | 27.0 % -> 23.36 Alto  | 10.0 % -> 28.80 Crítico|
+  //
+  // EL RENGLÓN DE 70 % ES NUEVO Y ES EL QUE IMPORTA. En la escala vieja no existía: entre
+  // L2 (50 %) y L3 (90 %) no había dónde poner un control «definido pero sin prueba», y ese
+  // control tenía que declararse en L3, donde el residual cae a Medio y desaparece del
+  // tablero. Con el escalón de 70 % el mismo control honesto deja el residual en 7.68,
+  // banda **Alto**. Es, en una fila, la razón entera de REQ-SIG-24.
   const tabla = [
-    { nivel: 4, bruta: 0.945, resBruta: 1.76, bandaBruta: 'Medio', e: 0.945, res: 1.76, banda: 'Medio' },
-    { nivel: 2, bruta: 0.63, resBruta: 11.84, bandaBruta: 'Alto', e: 0.55, res: 14.4, banda: 'Alto' },
-    { nivel: 1, bruta: 0.35, resBruta: 20.8, bandaBruta: 'Alto', e: 0.15, res: 27.2, banda: 'Crítico' },
-    { nivel: 0, bruta: 0.28, resBruta: 23.04, bandaBruta: 'Alto', e: 0.05, res: 30.4, banda: 'Crítico' },
+    { nivel: 90, bruta: 0.9, resBruta: 3.2, bandaBruta: 'Medio', e: 0.9, res: 3.2, banda: 'Medio' },
+    { nivel: 70, bruta: 0.76, resBruta: 7.68, bandaBruta: 'Alto', e: 0.76, res: 7.68, banda: 'Alto' },
+    { nivel: 50, bruta: 0.62, resBruta: 12.16, bandaBruta: 'Alto', e: 0.6, res: 12.8, banda: 'Alto' },
+    { nivel: 10, bruta: 0.34, resBruta: 21.12, bandaBruta: 'Alto', e: 0.2, res: 25.6, banda: 'Crítico' },
+    { nivel: 0, bruta: 0.27, resBruta: 23.36, bandaBruta: 'Alto', e: 0.1, res: 28.8, banda: 'Crítico' },
   ];
 
   it.each(tabla)(
-    'con el principal en L$nivel: bruta $bruta, eficacia $e, residual $res ($banda)',
+    'con el principal en $nivel %: bruta $bruta, eficacia $e, residual $res ($banda)',
     ({ nivel, bruta, resBruta, bandaBruta, e, res, banda }) => {
       const d = desglosarEficaciaAmenaza(amenazaDeLaTabla(nivel));
 
@@ -116,54 +128,54 @@ describe('REQ-SIG-21 §4 · la tabla, con techo y sin techo', () => {
     // Criterio de aceptación 3 · prueba de sensibilidad. Bajar el principal un nivel mueve
     // el residual, y de L2 para abajo lo hace saltar de banda. Con la media plana de hoy
     // los cuatro escenarios caen todos en Medio/Alto y la caída a L0 casi no se nota.
-    const bandas = [4, 3, 2, 1, 0].map(
+    const bandas = [90, 70, 50, 10, 0].map(
       (n) => residualSobreInherente32(eficaciaAmenaza(amenazaDeLaTabla(n)) as number).banda,
     );
-    expect(bandas).toEqual(['Medio', 'Medio', 'Alto', 'Crítico', 'Crítico']);
+    expect(bandas).toEqual(['Medio', 'Alto', 'Alto', 'Crítico', 'Crítico']);
   });
 });
 
 describe('REQ-SIG-21 §4 · el techo no es opcional', () => {
   it('sin techo, 70/20/10 mete un PISO INCONDICIONAL del 30 %', () => {
-    // Esta es la razón escrita de por qué el techo se queda. Con el principal en L0 —el
+    // Esta es la razón escrita de por qué el techo se queda. Con el principal en 0 % —el
     // control NO EXISTE— las otras dos clases aportan su presupuesto pase lo que pase: la
-    // bruta lee 28 % y el residual baja de 32 a 23.04, «Alto». Eso reintroduce por otra
+    // bruta lee 27 % y el residual baja de 32 a 23.36, «Alto». Eso reintroduce por otra
     // puerta el mismo enmascaramiento que la media simple producía.
     const d = desglosarEficaciaAmenaza(amenazaDeLaTabla(0));
-    expect(d.bruta).toBeCloseTo(0.28, 10);
+    expect(d.bruta).toBeCloseTo(0.27, 10);
     expect(d.bruta).toBeGreaterThan(0.2);
 
     // El piso llega a 0.30 exacto cuando secundarios y complementarios están perfectos.
-    const perfectos = desglosarEficaciaAmenaza([PRINCIPAL(0), SECUNDARIO(5), COMPLEMENTARIO(5)]);
+    const perfectos = desglosarEficaciaAmenaza([PRINCIPAL(0), SECUNDARIO(100), COMPLEMENTARIO(100)]);
     expect(perfectos.bruta).toBeCloseTo(0.3, 10);
 
-    // Con el techo, el mismo caso da 5 % y el residual vuelve a rozar el inherente: 30.40
-    // sobre 32, «Crítico». Que es la verdad.
-    expect(d.eficacia).toBeCloseTo(0.05, 10);
+    // Con el techo, el mismo caso da 10 % (0 + δ) y el residual vuelve a rozar el inherente:
+    // 28.80 sobre 32, «Crítico». Que es la verdad.
+    expect(d.eficacia).toBeCloseTo(0.1, 10);
     expect(d.techoActua).toBe(true);
     expect(residualSobreInherente32(d.eficacia as number).banda).toBe('Crítico');
   });
 
   it('el techo solo actúa cuando el principal está débil', () => {
-    const fuerte = desglosarEficaciaAmenaza(amenazaDeLaTabla(4));
+    const fuerte = desglosarEficaciaAmenaza(amenazaDeLaTabla(90));
     expect(fuerte.techoActua).toBe(false);
     expect(fuerte.eficacia).toBe(fuerte.bruta);
 
-    const debil = desglosarEficaciaAmenaza(amenazaDeLaTabla(2));
+    const debil = desglosarEficaciaAmenaza(amenazaDeLaTabla(50));
     expect(debil.techoActua).toBe(true);
     expect(debil.eficacia).toBeLessThan(debil.bruta as number);
   });
 
   it('δ sale del parámetro, no de una constante del código', () => {
-    // `delta_techo_eficacia` vale 0.05 y se queda ahí (§5, D-2), pero la función lo recibe:
-    // ponerlo en 0 es «que mande solo el principal», y entre 0 y 0.05 no cambia ninguna
-    // banda en los cuatro escenarios de la tabla.
-    expect(eficaciaAmenaza(amenazaDeLaTabla(2), 0)).toBeCloseTo(0.5, 10);
-    expect(eficaciaAmenaza(amenazaDeLaTabla(2), 0.05)).toBeCloseTo(0.55, 10);
-    expect(eficaciaAmenaza(amenazaDeLaTabla(2), 0.1)).toBeCloseTo(0.6, 10);
+    // δ pasó a 0.10 —un escalón de la escala nueva (REQ-SIG-24)— pero la función lo sigue
+    // recibiendo: ponerlo en 0 es «que mande solo el principal», y entre 0 y 0.05 no cambia
+    // ninguna banda en los cuatro escenarios de la tabla.
+    expect(eficaciaAmenaza(amenazaDeLaTabla(50), 0)).toBeCloseTo(0.5, 10);
+    expect(eficaciaAmenaza(amenazaDeLaTabla(50), 0.05)).toBeCloseTo(0.55, 10);
+    expect(eficaciaAmenaza(amenazaDeLaTabla(50), 0.1)).toBeCloseTo(0.6, 10);
 
     const bandas = [0, 0.05].map((delta) =>
-      [4, 2, 1, 0].map(
+      [90, 50, 10, 0].map(
         (n) => residualSobreInherente32(eficaciaAmenaza(amenazaDeLaTabla(n), delta) as number).banda,
       ),
     );
@@ -177,16 +189,16 @@ describe('REQ-SIG-21 §4 · el presupuesto por clase, y su renormalización', ()
   });
 
   it('la clase sale del catálogo: esPrincipal manda, y entre las otras dos manda el peso', () => {
-    expect(claseDeControl(PRINCIPAL(3))).toBe('principal');
-    expect(claseDeControl(SECUNDARIO(3))).toBe('secundario');
-    expect(claseDeControl(COMPLEMENTARIO(3))).toBe('complementario');
+    expect(claseDeControl(PRINCIPAL(90))).toBe('principal');
+    expect(claseDeControl(SECUNDARIO(90))).toBe('secundario');
+    expect(claseDeControl(COMPLEMENTARIO(90))).toBe('complementario');
   });
 
   it('sin complementarios, los pesos se renormalizan a 77.8 / 22.2', () => {
     // Criterio de aceptación 4: una clase vacía NO reparte su presupuesto entre las otras
     // como bonificación extra, pero tampoco deja un 10 % perdido. Repartir el huérfano
     // premiaría no clasificar.
-    const d = desglosarEficaciaAmenaza([PRINCIPAL(2), SECUNDARIO(4), SECUNDARIO(4)]);
+    const d = desglosarEficaciaAmenaza([PRINCIPAL(50), SECUNDARIO(90), SECUNDARIO(90)]);
     const principal = d.clases.find((c) => c.clase === 'principal');
     const secundario = d.clases.find((c) => c.clase === 'secundario');
 
@@ -197,22 +209,24 @@ describe('REQ-SIG-21 §4 · el presupuesto por clase, y su renormalización', ()
     expect(secundario?.presupuesto).toBeCloseTo(0.2222, 4);
     expect(principal!.presupuesto + secundario!.presupuesto).toBeCloseTo(1, 10);
 
-    // 0.7778 × 0.5 + 0.2222 × 0.95 = 0.6000, recortado por el techo a 0.55.
-    expect(d.bruta).toBeCloseTo(0.6, 4);
-    expect(d.eficacia).toBeCloseTo(0.55, 10);
+    // 0.7778 × 0.5 + 0.2222 × 0.9 = 0.5889. El techo (0.5 + δ = 0.6) NO recorta: con δ de un
+    // escalón, quien baja el resultado es el presupuesto del principal, no el recorte.
+    expect(d.bruta).toBeCloseTo(0.5889, 4);
+    expect(d.eficacia).toBeCloseTo(0.5889, 4);
+    expect(d.techoActua).toBe(false);
   });
 
   it('cada clase informa su media y su aporte, que es presupuesto × media', () => {
-    const d = desglosarEficaciaAmenaza(amenazaDeLaTabla(4));
+    const d = desglosarEficaciaAmenaza(amenazaDeLaTabla(90));
     expect(d.clases.map((c) => c.clase)).toEqual(['principal', 'secundario', 'complementario']);
 
     const [p, s, c] = d.clases;
     expect(p.controles).toBe(1);
-    expect(p.media).toBeCloseTo(0.95, 10);
-    expect(p.aporte).toBeCloseTo(0.665, 10);
+    expect(p.media).toBeCloseTo(0.9, 10);
+    expect(p.aporte).toBeCloseTo(0.63, 10);
     expect(s.controles).toBe(2);
-    expect(s.media).toBeCloseTo(0.95, 10);
-    expect(s.aporte).toBeCloseTo(0.19, 10);
+    expect(s.media).toBeCloseTo(0.9, 10);
+    expect(s.aporte).toBeCloseTo(0.18, 10);
     expect(c.controles).toBe(1);
     expect(c.media).toBeCloseTo(0.9, 10);
     expect(c.aporte).toBeCloseTo(0.09, 10);
@@ -224,11 +238,11 @@ describe('REQ-SIG-21 §4 · el presupuesto por clase, y su renormalización', ()
     // tuviera la amenaza, menos pesaba el principal — así que la amenaza mejor mapeada era
     // la más difícil de marcar como descontrolada. Con presupuesto fijo, el principal
     // aporta el 70 % tenga tres controles o nueve.
-    const conTres = desglosarEficaciaAmenaza([PRINCIPAL(0), SECUNDARIO(4), COMPLEMENTARIO(4)]);
+    const conTres = desglosarEficaciaAmenaza([PRINCIPAL(0), SECUNDARIO(90), COMPLEMENTARIO(90)]);
     const conNueve = desglosarEficaciaAmenaza([
       PRINCIPAL(0),
-      ...Array.from({ length: 4 }, () => SECUNDARIO(4)),
-      ...Array.from({ length: 4 }, () => COMPLEMENTARIO(4)),
+      ...Array.from({ length: 4 }, () => SECUNDARIO(90)),
+      ...Array.from({ length: 4 }, () => COMPLEMENTARIO(90)),
     ]);
     expect(conNueve.bruta).toBeCloseTo(conTres.bruta as number, 10);
     expect(conNueve.clases.find((c) => c.clase === 'principal')?.presupuesto).toBeCloseTo(0.7, 10);
@@ -237,7 +251,7 @@ describe('REQ-SIG-21 §4 · el presupuesto por clase, y su renormalización', ()
 
 describe('REQ-SIG-21 §4 y §8 · exactamente un principal, y evaluado', () => {
   it('dos principales es un error de datos: la eficacia queda desconocida, no promediada', () => {
-    const d = desglosarEficaciaAmenaza([PRINCIPAL(2), PRINCIPAL(4), SECUNDARIO(4)]);
+    const d = desglosarEficaciaAmenaza([PRINCIPAL(50), PRINCIPAL(90), SECUNDARIO(90)]);
     expect(d.eficacia).toBeNull();
     expect(d.error).toContain('más de un control Principal');
     // No se elige uno por orden de consulta: el techo quedaría definido por el azar del
@@ -248,7 +262,7 @@ describe('REQ-SIG-21 §4 y §8 · exactamente un principal, y evaluado', () => {
   it('un principal sin nivel no aplasta la amenaza con un 5 % silencioso', () => {
     // La trampa latente de §8: excluirlo del promedio lo degradaría a v2 en silencio, y
     // dejarlo dentro pondría el techo en 0 + δ. Ninguna de las dos es honesta.
-    const d = desglosarEficaciaAmenaza([PRINCIPAL(null), SECUNDARIO(4), COMPLEMENTARIO(4)]);
+    const d = desglosarEficaciaAmenaza([PRINCIPAL(null), SECUNDARIO(90), COMPLEMENTARIO(90)]);
     expect(d.eficacia).toBeNull();
     expect(d.error).toContain('no tiene nivel de madurez declarado');
   });
@@ -295,8 +309,8 @@ describe('REQ-SIG-21 §8 · «sin evaluar» no es L0', () => {
     // promedio como si fueran L0. No están evaluados: no es lo mismo «no existe» que «no
     // lo miramos». `metricasMadurez` ya los excluía; acá se hace lo mismo.
     const d = desglosarEficaciaAmenaza([
-      COMPLEMENTARIO(3),
-      COMPLEMENTARIO(3),
+      COMPLEMENTARIO(90),
+      COMPLEMENTARIO(90),
       COMPLEMENTARIO(null),
     ]);
     expect(d.evaluados).toBe(2);
@@ -323,7 +337,7 @@ describe('REQ-SIG-21 §8 · «sin evaluar» no es L0', () => {
   });
 
   it('también con principal designado: si sólo el principal está evaluado, manda él solo', () => {
-    const d = desglosarEficaciaAmenaza([PRINCIPAL(3), SECUNDARIO(null), COMPLEMENTARIO(null)]);
+    const d = desglosarEficaciaAmenaza([PRINCIPAL(90), SECUNDARIO(null), COMPLEMENTARIO(null)]);
     expect(d.clases).toHaveLength(1);
     expect(d.clases[0].presupuesto).toBeCloseTo(1, 10);
     expect(d.bruta).toBeCloseTo(0.9, 10);
@@ -338,21 +352,21 @@ describe('REQ-SIG-21 · el cambio es INERTE mientras no haya relevancias', () =>
     niveles.map((nivel) => ({ nivel, peso: 1, esPrincipal: false }));
 
   it('sin principal designado se calcula con la media simple, MET-SIG-01 v2', () => {
-    const d = desglosarEficaciaAmenaza(sinRelevancia([3, 3, 2, 4, 3, 3]));
+    const d = desglosarEficaciaAmenaza(sinRelevancia([90, 90, 50, 90, 90, 90]));
     expect(d.regla).toBe('media-simple');
     expect(d.clases).toEqual([]);
     expect(d.techo).toBeNull();
     expect(d.techoActua).toBe(false);
-    // Exactamente el AVERAGE del libro: (0.9+0.9+0.5+0.95+0.9+0.9) / 6.
-    expect(d.eficacia).toBeCloseTo(5.05 / 6, 10);
+    // Exactamente el AVERAGE del libro: (0.9+0.9+0.5+0.9+0.9+0.9) / 6.
+    expect(d.eficacia).toBeCloseTo(5.0 / 6, 10);
   });
 
   it('el presupuesto 70/20/10 NO se aplica sin principal, aunque haya pesos distintos', () => {
     // Media clasificación es peor que ninguna (§6): una amenaza sin su principal designado
     // no sube a v3, se queda en la media ponderada por peso y la pantalla lo dice.
-    const d = desglosarEficaciaAmenaza([SECUNDARIO(4), COMPLEMENTARIO(2)]);
+    const d = desglosarEficaciaAmenaza([SECUNDARIO(90), COMPLEMENTARIO(50)]);
     expect(d.regla).toBe('media-simple');
-    // (2×0.95 + 1×0.5) / 3, no 0.20/0.10 renormalizados.
-    expect(d.eficacia).toBeCloseTo((2 * 0.95 + 0.5) / 3, 10);
+    // (2×0.9 + 1×0.5) / 3, no 0.20/0.10 renormalizados.
+    expect(d.eficacia).toBeCloseTo((2 * 0.9 + 0.5) / 3, 10);
   });
 });

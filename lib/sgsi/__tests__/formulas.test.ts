@@ -1,6 +1,7 @@
 // lib/sgsi/__tests__/formulas.test.ts
 
 import {
+  EFICACIA_MAXIMA,
   calcularRiesgo,
   entraAlAnalisis,
   impactoAcumulado,
@@ -126,35 +127,38 @@ describe('zonas de riesgo, MAGERIT Libro I cap. 3', () => {
 
 describe('eficacia agregada de una amenaza, MET-SIG-01 §7.4', () => {
   it('el techo impide que los secundarios sustituyan al principal', () => {
-    // Principal en L2 (50 %), tres acompañantes en L3 (90 %). La media ponderada
-    // daría 0.7, pero el techo es 0.50 + 0.05.
+    // Principal en 50 %, tres acompañantes en 90 %. La media por presupuesto daría 0.62,
+    // pero el techo es 0.50 + δ, y δ es un escalón de la escala nueva.
     const controles = [
-      { nivel: 2, peso: 3, esPrincipal: true },
-      { nivel: 3, peso: 2, esPrincipal: false },
-      { nivel: 3, peso: 2, esPrincipal: false },
-      { nivel: 3, peso: 1, esPrincipal: false },
+      { nivel: 50, peso: 3, esPrincipal: true },
+      { nivel: 90, peso: 2, esPrincipal: false },
+      { nivel: 90, peso: 2, esPrincipal: false },
+      { nivel: 90, peso: 1, esPrincipal: false },
     ];
-    expect(eficaciaAmenaza(controles)).toBeCloseTo(0.55, 10);
+    expect(eficaciaAmenaza(controles)).toBeCloseTo(0.6, 10);
   });
 
   it('el techo no interviene cuando el principal está fuerte', () => {
     const controles = [
-      { nivel: 5, peso: 3, esPrincipal: true },
-      { nivel: 2, peso: 1, esPrincipal: false },
+      { nivel: 100, peso: 3, esPrincipal: true },
+      { nivel: 50, peso: 1, esPrincipal: false },
     ];
     // REQ-SIG-21 §4: sin secundarios, el presupuesto se renormaliza sobre las clases
     // PRESENTES — 70/10 pasa a 87.5/12.5, no queda un 20 % huérfano. Bruta =
-    // 0.875×1 + 0.125×0.5 = 0.9375, techo = 1 + 0.05. Gana la bruta.
+    // 0.875×1 + 0.125×0.5 = 0.9375, techo = 1 + δ. Gana la bruta.
+    //
+    // Nótese que esta es la eficacia AGREGADA, antes del techo del motor: `calcularRiesgo`
+    // la acotará en 0.95 (REQ-SIG-24 §4) si alguna vez supera ese valor.
     expect(eficaciaAmenaza(controles)).toBeCloseTo(0.9375, 10);
   });
 
   it('descarta la composición probabilística', () => {
-    // Cuatro controles en L3 darían 99,995 % con 1 − ∏(1 − eᵢ). La regla acotada no.
+    // Cuatro controles en 90 % darían 99,99 % con 1 − ∏(1 − eᵢ). La regla acotada no.
     const controles = [
-      { nivel: 3, peso: 3, esPrincipal: true },
-      { nivel: 3, peso: 2, esPrincipal: false },
-      { nivel: 3, peso: 2, esPrincipal: false },
-      { nivel: 3, peso: 1, esPrincipal: false },
+      { nivel: 90, peso: 3, esPrincipal: true },
+      { nivel: 90, peso: 2, esPrincipal: false },
+      { nivel: 90, peso: 2, esPrincipal: false },
+      { nivel: 90, peso: 1, esPrincipal: false },
     ];
     expect(eficaciaAmenaza(controles)).toBeLessThan(0.96);
   });
@@ -166,10 +170,74 @@ describe('eficacia agregada de una amenaza, MET-SIG-01 §7.4', () => {
   });
 });
 
+describe('REQ-SIG-24 §4 · el techo del motor: ningún control elimina un riesgo', () => {
+  // La eficacia 1.0 daría residual exactamente 0 — el riesgo desaparecería del registro.
+  // El techo vive acá y no en el selector porque hay tres puertas que la interfaz no
+  // cubre: un UPDATE por script, la agregación de REQ-SIG-21 y la excepción de madurez
+  // de `Riesgo.madurezId`.
+  const ENTRADA = {
+    valores: { D: 5, I: 5, C: 5 },
+    degradaciones: { D: 1, I: 0, C: 0 },
+    aro: 10,
+  };
+
+  it('el máximo es 0.95, expuesto como constante', () => {
+    expect(EFICACIA_MAXIMA).toBe(0.95);
+  });
+
+  it('con eficacia 1 el residual es el 5 % del inherente, no cero', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 1 });
+    expect(r.riesgoPotencial.toNumber()).toBe(50);
+    expect(r.riesgoResidual.toNumber()).toBe(2.5);
+    expect(r.eficaciaAcotada).toBe(true);
+  });
+
+  it('por debajo del techo no interviene y no se marca', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 0.9 });
+    expect(r.riesgoResidual.toNumber()).toBe(5);
+    expect(r.eficaciaAcotada).toBe(false);
+  });
+
+  it('justo en el techo tampoco se marca: acotar es recortar, no tocar', () => {
+    const r = calcularRiesgo({ ...ENTRADA, eficacia: 0.95 });
+    expect(r.riesgoResidual.toNumber()).toBe(2.5);
+    expect(r.eficaciaAcotada).toBe(false);
+  });
+
+  it('el residual nunca baja del 5 % del inherente, con cualquier eficacia', () => {
+    for (const eficacia of [0, 0.5, 0.9, 0.95, 0.99, 1]) {
+      const r = calcularRiesgo({ ...ENTRADA, eficacia });
+      expect(r.riesgoResidual.toNumber()).toBeGreaterThanOrEqual(
+        r.riesgoPotencial.toNumber() * 0.05,
+      );
+    }
+  });
+});
+
 describe('escala de madurez', () => {
-  it('el salto grande está entre L2 y L3', () => {
-    expect(eficaciaDeNivel(2)).toBe(0.5);
-    expect(eficaciaDeNivel(3)).toBe(0.9);
+  it('la eficacia ES el escalón: no hay curva que interpretar', () => {
+    // REQ-SIG-24 §3 · lo que se retira acá es el salto de L2 (50 %) a L3 (90 %), que era
+    // el agujero por el que se caía el análisis: entre esos dos valores no había dónde
+    // poner un control «definido pero sin prueba», y el residual saltaba de Crítico a
+    // Medio según cuál de los dos eligiera el evaluador.
+    expect(eficaciaDeNivel(50)).toBe(0.5);
+    expect(eficaciaDeNivel(60)).toBe(0.6);
+    expect(eficaciaDeNivel(70)).toBe(0.7);
+    expect(eficaciaDeNivel(90)).toBe(0.9);
+  });
+
+  it('manda el catálogo cuando se le pasa la tabla', () => {
+    // La tabla es la proyección de `EscalaMadurez`: editar un escalón no es recompilar.
+    const tabla = new Map([[70, 0.42]]);
+    expect(eficaciaDeNivel(70, tabla)).toBe(0.42);
+  });
+
+  it('un escalón que el catálogo no trae es un dato roto, no un cero', () => {
+    // La versión anterior devolvía 0 para cualquier nivel fuera de rango, así que un
+    // nivel de la escala vieja sobrevivido a la migración habría bajado la eficacia en
+    // silencio en vez de avisar.
+    expect(() => eficaciaDeNivel(3)).toThrow(/no es un escalón/);
+    expect(() => eficaciaDeNivel(70, new Map([[90, 0.9]]))).toThrow(/no está en el catálogo/);
   });
 
   it('un control sin nivel no aporta eficacia', () => {

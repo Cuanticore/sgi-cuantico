@@ -175,3 +175,82 @@ export function planificarGrupos(
 
   return plan;
 }
+
+// ── El mismo cruce, visto desde el GRUPO ────────────────────────────────────────────────
+//
+// La pantalla de grupos de interés administra la pertenencia desde el otro lado: un grupo y
+// la lista de personas que le corresponden. Es el mismo problema transpuesto, y las tres
+// reglas de arriba valen idénticas — cerrar en vez de borrar, rechazar el derivado, y no
+// escribir lo que no cambió.
+//
+// **Se escribe aparte en vez de generalizar `planificarGrupos`.** Una función que reciba
+// «ids de lo otro» y sirva para los dos lados deja de poder nombrar lo que decide: los
+// errores dirían «el elemento 7 es derivado» en vez de «Todos se calcula solo», y el piso de
+// periodos —que es de la PERSONA— quedaría escondido detrás de un nombre genérico. Son
+// veinte líneas; la claridad vale más que las veinte.
+
+/// Una membresía vigente de este grupo, desde el lado del grupo.
+export interface MiembroVigente {
+  id: number;
+  personaId: number;
+  desde: Date;
+}
+
+export interface MiembroACrear {
+  personaId: number;
+  desde: Date;
+}
+
+export interface MiembroACerrar {
+  id: number;
+  personaId: number;
+  hasta: Date;
+}
+
+export interface PlanDeMiembros {
+  crear: MiembroACrear[];
+  cerrar: MiembroACerrar[];
+  errores: string[];
+}
+
+/// Cruza los miembros vigentes de un grupo con la lista de personas que debería tener.
+///
+/// `grupo.derivado` se rechaza acá y no en la pantalla: una validación que sólo vive en el
+/// cliente se salta llamando a la acción directamente, y «Todos» con filas de membresía
+/// daría dos respuestas a «quién pertenece».
+export function planificarMiembros(
+  vigentes: readonly MiembroVigente[],
+  personasPropuestas: readonly number[],
+  grupo: GrupoConocido,
+  hoy: Date,
+): PlanDeMiembros {
+  const plan: PlanDeMiembros = { crear: [], cerrar: [], errores: [] };
+
+  if (grupo.derivado) {
+    plan.errores.push(
+      `«${grupo.nombre}» se calcula solo —toda persona activa pertenece— así que no admite ` +
+        'una lista de miembros. Quitar a alguien de ahí se hace inactivándolo, no desmarcándolo.',
+    );
+    return plan;
+  }
+
+  // Un conjunto: proponer dos veces a la misma persona no es un caso, es la misma propuesta.
+  // Ordenado para que dos guardados con la misma lista produzcan el mismo plan.
+  const propuestas = [...new Set(personasPropuestas)].sort((a, b) => a - b);
+  const vigentePorPersona = new Map(vigentes.map((m) => [m.personaId, m]));
+
+  for (const personaId of propuestas) {
+    // Lo que ya estaba vigente y sigue propuesto no genera escritura: re-abrirlo le correría
+    // el piso de periodos a alguien que nunca dejó de pertenecer.
+    if (vigentePorPersona.has(personaId)) continue;
+    plan.crear.push({ personaId, desde: hoy });
+  }
+
+  const propuestasSet = new Set(propuestas);
+  for (const m of vigentes) {
+    if (propuestasSet.has(m.personaId)) continue;
+    plan.cerrar.push({ id: m.id, personaId: m.personaId, hasta: hoy });
+  }
+
+  return plan;
+}

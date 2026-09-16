@@ -1,4 +1,4 @@
-// lib/sig/auditorias.ts
+// lib/sgsi/auditorias.ts
 //
 // El estado se calcula (3.1.4), la independencia se bloquea en el servidor (C2),
 // el vencimiento se calcula contra el plazo (C7) y solo NC/OM promueven (C5, C9).

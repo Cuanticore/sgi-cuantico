@@ -59,7 +59,7 @@ export default async function VerificacionPage() {
     ['Índice de madurez (%)', Math.round(m.indice * 100) / 100],
     ['Nivel típico', m.nivelTipico],
     ['Nivel medio', Math.round(m.nivelMedio * 100) / 100],
-    ['En L3 o superior', m.enL3],
+    ['En L3 o superior', m.enGestionado],
     ['Cumplen objetivo', m.enObjetivo],
     ['Brechas', m.brechas],
     ['Brecha total', m.brechaTotal],

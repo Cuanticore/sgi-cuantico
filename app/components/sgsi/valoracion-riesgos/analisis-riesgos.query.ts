@@ -86,7 +86,34 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
         riesgos: {
           where: { obsoleto: false },
           select: {
-            amenaza: { select: { codigo: true, nombre: true } },
+            amenaza: {
+              select: {
+                codigo: true,
+                nombre: true,
+                // REQ-SIG-24 §6 · la degradación decide QUÉ dimensiones gobiernan la
+                // exigencia sobre esta amenaza. La criticidad sólo manda sobre las que
+                // degradan D; una que sólo degrada C recibe su exigencia del valor C.
+                degradacion: {
+                  select: {
+                    dimension: { select: { codigo: true } },
+                    degradacion: { select: { factor: true } },
+                  },
+                },
+                // El control PRINCIPAL, y sólo él: es el único cuyo nivel fija el techo de
+                // la eficacia (REQ-SIG-21 §4) y por tanto el único cuya insuficiencia es una
+                // brecha real. Hoy esto viene vacío para las 57 amenazas porque los 272
+                // pares siguen con `relevanciaId` en null, y por eso la brecha sale
+                // «sin-principal» en vez de «cubierto».
+                controles: {
+                  where: { relevancia: { esPrincipal: true } },
+                  select: {
+                    control: {
+                      select: { codigo: true, actual: { select: { nivel: true } } },
+                    },
+                  },
+                },
+              },
+            },
             riesgoPotencial: true,
             riesgoResidual: true,
           },
@@ -123,21 +150,45 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
       codigo: a.codigo ?? '(sin código)',
       nombre: a.nombre,
       valor: valorActivo({ D, I, C }).toNumber(),
+      // REQ-SIG-24 §6 · los tres por separado, además del máximo: cada dimensión tiene su
+      // propio conductor de exigencia y el máximo no los distingue.
+      valores: { D, I, C },
       // REQ-SIG-20 §11 (P9) · declarada por el negocio, nunca derivada del residual.
       criticidad: a.criticidad?.codigo ?? null,
       proceso: a.area.nombre,
       propietario: a.propietario?.nombre ?? null,
       persona: a.persona?.nombre ?? null,
       personaCorreo: a.persona?.correo ?? null,
-      riesgos: a.riesgos.map((r) => ({
-        amenazaCodigo: r.amenaza.codigo,
-        amenazaNombre: r.amenaza.nombre,
-        // Decimal → string: nunca un float antes de clasificar (mismo criterio que
-        // `InventarioActivos.tsx`).
-        potencial: r.riesgoPotencial?.toString() ?? null,
-        residual: r.riesgoResidual?.toString() ?? null,
-        obsoleto: false,
-      })),
+      riesgos: a.riesgos.map((r) => {
+        const porDim = new Map(
+          r.amenaza.degradacion.map((d) => [d.dimension.codigo, Number(d.degradacion.factor)]),
+        );
+        // Una sola fila de `ControlAmenaza` puede tener la relevancia Principal; el esquema
+        // no lo impone, así que si hubiera más de una se toma la primera y `eficaciaAmenaza`
+        // ya rechaza ese caso como error de datos aguas arriba.
+        const principal = r.amenaza.controles[0]?.control;
+
+        return {
+          amenazaCodigo: r.amenaza.codigo,
+          amenazaNombre: r.amenaza.nombre,
+          // Decimal → string: nunca un float antes de clasificar (mismo criterio que
+          // `InventarioActivos.tsx`).
+          potencial: r.riesgoPotencial?.toString() ?? null,
+          residual: r.riesgoResidual?.toString() ?? null,
+          obsoleto: false,
+          degradacion: {
+            D: porDim.get('D') ?? 0,
+            I: porDim.get('I') ?? 0,
+            C: porDim.get('C') ?? 0,
+          },
+          // `undefined` —no `null`— cuando la amenaza no tiene principal designado: son
+          // hechos distintos y `evaluarBrecha` los trata distinto.
+          principal:
+            principal === undefined
+              ? undefined
+              : { codigo: principal.codigo, nivel: principal.actual?.nivel ?? null },
+        };
+      }),
     };
   });
 

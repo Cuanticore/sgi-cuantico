@@ -97,6 +97,10 @@ const AGREGABLES: ActivoAgregable[] = SEMILLAS.map((s) => ({
   propietario: s.propietario,
   persona: s.persona,
   valores: s.valores,
+  // Los mismos que los `FILTRABLES` de abajo: esta prueba cuadra las dos vistas del MISMO
+  // inventario, asi que dos clasificaciones distintas romperian justamente lo que cuadra.
+  tipo: '[SW] Aplicaciones',
+  subtipo: 'SW.1',
 }));
 
 const FILTRABLES: ActivoFiltrable[] = SEMILLAS.map((s) => ({

@@ -415,7 +415,7 @@ export async function cerrarHallazgo(codigo: string): Promise<Resultado> {
     });
     if (!persona) return { ok: false, mensaje: 'Tu cuenta no está registrada.' };
 
-    // La decisión vive en lib/sig/hallazgos.ts, donde se prueba sin base de datos. Acá
+    // La decisión vive en lib/sgsi/hallazgos.ts, donde se prueba sin base de datos. Acá
     // sólo se le entregan los datos que ya se leyeron.
     const { motivoQueImpideCerrar } = await import('@/lib/sig/hallazgos');
     const impedimento = motivoQueImpideCerrar({

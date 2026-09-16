@@ -37,8 +37,11 @@ interface Grupo {
   sub?: boolean;
 }
 
-// Spec §4: la sidebar se agrupa con separadores: TAREAS · MEJORA · AUDITORÍA ·
-// CONFIGURACIÓN.
+// Spec §4 decía TAREAS · MEJORA · AUDITORÍA · CONFIGURACIÓN. Mejora y Auditoría se mudaron
+// al SGSI el 15/09/2026: son parte del sistema de gestión —el ciclo de hallazgo, acción y
+// auditoría sobre el propio sistema— y no de la operación diaria de tareas y contenidos, que
+// es de lo que esta pestaña se ocupa. Las URLs se movieron con ellos, con redirección desde
+// las viejas.
 const GRUPOS: Grupo[] = [
   {
     // «Actividades» y no «Motor»: la pestaña se renombró a Actividades el 02/09/2026 para
@@ -56,25 +59,6 @@ const GRUPOS: Grupo[] = [
     ],
   },
   {
-    titulo: 'Mejora',
-    tituloCorto: 'MEJ',
-    items: [
-      { etiqueta: 'Hallazgos', abreviatura: 'HAL', href: '/sig/hallazgos' },
-      { etiqueta: 'Acciones', abreviatura: 'ACC', href: '/sig/mejora' },
-    ],
-  },
-  {
-    titulo: 'Auditoría',
-    tituloCorto: 'AUD',
-    items: [
-      { etiqueta: 'Programa anual', abreviatura: 'PRG', href: '/sig/auditorias/programa' },
-      { etiqueta: 'Auditorías', abreviatura: 'AUD', href: '/sig/auditorias' },
-      { etiqueta: 'Auditorías externas', abreviatura: 'EXT', href: '/sig/auditorias/externas' },
-      { etiqueta: 'Tablero de auditoría', abreviatura: 'TAU', href: '/sig/tablero-auditoria' },
-      { etiqueta: 'Normas y requisitos', abreviatura: 'NRM', href: '/sig/normas' },
-    ],
-  },
-  {
     // El lienzo le da a Personas su propia pestana, con Colaboradores y Fichas al lado.
     // Ese modulo (REQ-SIG-09) no esta construido, asi que la pestana aterriza en
     // `/sig/personas`, cuya unica barra lateral es esta: quitar la entrada dejaria la
@@ -84,6 +68,7 @@ const GRUPOS: Grupo[] = [
     sub: true,
     items: [
       { etiqueta: 'Personas', abreviatura: 'PER', href: '/sig/personas', contador: 'personas', sub: true },
+      { etiqueta: 'Grupos de interés', abreviatura: 'GRP', href: '/sig/grupos-interes', sub: true },
       { etiqueta: 'Colaboradores', abreviatura: 'COL', href: '/sig/colaboradores', sub: true },
       { etiqueta: 'Procesos', abreviatura: 'PCS', href: '/sig/procesos', sub: true },
     ],

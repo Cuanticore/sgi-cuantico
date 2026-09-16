@@ -15,11 +15,18 @@ import PanelFirma from './PanelFirma';
 
 type Filtro = 'TODAS' | 'VENCIDAS' | 'POR_VENCER' | 'PENDIENTES';
 
+/// Los cinco tipos de contenido. Siguen siendo hexes porque son IDENTIDAD —qué clase de
+/// cosa es— y no estado: no hay un token de «lectura» ni lo habrá. Lo que sí cambió es que
+/// el nombre acompaña siempre al color, así que ninguno depende del tono para leerse.
 const COLORES_TIPO: Record<string, { fondo: string; texto: string }> = {
   LECTURA: { fondo: '#e9f0fb', texto: '#12437f' },
   VERIFICACION: { fondo: '#fff3e6', texto: '#8a4407' },
   CAPACITACION: { fondo: '#e8f4ef', texto: '#0b5c44' },
   TAREA: { fondo: '#f5f7f6', texto: '#4a544f' },
+  // Violeta: los otros cuatro ya ocupan azul, naranja, verde y gris, y un curso no es
+  // ninguno de ellos. El nombre acompaña siempre al color, asi que la identidad nunca
+  // depende del tono.
+  CURSO_VIRTUAL: { fondo: '#efeafc', texto: '#4a2f9b' },
 };
 
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -27,6 +34,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   VERIFICACION: 'Verificación',
   CAPACITACION: 'Capacitación',
   TAREA: 'Tarea',
+  CURSO_VIRTUAL: 'Curso Virtual',
 };
 
 export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
@@ -72,6 +80,12 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
             Reportar hallazgo
           </Link>
           <Link
+            href="/mi-sig/mis-datos"
+            className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
+          >
+            Mis datos
+          </Link>
+          <Link
             href="/mi-sig/historial"
             className="rounded-campo border border-border-field bg-surface px-3.5 py-2 text-12_5 font-medium text-muted"
           >
@@ -81,9 +95,13 @@ export default function BandejaClient({ bandeja }: { bandeja: Bandeja }) {
       </section>
 
       <section className="mt-6 grid grid-cols-3 gap-4">
-        <Contador cifra={bandeja.contadores.vencidas} etiqueta="Vencidas" color="#a52016" />
-        <Contador cifra={bandeja.contadores.porVencer} etiqueta="Por vencer" color="#c25a1e" />
-        <Contador cifra={bandeja.contadores.realizadasPeriodo} etiqueta="Realizadas" color="#0b5c44" />
+        <Contador cifra={bandeja.contadores.vencidas} etiqueta="Vencidas" tono="critico" />
+        <Contador cifra={bandeja.contadores.porVencer} etiqueta="Por vencer" tono="atencion" />
+        <Contador
+          cifra={bandeja.contadores.realizadasPeriodo}
+          etiqueta="Realizadas"
+          tono="logro"
+        />
       </section>
 
       <nav className="mt-6 flex items-center gap-2" aria-label="Filtrar la bandeja">
@@ -179,15 +197,58 @@ function etiquetaFiltro(f: Filtro): string {
   return { TODAS: 'Todas', VENCIDAS: 'Vencidas', POR_VENCER: 'Por vencer', PENDIENTES: 'Pendientes' }[f];
 }
 
-function Contador({ cifra, etiqueta, color }: { cifra: number; etiqueta: string; color: string }) {
+/// Una de las tres cifras de la cabecera.
+///
+/// ── EL CERO NO SE PINTA DE ALARMA ───────────────────────────────────────────────────────
+///
+/// «0 Vencidas» en rojo es la forma más rápida de que el rojo deje de significar algo: quien
+/// lo ve todos los días en cero aprende a no mirarlo, y el día que diga 3 tampoco lo va a
+/// mirar. El color de estado se reserva para el estado que lo justifica — cuando la cifra es
+/// cero, el mosaico es neutro y se lee como lo que es: no hay nada que hacer ahí.
+///
+/// Salvo «Realizadas», que en cero tampoco alarma pero tampoco celebra: se queda neutra.
+///
+/// ── Y SALE DE LOS TOKENS, NO DE UN HEX ──────────────────────────────────────────────────
+///
+/// Los tres colores estaban escritos a mano —`#a52016`, `#c25a1e`, `#0b5c44`— así que Mi SIG
+/// se veía parecido al resto de la aplicación por coincidencia y no por construcción. Ahora
+/// son los mismos tokens que usan el inventario, los planes y los hallazgos: si la paleta
+/// cambia, cambia acá también.
+function Contador({
+  cifra,
+  etiqueta,
+  tono,
+}: {
+  cifra: number;
+  etiqueta: string;
+  tono: 'critico' | 'atencion' | 'logro';
+}) {
+  const apagado = cifra === 0;
+  const color = apagado
+    ? 'var(--hf-text-secondary)'
+    : tono === 'critico'
+      ? 'var(--hf-danger-text)'
+      : tono === 'atencion'
+        ? 'var(--hf-warn-text)'
+        : 'var(--hf-accent-700)';
+  const borde = apagado
+    ? 'var(--hf-border-default)'
+    : tono === 'critico'
+      ? 'var(--hf-danger-text)'
+      : tono === 'atencion'
+        ? 'var(--hf-warn-border)'
+        : 'var(--hf-accent-500)';
+
   return (
     <div
-      className="flex flex-col gap-1 rounded-tarjeta bg-surface px-5 py-4"
-      style={{ borderTop: `2px solid ${color}` }}
+      className="flex flex-col gap-1 rounded-tarjeta border border-border-default bg-surface px-5 py-4"
+      style={{ borderTop: `2px solid ${borde}` }}
     >
-      <span className="font-mono text-26 font-semibold tabular-nums" style={{ color }}>
+      <span className="cifra text-26 tabular-nums" style={{ color }}>
         {cifra}
       </span>
+      {/* El rótulo va en tinta de texto y nunca en el color del estado: el color lo carga la
+          cifra, y un rótulo teñido compite con ella sin agregar información. */}
       <span className="text-12_5 text-muted">{etiqueta}</span>
     </div>
   );

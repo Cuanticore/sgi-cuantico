@@ -35,6 +35,9 @@ import {
 } from '@/app/sig/acciones/personas-edicion';
 import type { ContactoPropuesto } from '@/lib/sig/contactos';
 import BloqueoCuenta from './BloqueoCuenta';
+import Link from 'next/link';
+import { resumenDePersona, type ResumenDePersona } from '@/app/sig/acciones/persona-resumen';
+import AsociarPc from './AsociarPc';
 import LicenciasPersona from './LicenciasPersona';
 import type { PersonaFila } from './Personas.client';
 
@@ -51,7 +54,7 @@ export interface CatalogosDelPopup {
   }[];
 }
 
-type Seccion = 'base' | 'licencias' | 'contactos' | 'grupos' | 'cuenta';
+type Seccion = 'resumen' | 'base' | 'licencias' | 'contactos' | 'grupos' | 'cuenta';
 
 /// El estado del formulario. Cadenas y no números porque los `select` y los `input` trabajan
 /// con cadenas; la conversión ocurre una vez, al enviar.
@@ -215,6 +218,36 @@ export default function PopupPersona({
   const agregarContacto = () =>
     setContactos((previo) => [...(previo ?? []), { ...FILA_VACIA }]);
 
+  // El resumen se pide al abrir su pestaña, por la misma razón que los grupos y los
+  // contactos: son seis consultas por persona, y el censo son noventa y una. Traerlas con la
+  // lista costaría quinientas consultas para mostrar seis números de una sola persona.
+  const [resumen, setResumen] = useState<ResumenDePersona | null>(null);
+  const [errorResumen, setErrorResumen] = useState<string | null>(null);
+  const pedidoDeResumen = useRef(false);
+
+  useEffect(() => {
+    if (seccion !== 'resumen') return;
+    if (resumen !== null || pedidoDeResumen.current) return;
+
+    let vigente = true;
+    pedidoDeResumen.current = true;
+    void resumenDePersona(persona.id)
+      .then((r) => {
+        if (!vigente) return;
+        if (!r.ok || r.resumen === null) {
+          setErrorResumen(r.mensaje);
+          return;
+        }
+        setResumen(r.resumen);
+      })
+      .finally(() => {
+        pedidoDeResumen.current = false;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [seccion, persona.id, resumen]);
+
   // P10 · las membresías se piden al abrir la pestaña, igual que los contactos y por la misma
   // razón de fondo: no inflar el payload del censo con un dato que casi nadie mira.
   const [grupos, setGrupos] = useState<Grupos>(null);
@@ -331,6 +364,9 @@ export default function PopupPersona({
   };
 
   const pestanas: readonly Pestana<Seccion>[] = [
+    // Va PRIMERA: quien abre a una persona suele venir a mirar, no a editar. «Qué tiene» se
+    // contesta de un vistazo; el contrato y los grupos están una pestaña al lado.
+    { clave: 'resumen', etiqueta: 'Resumen' },
     { clave: 'base', etiqueta: 'Datos base' },
     { clave: 'licencias', etiqueta: 'Licencias' },
     { clave: 'contactos', etiqueta: 'Contactos' },
@@ -524,6 +560,92 @@ export default function PopupPersona({
         {/* §3.2 · la pestaña LEE y no escribe (D-2). Las dos consultas de Graph degradan por
             separado (P8) y esa lógica vive en su propio archivo: acá adentro habría convertido
             los cuatro estados de este popup en diez. */}
+        {seccion === 'resumen' && (
+          <div className="flex flex-col gap-4">
+            {errorResumen !== null && (
+              <p className="text-12 text-danger-text [text-wrap:pretty]">{errorResumen}</p>
+            )}
+            {resumen === null && errorResumen === null && (
+              <p className="text-12_5 text-faint">Cargando lo que el sistema sabe…</p>
+            )}
+            {resumen !== null && (
+              <>
+                <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(118px,1fr))]">
+                  <Cifra
+                    n={resumen.tareasAbiertas}
+                    etiqueta="Tareas abiertas"
+                    alerta={resumen.tareasVencidas > 0 ? `${resumen.tareasVencidas} vencida(s)` : null}
+                  />
+                  <Cifra n={resumen.tareasCerradas} etiqueta="Ya cumplidas" />
+                  <Cifra n={resumen.activos.length} etiqueta="Activos" />
+                  <Cifra n={resumen.actasFirmadas} etiqueta="Actas firmadas" />
+                  <Cifra n={resumen.accesosVigentes} etiqueta="Accesos vigentes" />
+                  <Cifra n={resumen.gruposVigentes} etiqueta="Grupos" />
+                </div>
+
+                {/* Los dos vínculos con un activo son cosas distintas y se dicen distinto:
+                    custodiar un portátil no es lo mismo que SER el activo «Personal de
+                    soporte». Sumarlos en un número diría algo que no es cierto de ninguno. */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="etiqueta-campo text-9">ACTIVOS</span>
+                  {resumen.activos.length === 0 ? (
+                    <p className="text-11_5 text-label [text-wrap:pretty]">
+                      Sin activos. Ni custodia ninguno ni forma parte de un activo de tipo
+                      Personal.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {resumen.activos.map((a) => (
+                        <li key={`${a.vinculo}-${a.codigo}`}>
+                          <Link
+                            href={`/sgsi/inventario/${a.codigo}`}
+                            className="flex flex-wrap items-baseline gap-2 rounded-campo border border-border-default bg-subtle px-2.5 py-1.5 hover:bg-app"
+                          >
+                            <span className="font-mono text-10_5 text-accent-700">{a.codigo}</span>
+                            <span className="min-w-0 flex-1 truncate text-11_5 text-primary">
+                              {a.nombre}
+                            </span>
+                            <span className="font-mono text-9_5 text-label">
+                              {a.vinculo === 'custodia' ? 'lo custodia' : 'lo encarna'}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {administra && (
+                  <AsociarPc
+                    personaId={persona.id}
+                    nombrePersona={persona.nombre}
+                    // El equipo ya asociado se reconoce por el vínculo de custodia; si ya
+                    // tiene uno, el bloque lo dice en vez de ofrecer crear un segundo.
+                    yaTieneEquipo={resumen.activos.some((a) => a.vinculo === 'custodia')}
+                    onHecho={() => {
+                      // Se vuelve a pedir el resumen: acaba de cambiar lo que cuenta.
+                      setResumen(null);
+                      pedidoDeResumen.current = false;
+                    }}
+                  />
+                )}
+
+                <Link
+                  href={`/sig/colaboradores/${persona.id}`}
+                  className="w-fit text-11_5 font-semibold text-accent-700 hover:underline"
+                >
+                  Ver el expediente completo →
+                </Link>
+                <p className="text-10_5 leading-relaxed text-label [text-wrap:pretty]">
+                  Acá están las cifras; el expediente tiene las filas — los accesos con su
+                  vigencia, las actas con su fecha, los intentos de curso y los últimos
+                  movimientos de la bitácora.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         {seccion === 'licencias' && (
           <LicenciasPersona personaId={persona.id} administra={administra} />
         )}
@@ -833,5 +955,27 @@ function Select({
         ))}
       </select>
     </label>
+  );
+}
+
+/// Una cifra del resumen. El número grande y su rótulo debajo; la alerta sólo cuando la hay,
+/// porque un «0 vencidas» en rojo pálido enseña a ignorar el rojo.
+function Cifra({
+  n,
+  etiqueta,
+  alerta = null,
+}: {
+  n: number;
+  etiqueta: string;
+  alerta?: string | null;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-campo border border-border-default bg-subtle px-2.5 py-2">
+      <span className="cifra text-19 text-primary">{n}</span>
+      <span className="text-10_5 leading-tight text-muted">{etiqueta}</span>
+      {alerta !== null && (
+        <span className="text-9_5 font-semibold text-danger-text">{alerta}</span>
+      )}
+    </div>
   );
 }

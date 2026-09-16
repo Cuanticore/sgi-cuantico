@@ -37,6 +37,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   FILTROS_ANALISIS_VACIOS,
   SIN_ASIGNAR,
+  TODAS_CRITICIDADES,
   TODAS_PERSONAS_ANALISIS,
   TODOS_PROCESOS,
   TODOS_PROPIETARIOS_ANALISIS,
@@ -97,8 +98,15 @@ export default function PantallaAnalisisRiesgos({
   const parametros = useSearchParams();
 
   const catalogos: CatalogosFiltroAnalisis = useMemo(
-    () => ({ procesos, propietarios, personas: personas.map((p) => p.correo) }),
-    [procesos, propietarios, personas],
+    () => ({
+      procesos,
+      propietarios,
+      personas: personas.map((p) => p.correo),
+      // Los códigos ya viajan para ordenar por criticidad (§14.12); acá sirven además como
+      // catálogo del filtro, sin una segunda consulta que podría desacordar con aquella.
+      criticidades: criticidadesRto.map((c) => c.codigo),
+    }),
+    [procesos, propietarios, personas, criticidadesRto],
   );
 
   // §7.1 · la hidratación es del PRIMER render y nada más — el mismo criterio que el
@@ -210,9 +218,9 @@ export default function PantallaAnalisisRiesgos({
           onClick={() => setFiltros((f) => ({ ...f, valor: f.valor === 4 ? 'ambos' : 4 }))}
         />
         <Tarjeta
-          etiqueta="RESIDUAL CRÍTICO"
-          valor={String(tarjetas.residualCritico)}
-          nota="exigen plan (§7)"
+          etiqueta="CON BRECHA"
+          valor={String(tarjetas.conBrecha)}
+          nota="no alcanzan lo exigido"
           activa={filtros.estadoPlan === 'requiere-plan'}
           onClick={() =>
             setFiltros((f) => ({
@@ -221,10 +229,21 @@ export default function PantallaAnalisisRiesgos({
             }))
           }
         />
+        {/* REQ-SIG-24 §7 · va SEPARADA de CON BRECHA a propósito: sumarlas diría que hay
+            brechas donde nadie miró. Mientras REQ-SIG-21 no asigne las 272 relevancias,
+            ninguna amenaza tiene control principal designado y esta cifra es la medida de
+            cuánto del análisis todavía no se puede hacer. */}
+        <Tarjeta
+          etiqueta="SIN DETERMINAR"
+          valor={String(tarjetas.sinDeterminar)}
+          nota="sin control principal → REQ-SIG-21"
+          activa={false}
+          onClick={() => {}}
+        />
         <Tarjeta
           etiqueta="SIN PLAN"
           valor={tarjetas.sinPlan === null ? '—' : String(tarjetas.sinPlan)}
-          nota="residual Crítico, sin plan"
+          nota="con brecha, sin plan"
           activa={filtros.estadoPlan === 'pendiente'}
           deshabilitada={tarjetas.sinPlan === null}
           onClick={() =>
@@ -245,6 +264,7 @@ export default function PantallaAnalisisRiesgos({
         procesos={procesos}
         propietarios={propietarios}
         personas={personas}
+        criticidades={catalogos.criticidades}
         hayFiltros={hayFiltros}
         onCambiar={setFiltros}
         onLimpiar={() => setFiltros(() => FILTROS_ANALISIS_VACIOS)}
@@ -282,7 +302,6 @@ export default function PantallaAnalisisRiesgos({
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Criticidad</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Proceso</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Propietario</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Persona</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-right">Amenazas</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Peor inherente</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Peor residual</th>
@@ -323,7 +342,6 @@ export default function PantallaAnalisisRiesgos({
                     </td>
                     <td className="px-2 py-1.5 text-secondary">{f.proceso}</td>
                     <td className="px-2 py-1.5 text-secondary">{f.propietario ?? '—'}</td>
-                    <td className="px-2 py-1.5 text-secondary">{f.persona ?? '—'}</td>
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums text-secondary">
                       {f.cantidadAmenazas}
                     </td>
@@ -454,6 +472,7 @@ function CeldaPlan({ estado }: { estado: EstadoPlanActivo }) {
 }
 
 function FilaDeFiltros({
+  criticidades,
   filtros,
   procesos,
   propietarios,
@@ -466,6 +485,10 @@ function FilaDeFiltros({
   procesos: string[];
   propietarios: string[];
   personas: { correo: string; nombre: string }[];
+  /// Los códigos `C1`..`C5`, en el orden del catálogo. Salen de `criticidadesRto`, que ya
+  /// viaja para ordenar por criticidad: una sola fuente, sin un segundo catálogo que se
+  /// pueda desacordar con aquel.
+  criticidades: readonly string[];
   hayFiltros: boolean;
   onCambiar: (f: (previos: FiltrosAnalisis) => FiltrosAnalisis) => void;
   onLimpiar: () => void;
@@ -491,6 +514,17 @@ function FilaDeFiltros({
         rotulos={Object.fromEntries(personas.map((p) => [p.correo, p.nombre]))}
         onChange={(v) => onCambiar((f) => ({ ...f, persona: v }))}
         titulo="Activo.personaId está poco poblado hoy: pocos resultados es lo esperado, no un defecto."
+      />
+      {/* REQ-SIG-20 §11 (P9) · la criticidad va junto a Valor y no al final: las dos
+          responden «cuánto importa este activo», y el orden del renglón agrupa primero
+          quién responde por él (proceso, propietario, persona) y después cuánto pesa. */}
+      <Select
+        etiqueta="Criticidad"
+        valor={filtros.criticidad}
+        opciones={[TODAS_CRITICIDADES, ...criticidades, SIN_ASIGNAR]}
+        rotulos={{ [SIN_ASIGNAR]: 'Sin clasificar' }}
+        onChange={(v) => onCambiar((f) => ({ ...f, criticidad: v }))}
+        titulo="La declara el negocio en FOR-SIG-12 columna 26; no se deriva del residual. Hoy casi todo el inventario está sin clasificar."
       />
       <Select
         etiqueta="Valor"
