@@ -686,8 +686,13 @@ function TarjetaMatriz({
 /// The residual matrix while the residual risk is unknown.
 ///
 /// This card exists instead of a grid on purpose. Efficacy comes from the maturity of
-/// the controls mapped to each threat, and no threat has that mapping yet, so the
-/// efficacy is unknown — not zero. With efficacy zero the residual ARO equals the
+/// the controls mapped to each threat; when a threat has no EVALUATED control, its
+/// efficacy is unknown — not zero.
+///
+/// Desde REQ-SIG-21 (16-sep-2026) las 57 amenazas tienen su control principal designado y
+/// ningún riesgo vigente queda sin residual, así que esta tarjeta ya no aparece con los
+/// datos de hoy. Se conserva porque la causa que la dispara sigue siendo posible: una
+/// amenaza nueva sin controles mapeados, o con todos sus controles sin evaluar. With efficacy zero the residual ARO equals the
 /// inherent one and this matrix would come out cell for cell identical to the one beside
 /// it: consistent with its inputs and wrong as a report. Greying the grid would not fix
 /// it either, because a grid of empty cells reads as "everything is in the lowest band".
@@ -711,15 +716,15 @@ function TarjetaResidualSinCalcular({ total }: { total: number }) {
       <div className="flex flex-1 flex-col items-start justify-center gap-3 rounded-campo border border-dashed border-warn-border bg-warn-100 px-5 py-6">
         <span className="cifra text-22 text-warn-text">Sin calcular</span>
         <p className="text-12 leading-relaxed text-warn-text [text-wrap:pretty]">
-          Ninguna amenaza tiene todavía controles con relevancia asignada, así que la
-          eficacia de los controles es <strong>desconocida, no cero</strong>. Los{' '}
+          Las amenazas de este filtro no tienen ningún control <strong>evaluado</strong>,
+          así que su eficacia es <strong>desconocida, no cero</strong>. Los{' '}
           {miles(total)} riesgos del filtro tienen el residual en blanco.
         </p>
         <p className="text-11_5 leading-relaxed text-warn-text [text-wrap:pretty]">
           Dibujar aquí la matriz suponiendo eficacia cero la dejaría idéntica, casilla por
           casilla, a la inherente: un informe coherente con sus datos de entrada y
-          equivocado. Esta matriz aparece sola en cuanto se registre la relevancia de los
-          pares control–amenaza.
+          equivocado. Esta matriz aparece sola en cuanto esas amenazas tengan al menos un
+          control con su madurez evaluada.
         </p>
       </div>
 
