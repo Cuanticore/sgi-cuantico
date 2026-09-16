@@ -20,6 +20,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { CAMPOS_DE_SINCRONIZACION } from '@/lib/sig/personas';
+import { cargarCenso } from '@/app/sig/personas/censo.query';
 import {
   anomalias,
   composicionPorContrato,
@@ -34,6 +35,11 @@ export const dynamic = 'force-dynamic';
 export default async function ColaboradoresPage() {
   const session = await getServerSession(authOptions);
   const administra = puede(rolDesdeGrupos(session?.user?.grupos), 'personas:administrar');
+
+  // Las MISMAS filas que el censo, para poder abrir sobre cualquiera el popup de edición
+  // completo. No se vuelve a mapear acá: dos mapeos de las mismas personas es la forma
+  // segura de que dentro de dos meses una pantalla muestre un rol que la otra no.
+  const censo = await cargarCenso();
 
   const [personas, tipos, accesos, actas, areas, cargos, ultimaCorrida] = await Promise.all([
     prisma.persona.findMany({
@@ -156,6 +162,9 @@ export default async function ColaboradoresPage() {
       areas={areas}
       cargos={cargos}
       administra={administra}
+      censo={censo.filas}
+      catalogosDelPopup={censo.catalogos}
+      bloqueoDisponible={censo.bloqueoDisponible}
       // Formateada en el servidor: el cliente no tiene por qué saber la zona horaria con la
       // que se escribe una fecha del SIG.
       ultimaSincronizacion={
