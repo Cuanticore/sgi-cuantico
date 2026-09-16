@@ -71,3 +71,7 @@ var/respaldos/
 *.xlsx
 *.xls
 *.xlsm
+
+# Volcados del parte de importacion (Errores.txt y similares). Llevan nombres de activos
+# reales de la organizacion: son datos de trabajo, no codigo.
+Errores.txt

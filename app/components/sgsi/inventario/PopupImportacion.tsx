@@ -12,6 +12,9 @@
 // this screen exists to avoid.
 
 import { useRef, useState } from 'react';
+import { useBloqueoDeSalida } from '@/app/lib/useBloqueoDeSalida';
+import ResolucionFaltantes from './ResolucionFaltantes';
+import type { Resolucion } from '@/lib/sgsi/catalogos-curables';
 import { useRouter } from 'next/navigation';
 import Popup from '@/app/components/sgsi/Popup';
 import { analizarPlantilla, importarPlantilla } from '@/app/sgsi/acciones/importar';
@@ -45,8 +48,29 @@ export default function PopupImportacion({ onCerrar }: Props) {
   // Which capped lists the person opened, keyed by block and kind. Kept here and not in
   // each list so choosing another file starts the report closed again.
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  // Lo que la persona decidió sobre los nombres que el catálogo no tiene. Vive acá y no en
+  // `ResolucionFaltantes` porque viaja en las DOS peticiones: revalidar con las decisiones
+  // puestas, y después importar con ellas.
+  const [resoluciones, setResoluciones] = useState<Resolucion[]>([]);
 
   const trabajando = estado === 'analizando' || estado === 'importando';
+
+  // Recargar en medio de esto no cancela nada del lado del servidor: deja el trabajo
+  // corriendo sin nadie que lea el resultado.
+  useBloqueoDeSalida(trabajando);
+
+  const faltantes = analisis?.faltantes ?? [];
+  /// Cuántos nombres siguen sin decisión completa. Un «mapear» sin destino elegido cuenta
+  /// como pendiente: la mitad de una decisión no es una decisión.
+  const sinDecidir = faltantes.filter((f) => {
+    const r = resoluciones.find(
+      (x) =>
+        x.catalogo === f.catalogo &&
+        x.valor.trim().toLocaleLowerCase('es') === f.valor.trim().toLocaleLowerCase('es'),
+    );
+    if (!r) return true;
+    return r.accion === 'mapear' && r.destino === '';
+  }).length;
   // The import button has to stay on screen while the import runs, so the review step
   // covers both states rather than flipping back to "validate" mid-write.
   const enRevision = estado === 'revision' || estado === 'importando';
@@ -56,7 +80,36 @@ export default function PopupImportacion({ onCerrar }: Props) {
     setAnalisis(null);
     setAviso(null);
     setAbiertas({});
+    // Otro archivo nombra otros faltantes: conservar lo decidido para el anterior haría que
+    // la carga escribiera decisiones que nadie tomó sobre ESTE libro.
+    setResoluciones([]);
     setEstado('inicio');
+  };
+
+  /// El formulario con el archivo y lo decidido hasta ahora.
+  const formulario = (f: File): FormData => {
+    const datos = new FormData();
+    datos.append('archivo', f);
+    if (resoluciones.length > 0) datos.append('resoluciones', JSON.stringify(resoluciones));
+    return datos;
+  };
+
+  /// Cerrar con trabajo en curso pide confirmación con palabras nuestras.
+  ///
+  /// El diálogo del navegador no deja elegir el texto —muestra el suyo genérico—, así que
+  /// este es el único punto donde se puede explicar qué se está perdiendo.
+  const cerrar = (): void => {
+    if (
+      trabajando &&
+      !window.confirm(
+        estado === 'importando'
+          ? 'La importación está corriendo. Si cierras ahora no vas a saber si los activos entraron, y volver a importar el mismo archivo crearía otro juego de activos. ¿Cerrar de todas formas?'
+          : '¿Cerrar y descartar la validación en curso?'
+      )
+    ) {
+      return;
+    }
+    onCerrar();
   };
 
   const alternarLista = (clave: string): void => {
@@ -67,9 +120,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
     if (!archivo) return;
     setEstado('analizando');
     setAviso(null);
-    const datos = new FormData();
-    datos.append('archivo', archivo);
-    const r = await analizarPlantilla(datos);
+    const r = await analizarPlantilla(formulario(archivo));
     setAnalisis(r);
     if (r.ok) {
       setEstado('revision');
@@ -83,9 +134,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
   const importar = async (): Promise<void> => {
     if (!archivo) return;
     setEstado('importando');
-    const datos = new FormData();
-    datos.append('archivo', archivo);
-    const r = await importarPlantilla(datos);
+    const r = await importarPlantilla(formulario(archivo));
     setAviso({ ok: r.ok, texto: r.mensaje });
     if (r.ok) {
       setEstado('listo');
@@ -103,7 +152,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
   return (
     <Popup
       titulo="Importar activos desde plantilla"
-      subtitulo="Descargá la plantilla, llenala y volvé a subirla acá. Antes de escribir nada te muestro fila por fila qué encontré."
+      subtitulo="Descarga la plantilla, llénala y vuelve a subirla acá. Antes de escribir nada te muestro fila por fila qué encontré."
       ancho={1020}
       onCerrar={onCerrar}
       pie={
@@ -121,13 +170,29 @@ export default function PopupImportacion({ onCerrar }: Props) {
             <>
               <button
                 type="button"
-                onClick={onCerrar}
-                disabled={trabajando}
-                className="rounded-campo border border-border-field px-3 py-2 text-12 text-muted transition-colors hover:bg-subtle disabled:opacity-50"
+                onClick={cerrar}
+                className="rounded-campo border border-border-field px-3 py-2 text-12 text-muted transition-colors hover:bg-subtle"
               >
                 Cancelar
               </button>
-              {enRevision && analisis && analisis.validas > 0 ? (
+              {faltantes.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={validar}
+                  disabled={!archivo || trabajando || sinDecidir > 0}
+                  className="rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white transition-colors disabled:opacity-50"
+                  style={{ background: 'var(--hf-accent-500)' }}
+                >
+                  {/* No dice «Importar»: lo que hace es volver a validar con las decisiones
+                      puestas. Recién cuando no queden nombres sin registrar aparece el botón
+                      que escribe. */}
+                  {estado === 'analizando'
+                    ? 'Revalidando…'
+                    : sinDecidir > 0
+                      ? `Faltan ${sinDecidir} por decidir`
+                      : 'Aplicar y revalidar'}
+                </button>
+              ) : enRevision && analisis && analisis.validas > 0 ? (
                 <button
                   type="button"
                   onClick={importar}
@@ -183,12 +248,59 @@ export default function PopupImportacion({ onCerrar }: Props) {
           </div>
         )}
 
+        {/* Mientras algo corre, una barra que se mueve y dice EN QUÉ va.
+            Un botón que dice «Validando…» y no cambia en treinta segundos no distingue
+            trabajo de cuelgue, y la salida que invita es recargar — que es justo lo que no
+            hay que hacer. */}
+        {trabajando && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-busy
+            className="flex flex-col gap-2 rounded-campo border border-accent-border bg-accent-100 px-3.5 py-3"
+          >
+            <span className="text-12_5 font-semibold text-accent-700">
+              {estado === 'analizando'
+                ? 'Leyendo el archivo y revisando fila por fila contra los catálogos…'
+                : 'Escribiendo los activos. No cierres ni recargues esta ventana.'}
+            </span>
+            <span className="text-11_5 text-accent-700 [text-wrap:pretty]">
+              {estado === 'analizando'
+                ? 'Todavía no se escribe nada: este paso sólo mira.'
+                : 'Todo entra en una sola transacción, así que no queda medio inventario cargado.'}
+            </span>
+            <div className="h-1 overflow-hidden rounded-full bg-accent-border">
+              <div className="h-full w-1/3 animate-[barrido_1.4s_ease-in-out_infinite] rounded-full bg-accent-700" />
+            </div>
+            <style>{'@keyframes barrido{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}'}</style>
+          </div>
+        )}
+
+        {/* Los nombres que el catálogo no tiene. Van ARRIBA del parte de filas porque
+            bloquean la carga y porque no son errores del archivo: son decisiones. */}
+        {analisis?.faltantes && analisis.faltantes.length > 0 && analisis.opciones && (
+          <section className="rounded-campo border border-hairline-strong bg-app px-4 py-3.5">
+            <span className="text-12_5 font-bold text-primary">
+              Nombres sin registrar
+            </span>
+            <div className="mt-2.5">
+              <ResolucionFaltantes
+                faltantes={analisis.faltantes}
+                opciones={analisis.opciones}
+                resoluciones={resoluciones}
+                onCambiar={setResoluciones}
+                deshabilitado={trabajando}
+              />
+            </div>
+          </section>
+        )}
+
         {/* Step 1 — the template. Generated from the database on every download, so its
             list of valid types, subtypes, areas and roles is never stale. */}
         <section className="rounded-campo border border-hairline-strong bg-app px-4 py-3.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-12_5 font-bold text-primary">1 · Descargá la plantilla</span>
+              <span className="text-12_5 font-bold text-primary">1 · Descarga la plantilla</span>
               <span className="max-w-[68ch] text-11_5 text-muted [text-wrap:pretty]">
                 Trae los valores válidos de tipos, subtipos, procesos, cargos y la escala de
                 valoración tal como están hoy en la base. El código del activo no se llena: lo
@@ -207,7 +319,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
         {/* Step 2 — the file. */}
         <section className="rounded-campo border border-hairline-strong bg-app px-4 py-3.5">
           <div className="flex flex-col gap-2.5">
-            <span className="text-12_5 font-bold text-primary">2 · Subí el archivo lleno</span>
+            <span className="text-12_5 font-bold text-primary">2 · Sube el archivo lleno</span>
             <div className="flex flex-wrap items-center gap-2.5">
               <input
                 ref={entrada}
@@ -231,7 +343,7 @@ export default function PopupImportacion({ onCerrar }: Props) {
           <section className="flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-col gap-1">
-                <span className="text-12_5 font-bold text-primary">3 · Revisá lo que encontré</span>
+                <span className="text-12_5 font-bold text-primary">3 · Revisa lo que encontré</span>
                 <span className="text-11_5 text-muted">{analisis.mensaje}</span>
               </div>
               <div className="flex items-center gap-2">

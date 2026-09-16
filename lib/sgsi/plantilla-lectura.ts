@@ -8,6 +8,16 @@
 // database. Same reason lib/sgsi/madurez.ts is pure: the arithmetic that classifies data
 // must be exercisable without the environment that stores it.
 
+import {
+  agruparFaltantes,
+  aplicarAlias,
+  indiceDeAlias,
+  type CatalogoCurable,
+  type FaltanteCatalogo,
+  type IndiceAlias,
+  type RegistroFaltante,
+} from './catalogos-curables';
+
 import { COLUMNAS_PLANTILLA } from './plantilla';
 import type { FilaLeida } from './plantilla';
 
@@ -48,7 +58,11 @@ export const LEGACY_FORSIG12: Record<string, string> = {
 export const LEGACY_NORMALIZAR = {
   ubicacion: { 'N.A.': 'No aplica', 'Física': 'Físico', 'Nube Microsoft 366': 'Nube Microsoft 365' },
   entorno: { 'N.A.': 'No aplica' },
-  proveedor: { 'Por definir': '' },
+  // «No aplica» en proveedor es la AUSENCIA de proveedor, no una organización que se llame
+  // así — y `Activo.proveedorId` ya es nullable. Crear esa fila metería una organización
+  // inexistente al alcance de los controles de terceros (A.5.19–A.5.22). Va acá y no en
+  // ubicación ni entorno, que sí tienen «No aplica» registrado como valor legítimo.
+  proveedor: { 'Por definir': '', 'No aplica': '' },
   area: { 'Gestió de Proyectos': 'Gestión de Proyectos' },
 } as const;
 
@@ -95,6 +109,10 @@ export interface Catalogos {
   escala: { valor: number; etiqueta: string }[];
   /// Legacy codes already in the inventory, lowercased and trimmed by the caller.
   heredadosExistentes: Set<string>;
+  /// Traducciones que la persona declaró en el paso de resolución: el texto del libro pasa
+  /// por acá antes de buscarse en el catálogo. Ausente en la primera lectura, cuando
+  /// todavía no hay nada decidido.
+  alias?: IndiceAlias;
 }
 
 /// A row that passed every check, resolved to ids and ready to write.
@@ -173,11 +191,15 @@ export type Matriz = string[][];
 export function leerFilas(
   matriz: Matriz,
   catalogos: Catalogos,
-): { filas: FilaLeida[]; resueltas: FilaResuelta[] } {
+): { filas: FilaLeida[]; resueltas: FilaResuelta[]; faltantes: FaltanteCatalogo[] } {
   const indice = new Map(COLUMNAS_PLANTILLA.map((c, i) => [c.clave, i]));
   const filas: FilaLeida[] = [];
   const resueltas: FilaResuelta[] = [];
   const heredadosEnArchivo = new Map<string, number>();
+  // Lo que el libro nombra y el catálogo no tiene. Se junta crudo, una entrada por fila, y
+  // `agruparFaltantes` lo convierte en una decisión por valor al final.
+  const registros: RegistroFaltante[] = [];
+  const alias = catalogos.alias ?? indiceDeAlias([]);
 
   // Row 1 is the header; row 2 of a freshly downloaded template is the example.
   for (let i = 1; i < matriz.length; i++) {
@@ -231,9 +253,14 @@ export function leerFilas(
 
     const textoArea = capturar('area');
     const area =
-      textoArea === '' ? undefined : catalogos.areas.find((a) => igual(a.nombre, textoArea));
+      textoArea === ''
+        ? undefined
+        : catalogos.areas.find((a) => igual(a.nombre, aplicarAlias(alias, 'area', textoArea)));
     if (textoArea === '') errores.push('Falta el proceso o área.');
-    else if (!area) errores.push(`Proceso o área desconocido: «${textoArea}».`);
+    else if (!area) {
+      errores.push(`Proceso o área desconocido: «${textoArea}».`);
+      registros.push({ catalogo: 'area', valor: textoArea, fila: numero });
+    }
 
     const buscarCargo = (clave: string, etiqueta: string, obligatorio: boolean) => {
       const v = capturar(clave);
@@ -241,8 +268,12 @@ export function leerFilas(
         if (obligatorio) errores.push(`Falta el ${etiqueta}.`);
         return undefined;
       }
-      const c = catalogos.cargos.find((x) => igual(x.nombre, v));
-      if (!c) errores.push(`El ${etiqueta} «${v}» no está en la lista de cargos.`);
+      const buscado = aplicarAlias(alias, 'cargo', v);
+      const c = catalogos.cargos.find((x) => igual(x.nombre, buscado));
+      if (!c) {
+        errores.push(`El ${etiqueta} «${v}» no está en la lista de cargos.`);
+        registros.push({ catalogo: 'cargo', valor: v, fila: numero });
+      }
       return c;
     };
     const custodio = buscarCargo('custodio', 'custodio', true);
@@ -252,16 +283,21 @@ export function leerFilas(
       clave: string,
       catalogo: { id: number; nombre: string }[],
       etiqueta: string,
+      curable: CatalogoCurable,
     ) => {
       const v = capturar(clave);
       if (v === '') return undefined;
-      const c = catalogo.find((x) => igual(x.nombre, v));
-      if (!c) errores.push(`${etiqueta} no reconocida: «${v}».`);
+      const buscado = aplicarAlias(alias, curable, v);
+      const c = catalogo.find((x) => igual(x.nombre, buscado));
+      if (!c) {
+        errores.push(`${etiqueta} no reconocida: «${v}».`);
+        registros.push({ catalogo: curable, valor: v, fila: numero });
+      }
       return c;
     };
-    const ubicacion = buscarCatalogo('ubicacion', catalogos.ubicaciones, 'Ubicación');
-    const entorno = buscarCatalogo('entorno', catalogos.entornos, 'Entorno');
-    const proveedor = buscarCatalogo('proveedor', catalogos.proveedores, 'Proveedor');
+    const ubicacion = buscarCatalogo('ubicacion', catalogos.ubicaciones, 'Ubicación', 'ubicacion');
+    const entorno = buscarCatalogo('entorno', catalogos.entornos, 'Entorno', 'entorno');
+    const proveedor = buscarCatalogo('proveedor', catalogos.proveedores, 'Proveedor', 'proveedor');
 
     // Captured even though they never fail, so the preview can show what was written.
     capturar('datosCliente');
@@ -343,5 +379,5 @@ export function leerFilas(
     }
   }
 
-  return { filas, resueltas };
+  return { filas, resueltas, faltantes: agruparFaltantes(registros) };
 }
