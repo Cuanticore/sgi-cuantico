@@ -152,7 +152,7 @@ async function abrirWorkbook(datos: FormData): Promise<ExcelJS.Workbook> {
 ///   1. Nuestra plantilla (hoja «Activos», encabezado fila 1, 17 columnas).
 ///   2. El formato histórico FOR-SIG-12 (hoja «1. Matriz de Activos», encabezado en la
 ///      fila 7 con B..U, títulos arriba) — se alinea columna por columna.
-async function abrir(datos: FormData): Promise<string[][]> {
+async function abrir(datos: FormData): Promise<{ matriz: string[][]; filaDeEncabezado: number }> {
   const wb = await abrirWorkbook(datos);
   const hoja = wb.getWorksheet('Activos') ?? wb.worksheets[0];
   if (!hoja) throw new PlantillaError('El archivo no tiene ninguna hoja con datos.');
@@ -229,7 +229,9 @@ async function abrir(datos: FormData): Promise<string[][]> {
       matrizLegacy.push(celdas);
     }
     void LEGACY_ABC;
-    return matrizLegacy;
+    // El encabezado del FOR-SIG-12 historico esta en la fila 7, no en la 1: sin decirlo, el
+    // parte numeraria las filas corridas seis lugares.
+    return { matriz: matrizLegacy, filaDeEncabezado: filaEncabezado };
   }
 
   const matriz: string[][] = [];
@@ -239,7 +241,8 @@ async function abrir(datos: FormData): Promise<string[][]> {
     const cruda = hoja.getRow(n);
     matriz.push(COLUMNAS_PLANTILLA.map((_, i) => texto(cruda.getCell(i + 1).value)));
   }
-  return matriz;
+  // La plantilla que genera la aplicación trae el encabezado arriba de todo.
+  return { matriz, filaDeEncabezado: 1 };
 }
 
 /// La rama Nivel 1 → Nivel 2 → Nivel 3 del libro, resuelta al id del GRADO 3.
@@ -292,18 +295,20 @@ async function leer(
   filas: FilaLeida[];
   resueltas: FilaResuelta[];
   faltantes: FaltanteCatalogo[];
-  matriz: Awaited<ReturnType<typeof abrir>>;
+  matriz: string[][];
+  filaDeEncabezado: number;
   catalogo: Catalogos;
 }> {
-  const [matriz, base] = await Promise.all([abrir(datos), catalogos()]);
+  const [libro, base] = await Promise.all([abrir(datos), catalogos()]);
+  const { matriz, filaDeEncabezado } = libro;
   const catalogo: Catalogos = { ...base, alias: indiceDeAlias(resoluciones) };
-  const lectura = leerFilas(matriz, catalogo);
+  const lectura = leerFilas(matriz, catalogo, filaDeEncabezado);
   if (lectura.filas.length === 0) {
     throw new PlantillaError(
       'No encontré filas con datos. Revisa que hayas llenado la hoja «Activos» y que quede algo más que la fila de ejemplo.',
     );
   }
-  return { ...lectura, matriz, catalogo };
+  return { ...lectura, matriz, filaDeEncabezado, catalogo };
 }
 
 /// Las decisiones que la persona tomó sobre los faltantes, tal como viajan en el formulario.
@@ -770,7 +775,7 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
       if (error instanceof PlantillaError) return { ok: false, mensaje: error.message };
       throw error;
     }
-    const { filas, faltantes, matriz, catalogo } = lectura;
+    const { filas, faltantes, matriz, filaDeEncabezado, catalogo } = lectura;
     let { resueltas } = lectura;
 
     // La validación va ANTES de abrir la transacción: descubrir a mitad de camino que un
@@ -823,7 +828,7 @@ export async function importarPlantilla(datos: FormData): Promise<Resultado> {
           + aumentado.proveedores.length - catalogo.proveedores.length
           + aumentado.ubicaciones.length - catalogo.ubicaciones.length
           + aumentado.entornos.length - catalogo.entornos.length;
-        resueltas = leerFilas(matriz, aumentado).resueltas;
+        resueltas = leerFilas(matriz, aumentado, filaDeEncabezado).resueltas;
         if (resueltas.length === 0) {
           // Abortar revierte los catálogos recién creados: si no entra ni una fila, no
           // quedan cargos inventados para una importación que no ocurrió.

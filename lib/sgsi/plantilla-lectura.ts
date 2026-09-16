@@ -191,6 +191,17 @@ export type Matriz = string[][];
 export function leerFilas(
   matriz: Matriz,
   catalogos: Catalogos,
+  /// En qué fila del Excel está el encabezado, para que los números del parte apunten a
+  /// líneas que la persona pueda abrir.
+  ///
+  /// EL FOR-SIG-12 HISTORICO LO PONE EN LA FILA 7, no en la 1. Sin este dato el lector
+  /// numeraba desde 1 y todo el parte salía corrido SEIS filas: decía «FILA 45» y en la
+  /// fila 45 del libro había otro activo. Quien va a corregir toca el activo equivocado, y
+  /// el que estaba mal sigue mal — peor que no decir nada, porque el número se ve exacto.
+  ///
+  /// El valor por defecto es el de la plantilla que genera la aplicación, con el encabezado
+  /// arriba de todo.
+  filaDeEncabezado = 1,
 ): { filas: FilaLeida[]; resueltas: FilaResuelta[]; faltantes: FaltanteCatalogo[] } {
   const indice = new Map(COLUMNAS_PLANTILLA.map((c, i) => [c.clave, i]));
   const filas: FilaLeida[] = [];
@@ -205,7 +216,7 @@ export function leerFilas(
   for (let i = 1; i < matriz.length; i++) {
     const celdas = matriz[i] ?? [];
     // Sheet row numbers, so an error message points at a line they can find.
-    const numero = i + 1;
+    const numero = filaDeEncabezado + i;
     const leer = (clave: string): string => (celdas[indice.get(clave) ?? 0] ?? '').trim();
 
     const nombre = leer('nombre');

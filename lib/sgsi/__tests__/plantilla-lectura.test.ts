@@ -346,3 +346,53 @@ describe('«No aplica» como proveedor', () => {
     expect(LEGACY_NORMALIZAR.entorno['N.A.']).toBe('No aplica');
   });
 });
+
+describe('el número de fila que se reporta', () => {
+  it('sin decir nada, asume el encabezado en la fila 1', () => {
+    // La plantilla que genera la aplicación trae el encabezado arriba de todo, así que la
+    // primera fila de datos es la 2.
+    const { filas } = leer([{ ...VALIDA, tipo: '[XX] No existe' }]);
+
+    expect(filas[0].fila).toBe(2);
+  });
+
+  it('con el encabezado en la fila 7, la primera fila de datos es la 8', () => {
+    // EL FOR-SIG-12 HISTÓRICO PONE EL ENCABEZADO EN LA FILA 7. Sin decírselo, el lector
+    // numeraba desde 1 y todo el parte salía corrido seis filas: el mensaje decía «FILA 45»
+    // y en la fila 45 del libro había otro activo. La persona corrige el activo equivocado,
+    // y el que estaba mal sigue mal.
+    const { filas } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, tipo: '[XX] No existe' })],
+      CATALOGOS,
+      7,
+    );
+
+    expect(filas[0].fila).toBe(8);
+  });
+
+  it('numera correlativo desde el encabezado, sin saltos', () => {
+    const { filas } = leerFilas(
+      [
+        ENCABEZADO,
+        fila({ ...VALIDA, tipo: '[XX] No existe' }),
+        fila({ ...VALIDA, nombre: 'Otro', tipo: '[YY] Tampoco' }),
+      ],
+      CATALOGOS,
+      7,
+    );
+
+    expect(filas.map((f) => f.fila)).toEqual([8, 9]);
+  });
+
+  it('los faltantes de catálogo apuntan a la misma fila que los errores', () => {
+    // Si el faltante dijera una fila y el error otra, el parte se contradiría a sí mismo.
+    const { filas, faltantes } = leerFilas(
+      [ENCABEZADO, fila({ ...VALIDA, proveedor: 'OpenIA' })],
+      CATALOGOS,
+      7,
+    );
+
+    expect(faltantes[0].filas).toEqual([filas[0].fila]);
+    expect(faltantes[0].filas).toEqual([8]);
+  });
+});
