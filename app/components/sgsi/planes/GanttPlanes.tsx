@@ -31,12 +31,23 @@ import {
 /// Los colores de cada estado. Literales y no tokens porque son una escala SEMÁNTICA propia
 /// de este tablero —urgencia, no riesgo— y reusar la rampa de riesgo haría leer «crítico»
 /// donde dice «vencido». Coinciden a propósito en el rojo: un plan vencido es una deuda.
-const COLOR: Record<EstadoLinea, { barra: string; fondo: string; texto: string; etiqueta: string }> = {
+///
+/// ── POR QUÉ UN PLAN CERRADO SE PINTA ────────────────────────────────────────────────────
+///
+/// Estaba en gris —#b9c4cd contra el #8b97a3 de «no iniciado»—, así que cerrar un plan lo
+/// APAGABA: el único estado que el sistema persigue se veía como el archivado. Ahora lleva el
+/// verde del acento, y «en plazo» pasa al azul. La escala queda con una lectura sola: rojo y
+/// naranja son deuda, azul es que va a llegar, verde es que llegó, gris es que no arrancó.
+///
+/// Verde para «cerrado» y no para «en plazo» porque son afirmaciones de distinto peso: una es
+/// un hecho verificado, la otra una previsión. Gastar el verde en la previsión deja la única
+/// buena noticia real sin color propio.
+export const COLOR: Record<EstadoLinea, { barra: string; fondo: string; texto: string; etiqueta: string }> = {
   VENCIDO: { barra: '#a52016', fondo: '#f7e3e1', texto: '#a52016', etiqueta: 'Vencido' },
   EN_RIESGO: { barra: '#c25a1e', fondo: '#f9ebe0', texto: '#8a3f14', etiqueta: 'En riesgo' },
-  EN_PLAZO: { barra: '#2f7d5d', fondo: '#e2efe9', texto: '#1f5a41', etiqueta: 'En plazo' },
+  EN_PLAZO: { barra: '#2b52b8', fondo: '#e6ecfb', texto: '#1b3a8a', etiqueta: 'En plazo' },
   NO_INICIADO: { barra: '#8b97a3', fondo: '#eef1f4', texto: '#5b6875', etiqueta: 'No iniciado' },
-  CERRADO: { barra: '#b9c4cd', fondo: '#f2f5f7', texto: '#5b6875', etiqueta: 'Cerrado' },
+  CERRADO: { barra: '#0f7a5a', fondo: '#e2f1ea', texto: '#0b5c44', etiqueta: 'Cerrado' },
 };
 
 export default function GanttPlanes({ planes }: { planes: PlanDeLinea[] }) {

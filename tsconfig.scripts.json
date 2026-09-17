@@ -1,18 +1,31 @@
 {
+  // tsconfig.scripts.json
+  //
+  // Para correr los scripts de `scripts/` con `tsx`, fuera del runtime de Next.
+  //
+  //   npx tsx --tsconfig tsconfig.scripts.json scripts/<lo-que-sea>.ts
+  //
+  // ── POR QUÉ HACE FALTA ─────────────────────────────────────────────────────────────────
+  //
+  // Media docena de módulos de `lib/` empiezan con `import 'server-only'`, que es la marca
+  // que impide que ese código termine en un bundle de cliente. El paquete no está instalado:
+  // vive dentro de `next` y sólo Next —y `next/jest`, que es por lo que la suite no se
+  // entera— sabe resolverlo. Un `tsx` pelado falla con MODULE_NOT_FOUND y el mensaje señala
+  // al script, que no tiene nada que ver.
+  //
+  // Se mapea a `empty.js` y NO a `index.js`: `index.js` es el que lanza el error a propósito
+  // cuando alguien lo importa desde un componente de cliente, y `empty.js` es el módulo vacío
+  // que el propio Next usa en la condición `react-server`. Un script de Node es servidor por
+  // definición, así que la marca no tiene nada que proteger ahí.
+  //
+  // NO se toca `tsconfig.json`: ahí el mapeo sería mentira —en la aplicación `server-only`
+  // SÍ tiene que significar algo— y el día que alguien importara un módulo de servidor desde
+  // un componente de cliente, la marca no lo detendría.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "server-only": [
-        "./scripts/_shims/server-only.ts"
-      ]
+      "@/*": ["./*"],
+      "server-only": ["./node_modules/next/dist/compiled/server-only/empty.js"]
     }
-  },
-  "include": [
-    "scripts/**/*.ts",
-    "lib/**/*.ts",
-    "app/**/*.ts"
-  ]
+  }
 }

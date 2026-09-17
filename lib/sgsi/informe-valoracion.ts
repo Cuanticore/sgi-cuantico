@@ -24,6 +24,9 @@ import {
   type RiesgoUbicable,
 } from './matriz-clasica';
 import { clasificar, type Umbral } from './clasificar';
+// El mapa de procesos es del SIG, no del SGSI, y se importa en vez de copiarse: la
+// correspondencia área↔banda tiene que existir en un solo lugar.
+import { ORDEN_BANDAS, TITULO_BANDA, bandaDelArea } from '../sig/procesos';
 
 /// Un riesgo tal como el informe lo necesita para las matrices.
 ///
@@ -119,6 +122,57 @@ export interface ProcesoDelInforme {
   /// Vacío cuando el proceso no tiene ninguna aceptación formal — y entonces el informe
   /// omite la sección entera en vez de imprimir un «no aplica» vacío.
   aceptaciones: AceptacionDelInforme[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// LAS BANDAS DEL MAPA DE PROCESOS
+// ─────────────────────────────────────────────────────────────────────────────────────────
+//
+// Un capítulo del informe es un ÁREA, que es lo que lleva el activo. El mapa de MAN-SIG-02
+// agrupa por banda —estratégicos, misionales, apoyo—, que es como lo lee un comité. Diez
+// capítulos seguidos son una lista; tres bandas con sus capítulos adentro son un documento.
+//
+// Agrupar REPARTE, no reordena. El orden —por cuántos activos pone cada proceso en el
+// análisis— lo decide `armarInforme`, y tener dos criterios de orden es como el índice deja
+// de coincidir con el cuerpo.
+
+/// Un bloque del informe: una banda del mapa con los capítulos que le tocan.
+export interface BandaDelInforme {
+  titulo: string;
+  /// Ancla estable para el índice, derivada del título por la misma regla que las de los
+  /// capítulos. Un índice con dos formas de fabricar enlaces tiene enlaces rotos.
+  ancla: string;
+  capitulos: ProcesoDelInforme[];
+}
+
+/// Las áreas que el mapa no declara como proceso. Hoy es «Transversal», pero la consulta lee
+/// las áreas ACTIVAS de la base y no este archivo, así que mañana puede ser otra.
+export const FUERA_DEL_MAPA = 'Fuera del mapa de procesos';
+
+/// Reparte los capítulos en las bandas del mapa.
+///
+/// Las tres bandas se devuelven SIEMPRE, vacías inclusive: que el mapa tenga tres es del
+/// mapa y no de los datos cargados, y una banda que se esfuma cuando nadie la ocupa hace
+/// creer que el mapa tiene dos. El cuarto bloque es lo contrario —no es del mapa— y sólo
+/// aparece cuando hay algo que poner en él.
+export function agruparEnBandas(
+  capitulos: readonly ProcesoDelInforme[],
+): BandaDelInforme[] {
+  const bandas: BandaDelInforme[] = ORDEN_BANDAS.map((tipo) => ({
+    titulo: TITULO_BANDA[tipo],
+    ancla: anclaDeProceso(TITULO_BANDA[tipo]),
+    capitulos: capitulos.filter((c) => bandaDelArea(c.proceso) === tipo),
+  }));
+
+  const fuera = capitulos.filter((c) => bandaDelArea(c.proceso) === null);
+  if (fuera.length > 0) {
+    bandas.push({
+      titulo: FUERA_DEL_MAPA,
+      ancla: anclaDeProceso(FUERA_DEL_MAPA),
+      capitulos: fuera,
+    });
+  }
+  return bandas;
 }
 
 /// Sin calcular NO es una banda. Se nombra acá una sola vez para que el conteo, la matriz y

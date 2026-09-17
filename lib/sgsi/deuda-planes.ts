@@ -34,6 +34,13 @@ export interface AccionPlanParaDeuda {
   /// existiera para efectos de la deuda.
   activa: boolean;
   origen: string;
+  /// `AccionPlan.control.codigo`. `null` cuando el plan no apunta a ningún control — sólo
+  /// `MITIGAR` lo exige—, y entonces no cubre por esa vía.
+  ///
+  /// NO es opcional a propósito. Un campo opcional que se olvida no da error: da un resolutor
+  /// que dice «sin plan» sobre riesgos que sí lo tienen, en silencio y con el tablero
+  /// completo. Obligarlo hace que el compilador le pregunte a cada llamador.
+  controlCodigo: string | null;
 }
 
 /// Construye el `ResolverDeudaPlan` que `lib/sgsi/analisis-riesgos.ts` consume: dado un
@@ -41,19 +48,49 @@ export interface AccionPlanParaDeuda {
 /// lo cubre — cualquier `tipo`, incluido `ACEPTAR` (spec "ACEPTAR exits the band"; D-4 "el
 /// caso ACEPTAR importa tanto como MITIGAR": aceptar formalmente también es planificar).
 ///
-/// Un `AccionPlan.origen` sin el prefijo verificable (`parsearOrigen` devuelve `null`) no
-/// cubre nada — son los planes creados por otros caminos (`crearAccionDesdeControl`,
-/// «Agregada desde Controles y madurez…») que no nacieron de un riesgo puntual y no pueden
-/// decir cuál cubren sin inventar el dato.
+/// ── HAY DOS VÍAS, Y LAS DOS HACEN FALTA ─────────────────────────────────────────────────
+///
+/// 1 · POR ORIGEN. El prefijo verificable de `origen` nombra un par (activo, amenaza): es el
+///     plan nacido de un riesgo puntual, desde la ficha del activo. Preciso y estrecho.
+///
+/// 2 · POR CONTROL PRINCIPAL. Un plan sobre el control principal de la amenaza cubre esa
+///     brecha. Hace falta porque el plan es sobre un CONTROL (D-4) mientras que el prefijo
+///     nombra un solo riesgo: un plan sobre A.8.12 no podía cubrir los 84 riesgos cuyo
+///     principal es A.8.12 sin escribir ochenta y cuatro planes iguales.
+///
+///     Es el mismo eje con el que la exigencia decide si hay brecha —el nivel del control
+///     PRINCIPAL contra lo que el activo le pide—, así que la compuerta y su cierre hablan
+///     del mismo control. Y se deriva: no hay texto que mantener ni que reescribir cuando se
+///     reemite el código de un activo.
+///
+/// Medido contra producción el 16-09-2026: los 18 planes vigentes traen el origen en prosa,
+/// sin prefijo, así que con la vía 1 sola el sistema afirmaba que ninguno de los 584 riesgos
+/// tenía plan — con 18 planes registrados y fechados.
+///
+/// Lo que NINGUNA de las dos hace es cubrir por «el plan toca algún control de la amenaza».
+/// Un complementario que mejora no cierra la brecha del principal, y darlo por cubierto
+/// convertiría cualquier plan en una coartada para la amenaza entera.
+///
+/// Un `origen` sin prefijo y sin control no cubre nada: no puede decir qué cubre sin que
+/// alguien invente el dato.
 export function construirResolverDeuda(
   acciones: readonly AccionPlanParaDeuda[],
 ): ResolverDeudaPlan {
-  const origenes = acciones
-    .filter((a) => a.activa)
+  const activas = acciones.filter((a) => a.activa);
+
+  const origenes = activas
     .map((a) => parsearOrigen(a.origen))
     .filter((o): o is NonNullable<ReturnType<typeof parsearOrigen>> => o !== null);
 
-  return (riesgo) => origenes.some((o) => origenCubreRiesgo(o, riesgo));
+  const controlesConPlan = new Set(
+    activas.map((a) => a.controlCodigo).filter((c): c is string => c !== null),
+  );
+
+  return (riesgo) => {
+    if (origenes.some((o) => origenCubreRiesgo(o, riesgo))) return true;
+    const principal = riesgo.principalCodigo;
+    return principal !== undefined && principal !== null && controlesConPlan.has(principal);
+  };
 }
 
 // ============================================================================
@@ -172,6 +209,10 @@ export interface RiesgoParaDeuda {
   activoNombre: string;
   amenazaCodigo: string;
   amenazaNombre: string;
+  /// El control principal de la amenaza. Viaja por la misma razón que en `ResolverDeudaPlan`
+  /// y es obligatorio por la misma: si esta lista preguntara sin él mientras las tarjetas
+  /// preguntan con él, la franja nombraría activos que el tablero ya da por cubiertos.
+  principalCodigo: string | null;
   calculos: readonly CalculoParaAntiguedad[];
 }
 
@@ -201,7 +242,15 @@ export function activosSinPlan(
   const pendientes: FilaSinPlan[] = [];
 
   for (const r of riesgos) {
-    if (resolverDeuda({ activoCodigo: r.activoCodigo, amenazaCodigo: r.amenazaCodigo })) continue;
+    if (
+      resolverDeuda({
+        activoCodigo: r.activoCodigo,
+        amenazaCodigo: r.amenazaCodigo,
+        principalCodigo: r.principalCodigo,
+      })
+    ) {
+      continue;
+    }
     const desde = antiguedadEnCritico(r.calculos, bandas);
     if (desde === null) continue;
     const diasPendiente = edadEnDias(desde, ahora);

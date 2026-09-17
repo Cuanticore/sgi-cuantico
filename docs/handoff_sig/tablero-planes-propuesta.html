@@ -1,0 +1,1365 @@
+<title>Tablero de Planes SGSI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --surface-3: #e4e9ef;
+    --line: #dae0e8;
+    --line-soft: #e9edf2;
+    --ink: #141a20;
+    --ink-2: #4c5866;
+    --ink-3: #78848f;
+
+    --brand: #12437f;
+    --brand-deep: #0c2461;
+    --brand-soft: #e6eefb;
+
+    --st-nueva: #6d7a87;
+    --st-curso: #2b52b8;
+    --st-verif: #a5843c;
+    --st-cerrada: #0f7a5a;
+    --st-cancel: #98a2ad;
+
+    --st-nueva-bg: #eceff3;
+    --st-curso-bg: #e6ecfb;
+    --st-verif-bg: #f7efdd;
+    --st-cerrada-bg: #e2f1ea;
+    --st-cancel-bg: #eef0f2;
+
+    --h-vencido: #a52016;
+    --h-riesgo: #c25a1e;
+    --h-plazo: #0f7a5a;
+    --h-sinfecha: #b6bec7;
+
+    --radio: 9px;
+    --sombra: 0 1px 2px rgba(18, 30, 46, .06), 0 3px 10px rgba(18, 30, 46, .05);
+    --sombra-alta: 0 2px 6px rgba(18, 30, 46, .10), 0 12px 28px rgba(18, 30, 46, .12);
+  }
+
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f141a;
+      --surface: #171e26;
+      --surface-2: #1e2832;
+      --surface-3: #25313d;
+      --line: #2b3844;
+      --line-soft: #222d38;
+      --ink: #e7edf3;
+      --ink-2: #a9b5c1;
+      --ink-3: #7c8894;
+
+      --brand: #8ab6f2;
+      --brand-deep: #b9d2f8;
+      --brand-soft: #1a2b45;
+
+      --st-nueva: #93a0ad;
+      --st-curso: #7fa2ef;
+      --st-verif: #d6b465;
+      --st-cerrada: #4cbd92;
+      --st-cancel: #7d8892;
+
+      --st-nueva-bg: #232e39;
+      --st-curso-bg: #1c2a45;
+      --st-verif-bg: #2f2a1b;
+      --st-cerrada-bg: #14312a;
+      --st-cancel-bg: #222a32;
+
+      --h-vencido: #e2725f;
+      --h-riesgo: #e08a4e;
+      --h-plazo: #4cbd92;
+      --h-sinfecha: #4b5764;
+
+      --sombra: 0 1px 2px rgba(0, 0, 0, .35), 0 3px 12px rgba(0, 0, 0, .3);
+      --sombra-alta: 0 2px 8px rgba(0, 0, 0, .45), 0 14px 32px rgba(0, 0, 0, .45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f141a;
+    --surface: #171e26;
+    --surface-2: #1e2832;
+    --surface-3: #25313d;
+    --line: #2b3844;
+    --line-soft: #222d38;
+    --ink: #e7edf3;
+    --ink-2: #a9b5c1;
+    --ink-3: #7c8894;
+
+    --brand: #8ab6f2;
+    --brand-deep: #b9d2f8;
+    --brand-soft: #1a2b45;
+
+    --st-nueva: #93a0ad;
+    --st-curso: #7fa2ef;
+    --st-verif: #d6b465;
+    --st-cerrada: #4cbd92;
+    --st-cancel: #7d8892;
+
+    --st-nueva-bg: #232e39;
+    --st-curso-bg: #1c2a45;
+    --st-verif-bg: #2f2a1b;
+    --st-cerrada-bg: #14312a;
+    --st-cancel-bg: #222a32;
+
+    --h-vencido: #e2725f;
+    --h-riesgo: #e08a4e;
+    --h-plazo: #4cbd92;
+    --h-sinfecha: #4b5764;
+
+    --sombra: 0 1px 2px rgba(0, 0, 0, .35), 0 3px 12px rgba(0, 0, 0, .3);
+    --sombra-alta: 0 2px 8px rgba(0, 0, 0, .45), 0 14px 32px rgba(0, 0, 0, .45);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: 'Libre Franklin', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .envoltura {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 22px 56px;
+  }
+
+  /* ── Cabecera ───────────────────────────────────────────────────────── */
+  .cabecera { display: flex; flex-direction: column; gap: 18px; }
+
+  .titular { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; }
+
+  .rotulo {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 3px;
+  }
+
+  h1 {
+    font-size: clamp(25px, 3.4vw, 34px);
+    font-weight: 800;
+    letter-spacing: -.021em;
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .subtitular {
+    margin: 6px 0 0;
+    color: var(--ink-2);
+    max-width: 62ch;
+    font-size: 13.5px;
+  }
+
+  .aviso-diseno {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    border-left: 3px solid var(--brand);
+    background: var(--brand-soft);
+    border-radius: 0 var(--radio) var(--radio) 0;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .aviso-diseno strong { color: var(--brand-deep); font-weight: 700; }
+
+  /* ── Resumen ────────────────────────────────────────────────────────── */
+  .resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    overflow: hidden;
+  }
+
+  .metrica {
+    background: var(--surface);
+    padding: 13px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .metrica-cifra {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.05;
+  }
+
+  .metrica-etiqueta {
+    font-size: 11.5px;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  .metrica-pie { font-size: 11px; color: var(--ink-3); }
+
+  /* ── Barra de controles ─────────────────────────────────────────────── */
+  .controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .conmutador {
+    display: inline-flex;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .conmutador button {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    padding: 6px 13px;
+    cursor: pointer;
+    transition: background .14s, color .14s;
+  }
+  .conmutador button:hover { color: var(--ink); }
+  .conmutador button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--brand);
+    box-shadow: var(--sombra);
+  }
+
+  .filtro {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    padding: 5px 9px 5px 12px;
+  }
+  .filtro span {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .filtro select {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    padding: 2px 2px;
+    cursor: pointer;
+    max-width: 210px;
+  }
+  .filtro select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+
+  .accion-principal {
+    margin-left: auto;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--brand);
+    border: 0;
+    border-radius: var(--radio);
+    padding: 9px 16px;
+    cursor: pointer;
+    box-shadow: var(--sombra);
+  }
+  .accion-principal:hover { background: var(--brand-deep); }
+  /* En oscuro el azul de marca se aclara, así que el texto pasa a la tinta del fondo. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .accion-principal { color: #0f141a; }
+  }
+  :root[data-theme="dark"] .accion-principal { color: #0f141a; }
+
+  button:focus-visible, [draggable]:focus-visible, a:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /* ── Tablero ────────────────────────────────────────────────────────── */
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(248px, 1fr));
+    gap: 14px;
+    align-items: start;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .columna {
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 11px 11px 13px;
+    min-width: 248px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: background .15s, border-color .15s;
+  }
+  .columna.recibiendo {
+    background: var(--brand-soft);
+    border-color: var(--brand);
+  }
+
+  .columna-cabeza {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 1px 3px 9px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .punto-estado {
+    width: 9px; height: 9px; border-radius: 50%;
+    flex: none;
+  }
+
+  .columna-nombre {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+  }
+
+  .columna-conteo {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 1px 8px;
+  }
+
+  .pila { display: flex; flex-direction: column; gap: 9px; min-height: 48px; }
+
+  /* ── Tarjeta ────────────────────────────────────────────────────────── */
+  .tarjeta {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px 12px 15px;
+    box-shadow: var(--sombra);
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: box-shadow .15s, transform .15s, opacity .15s;
+  }
+  .tarjeta:hover { box-shadow: var(--sombra-alta); transform: translateY(-1px); }
+  .tarjeta.arrastrando { opacity: .4; }
+  .tarjeta::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 10px; bottom: 10px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--franja, var(--h-sinfecha));
+  }
+
+  .tarjeta-cabeza { display: flex; align-items: center; gap: 8px; }
+
+  .codigo {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    color: var(--brand);
+  }
+
+  .clase {
+    margin-left: auto;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .clase.mejora { color: var(--st-verif); border-color: var(--st-verif); }
+
+  .actividad {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.34;
+    letter-spacing: -.008em;
+    margin: 0;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+
+  .control-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    background: var(--surface-2);
+    border-radius: 5px;
+    padding: 3px 7px;
+    max-width: 100%;
+  }
+  .control-chip b {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    flex: none;
+  }
+  .control-chip span {
+    font-size: 10.5px;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .madurez {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .madurez-barra {
+    position: relative;
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    overflow: hidden;
+  }
+  .madurez-actual { position: absolute; inset: 0 auto 0 0; background: var(--ink-3); border-radius: 3px; }
+  .madurez-objetivo { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--st-cerrada); }
+  .madurez-texto {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+    flex: none;
+  }
+
+  .tarjeta-pie {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    flex: none;
+    display: grid;
+    place-items: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: #fff;
+    background: var(--brand-deep);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .avatar { color: #0f141a; }
+  }
+  :root[data-theme="dark"] .avatar { color: #0f141a; }
+
+  .responsable {
+    font-size: 11px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fecha {
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+  .fecha[data-salud="vencido"] { color: #fff; background: var(--h-vencido); }
+  .fecha[data-salud="riesgo"]  { color: #fff; background: var(--h-riesgo); }
+  .fecha[data-salud="plazo"]   { color: var(--ink-2); background: var(--surface-2); }
+  .fecha[data-salud="cerrado"] { color: var(--st-cerrada); background: var(--st-cerrada-bg); }
+  .fecha[data-salud="sin"]     { color: var(--ink-3); background: var(--surface-2); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .fecha[data-salud="vencido"],
+    :root:not([data-theme="light"]) .fecha[data-salud="riesgo"] { color: #0f141a; }
+  }
+  :root[data-theme="dark"] .fecha[data-salud="vencido"],
+  :root[data-theme="dark"] .fecha[data-salud="riesgo"] { color: #0f141a; }
+
+  .sello-cerrado {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    background: var(--st-cerrada-bg);
+    color: var(--st-cerrada);
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .01em;
+  }
+
+  .columna[data-estado="CERRADA"] .tarjeta {
+    border-color: color-mix(in srgb, var(--st-cerrada) 34%, var(--line));
+    background: color-mix(in srgb, var(--st-cerrada-bg) 45%, var(--surface));
+  }
+  .columna[data-estado="CANCELADA"] .tarjeta .actividad {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-color: var(--line);
+  }
+
+  .vacio {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    text-align: center;
+    padding: 14px 8px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+  }
+
+  /* ── Tabla ──────────────────────────────────────────────────────────── */
+  .caja-tabla {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    overflow-x: auto;
+    box-shadow: var(--sombra);
+  }
+
+  table { border-collapse: collapse; width: 100%; min-width: 1180px; font-size: 12.5px; }
+
+  thead th {
+    position: sticky; top: 0;
+    background: var(--surface-2);
+    text-align: left;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  tbody tr:hover td { background: var(--surface-2); }
+  tbody tr[data-estado="CERRADA"] td { background: color-mix(in srgb, var(--st-cerrada-bg) 40%, transparent); }
+  tbody tr[data-estado="CERRADA"]:hover td { background: color-mix(in srgb, var(--st-cerrada-bg) 70%, transparent); }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .pastilla {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 20px; padding: 2px 9px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+
+  .tira-avance {
+    display: flex; align-items: center; gap: 7px; min-width: 104px;
+  }
+  .tira-avance-riel { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+  .tira-avance-relleno { height: 100%; border-radius: 3px; }
+
+  /* ── Cronograma ─────────────────────────────────────────────────────── */
+  .cronograma {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    padding: 16px 18px 20px;
+    box-shadow: var(--sombra);
+    overflow-x: auto;
+  }
+  .crono-rejilla { min-width: 760px; display: grid; grid-template-columns: 190px 1fr; gap: 0 14px; align-items: center; }
+  .crono-meses { display: grid; font-size: 10px; color: var(--ink-3); font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .06em; }
+  .crono-mes { border-left: 1px solid var(--line-soft); padding: 0 0 6px 6px; }
+  .crono-fila-nombre { font-size: 11.5px; color: var(--ink-2); padding: 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crono-pista { position: relative; height: 22px; border-left: 1px solid var(--line-soft); }
+  .crono-barra {
+    position: absolute; top: 5px; height: 12px; border-radius: 6px;
+    display: flex; align-items: center; padding-left: 7px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #fff;
+    min-width: 30px;
+  }
+  .crono-hoy { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--h-vencido); }
+
+  .leyenda { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; }
+  .leyenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+  .leyenda-muestra { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+
+  .nota-pie {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    max-width: 78ch;
+  }
+  .nota-pie strong { color: var(--ink-2); }
+
+  /* ── Alcance: qué mitiga el plan ────────────────────────────────────── */
+  .alcance-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    font-size: 10.5px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border-radius: 5px;
+    padding: 3px 8px;
+  }
+  .alcance-chip.huerfano { color: var(--st-verif); background: var(--st-verif-bg); }
+  .alcance-chip .mono { font-weight: 600; }
+
+  .cajon {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 16, 24, .42);
+    display: grid;
+    justify-items: end;
+    z-index: 40;
+  }
+  .cajon-panel {
+    background: var(--surface);
+    width: min(520px, 100%);
+    height: 100%;
+    overflow-y: auto;
+    border-left: 1px solid var(--line);
+    box-shadow: var(--sombra-alta);
+    padding: 20px 22px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .cajon-cabeza { display: flex; align-items: flex-start; gap: 12px; }
+  .cajon-cerrar {
+    margin-left: auto;
+    font: inherit;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--ink-3);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    flex: none;
+  }
+  .cajon-cerrar:hover { color: var(--ink); background: var(--surface-2); }
+
+  .cajon h2 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -.014em;
+    line-height: 1.26;
+    margin: 4px 0 0;
+    text-wrap: pretty;
+  }
+
+  .bloque {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bloque-titulo {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .bloque-alcance { border-color: color-mix(in srgb, var(--brand) 32%, var(--line)); }
+  .bloque-alcance .bloque-titulo { color: var(--brand); }
+
+  .control-grande { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .control-grande b {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--brand);
+  }
+  .control-grande span { font-size: 13px; color: var(--ink); font-weight: 500; }
+
+  .lista-amenazas { display: flex; flex-direction: column; gap: 0; }
+  .amenaza-fila {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .amenaza-fila:last-child { border-bottom: 0; }
+  .amenaza-fila b {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-2);
+    min-width: 40px;
+    flex: none;
+  }
+  .amenaza-fila span { font-size: 12.5px; color: var(--ink); }
+
+  .cifras-alcance { display: flex; gap: 22px; flex-wrap: wrap; }
+  .cifra-alcance { display: flex; flex-direction: column; gap: 1px; }
+  .cifra-alcance b {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .cifra-alcance span { font-size: 10.5px; color: var(--ink-3); }
+
+  .sin-alcance {
+    border-left: 3px solid var(--st-verif);
+    background: var(--st-verif-bg);
+    border-radius: 0 7px 7px 0;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .sin-alcance strong { color: var(--ink); }
+
+  .dato-fila { display: flex; gap: 12px; align-items: baseline; font-size: 12.5px; }
+  .dato-fila dt {
+    flex: none;
+    width: 128px;
+    font-size: 10.5px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .dato-fila dd { margin: 0; color: var(--ink); }
+  dl { margin: 0; display: flex; flex-direction: column; gap: 9px; }
+
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  @media (max-width: 720px) {
+    .tablero { grid-template-columns: 1fr; }
+    .accion-principal { margin-left: 0; }
+  }
+</style>
+
+<div class="envoltura">
+  <header class="cabecera">
+    <div class="titular">
+      <div>
+        <p class="rotulo">SGSI · ISO/IEC 27001 · 6.1.3</p>
+        <h1>Planes de tratamiento y mejora</h1>
+        <p class="subtitular">
+          Cada plan eleva la madurez de un control. Un control sostiene muchas amenazas, así que
+          un plan cierra la brecha de todos los riesgos cuyo control principal mejora.
+        </p>
+      </div>
+    </div>
+
+    <div class="aviso-diseno">
+      <strong>Propuesta de diseño.</strong>
+      <span>
+        Los 18 planes vigentes son los reales del registro, con sus códigos, controles y fechas.
+        <span class="mono">PT-019</span>, <span class="mono">PT-020</span> y <span class="mono">PT-021</span>
+        son los tres que pediste agregar y todavía no están registrados. La asignación de responsables
+        es ilustrativa donde el registro aún no la tiene.
+      </span>
+    </div>
+
+    <div class="resumen" id="resumen"></div>
+
+    <div class="controles">
+      <div class="conmutador" role="group" aria-label="Vista">
+        <button type="button" id="v-tablero" aria-pressed="true" data-vista="tablero">Tablero</button>
+        <button type="button" id="v-tabla" aria-pressed="false" data-vista="tabla">Tabla</button>
+        <button type="button" id="v-crono" aria-pressed="false" data-vista="crono">Cronograma</button>
+      </div>
+
+      <label class="filtro" for="f-clase">
+        <span>Tipo de plan</span>
+        <select id="f-clase">
+          <option value="">Todos</option>
+          <option value="TRATAMIENTO">Plan de Tratamiento de Riesgos</option>
+          <option value="MEJORA">Plan de Mejora</option>
+        </select>
+      </label>
+
+      <label class="filtro" for="f-resp">
+        <span>Responsable</span>
+        <select id="f-resp"><option value="">Todos</option></select>
+      </label>
+
+      <label class="filtro" for="f-salud">
+        <span>Vencimiento</span>
+        <select id="f-salud">
+          <option value="">Todos</option>
+          <option value="vencido">Vencidos</option>
+          <option value="riesgo">Por vencer (30 días)</option>
+          <option value="plazo">En plazo</option>
+        </select>
+      </label>
+
+      <button type="button" class="accion-principal" id="nuevo">+ Nuevo plan</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="vista-tablero" style="margin-top:18px">
+      <div class="tablero" id="tablero"></div>
+    </section>
+
+    <section id="vista-tabla" hidden style="margin-top:18px">
+      <div class="caja-tabla">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo de Plan</th>
+              <th>Código del plan</th>
+              <th>Actividad</th>
+              <th>Control</th>
+              <th>Amenazas que mitiga</th>
+              <th>Responsable de ejecución</th>
+              <th>Fecha terminación</th>
+              <th>Avance</th>
+              <th>Verificación de eficacia</th>
+              <th>Madurez alcanzada</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla"></tbody>
+        </table>
+      </div>
+      <p class="nota-pie" style="margin-top:14px">
+        Los encabezados son los del formato <strong>FOR-SIG-13</strong>, no los nombres internos del
+        modelo. <strong>Tipo de Plan</strong>, <strong>Descripción</strong>, <strong>Seguimiento</strong> y
+        <strong>Fecha de seguimiento</strong> hoy entran por importación y no se ven en la aplicación;
+        acá sí. La columna <strong>Amenazas que mitiga</strong> lista sólo las de la valoración de las que el control es <strong>principal</strong>.
+      </p>
+    </section>
+
+    <section id="vista-crono" hidden style="margin-top:18px">
+      <div class="cronograma">
+        <div class="crono-rejilla" id="crono"></div>
+        <div class="leyenda">
+          <span class="leyenda-item"><span class="leyenda-muestra" style="background:var(--h-vencido)"></span> Vencido</span>
+          <span class="leyenda-item"><span class="leyenda-muestra" style="background:var(--h-riesgo)"></span> Vence en 30 días o menos</span>
+          <span class="leyenda-item"><span class="leyenda-muestra" style="background:var(--st-curso)"></span> En plazo</span>
+          <span class="leyenda-item"><span class="leyenda-muestra" style="background:var(--st-cerrada)"></span> Cerrado</span>
+          <span class="leyenda-item"><span class="leyenda-muestra" style="background:var(--h-vencido);width:2px;border-radius:0"></span> Hoy · 16 sep 2026</span>
+        </div>
+      </div>
+    </section>
+
+    <p class="nota-pie">
+      <strong>Arrastra una tarjeta</strong> para cambiarle el estado. El avance sigue al estado
+      —No iniciada 0 %, En ejecución 50 %, Cerrada 100 %—, porque dos cifras editadas por separado
+      que dicen lo mismo es como un plan termina reportando un avance que nadie reconoce.
+      <strong>En verificación</strong> y <strong>Cancelada</strong> no lo tocan: ninguno de los dos
+      dice nada sobre cuánto del trabajo está hecho. Un plan no puede cerrarse con la verificación
+      de eficacia pendiente.
+    </p>
+  </main>
+</div>
+
+<div class="cajon" id="cajon" hidden></div>
+
+<script>
+  const HOY = new Date('2026-09-16T00:00:00Z');
+
+  const ESTADOS = [
+    { clave: 'NO_INICIADA',     nombre: 'No iniciada',     color: 'var(--st-nueva)',   fondo: 'var(--st-nueva-bg)' },
+    { clave: 'EN_EJECUCION',    nombre: 'En ejecución',    color: 'var(--st-curso)',   fondo: 'var(--st-curso-bg)' },
+    { clave: 'EN_VERIFICACION', nombre: 'En verificación', color: 'var(--st-verif)',   fondo: 'var(--st-verif-bg)' },
+    { clave: 'CERRADA',         nombre: 'Cerrada',         color: 'var(--st-cerrada)', fondo: 'var(--st-cerrada-bg)' },
+    { clave: 'CANCELADA',       nombre: 'Cancelada',       color: 'var(--st-cancel)',  fondo: 'var(--st-cancel-bg)' },
+  ];
+
+  // `amenazas` son las de la VALORACIÓN de las que este control es PRINCIPAL — salen de
+  // `prisma/data/relevancia-pendiente.csv`, las 272 relevancias asignadas. No se lista el
+  // catálogo entero de amenazas ni los controles complementarios: lo que el plan mitiga es
+  // aquello cuya contención depende de este control.
+  // `alcance` son los riesgos y activos medidos sobre el registro (16-09-2026); `null` donde
+  // todavía no se midió, y entonces se dice así en vez de poner un número.
+  const P = (codigo, clase, actividad, descripcion, ctl, ctlNombre, act, obj, fecha, resp, estado, avance, verif, amenazas, alcance) =>
+    ({ codigo, clase, actividad, descripcion, ctl, ctlNombre, act, obj, fecha, resp, estado, avance, verif, amenazas, alcance });
+
+  const A = (codigo, nombre) => ({ codigo, nombre });
+
+  // Los 18 vigentes salen del registro real (16-09-2026). Los tres últimos son los pedidos.
+  const PLANES = [
+    P('PT-014','TRATAMIENTO','Cerrar el primer ciclo de revisión anual de las políticas',
+      'Las políticas están aprobadas y comunicadas; falta ejecutar y evidenciar la revisión anual.',
+      'A.5.1','Políticas de seguridad de la información',70,90,'2026-11-18','Líder del SIG','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-009','TRATAMIENTO','Formalizar y ejercitar el contacto con autoridades',
+      'La matriz de contactos existe pero nunca se ha ejercitado el canal con la SIC ni con el ColCERT.',
+      'A.5.5','Contacto con autoridades',70,90,'2026-11-18','Líder del SIG','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-011','TRATAMIENTO','Formalizar el borrado seguro en baja y reasignación de equipos',
+      'No hay procedimiento de borrado seguro documentado ni registro de ejecución.',
+      'A.7.14','Eliminación o reutilización segura de equipos',70,90,'2026-11-18','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-005','TRATAMIENTO','Publicar y verificar lineamientos del puesto de teletrabajo',
+      'El puesto del colaborador queda fuera de control directo. Se cubre con lineamiento pero sin verificación.',
+      'A.7.5','Protección contra amenazas físicas y ambientales',50,90,'2026-11-18','Líder Administrativo','NO_INICIADA',0,'PENDIENTE',
+      [A('I.4','Contaminación electromagnética'),A('I.7','Condiciones inadecuadas de temperatura o humedad'),A('I.11','Emanaciones electromagnéticas')],{riesgos:18,activos:6}),
+    P('PT-002','TRATAMIENTO','Formalizar las restricciones de acceso durante actividades de auditoría',
+      'No hay procedimiento que limite qué puede tocar un auditor sobre sistemas productivos.',
+      'A.8.34','Protección de sistemas durante auditorías',70,90,'2026-11-18','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-013','TRATAMIENTO','Activar elevación temporal de privilegios con aprobación',
+      'Las cuentas privilegiadas tienen MFA pero no elevación temporal.',
+      'A.8.2','Derechos de acceso privilegiado',70,90,'2026-12-18','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('A.6','Abuso de privilegios de acceso')],{riesgos:30,activos:30}),
+    P('PT-006','TRATAMIENTO','Incorporar la autoevaluación del puesto de trabajo remoto',
+      'No hay forma de verificar la ubicación y protección del equipo en el domicilio.',
+      'A.7.8','Emplazamiento y protección de equipos',50,90,'2026-12-18','Líder Administrativo','NO_INICIADA',0,'PENDIENTE',
+      [A('A.23','Manipulación de los equipos'),A('I.3','Contaminación mecánica')],{riesgos:12,activos:6}),
+    P('PT-001','TRATAMIENTO','Implementar enmascaramiento de datos en entornos no productivos',
+      'Los datos de clientes y datos personales pueden estar viajando a desarrollo y staging sin ofuscar.',
+      'A.8.11','Enmascaramiento de datos',20,70,'2026-12-18','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-015','MEJORA','Cerrar los hallazgos de la revisión independiente',
+      'La revisión se ejecutó parcialmente y los hallazgos siguen abiertos.',
+      'A.5.35','Revisión independiente de la seguridad',70,90,'2026-12-18','Líder del SIG','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-010','MEJORA','Formalizar la participación en grupos de interés del sector',
+      'La participación es informal. Se propone membresía formal en al menos un grupo sectorial.',
+      'A.5.6','Contacto con grupos de interés especial',70,90,'2026-12-18','Líder del SIG','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-004','TRATAMIENTO','Definir y controlar los datos utilizados en pruebas',
+      'Riesgo directo de datos personales en entornos no productivos, con exposición bajo la Ley 1581.',
+      'A.8.33','Información de prueba',20,70,'2026-12-18','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-007','TRATAMIENTO','Establecer el seguimiento periódico a proveedores tecnológicos',
+      'Se evalúa al contratar pero nadie revisa después.',
+      'A.5.22','Seguimiento y revisión de servicios de proveedores',70,90,'2027-01-17','Chief Legal Officer','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-017','TRATAMIENTO','Formalizar la gestión del ciclo de vida de las llaves criptográficas',
+      'El cifrado está generalizado pero la rotación, custodia y revocación de llaves no está documentada.',
+      'A.8.24','Uso de criptografía',70,90,'2027-01-17','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('A.12','Análisis de tráfico'),A('A.14','Interceptación de información (escucha)')],null),
+    P('PT-016','TRATAMIENTO','Afinar y medir las políticas de prevención de fuga de datos',
+      'Las políticas de Purview están activas pero sin afinar ni medir.',
+      'A.8.12','Prevención de fuga de datos',70,90,'2027-01-17','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('A.19','Divulgación de información'),A('E.14','Escapes de información'),A('E.19','Fugas de información')],{riesgos:84,activos:30}),
+    P('PT-008','TRATAMIENTO','Definir criterios de seguridad para desarrollo contratado',
+      'El desarrollo es propio, pero los componentes contratados no tienen criterios de seguridad exigibles.',
+      'A.8.30','Desarrollo contratado externamente',70,90,'2027-01-17','Chief Legal Officer','NO_INICIADA',0,'PENDIENTE',[],null),
+    P('PT-012','TRATAMIENTO','Implantar simulacros de phishing con métricas de comportamiento',
+      'La concienciación está en 70 % con registro de asistencia. Medir el comportamiento real es lo que la sube.',
+      'A.6.3','Concienciación y formación',70,90,'2027-01-17','Líder del SIG','NO_INICIADA',0,'PENDIENTE',
+      [A('A.30','Ingeniería social (picaresca)'),A('E.1','Errores de los usuarios')],{riesgos:24,activos:24}),
+    P('PT-003','TRATAMIENTO','Ejecutar el primer simulacro de continuidad y cerrar el plan',
+      'El plan existe pero nunca se ha ejercitado. Es la mayor brecha del dominio de continuidad.',
+      'A.5.29','Seguridad de la información durante la interrupción',50,90,'2027-02-16','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('A.26','Ataque destructivo'),A('A.27','Ocupación enemiga'),A('A.28','Indisponibilidad del personal')],{riesgos:6,activos:6}),
+    // A.5.30 lleva UN plan, no dos: la prueba de conmutación y la segunda región son el
+    // mismo control. La Actividad nombra las dos y la Descripción las separa.
+    P('PT-018','TRATAMIENTO','Probar la conmutación e implementar una segunda región en la nube',
+      'Dos entregas sobre el mismo control: (1) ejecutar y evidenciar una prueba formal de conmutación de la infraestructura actual; (2) desplegar una segunda región —o una segunda nube— para los servicios muy críticos. La redundancia existe en AWS pero nunca se ha probado una conmutación real, y hoy todo vive en una sola región.',
+      'A.5.30','Preparación de las TIC para la continuidad del negocio',70,90,'2027-01-14','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('N.1','Fuego'),A('N.*','Desastres naturales'),A('I.*','Desastres industriales'),A('I.9','Interrupción de otros servicios y suministros esenciales'),A('E.28','Indisponibilidad del personal')],{riesgos:18,activos:6}),
+    // Los dos nuevos.
+    P('PT-019','TRATAMIENTO','Contratar la póliza de riesgos cibernéticos',
+      'Transferencia del riesgo remanente a un tercero mediante póliza. Ya contratada.',
+      '—','Transferencia — sin control asociado',null,null,'2026-09-16','Gerencia General','CERRADA',100,'VERIFICADA_EFICAZ',[],null),
+    P('PT-020','TRATAMIENTO','Implementar balanceo de cargas en las aplicaciones muy críticas',
+      'Distribuir la carga entre instancias para que la caída de una no interrumpa el servicio en los activos de criticidad C1 y C2.',
+      'A.8.14','Redundancia de las instalaciones de procesamiento de información',70,90,'2026-11-15','Gerencia de Operaciones','NO_INICIADA',0,'PENDIENTE',
+      [A('A.24','Denegación de servicio'),A('I.5','Avería de origen físico o lógico'),A('I.6','Corte del suministro eléctrico'),A('I.8','Fallo de servicios de comunicaciones')],{riesgos:26,activos:14}),
+  ];
+
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fechaCorta = (iso) => {
+    if (!iso) return 'sin fecha';
+    const d = new Date(iso + 'T00:00:00Z');
+    return `${String(d.getUTCDate()).padStart(2,'0')} ${MESES[d.getUTCMonth()]}`;
+  };
+  const dias = (iso) => Math.round((new Date(iso + 'T00:00:00Z') - HOY) / 86400000);
+
+  function salud(p) {
+    if (p.estado === 'CERRADA') return 'cerrado';
+    if (p.estado === 'CANCELADA') return 'sin';
+    if (!p.fecha) return 'sin';
+    const d = dias(p.fecha);
+    if (d < 0) return 'vencido';
+    if (d <= 30) return 'riesgo';
+    return 'plazo';
+  }
+  const COLOR_SALUD = {
+    vencido: 'var(--h-vencido)', riesgo: 'var(--h-riesgo)',
+    plazo: 'var(--st-curso)', cerrado: 'var(--st-cerrada)', sin: 'var(--h-sinfecha)',
+  };
+
+  const iniciales = (n) => n.split(/\s+/).filter(w => w.length > 3).slice(0, 2).map(w => w[0]).join('').toUpperCase() || n.slice(0,2).toUpperCase();
+
+  const estado = new Map(PLANES.map(p => [p.codigo, p.estado]));
+  const avance = new Map(PLANES.map(p => [p.codigo, p.avance]));
+
+  const filtros = { clase: '', resp: '', salud: '' };
+
+  function visibles() {
+    return PLANES.map(p => ({ ...p, estado: estado.get(p.codigo), avance: avance.get(p.codigo) }))
+      .filter(p => !filtros.clase || p.clase === filtros.clase)
+      .filter(p => !filtros.resp || p.resp === filtros.resp)
+      .filter(p => !filtros.salud || salud(p) === filtros.salud);
+  }
+
+  // ── Resumen ──────────────────────────────────────────────────────────
+  function pintarResumen() {
+    const v = visibles();
+    const cerradas = v.filter(p => p.estado === 'CERRADA').length;
+    const venc = v.filter(p => salud(p) === 'vencido').length;
+    const pronto = v.filter(p => salud(p) === 'riesgo').length;
+    const brecha = v.filter(p => p.act !== null && p.obj !== null).reduce((s,p) => s + (p.obj - p.act), 0);
+    const cont = document.getElementById('resumen');
+    cont.innerHTML = [
+      { n: v.length, e: 'Planes vigentes', pie: `${v.filter(p=>p.clase==='TRATAMIENTO').length} de tratamiento · ${v.filter(p=>p.clase==='MEJORA').length} de mejora`, c: 'var(--ink)' },
+      { n: cerradas, e: 'Cerradas', pie: cerradas ? 'con eficacia verificada' : 'ninguna todavía', c: 'var(--st-cerrada)' },
+      { n: venc, e: 'Vencidas', pie: venc ? 'pasaron su fecha de terminación' : 'ninguna pasó de fecha', c: venc ? 'var(--h-vencido)' : 'var(--ink-3)' },
+      { n: pronto, e: 'Vencen en 30 días', pie: 'fecha de terminación próxima', c: pronto ? 'var(--h-riesgo)' : 'var(--ink-3)' },
+      { n: brecha, e: 'Puntos de madurez', pie: 'que estos planes se comprometen a cerrar', c: 'var(--brand)' },
+    ].map(m => `
+      <div class="metrica">
+        <span class="metrica-cifra" style="color:${m.c}">${m.n}</span>
+        <span class="metrica-etiqueta">${m.e}</span>
+        <span class="metrica-pie">${m.pie}</span>
+      </div>`).join('');
+  }
+
+  // ── Alcance: qué mitiga el plan ──────────────────────────────────────
+  //
+  // Las amenazas son las de la VALORACIÓN de las que este control es PRINCIPAL. No es el
+  // catálogo entero: un control que acompaña a una amenaza como complementario no contiene
+  // esa amenaza, y listarlo ahí haría creer que el plan la cubre.
+  //
+  // Un control que no es principal de ninguna amenaza del registro lo dice. Es información,
+  // no un hueco: el plan mejora el control, pero no cierra ninguna brecha de la valoración.
+  function chipAlcance(p) {
+    if (p.ctl === '—') {
+      return `<span class="alcance-chip">Sin control · el riesgo se transfiere</span>`;
+    }
+    if (p.amenazas.length === 0) {
+      return `<span class="alcance-chip huerfano">⚠ No contiene ninguna amenaza de la valoración</span>`;
+    }
+    const n = p.amenazas.length;
+    const r = p.alcance ? ` · <span class="mono">${p.alcance.riesgos}</span> riesgos` : '';
+    return `<span class="alcance-chip">Mitiga <span class="mono">${n}</span> ${n === 1 ? 'amenaza' : 'amenazas'}${r}</span>`;
+  }
+
+  // ── Tablero ──────────────────────────────────────────────────────────
+  function tarjeta(p) {
+    const s = salud(p);
+    const rangoMadurez = p.act === null
+      ? `<div class="madurez"><span class="madurez-texto">Sin control asociado — el riesgo se transfiere</span></div>`
+      : `<div class="madurez">
+           <div class="madurez-barra">
+             <div class="madurez-actual" style="width:${p.act}%"></div>
+             <div class="madurez-objetivo" style="left:calc(${p.obj}% - 1px)"></div>
+           </div>
+           <span class="madurez-texto">${p.act}&nbsp;→&nbsp;${p.obj}&nbsp;%</span>
+         </div>`;
+    return `
+      <article class="tarjeta" draggable="true" tabindex="0" data-codigo="${p.codigo}"
+               style="--franja:${COLOR_SALUD[s]}" aria-label="${p.codigo} ${p.actividad}">
+        <div class="tarjeta-cabeza">
+          <span class="codigo">${p.codigo}</span>
+          <span class="clase ${p.clase === 'MEJORA' ? 'mejora' : ''}">${p.clase === 'MEJORA' ? 'Mejora' : 'Tratamiento'}</span>
+        </div>
+        <p class="actividad">${p.actividad}</p>
+        ${p.estado === 'CERRADA' ? '<span class="sello-cerrado">✓ Eficacia verificada</span>' : ''}
+        <span class="control-chip"><b>${p.ctl}</b><span>${p.ctlNombre}</span></span>
+        ${chipAlcance(p)}
+        ${rangoMadurez}
+        <div class="tarjeta-pie">
+          <span class="avatar" aria-hidden="true">${iniciales(p.resp)}</span>
+          <span class="responsable" title="${p.resp}">${p.resp}</span>
+          <span class="fecha" data-salud="${s}">${fechaCorta(p.fecha)}</span>
+        </div>
+      </article>`;
+  }
+
+  function pintarTablero() {
+    const v = visibles();
+    document.getElementById('tablero').innerHTML = ESTADOS.map(e => {
+      const suyas = v.filter(p => p.estado === e.clave);
+      return `
+        <div class="columna" data-estado="${e.clave}">
+          <div class="columna-cabeza">
+            <span class="punto-estado" style="background:${e.color}"></span>
+            <span class="columna-nombre">${e.nombre}</span>
+            <span class="columna-conteo">${suyas.length}</span>
+          </div>
+          <div class="pila" data-pila="${e.clave}">
+            ${suyas.length ? suyas.map(tarjeta).join('') : '<p class="vacio">Arrastra una tarjeta aquí</p>'}
+          </div>
+        </div>`;
+    }).join('');
+    engancharArrastre();
+  }
+
+  const AVANCE_POR_ESTADO = { NO_INICIADA: 0, EN_EJECUCION: 50, CERRADA: 100 };
+
+  function engancharArrastre() {
+    document.querySelectorAll('.tarjeta').forEach(t => {
+      t.addEventListener('dragstart', (ev) => {
+        ev.dataTransfer.setData('text/plain', t.dataset.codigo);
+        ev.dataTransfer.effectAllowed = 'move';
+        t.classList.add('arrastrando');
+      });
+      t.addEventListener('dragend', () => t.classList.remove('arrastrando'));
+      // Clic abre el detalle; el arrastre no lo dispara porque `dragstart` cancela el clic.
+      t.addEventListener('click', () => abrirCajon(t.dataset.codigo));
+      t.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirCajon(t.dataset.codigo); }
+      });
+    });
+    document.querySelectorAll('.columna').forEach(col => {
+      col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('recibiendo'); });
+      col.addEventListener('dragleave', () => col.classList.remove('recibiendo'));
+      col.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        col.classList.remove('recibiendo');
+        const codigo = ev.dataTransfer.getData('text/plain');
+        const nuevo = col.dataset.estado;
+        if (!codigo) return;
+        estado.set(codigo, nuevo);
+        if (nuevo in AVANCE_POR_ESTADO) avance.set(codigo, AVANCE_POR_ESTADO[nuevo]);
+        pintarTodo();
+      });
+    });
+  }
+
+  // ── Tabla ────────────────────────────────────────────────────────────
+  const VERIF = {
+    PENDIENTE: ['Pendiente', 'var(--ink-2)', 'var(--surface-2)'],
+    VERIFICADA_EFICAZ: ['Verificada eficaz', 'var(--st-cerrada)', 'var(--st-cerrada-bg)'],
+    VERIFICADA_NO_EFICAZ: ['Verificada no eficaz', 'var(--h-vencido)', 'var(--st-nueva-bg)'],
+    NO_APLICA: ['No aplica', 'var(--ink-3)', 'var(--surface-2)'],
+  };
+
+  function pintarTabla() {
+    document.getElementById('cuerpo-tabla').innerHTML = visibles().map(p => {
+      const s = salud(p);
+      const e = ESTADOS.find(x => x.clave === p.estado);
+      const [vt, vc, vb] = VERIF[p.verif];
+      return `
+        <tr data-estado="${p.estado}" data-codigo="${p.codigo}" style="cursor:pointer">
+          <td><span class="pastilla" style="color:${e.color};background:${e.fondo}">${p.clase === 'MEJORA' ? 'Plan de Mejora' : 'Plan de Tratamiento de Riesgos'}</span></td>
+          <td class="mono" style="font-weight:600;color:var(--brand)">${p.codigo}</td>
+          <td style="min-width:290px">${p.actividad}</td>
+          <td class="mono" style="color:var(--ink-2)" title="${p.ctlNombre}">${p.ctl}</td>
+          <td style="min-width:150px">${
+            p.ctl === '—'
+              ? '<span style="color:var(--ink-3)">transferencia</span>'
+              : p.amenazas.length === 0
+                ? '<span style="color:var(--st-verif)">⚠ ninguna de la valoración</span>'
+                : `<span class="mono" style="font-size:11px;color:var(--ink-2)" title="${p.amenazas.map(a => a.codigo + ' ' + a.nombre).join(' · ')}">${p.amenazas.map(a => a.codigo).join(' · ')}</span>`
+          }</td>
+          <td style="color:var(--ink-2);white-space:nowrap">${p.resp}</td>
+          <td><span class="fecha" data-salud="${s}">${p.fecha ? p.fecha : '—'}</span></td>
+          <td>
+            <div class="tira-avance">
+              <div class="tira-avance-riel"><div class="tira-avance-relleno" style="width:${p.avance}%;background:${e.color}"></div></div>
+              <span class="mono" style="font-size:11px;color:var(--ink-3)">${p.avance}%</span>
+            </div>
+          </td>
+          <td><span class="pastilla" style="color:${vc};background:${vb}">${vt}</span></td>
+          <td class="mono" style="color:var(--ink-2)">${p.estado === 'CERRADA' && p.obj !== null ? p.obj + ' %' : '—'}</td>
+        </tr>`;
+    }).join('');
+    document.querySelectorAll('#cuerpo-tabla tr').forEach((tr) => {
+      tr.addEventListener('click', () => abrirCajon(tr.dataset.codigo));
+    });
+  }
+
+  // ── Cronograma ───────────────────────────────────────────────────────
+  const INICIO = new Date('2026-09-01T00:00:00Z');
+  const FIN = new Date('2027-03-01T00:00:00Z');
+  const TOTAL = FIN - INICIO;
+  const pct = (d) => ((new Date(d) - INICIO) / TOTAL) * 100;
+
+  function pintarCrono() {
+    const v = visibles().filter(p => p.fecha).sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const meses = [];
+    for (let m = 0; m < 6; m++) {
+      const d = new Date(Date.UTC(2026, 8 + m, 1));
+      meses.push(`<div class="crono-mes">${MESES[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}</div>`);
+    }
+    const cabeza = `
+      <div></div>
+      <div class="crono-meses" style="grid-template-columns:repeat(6,1fr)">${meses.join('')}</div>`;
+
+    const filas = v.map(p => {
+      const s = salud(p);
+      const fin = Math.min(pct(p.fecha + 'T00:00:00Z'), 99.4);
+      const ini = Math.max(pct(HOY) - 1, 0.6);
+      const izq = Math.min(ini, fin - 4);
+      return `
+        <div class="crono-fila-nombre" title="${p.actividad}"><span class="mono" style="color:var(--brand);font-size:10.5px">${p.codigo}</span> ${p.actividad}</div>
+        <div class="crono-pista">
+          <div class="crono-barra" style="left:${izq}%;width:${Math.max(fin - izq, 4)}%;background:${COLOR_SALUD[s]}">${fechaCorta(p.fecha)}</div>
+          <div class="crono-hoy" style="left:${pct(HOY)}%"></div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('crono').innerHTML = cabeza + filas;
+  }
+
+  // ── El cajón de detalle: la zona donde se ve qué mitiga ──────────────
+  function abrirCajon(codigo) {
+    const p = PLANES.map(x => ({ ...x, estado: estado.get(x.codigo), avance: avance.get(x.codigo) }))
+      .find(x => x.codigo === codigo);
+    if (!p) return;
+    const e = ESTADOS.find(x => x.clave === p.estado);
+    const [vt, vc, vb] = VERIF[p.verif];
+
+    const alcance = p.ctl === '—'
+      ? `<p class="sin-alcance"><strong>Este plan no mejora ningún control.</strong> Es una
+           transferencia: el riesgo remanente pasa a un tercero por póliza, y por eso no tiene
+           madurez que mover ni amenazas que contener.</p>`
+      : p.amenazas.length === 0
+        ? `<div class="control-grande"><b>${p.ctl}</b><span>${p.ctlNombre}</span></div>
+           <p class="sin-alcance"><strong>No es control principal de ninguna amenaza de la
+             valoración.</strong> El plan eleva la madurez del control, pero hoy no cierra
+             ninguna brecha del registro de riesgos: ninguna amenaza depende de él para
+             contenerse.</p>`
+        : `<div class="control-grande"><b>${p.ctl}</b><span>${p.ctlNombre}</span></div>
+           <div class="lista-amenazas">
+             ${p.amenazas.map(a => `<div class="amenaza-fila"><b>${a.codigo}</b><span>${a.nombre}</span></div>`).join('')}
+           </div>
+           <div class="cifras-alcance">
+             <span class="cifra-alcance"><b>${p.amenazas.length}</b><span>amenazas contenidas</span></span>
+             ${p.alcance ? `<span class="cifra-alcance"><b>${p.alcance.riesgos}</b><span>riesgos de la valoración</span></span>
+             <span class="cifra-alcance"><b>${p.alcance.activos}</b><span>activos alcanzados</span></span>` : ''}
+             ${p.act !== null ? `<span class="cifra-alcance"><b>${p.obj - p.act}</b><span>puntos de brecha</span></span>` : ''}
+           </div>`;
+
+    document.getElementById('cajon').innerHTML = `
+      <div class="cajon-panel" role="dialog" aria-modal="true" aria-label="Plan ${p.codigo}">
+        <div class="cajon-cabeza">
+          <div>
+            <span class="codigo" style="font-size:12px">${p.codigo}</span>
+            <span class="clase ${p.clase === 'MEJORA' ? 'mejora' : ''}" style="margin-left:8px">${p.clase === 'MEJORA' ? 'Plan de Mejora' : 'Plan de Tratamiento de Riesgos'}</span>
+            <h2>${p.actividad}</h2>
+          </div>
+          <button type="button" class="cajon-cerrar" id="cerrar-cajon" aria-label="Cerrar">×</button>
+        </div>
+
+        <div class="bloque bloque-alcance">
+          <span class="bloque-titulo">Qué mitiga este plan</span>
+          ${alcance}
+        </div>
+
+        <div class="bloque">
+          <span class="bloque-titulo">Descripción</span>
+          <p style="margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.55">${p.descripcion}</p>
+        </div>
+
+        <div class="bloque">
+          <span class="bloque-titulo">Seguimiento</span>
+          <dl>
+            <div class="dato-fila"><dt>Estado</dt><dd><span class="pastilla" style="color:${e.color};background:${e.fondo}">${e.nombre}</span></dd></div>
+            <div class="dato-fila"><dt>Avance</dt><dd class="mono">${p.avance} %</dd></div>
+            <div class="dato-fila"><dt>Responsable</dt><dd>${p.resp}</dd></div>
+            <div class="dato-fila"><dt>Fecha terminación</dt><dd class="mono">${p.fecha ?? '—'}</dd></div>
+            <div class="dato-fila"><dt>Verificación</dt><dd><span class="pastilla" style="color:${vc};background:${vb}">${vt}</span></dd></div>
+            <div class="dato-fila"><dt>Madurez</dt><dd class="mono">${p.act === null ? '—' : `${p.act} % → ${p.obj} %`}</dd></div>
+          </dl>
+        </div>
+      </div>`;
+    document.getElementById('cajon').hidden = false;
+    document.getElementById('cerrar-cajon').focus();
+  }
+
+  function cerrarCajon() {
+    document.getElementById('cajon').hidden = true;
+    document.getElementById('cajon').innerHTML = '';
+  }
+
+  document.getElementById('cajon').addEventListener('click', (ev) => {
+    if (ev.target.id === 'cajon' || ev.target.id === 'cerrar-cajon') cerrarCajon();
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') cerrarCajon(); });
+
+  // ── Orquestación ─────────────────────────────────────────────────────
+  function pintarTodo() { pintarResumen(); pintarTablero(); pintarTabla(); pintarCrono(); }
+
+  const respSelect = document.getElementById('f-resp');
+  [...new Set(PLANES.map(p => p.resp))].sort().forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    respSelect.append(o);
+  });
+
+  document.getElementById('f-clase').addEventListener('change', (e) => { filtros.clase = e.target.value; pintarTodo(); });
+  respSelect.addEventListener('change', (e) => { filtros.resp = e.target.value; pintarTodo(); });
+  document.getElementById('f-salud').addEventListener('change', (e) => { filtros.salud = e.target.value; pintarTodo(); });
+
+  document.querySelectorAll('.conmutador button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.conmutador button').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+      document.getElementById('vista-tablero').hidden = b.dataset.vista !== 'tablero';
+      document.getElementById('vista-tabla').hidden = b.dataset.vista !== 'tabla';
+      document.getElementById('vista-crono').hidden = b.dataset.vista !== 'crono';
+    });
+  });
+
+  document.getElementById('nuevo').addEventListener('click', () => {
+    document.getElementById('nuevo').textContent = 'Abre el popup de Análisis de riesgos';
+    setTimeout(() => { document.getElementById('nuevo').textContent = '+ Nuevo plan'; }, 2200);
+  });
+
+  pintarTodo();
+</script>

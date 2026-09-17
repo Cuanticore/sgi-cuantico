@@ -146,7 +146,17 @@ export interface ActivoAnalizable {
 /// activo que lo origina (round-trip de `lib/sgsi/origen-plan.ts`, también Fase 4). Que la
 /// función esté AUSENTE significa «todavía no se sabe», nunca «no tiene» — de ahí que el
 /// estado resultante sea `'sin-determinar'` y no `'pendiente'` cuando no se provee.
-export type ResolverDeudaPlan = (riesgo: { activoCodigo: string; amenazaCodigo: string }) => boolean;
+///
+/// `principalCodigo` es el control PRINCIPAL de esa amenaza, cuando se sabe cuál es. Viaja
+/// porque un plan es sobre un control y el prefijo de `origen` nombra un solo par
+/// (activo, amenaza): sin este dato, un plan sobre el control principal de una amenaza que
+/// toca ochenta riesgos no puede cubrir ninguno. `undefined` es «no se sabe» y `null` es «la
+/// amenaza no tiene principal designado»; en los dos casos la vía del control no aplica.
+export type ResolverDeudaPlan = (riesgo: {
+  activoCodigo: string;
+  amenazaCodigo: string;
+  principalCodigo?: string | null;
+}) => boolean;
 
 /// El estado de plan de un ACTIVO (no de un riesgo individual): basta que una de sus
 /// amenazas tenga brecha sin plan activo para que el activo entero cuente como pendiente —
@@ -287,8 +297,15 @@ function estadoPlanDe(
 
   if (conDeuda.length > 0) {
     if (resolver === undefined) return 'sin-determinar';
+    // El control principal viaja con la pregunta: un plan sobre él cubre esta brecha, y es el
+    // mismo control con el que la brecha se midió unas líneas más arriba.
     const faltaAlguno = conDeuda.some(
-      (r) => !resolver({ activoCodigo: a.codigo, amenazaCodigo: r.amenazaCodigo }),
+      (r) =>
+        !resolver({
+          activoCodigo: a.codigo,
+          amenazaCodigo: r.amenazaCodigo,
+          principalCodigo: r.principal === undefined ? undefined : (r.principal?.codigo ?? null),
+        }),
     );
     return faltaAlguno ? 'pendiente' : 'con-plan';
   }

@@ -23,9 +23,22 @@ const mockReplace = jest.fn();
 let mockSearchParams = new URLSearchParams();
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, refresh: jest.fn() }),
   useSearchParams: () => mockSearchParams,
   usePathname: () => '/sgsi/valoracion-riesgos',
+}));
+
+// El popup de planes importa las acciones de servidor, y ésas arrastran `next/cache` —que
+// en jsdom no arranca—. Se simula por la misma razón que `FichaActivo.test.tsx` simula el
+// suyo: lo que se prueba acá es la grilla, no el popup. Su decisión de fondo —cuántos planes
+// salen de N amenazas— está probada aparte, y pura, en `planes-por-amenaza.test.ts`.
+jest.mock('../PopupPlanesActivo', () => ({
+  __esModule: true,
+  default: ({ activoCodigo, onCerrar }: { activoCodigo: string; onCerrar: () => void }) => (
+    <div role="dialog" aria-label={`Planes de ${activoCodigo}`}>
+      <button onClick={onCerrar}>Cerrar</button>
+    </div>
+  ),
 }));
 
 const BANDAS: UmbralRiesgo[] = [
@@ -153,6 +166,8 @@ describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 
         accionesParaDeuda={[
           {
             activa: true,
+            // Este caso prueba la cobertura POR ORIGEN; sin control, la otra vía no aplica.
+            controlCodigo: null,
             origen: 'origen:v1|R-0001|TEC-EQU-0003|A.24 · Residual crítico cubierto',
           },
         ]}
@@ -279,5 +294,59 @@ describe('REQ-SIG-20 §5 · un componente que no escribe (tarea 3.13)', () => {
     const ruta = path.join(process.cwd(), 'app/components/sgsi/valoracion-riesgos/PantallaAnalisisRiesgos.tsx');
     const fuente = fs.readFileSync(ruta, 'utf8');
     expect(fuente).not.toMatch(/from ['"]@\/app\/sgsi\/acciones/);
+  });
+});
+
+describe('registrar planes desde la grilla', () => {
+  // El plan nace donde se ve la brecha. Antes había que entrar al activo, abrir la pestaña
+  // Amenazas y repetir el recorrido por cada amenaza: el trabajo se ve en esta lista y se
+  // hacía en otra pantalla.
+  function pintar() {
+    render(
+      <PantallaAnalisisRiesgos
+        activos={ACTIVOS}
+        bandas={BANDAS}
+        umbral={4}
+        procesos={['Gestión Tecnológica', 'Gestión Financiera']}
+        propietarios={['Chief Operating Officer']}
+        personas={[]}
+        accionesParaDeuda={[]}
+        sinPlan={[]}
+      />,
+    );
+  }
+
+  it('la fila de un activo que requiere plan ofrece registrarlo', () => {
+    pintar();
+    expect(
+      screen.getByRole('button', { name: /Registrar planes de tratamiento para TEC-EQU-0003/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('un activo cuyo principal ya alcanza lo exigido NO lo ofrece', () => {
+    // Ofrecerlo sobre un activo sin brecha sería invitar a registrar trabajo que nadie pidió,
+    // y la lista de planes es justamente lo que hay que poder leer de un vistazo.
+    pintar();
+    expect(
+      screen.queryByRole('button', { name: /Registrar planes de tratamiento para TEC-GEN-0004/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('abre el popup del activo de esa fila, y no el de otro', () => {
+    pintar();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Registrar planes de tratamiento para TEC-EQU-0003/ }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Planes de TEC-EQU-0003' })).toBeInTheDocument();
+  });
+
+  it('cerrar el popup lo saca de la pantalla', () => {
+    pintar();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Registrar planes de tratamiento para TEC-EQU-0003/ }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

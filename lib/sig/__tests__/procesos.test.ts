@@ -11,6 +11,7 @@ import {
   PROCESOS_DEL_MAPA,
   agruparPorBanda,
   areaHomonima,
+  bandaDelArea,
   cargosQueSonAreas,
   contarIndicadores,
   resolverCargo,
@@ -240,5 +241,35 @@ describe('contarIndicadores', () => {
   it('sin fuente devuelve null, que NO es cero', () => {
     expect(contarIndicadores('Gestión Tecnológica', null)).toBeNull();
     expect(contarIndicadores('Gestión Tecnológica', [])).toBe(0);
+  });
+});
+
+describe('bandaDelArea', () => {
+  // El informe de riesgos agrupa por Área, que es lo que lleva el activo. El mapa de
+  // MAN-SIG-02 agrupa por banda, que es lo que lee un comité. Esta es la única traducción
+  // entre las dos, y tiene que ser una sola: dos formas de emparejar área con banda es como
+  // el informe y la pantalla terminan poniendo el mismo proceso en capítulos distintos.
+  it('empareja las nueve áreas que sí son procesos del mapa', () => {
+    expect(bandaDelArea('Gestión Estratégica')).toBe('ESTRATEGICO');
+    expect(bandaDelArea('Gestión Comercial')).toBe('MISIONAL');
+    expect(bandaDelArea('Gestión de Proyectos')).toBe('MISIONAL');
+    expect(bandaDelArea('Soporte y Servicio al Cliente')).toBe('MISIONAL');
+    expect(bandaDelArea('Talento Humano')).toBe('APOYO');
+    expect(bandaDelArea('Gestión Tecnológica')).toBe('APOYO');
+    expect(bandaDelArea('Sistema Integrado de Gestión')).toBe('APOYO');
+    expect(bandaDelArea('Gestión Financiera')).toBe('APOYO');
+  });
+
+  it('«Gestión Legal y Compras» es «Gestión Legal y de Compras» sin la partícula', () => {
+    // El área y el proceso se escriben distinto en la base y en el mapa. Es el mismo caso
+    // que ya resuelve `areaHomonima`, y se resuelve con la misma regla y no con otra.
+    expect(bandaDelArea('Gestión Legal y Compras')).toBe('APOYO');
+  });
+
+  it('«Transversal» no tiene banda, y eso se devuelve como null y no como APOYO', () => {
+    // Es un Área con activos que el mapa no declara como proceso. Adivinarle una banda sería
+    // que el informe afirme una clasificación que MAN-SIG-02 no respalda.
+    expect(bandaDelArea('Transversal')).toBeNull();
+    expect(bandaDelArea('Área que no existe')).toBeNull();
   });
 });

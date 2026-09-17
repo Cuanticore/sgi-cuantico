@@ -83,3 +83,15 @@ Errores.txt
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# El tunel a la base. Lleva el id de la instancia EC2 y la IP interna: son descripciones de
+# sistemas reales, lo mismo que mantiene fuera del repositorio a los libros del SGSI. Su
+# gemelo en PowerShell vive en ~/.claude/cuantico/tunel.ps1, y por la misma razon.
+/tunel.bat
+
+# El supervisor del tunel (16/09/2026). Misma razon que la linea de arriba: adentro estan el
+# id de la instancia y la IP interna de la base. Sonda el handshake de Postgres en vez de
+# mirar si el puerto escucha, porque el fallo que se vio ese dia fue un puerto escuchando
+# con el reenvio muerto.
+/tunel-bd.bat
+/tunel-bd.ps1

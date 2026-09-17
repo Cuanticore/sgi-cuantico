@@ -9,6 +9,7 @@
 
 import { prisma } from '@/lib/db';
 import { leerDeudaPlanes } from '@/lib/sgsi/deuda-planes-lectura';
+import { alcanceDelPlan, type RiesgoDelAlcance } from '@/lib/sgsi/alcance-plan';
 import PlanesTratamiento, {
   type AccionVista,
 } from '@/app/components/sgsi/planes/PlanesTratamiento';
@@ -51,14 +52,42 @@ export default async function PlanesPage() {
   // unknown rather than zero. Rendering zero would understate every action in the plan.
   const alcanceCalculable = paresMapeados > 0;
 
-  const riesgosPorControl = new Map<number, number>();
+  // ── QUÉ MITIGA CADA PLAN ────────────────────────────────────────────────────────────
+  //
+  // Sólo las amenazas de la VALORACIÓN cuyo control PRINCIPAL es éste. La consulta anterior
+  // contaba toda amenaza donde el control apareciera con cualquier relevancia, así que un
+  // plan sobre un control «de apoyo» se anotaba riesgos que no contiene: A.8.11 decía 244
+  // riesgos cuando como principal no contiene ninguno. Es el mismo eje que usa la exigencia
+  // para decidir si hay brecha — la compuerta y su cierre tienen que hablar del mismo control.
+  const riesgosPorControl = new Map<number, RiesgoDelAlcance[]>();
   if (alcanceCalculable) {
-    const filas = await prisma.$queryRaw<{ control_id: number; n: bigint }[]>`
-      select ca.control_id, count(distinct r.id) as n
-      from control_amenaza ca
-      join riesgo r on r.amenaza_id = ca.amenaza_id and r.obsoleto = false
-      group by ca.control_id`;
-    for (const f of filas) riesgosPorControl.set(f.control_id, Number(f.n));
+    const filas = await prisma.controlAmenaza.findMany({
+      where: { relevancia: { esPrincipal: true } },
+      select: {
+        controlId: true,
+        amenaza: {
+          select: {
+            codigo: true,
+            nombre: true,
+            riesgos: {
+              where: { obsoleto: false },
+              select: { activo: { select: { codigo: true } } },
+            },
+          },
+        },
+      },
+    });
+    for (const f of filas) {
+      const previo = riesgosPorControl.get(f.controlId) ?? [];
+      for (const r of f.amenaza.riesgos) {
+        previo.push({
+          amenazaCodigo: f.amenaza.codigo,
+          amenazaNombre: f.amenaza.nombre,
+          activoCodigo: r.activo.codigo ?? '(sin código)',
+        });
+      }
+      riesgosPorControl.set(f.controlId, previo);
+    }
   }
 
   const vista: AccionVista[] = acciones.map((a) => ({
@@ -88,7 +117,21 @@ export default async function PlanesPage() {
           objetivo: a.control.objetivo?.nivel ?? null,
         }
       : null,
-    riesgosQueMueve: a.control ? (riesgosPorControl.get(a.control.id) ?? null) : null,
+    // Qué mitiga: el control, sus amenazas de la valoración y a cuántos riesgos y activos
+    // llega. `null` mientras no haya ninguna relevancia asignada — desconocido, no cero.
+    alcance: alcanceCalculable
+      ? alcanceDelPlan(
+          a.control
+            ? {
+                codigo: a.control.codigo,
+                nombre: a.control.nombre,
+                nivel: a.control.actual?.nivel ?? null,
+                objetivo: a.control.objetivo?.nivel ?? null,
+              }
+            : null,
+          a.control ? (riesgosPorControl.get(a.control.id) ?? []) : [],
+        )
+      : null,
     // Ids for the edit popup's selects. The labels above are for reading; these are for
     // sending back.
     controlId: a.controlId,

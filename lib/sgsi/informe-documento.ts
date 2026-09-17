@@ -37,7 +37,13 @@
 // acá — y la única defensa contra que se olvide es que estén escritos al lado, con su nombre.
 
 import type { ProcesoDelInforme } from './informe-valoracion';
-import { FUERA_DEL_ANALISIS, SIN_CALCULAR, etiquetaDeBanda } from './informe-valoracion';
+import {
+  FUERA_DEL_ANALISIS,
+  FUERA_DEL_MAPA,
+  SIN_CALCULAR,
+  agruparEnBandas,
+  etiquetaDeBanda,
+} from './informe-valoracion';
 import type { ColumnaFrecuencia, FilaImpacto, MatrizClasica } from './matriz-clasica';
 
 /// Los mismos valores que `--hf-risk-*`. Indexados por POSICIÓN de la banda y no por su
@@ -54,6 +60,9 @@ const SUAVE = '#5b6875';
 const LINEA = '#d7dde3';
 const CABECERA = '#f1f4f7';
 const TITULO = '#12263f';
+/// El azul de marca, `--hf-brand-900`. Es el único color corporativo del documento y marca
+/// el nivel superior —las bandas del mapa de procesos— para que se distinga de un capítulo.
+const MARCA = '#0c2461';
 
 const S = {
   cuerpo: `font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:10.5pt;color:${TINTA};line-height:1.45`,
@@ -64,6 +73,13 @@ const S = {
   // El salto de página por capítulo: un proceso partido a la mitad de una hoja es ilegible en
   // el PDF que se archiva y en el impreso que circula por el comité.
   h2: `font-size:15pt;margin:0 0 2pt;color:${TITULO};page-break-before:always;break-before:page`,
+  // El mismo encabezado de capítulo SIN el salto, para el primero de cada banda: el título
+  // de la banda solo en una hoja y el capítulo en la siguiente desperdicia una página por
+  // bloque y se lee como un error de maquetación.
+  h2Seguido: `font-size:15pt;margin:0 0 2pt;color:${TITULO}`,
+  // La banda del mapa. Abre hoja, y lleva la franja azul de marca para que se distinga de
+  // un capítulo a simple vista: son dos niveles distintos y tienen que verse distintos.
+  banda: `font-size:18pt;margin:0 0 3pt;padding:0 0 4pt;color:${MARCA};border-bottom:2px solid ${MARCA};page-break-before:always;break-before:page`,
   h3: `font-size:11pt;margin:16pt 0 6pt;color:${TITULO}`,
   nota: `font-size:8.5pt;color:${SUAVE};margin:0 0 10pt`,
 } as const;
@@ -162,9 +178,14 @@ export function documentoInforme(datos: DatosDocumento): string {
     `<p style="${S.nota};margin-bottom:20pt">Ninguna cifra de este documento está almacenada: todas se derivan al leer, con las mismas funciones que alimentan las pantallas de Valoración, Análisis de riesgos y Matrices. Un informe y una pantalla que discrepan son un informe que nadie puede firmar.</p>`,
   );
 
-  // ── Tabla de contenido ──────────────────────────────────────────────────────────────
+  // ── Tabla de contenido, en los dos niveles del mapa ─────────────────────────────────
+  //
+  // La banda como renglón propio y enlazable, y sus procesos debajo. Con diez capítulos
+  // seguidos el índice es una lista; con las bandas es el mapa de procesos de la compañía,
+  // que es la estructura con la que el comité ya piensa.
+  const bloques = agruparEnBandas(datos.capitulos);
   p.push(
-    `<h2 style="${S.h3};font-size:13pt">Contenido</h2>`,
+    `<h2 id="contenido" style="${S.h3};font-size:13pt">Contenido</h2>`,
     `<table style="${S.tabla}"><thead><tr>`,
     `<th style="${S.th}">Proceso</th>`,
     `<th style="${S.th};text-align:right">Activos</th>`,
@@ -172,31 +193,61 @@ export function documentoInforme(datos: DatosDocumento): string {
     `<th style="${S.th};text-align:right">Aceptaciones</th>`,
     '</tr></thead><tbody>',
   );
-  for (const c of datos.capitulos) {
+  for (const b of bloques) {
+    const suma = (f: (c: ProcesoDelInforme) => number) =>
+      b.capitulos.reduce((a, c) => a + f(c), 0);
     p.push(
-      `<tr><td style="${S.td}"><a href="#${esc(c.ancla)}" style="color:${TITULO};text-decoration:none">${esc(c.proceso)}</a></td>`,
-      `<td style="${S.num}">${c.activos}</td>`,
-      `<td style="${S.num}">${c.enAnalisis}</td>`,
-      `<td style="${S.num}">${c.aceptaciones.length || '—'}</td></tr>`,
+      `<tr><td style="${S.td};background:${CABECERA};font-weight:700"><a href="#${esc(b.ancla)}" style="color:${MARCA};text-decoration:none">${esc(b.titulo)}</a></td>`,
+      `<td style="${S.num};background:${CABECERA};font-weight:700">${suma((c) => c.activos) || '—'}</td>`,
+      `<td style="${S.num};background:${CABECERA};font-weight:700">${suma((c) => c.enAnalisis) || '—'}</td>`,
+      `<td style="${S.num};background:${CABECERA};font-weight:700">${suma((c) => c.aceptaciones.length) || '—'}</td></tr>`,
     );
+    for (const c of b.capitulos) {
+      p.push(
+        `<tr><td style="${S.td};padding-left:18pt"><a href="#${esc(c.ancla)}" style="color:${TITULO};text-decoration:none">${esc(c.proceso)}</a></td>`,
+        `<td style="${S.num}">${c.activos}</td>`,
+        `<td style="${S.num}">${c.enAnalisis}</td>`,
+        `<td style="${S.num}">${c.aceptaciones.length || '—'}</td></tr>`,
+      );
+    }
   }
   p.push(
     '</tbody></table>',
-    `<p style="${S.nota}">Los capítulos van ordenados por cuántos activos pone cada proceso en el análisis, de mayor a menor — no alfabéticamente: el que más expone es el que primero hay que mirar.</p>`,
+    `<p style="${S.nota}">Las bandas son las del mapa de procesos de MAN-SIG-02. Dentro de cada una, los capítulos van ordenados por cuántos activos pone el proceso en el análisis, de mayor a menor — no alfabéticamente: el que más expone es el que primero hay que mirar.</p>`,
   );
 
   if (datos.capitulos.length === 0) {
     p.push(
-      `<p style="${S.nota};font-size:10pt">El recorte seleccionado no incluye ningún activo. Ampliá el alcance desde las opciones del informe.</p>`,
+      `<p style="${S.nota};font-size:10pt">El recorte seleccionado no incluye ningún activo. Amplía el alcance desde las opciones del informe.</p>`,
     );
   }
 
-  // ── Un capítulo por proceso ─────────────────────────────────────────────────────────
-  for (const c of datos.capitulos) {
+  // ── Una banda por bloque, un capítulo por proceso ───────────────────────────────────
+  for (const b of bloques) {
     p.push(
       '<section>',
-      `<h2 id="${esc(c.ancla)}" style="${S.h2}">${esc(c.proceso)}</h2>`,
-      `<p style="${S.nota}">${c.activos} ${c.activos === 1 ? 'activo' : 'activos'} · ${c.enAnalisis} dentro del análisis de riesgos</p>`,
+      `<h2 id="${esc(b.ancla)}" style="${S.banda}">${esc(b.titulo)}</h2>`,
+      b.titulo === FUERA_DEL_MAPA
+        ? `<p style="${S.nota}">Áreas con activos que el mapa de procesos de MAN-SIG-02 no declara como proceso. Se listan aparte en vez de asignarlas a una banda: darles una que el mapa no respalda sería que este informe afirme una clasificación que nadie aprobó.</p>`
+        : `<p style="${S.nota}">${b.capitulos.length} ${b.capitulos.length === 1 ? 'proceso' : 'procesos'} en este informe · <a href="#contenido" style="color:${SUAVE}">volver al contenido</a></p>`,
+    );
+
+    if (b.capitulos.length === 0) {
+      p.push(
+        `<p style="${S.nota};font-size:10pt">Sin activos en el recorte de este informe. La banda se imprime igual: que el mapa tenga tres es del mapa, no de los datos, y una banda que desaparece cuando nadie la ocupa haría creer que el mapa tiene dos.</p>`,
+        '</section>',
+      );
+      continue;
+    }
+    p.push('</section>');
+
+    b.capitulos.forEach((c, indice) => {
+      // El primero de la banda no abre hoja: ya la abrió el título de la banda.
+      const estilo = indice === 0 ? S.h2Seguido : S.h2;
+      p.push(
+        '<section>',
+        `<h2 id="${esc(c.ancla)}" style="${estilo}">${esc(c.proceso)}</h2>`,
+        `<p style="${S.nota}">${c.activos} ${c.activos === 1 ? 'activo' : 'activos'} · ${c.enAnalisis} dentro del análisis de riesgos · <a href="#contenido" style="color:${SUAVE}">volver al contenido</a></p>`,
 
       `<h3 style="${S.h3}">1 · Resumen de la valoración</h3>`,
       tablaConteo('Nivel de valor', c.porNivelValor, c.activos),
@@ -286,7 +337,8 @@ export function documentoInforme(datos: DatosDocumento): string {
         `<td style="${S.td};white-space:nowrap;${fondo};font-weight:600">${esc(residual)}</td></tr>`,
       );
     }
-    p.push('</tbody></table>', '</section>');
+      p.push('</tbody></table>', '</section>');
+    });
   }
 
   p.push('</div>');
@@ -359,7 +411,7 @@ function matriz(
     `<p style="${S.nota}">${m.total} ${m.total === 1 ? 'riesgo ubicado' : 'riesgos ubicados'}`,
     m.sinImpacto > 0 ? ` · ${m.sinImpacto} sin impacto calculado` : '',
     m.sinResidual > 0 ? ` · ${m.sinResidual} sin residual calculado` : '',
-    '. El color de cada casilla es el de su propia banda de riesgo, no el de lo que cayó adentro: una casilla vacía en zona crítica sigue siendo crítica, y ésa es justamente la lectura que la matriz aporta.</p>',
+    '. Una casilla vacía lleva el color de su propia zona —el punto medio de la banda de impacto por la frecuencia de la columna—, de modo que una zona crítica sigue leyéndose como crítica aunque hoy no haya nada ahí. Una casilla ocupada lleva el color del peor riesgo que contiene. La diferencia sólo aparece en la matriz residual, donde la frecuencia después de los controles es continua y no cae sobre el punto nominal de su columna: pintar esas casillas por la zona dejaba riesgos altos dibujados como medios.</p>',
   );
   return p.join('');
 }

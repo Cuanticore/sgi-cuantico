@@ -221,3 +221,97 @@ describe('fechaLarga', () => {
     expect(fechaLarga(new Date(2026, 0, 1))).toBe('1 de enero de 2026');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('el documento va agrupado en las bandas del mapa de procesos', () => {
+  // Diez capítulos seguidos son una lista; tres bandas con sus capítulos adentro son un
+  // documento que se puede navegar. El agrupador es el mapa de MAN-SIG-02, no un invento
+  // del informe.
+  const ACTIVOS = [
+    activo({ codigo: 'TEC-DAT-0001', proceso: 'Gestión Tecnológica' }),
+    activo({ codigo: 'COM-DAT-0001', proceso: 'Gestión Comercial' }),
+    activo({ codigo: 'TRA-DAT-0001', proceso: 'Transversal' }),
+  ];
+
+  const RIESGOS = [
+    { proceso: 'Gestión Tecnológica', impacto: 4.8, aro: 1, aroResidual: 0.1 },
+    { proceso: 'Gestión Comercial', impacto: 4.8, aro: 1, aroResidual: 0.1 },
+    { proceso: 'Transversal', impacto: 4.8, aro: 1, aroResidual: 0.1 },
+  ];
+
+  const html = () =>
+    documentoInforme({
+      capitulos: armarInforme({
+        activos: ACTIVOS,
+        aceptaciones: [],
+        nivelesDeValor: ['Muy Alto', 'Bajo'],
+        bandas: ['Crítico', 'Bajo'],
+        riesgos: RIESGOS,
+        filasImpacto: FILAS_IMPACTO,
+        columnasFrecuencia: COLUMNAS,
+        umbralesRiesgo: UMBRALES_RIESGO,
+      }),
+      generadoEn: new Date('2026-09-16T12:00:00Z'),
+      alcance: 'Todos los procesos',
+      filasImpacto: FILAS_IMPACTO,
+      columnasFrecuencia: COLUMNAS,
+      umbralValoracion: 4,
+      totalActivos: 3,
+      totalEnAnalisis: 3,
+      totalAceptaciones: 0,
+    });
+
+  // Cada título de banda aparece DOS veces: en el índice y como encabezado del bloque. Las
+  // posiciones se miden sobre la última —la del cuerpo—, porque el índice las lleva todas
+  // juntas arriba y compararlas contra él daría verde con el cuerpo desordenado.
+  const enElCuerpo = (s: string, texto: string) => s.lastIndexOf(texto);
+
+  it('imprime las tres bandas del mapa, en su orden, aunque alguna quede vacía', () => {
+    const s = html();
+    const orden = ['Procesos estratégicos', 'Procesos misionales', 'Procesos de apoyo'];
+    const posiciones = orden.map((t) => enElCuerpo(s, t));
+    expect(posiciones.every((p) => p >= 0)).toBe(true);
+    expect([...posiciones].sort((a, b) => a - b)).toEqual(posiciones);
+  });
+
+  it('cada capítulo cae dentro de su banda', () => {
+    const s = html();
+    // «Gestión Comercial» tiene que aparecer después del título de misionales y antes del
+    // de apoyo. Si el agrupador se equivoca, el capítulo se va de bloque y esto lo ve.
+    const misionales = enElCuerpo(s, 'Procesos misionales');
+    const apoyo = enElCuerpo(s, 'Procesos de apoyo');
+    const comercial = enElCuerpo(s, 'Gestión Comercial');
+    expect(comercial).toBeGreaterThan(misionales);
+    expect(comercial).toBeLessThan(apoyo);
+  });
+
+  it('«Transversal» va a su propio bloque al final, y el documento dice por qué', () => {
+    const s = html();
+    expect(s).toContain('Fuera del mapa de procesos');
+    expect(enElCuerpo(s, 'Fuera del mapa de procesos')).toBeGreaterThan(
+      enElCuerpo(s, 'Procesos de apoyo'),
+    );
+    // No basta con separarlo: un bloque sin explicación se lee como un error de carga.
+    expect(s).toContain('MAN-SIG-02');
+  });
+
+  it('el índice enlaza a cada banda y a cada capítulo', () => {
+    const s = html();
+    expect(s).toContain('href="#procesos-misionales"');
+    expect(s).toContain('id="procesos-misionales"');
+    expect(s).toContain('href="#gestion-comercial"');
+  });
+
+  it('desde cada capítulo se puede volver al índice', () => {
+    // En un informe de treinta páginas, bajar al capítulo y no poder volver es la queja
+    // number uno de quien lo revisa en pantalla.
+    const s = html();
+    expect(s).toContain('id="contenido"');
+    expect(s).toContain('href="#contenido"');
+  });
+
+  it('una banda sin capítulos lo dice, en vez de quedar como un título suelto', () => {
+    const s = html();
+    expect(s).toContain('Sin activos en el recorte de este informe');
+  });
+});

@@ -20,7 +20,10 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import {
-  columnaDeFrecuencia,
+  contarMatriz,
+  matrizDeActivos,
+  repartirPorBanda,
+  ubicarRiesgo,
   type ColumnaFrecuencia,
   type FilaImpacto,
 } from '@/lib/sgsi/matriz-clasica';
@@ -80,10 +83,29 @@ interface Props {
 
 type Matriz = 'inherente' | 'residual';
 
+/// Qué cuenta cada casilla.
+///
+/// «Amenazas» cuenta pares activo-amenaza: dónde está el riesgo. «Activos» cuenta activos,
+/// cada uno una sola vez y en la casilla de su PEOR riesgo: de quién es el riesgo. Con 584
+/// riesgos sobre 30 activos son dos preguntas distintas, y la segunda es la que hace un
+/// comité. La regla de agregación —el peor, no el promedio— es la misma del inventario y de
+/// la página de análisis, para que un activo no aparezca en Alto en una pantalla y en Medio
+/// en la otra.
+type Unidad = 'amenazas' | 'activos';
+
 interface Celda {
   matriz: Matriz;
   i: number;
   j: number;
+}
+
+/// Lo que `TarjetaMatriz` necesita para dibujar, sea de amenazas o de activos.
+interface Rejilla {
+  conteos: number[][];
+  bandas: (string | null)[][];
+  bandasZona: (string | null)[][];
+  total: number;
+  reparto: { nombre: string; n: number }[];
 }
 
 /// Severity ramp, most severe first. Indexed by the band's position in umbral_riesgo
@@ -104,6 +126,14 @@ const ABREVIATURA: Record<string, string> = {
 
 function colorBanda(indice: number) {
   return RAMPA[Math.min(Math.max(indice, 0), RAMPA.length - 1)];
+}
+
+/// El nombre de banda que trae la matriz, con su posición en el catálogo para el color. Una
+/// banda desconocida cae en la última —la más leve— y se dibuja con su guion a la vista, que
+/// es preferible a inventarle un color grave a algo que nadie clasificó.
+function bandaDe(nombre: string | null, bandas: BandaVista[]) {
+  const indice = nombre === null ? -1 : bandas.findIndex((x) => x.nombre === nombre);
+  return { nombre: nombre ?? '—', indice: indice < 0 ? bandas.length - 1 : indice };
 }
 
 function abreviar(nombre: string): string {
@@ -143,6 +173,7 @@ export default function MatricesRiesgo({
   sinUbicar,
 }: Props) {
   const [filtro, setFiltro] = useState(TODOS);
+  const [unidad, setUnidad] = useState<Unidad>('amenazas');
   const [celda, setCelda] = useState<Celda | null>(null);
 
   // --- Coordinates ------------------------------------------------------------------
@@ -150,21 +181,26 @@ export default function MatricesRiesgo({
   // Where a risk sits on each matrix does not depend on the filter, so it is computed
   // once for the whole set instead of on every keystroke. The filter then only decides
   // which coordinates are counted.
-  const coordenadas = useMemo(() => {
-    // La regla —la columna más cercana EN ÓRDENES DE MAGNITUD, no en distancia lisa— está
-    // en `lib/sgsi/matriz-clasica.ts`, probada, y es la misma que usa el informe.
-    const columnaDe = (veces: number): number => columnaDeFrecuencia(veces, columnas);
-
-    return filas.map((f) => {
-      const banda = clasificar(f.impacto, filasImpacto);
-      const i = banda === null ? -1 : filasImpacto.findIndex((b) => b.nombre === banda);
-      return {
-        i,
-        inherente: columnaDe(f.aro),
-        residual: f.aroResidual === null ? -1 : columnaDe(f.aroResidual),
-      };
-    });
-  }, [filas, filasImpacto, columnas]);
+  //
+  // Ubicar es de `lib/sgsi/matriz-clasica.ts` —probado, y lo mismo que usa el informe—
+  // hasta en la banda de impacto: esta pantalla tenía su propia copia de esa búsqueda, y
+  // una copia sólo aguanta hasta el primer ajuste de escala.
+  const coordenadas = useMemo(
+    () =>
+      filas.map((f) =>
+        ubicarRiesgo(
+          {
+            impacto: f.impacto,
+            aro: f.aro,
+            aroResidual: f.aroResidual,
+            activoCodigo: activos[f.activo]?.codigo,
+          },
+          filasImpacto,
+          columnas,
+        ),
+      ),
+    [filas, activos, filasImpacto, columnas],
+  );
 
   // --- Filter -------------------------------------------------------------------------
   const indicesFiltrados = useMemo(() => {
@@ -181,58 +217,66 @@ export default function MatricesRiesgo({
     return salida;
   }, [filas, activos, filtro]);
 
-  const conResidual = useMemo(
-    () =>
-      indicesFiltrados.filter(
-        (k) => filas[k].riesgoResidual !== null && filas[k].aroResidual !== null,
-      ).length,
-    [indicesFiltrados, filas],
-  );
-
   // --- Buckets ------------------------------------------------------------------------
-  const rejillas = useMemo(() => {
-    const vacia = () => filasImpacto.map(() => columnas.map(() => 0));
-    const inherente = vacia();
-    const residual = vacia();
-    let ubicadosInh = 0;
-    let ubicadosRes = 0;
-
-    for (const k of indicesFiltrados) {
-      const c = coordenadas[k];
-      if (c.i < 0) continue;
-      inherente[c.i][c.inherente] += 1;
-      ubicadosInh++;
-      if (c.residual >= 0) {
-        residual[c.i][c.residual] += 1;
-        ubicadosRes++;
-      }
-    }
-    return { inherente, residual, ubicadosInh, ubicadosRes };
-  }, [indicesFiltrados, coordenadas, filasImpacto, columnas]);
-
-  // The band of every cell, from the row's midpoint times the column's frequency. It
-  // depends only on the scales, so it survives every filter change.
-  const bandasCelda = useMemo(
-    () =>
-      filasImpacto.map((b) =>
-        columnas.map((c) => {
-          const nombre = clasificar(b.medio * c.vecesAno, bandas);
-          const indice = nombre === null ? bandas.length - 1 : bandas.findIndex((x) => x.nombre === nombre);
-          return { nombre: nombre ?? '—', indice };
-        }),
-      ),
-    [filasImpacto, columnas, bandas],
+  //
+  // Las dos rejillas las cuenta `contarMatriz`, la misma función que imprime el informe de
+  // valoración. Esta pantalla las contaba por su cuenta, y por eso pintaba las casillas con
+  // la banda de la ZONA mientras el informe ya las pintaba con la del peor riesgo que
+  // contienen: dos superficies discrepando sobre la misma casilla, que es exactamente lo
+  // que el módulo existe para impedir.
+  const filtradas = useMemo(
+    () => indicesFiltrados.map((k) => coordenadas[k]),
+    [indicesFiltrados, coordenadas],
   );
+
+  // Las cuatro rejillas se cuentan siempre, no sólo la que se está viendo: son cuatro
+  // recorridos de un arreglo ya ubicado, y calcularlas juntas mantiene los `useMemo` con las
+  // mismas dependencias en vez de invalidarlos al cambiar de unidad.
+  const deAmenazas = useMemo(
+    () =>
+      (['inherente', 'residual'] as const).map((cara) => ({
+        ...contarMatriz(filtradas, cara, filasImpacto, columnas, bandas),
+        reparto: repartirPorBanda(filtradas, cara, bandas),
+        // Las amenazas no colocan códigos de activo en la casilla: el detalle sale del
+        // recorrido por coordenadas, más abajo.
+        indices: null,
+      })),
+    [filtradas, filasImpacto, columnas, bandas],
+  );
+  const deActivos = useMemo(
+    () =>
+      (['inherente', 'residual'] as const).map((cara) => {
+        const m = matrizDeActivos(filtradas, cara, filasImpacto, columnas, bandas);
+        return { ...m, sinResidual: cara === 'residual' ? m.sinUbicar : 0 };
+      }),
+    [filtradas, filasImpacto, columnas, bandas],
+  );
+
+  const rejillas = unidad === 'amenazas' ? deAmenazas : deActivos;
+  const matrizInherente = rejillas[0];
+  const matrizResidual = rejillas[1];
+
+  const conResidual = matrizResidual.total;
 
   // --- Drill-down ----------------------------------------------------------------------
+  //
+  // En «amenazas» la casilla contiene todos los riesgos que cayeron ahí. En «activos»
+  // contiene un activo por fila, y la fila que se muestra es el riesgo que lo ubicó — su
+  // peor riesgo —, que es la respuesta a «por qué está este activo acá». Esa correspondencia
+  // la resuelve `matrizDeActivos`; recalcular acá el máximo por activo sería una segunda
+  // cuenta sobre el mismo dato, y esa segunda cuenta es la que termina discrepando.
   const filasCelda = useMemo(() => {
     if (celda === null) return [];
+    const m = celda.matriz === 'inherente' ? rejillas[0] : rejillas[1];
+    if (m.indices !== null) {
+      return (m.indices[celda.i]?.[celda.j] ?? []).map((p) => indicesFiltrados[p]);
+    }
     return indicesFiltrados.filter((k) => {
       const c = coordenadas[k];
       if (c.i !== celda.i) return false;
       return (celda.matriz === 'inherente' ? c.inherente : c.residual) === celda.j;
     });
-  }, [celda, indicesFiltrados, coordenadas]);
+  }, [celda, rejillas, indicesFiltrados, coordenadas]);
 
   // --- Ten threats with the most high and critical risks ---------------------------------
   //
@@ -240,6 +284,8 @@ export default function MatricesRiesgo({
   // are read off the inherent one, and the card says which — a top ten labelled
   // "residual" that is secretly inherent is the same defect in a smaller frame.
   const sobreResidual = conResidual > 0;
+  const matrizDe = (m: Matriz) => (m === 'inherente' ? matrizInherente : matrizResidual);
+  const porActivos = unidad === 'activos';
   const topAmenazas = useMemo(() => {
     const severas = new Set(bandas.slice(0, 2).map((b) => b.nombre));
     const acumulado = new Map<number, number>();
@@ -284,8 +330,10 @@ export default function MatricesRiesgo({
           <p className="parrafo mt-1 text-muted">
             Riesgo inherente y residual sobre los ejes de nivel de impacto y frecuencia
             esperada. Cada casilla se cuenta al abrir la pantalla desde los riesgos
-            vigentes; no hay ninguna matriz almacenada. Haz clic en cualquier casilla para
-            navegar los riesgos que contiene.
+            vigentes; no hay ninguna matriz almacenada.{' '}
+            {porActivos
+              ? 'Cada activo aparece una sola vez, en la casilla de su peor riesgo. Haz clic en cualquier casilla para ver qué activos contiene y qué riesgo los puso ahí.'
+              : 'Haz clic en cualquier casilla para navegar los riesgos que contiene.'}
           </p>
         </div>
 
@@ -332,6 +380,14 @@ export default function MatricesRiesgo({
             </button>
           )}
 
+          <ConmutadorUnidad
+            valor={unidad}
+            onChange={(u) => {
+              setUnidad(u);
+              setCelda(null);
+            }}
+          />
+
           <div className="ml-auto flex items-baseline gap-2">
             <span className="cifra text-17 text-primary">{miles(indicesFiltrados.length)}</span>
             <span className="text-12 text-muted">
@@ -353,8 +409,10 @@ export default function MatricesRiesgo({
           categorias={categorias}
           filaImpacto={filasImpacto[celda.i]}
           columna={columnas[celda.j]}
-          banda={bandasCelda[celda.i][celda.j]}
+          banda={bandaDe(matrizDe(celda.matriz).bandas[celda.i][celda.j], bandas)}
+          bandaZona={bandaDe(matrizDe(celda.matriz).bandasZona[celda.i][celda.j], bandas)}
           bandas={bandas}
+          unidad={unidad}
           onCerrar={() => setCelda(null)}
         />
       )}
@@ -368,9 +426,8 @@ export default function MatricesRiesgo({
         <TarjetaMatriz
           titulo="Matriz de riesgo inherente"
           subtitulo="Antes de aplicar los controles. Nivel de impacto contra frecuencia esperada."
-          total={rejillas.ubicadosInh}
-          rejilla={rejillas.inherente}
-          bandasCelda={bandasCelda}
+          matriz={matrizInherente}
+          unidad={unidad}
           filasImpacto={filasImpacto}
           columnas={columnas}
           bandas={bandas}
@@ -384,19 +441,20 @@ export default function MatricesRiesgo({
           <TarjetaMatriz
             titulo="Matriz de riesgo residual"
             subtitulo="Después de descontar la eficacia de los controles preventivos, que reducen la frecuencia."
-            total={rejillas.ubicadosRes}
-            rejilla={rejillas.residual}
-            bandasCelda={bandasCelda}
+            matriz={matrizResidual}
+            unidad={unidad}
             filasImpacto={filasImpacto}
             columnas={columnas}
             bandas={bandas}
             seleccion={celda?.matriz === 'residual' ? celda : null}
             onCelda={(i, j, n) => seleccionar('residual', i, j, n)}
             aviso={
-              conResidual < indicesFiltrados.length
-                ? `${miles(indicesFiltrados.length - conResidual)} de ${miles(
-                    indicesFiltrados.length,
-                  )} riesgos del filtro quedan fuera de esta matriz: su eficacia todavía es desconocida.`
+              matrizResidual.sinResidual > 0
+                ? porActivos
+                  ? `${miles(matrizResidual.sinResidual)} activos del filtro quedan fuera de esta matriz: ninguno de sus riesgos tiene el residual calculado.`
+                  : `${miles(matrizResidual.sinResidual)} de ${miles(
+                      indicesFiltrados.length,
+                    )} riesgos del filtro quedan fuera de esta matriz: su eficacia todavía es desconocida.`
                 : undefined
             }
           />
@@ -478,13 +536,23 @@ export default function MatricesRiesgo({
             único portador de la información: cada casilla lleva escrito su conteo y su
             nivel.
           </p>
+          <p className="parrafo mt-2 text-11_5 text-muted">
+            La lista de cada matriz cuenta los riesgos por su <strong>propio</strong> nivel,
+            no por el color de la casilla en la que caen: dos riesgos de la misma casilla
+            pueden estar en bandas distintas, y así se cuentan.
+          </p>
         </section>
       </div>
 
       <p className="mt-5 text-11 leading-relaxed text-faint">
-        Cada casilla se colorea por el riesgo representativo de su cruce — el punto medio
-        de la banda de impacto por la frecuencia de la columna — mientras que cada riesgo
-        del detalle lleva el nivel calculado con su propio valor.
+        Una casilla <strong>vacía</strong> se colorea por el riesgo representativo de su
+        cruce — el punto medio de la banda de impacto por la frecuencia de la columna —, de
+        modo que una zona crítica sigue leyéndose como crítica aunque hoy no haya nada ahí.
+        Una casilla <strong>ocupada</strong> se colorea por el peor riesgo que contiene. La
+        diferencia sólo aparece en la residual, donde la frecuencia después de los controles
+        es continua y no cae sobre el punto nominal de su columna; pintar esas casillas por
+        la zona dejaba riesgos altos dibujados como medios. El detalle de cada casilla
+        siempre lleva el nivel calculado con el valor propio de cada riesgo.
         {sinUbicar > 0 && ` ${miles(sinUbicar)} riesgos no tienen impacto calculado y quedan fuera de las dos matrices.`}
       </p>
     </main>
@@ -534,12 +602,63 @@ function Filtro({
   );
 }
 
+/// Amenazas o activos. Dos botones y no un desplegable: son dos, y cuál está activo tiene
+/// que verse sin abrir nada, porque cambia lo que significa cada cifra de la pantalla.
+function ConmutadorUnidad({
+  valor,
+  onChange,
+}: {
+  valor: Unidad;
+  onChange: (valor: Unidad) => void;
+}) {
+  const OPCIONES: { clave: Unidad; texto: string; ayuda: string }[] = [
+    {
+      clave: 'amenazas',
+      texto: 'Amenazas',
+      ayuda: 'Cada casilla cuenta pares activo-amenaza: dónde está el riesgo.',
+    },
+    {
+      clave: 'activos',
+      texto: 'Activos',
+      ayuda:
+        'Cada casilla cuenta activos, una sola vez cada uno y en la casilla de su peor riesgo: de quién es el riesgo.',
+    },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label="Qué cuenta cada casilla"
+      className="flex items-center gap-1 rounded-[7px] border border-border-field bg-surface p-1"
+    >
+      <span className="etiqueta-campo px-1.5 text-9_5">Cuenta</span>
+      {OPCIONES.map((o) => {
+        const activa = o.clave === valor;
+        return (
+          <button
+            key={o.clave}
+            type="button"
+            title={o.ayuda}
+            aria-pressed={activa}
+            onClick={() => onChange(o.clave)}
+            className={`rounded-[5px] px-2.5 py-1 text-12_5 font-semibold ${
+              activa
+                ? 'bg-accent-500 text-white'
+                : 'text-secondary-soft hover:bg-app'
+            }`}
+          >
+            {o.texto}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function TarjetaMatriz({
   titulo,
   subtitulo,
-  total,
-  rejilla,
-  bandasCelda,
+  matriz,
+  unidad,
   filasImpacto,
   columnas,
   bandas,
@@ -549,9 +668,8 @@ function TarjetaMatriz({
 }: {
   titulo: string;
   subtitulo: string;
-  total: number;
-  rejilla: number[][];
-  bandasCelda: { nombre: string; indice: number }[][];
+  matriz: Rejilla;
+  unidad: Unidad;
   filasImpacto: FilaImpacto[];
   columnas: ColumnaFrecuencia[];
   bandas: BandaVista[];
@@ -559,22 +677,19 @@ function TarjetaMatriz({
   onCelda: (i: number, j: number, n: number) => void;
   aviso?: string;
 }) {
-  // Band totals, accumulated from the very same cells that are drawn above them. There
-  // is no second pass over the risks and therefore no way for the two to disagree.
+  const total = matriz.total;
+  const reparto = matriz.reparto;
+  const cosa = unidad === 'activos' ? 'activos' : 'riesgos';
+
+  // El reparto por nivel cuenta cada riesgo por SU valor, no por el color de la casilla que
+  // lo contiene. Se acumulaba por casilla, y desde que una casilla ocupada se pinta con su
+  // peor riesgo esa cuenta convertiría en altos a todos los medios que comparten casilla con
+  // uno alto. La suma sigue siendo exactamente el total de la matriz — `repartirPorBanda` lo
+  // garantiza y su prueba lo fija—, así que la lista no puede descuadrar contra la rejilla.
   const conteos = useMemo(() => {
-    const acumulado = bandas.map(() => 0);
-    rejilla.forEach((fila, i) =>
-      fila.forEach((n, j) => {
-        acumulado[bandasCelda[i][j].indice] += n;
-      }),
-    );
-    const suma = acumulado.reduce((a, b) => a + b, 0) || 1;
-    return bandas.map((b, i) => ({
-      nombre: b.nombre,
-      n: acumulado[i],
-      pct: Math.round((acumulado[i] / suma) * 100),
-    }));
-  }, [rejilla, bandasCelda, bandas]);
+    const suma = reparto.reduce((a, b) => a + b.n, 0) || 1;
+    return reparto.map((b) => ({ ...b, pct: Math.round((b.n / suma) * 100) }));
+  }, [reparto]);
 
   return (
     <section className="flex min-w-0 flex-col gap-4 rounded-tarjeta border border-border-default bg-surface px-[22px] pt-5 pb-[22px]">
@@ -587,7 +702,9 @@ function TarjetaMatriz({
         </div>
         <div className="flex flex-none flex-col items-end">
           <span className="cifra text-20 text-primary">{miles(total)}</span>
-          <span className="etiqueta-campo text-9">Riesgos</span>
+          <span className="etiqueta-campo text-9">
+            {unidad === 'activos' ? 'Activos' : 'Riesgos'}
+          </span>
         </div>
       </div>
 
@@ -616,8 +733,9 @@ function TarjetaMatriz({
               {b.nombre}
             </div>
             {columnas.map((c, j) => {
-              const n = rejilla[i][j];
-              const banda = bandasCelda[i][j];
+              const n = matriz.conteos[i][j];
+              const banda = bandaDe(matriz.bandas[i][j], bandas);
+              const zona = bandaDe(matriz.bandasZona[i][j], bandas);
               const color = colorBanda(banda.indice);
               const activa =
                 seleccion !== null && seleccion.i === i && seleccion.j === j;
@@ -627,7 +745,11 @@ function TarjetaMatriz({
                   onClick={() => onCelda(i, j, n)}
                   title={`${banda.nombre} · impacto ${b.nombre.toLowerCase()} · ${cifra(
                     c.vecesAno,
-                  )} ${c.vecesAno === 1 ? 'vez' : 'veces'} al año · ${miles(n)} riesgos`}
+                  )} ${c.vecesAno === 1 ? 'vez' : 'veces'} al año · ${miles(n)} ${cosa}${
+                    banda.nombre === zona.nombre
+                      ? ''
+                      : ` · la zona es ${zona.nombre}; la casilla sube a ${banda.nombre} por el peor riesgo que contiene`
+                  }`}
                   className="flex flex-col items-center justify-center gap-px rounded-campo transition-shadow hover:shadow-[0_0_0_2px_var(--hf-text-primary)]"
                   style={{
                     aspectRatio: '1.6 / 1',
@@ -758,7 +880,9 @@ function DetalleCelda({
   filaImpacto,
   columna,
   banda,
+  bandaZona,
   bandas,
+  unidad,
   onCerrar,
 }: {
   celda: Celda;
@@ -772,7 +896,9 @@ function DetalleCelda({
   filaImpacto: FilaImpacto;
   columna: ColumnaFrecuencia;
   banda: { nombre: string; indice: number };
+  bandaZona: { nombre: string; indice: number };
   bandas: BandaVista[];
+  unidad: Unidad;
   onCerrar: () => void;
 }) {
   const color = colorBanda(banda.indice);
@@ -794,9 +920,12 @@ function DetalleCelda({
             {filaImpacto.nombre.toLowerCase()} · frecuencia {columna.nombre.toLowerCase()}
           </span>
           <span className="text-11_5 text-muted">
-            {miles(indices.length)} riesgos en la casilla · impacto de{' '}
+            {miles(indices.length)} {unidad === 'activos' ? 'activos' : 'riesgos'} en la
+            casilla · impacto de{' '}
             {cifra(filaImpacto.desde)} a {cifra(filaImpacto.hasta)} · {cifra(columna.vecesAno)}{' '}
             {columna.vecesAno === 1 ? 'vez al año' : 'veces al año'}
+            {banda.nombre !== bandaZona.nombre &&
+              ` · la zona del cruce es ${bandaZona.nombre}; la casilla queda en ${banda.nombre} por el peor riesgo que contiene`}
           </span>
         </div>
         <button
@@ -885,7 +1014,11 @@ function DetalleCelda({
 
           <p className="px-4 py-2.5 text-11 text-label">
             {indices.length > MAXIMO_FILAS &&
-              `Se muestran ${MAXIMO_FILAS} de ${miles(indices.length)} riesgos de la casilla. `}
+              `Se muestran ${MAXIMO_FILAS} de ${miles(indices.length)} ${
+                unidad === 'activos' ? 'activos' : 'riesgos'
+              } de la casilla. `}
+            {unidad === 'activos' &&
+              'Una fila por activo: el riesgo que se muestra es el peor del activo, que es el que lo ubica en esta casilla. '}
             Clic en una fila abre la ficha del activo en la amenaza correspondiente.
           </p>
         </div>

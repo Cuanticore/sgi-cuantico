@@ -24,6 +24,7 @@
 
 import type { ClaseNivel } from '@prisma/client';
 import { caminoDelCiclo } from '@/lib/sig/dependencias';
+import { normalizarNombreNivel } from '@/lib/sig/nombre-nivel';
 
 /// `AAA-TTT-NNNN`. Los 299 activos del libro lo cumplen, cero excepciones.
 ///
@@ -267,9 +268,13 @@ export function jerarquiaDeNiveles(filas: readonly FilaNiveles[]): {
   const raicesReportadas = new Set<string>();
 
   for (const f of filas) {
-    const n1 = f.n1.trim();
-    const n2 = f.n2.trim();
-    const n3 = f.n3.trim();
+    // Normalizado, no sólo recortado: la caja de la celda no puede decidir la identidad de
+    // un nivel. Con `.trim()` a secas, una hoja que escribiera `Productos` creaba una rama
+    // nueva junto a `PRODUCTOS` en vez de encontrarla, y `CLASE_DE_RAIZ` —que compara
+    // exacto— la dejaba además sin clase. De ahí salieron cinco raíces donde había tres.
+    const n1 = normalizarNombreNivel(f.n1);
+    const n2 = normalizarNombreNivel(f.n2);
+    const n3 = normalizarNombreNivel(f.n3);
 
     const faltan = [
       n1 === '' ? 'Nivel 1' : null,

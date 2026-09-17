@@ -13,9 +13,15 @@ import FichaActivo, {
   type Navegacion,
 } from '../FichaActivo';
 import { guardarSesionRiesgo, guardarTratamiento } from '@/app/sgsi/acciones/riesgos';
+import { guardarDatosGenerales, guardarValoracion } from '@/app/sgsi/acciones/activos';
+
+// `replace` se observa: cuando el guardado reemite el código, la ficha tiene que mudarse a
+// la URL nueva. Un objeto nuevo por llamada no se puede afirmar, así que el router es uno
+// solo y sus métodos son espías.
+const router = { replace: jest.fn(), refresh: jest.fn(), push: jest.fn() };
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }),
+  useRouter: () => router,
 }));
 
 jest.mock('@/app/sgsi/acciones/activos', () => ({
@@ -785,5 +791,139 @@ describe('REQ-SIG-21 §7 · la tabla de controles va agrupada por relevancia', (
     const sinClasificar = screen.getByRole('group', { name: /Sin clasificar/i });
     expect(sinClasificar).toHaveTextContent('A.5.30');
     expect(sinClasificar).not.toHaveTextContent('%');
+  });
+});
+
+// El proceso o área, el tipo MAGERIT y el subtipo entran al mismo `datos` que el resto de la
+// ficha, pero el contador de cambios se tomaba ANTES de que ellos llegaran. Los dos tests de
+// abajo miran las dos caras de eso: el botón que no se enciende, y —peor— el cambio que se
+// pierde sin decir nada cuando algo más sí encendió el botón.
+describe('REQ-SIG-01 §3 · el cambio de clasificación cuenta como cambio pendiente', () => {
+  // Tres procesos a propósito: dos prefijos distintos y DOS que comparten el mismo. El
+  // código se reemite por lo que DICE, no por el id del área, así que mover el activo
+  // entre los dos «TEC» no tiene que reemitir nada.
+  const CATALOGOS_AREAS: Catalogos = {
+    ...CATALOGOS,
+    areas: [
+      { id: 1, nombre: 'Gestión Tecnológica', prefijo: 'TEC' },
+      { id: 2, nombre: 'Gestión Estratégica', prefijo: 'EST' },
+      { id: 3, nombre: 'Infraestructura', prefijo: 'TEC' },
+    ],
+  };
+
+  const mockGuardarDatosGenerales = guardarDatosGenerales as jest.Mock;
+  const mockGuardarValoracion = guardarValoracion as jest.Mock;
+
+  beforeEach(() => {
+    mockGuardarDatosGenerales.mockReset();
+    mockGuardarDatosGenerales.mockResolvedValue({
+      ok: true,
+      mensaje: 'Se guardaron los datos generales.',
+    });
+    mockGuardarValoracion.mockReset();
+    mockGuardarValoracion.mockResolvedValue({ ok: true, mensaje: 'Se guardó la valoración.' });
+    router.replace.mockReset();
+    router.refresh.mockReset();
+  });
+
+  function ficha() {
+    return render(
+      <FichaActivo
+        activo={activo('TEC-GEN-0020', 5)}
+        catalogos={CATALOGOS_AREAS}
+        amenazas={AMENAZAS}
+        navegacion={{ codigos: ['TEC-GEN-0020'] }}
+      />,
+    );
+  }
+
+  it('mover el activo de proceso enciende el botón de guardar', () => {
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
+
+    expect(screen.getByRole('button', { name: 'Guardar 1 cambio' })).toBeEnabled();
+  });
+
+  it('el proceso llega al servidor aunque lo acompañe un cambio que no es de datos generales', async () => {
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Disponibilidad'), { target: { value: '4' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Guardar \d+ cambios?$/ }));
+
+    await waitFor(() => expect(mockGuardarValoracion).toHaveBeenCalledTimes(1));
+    expect(mockGuardarDatosGenerales).toHaveBeenCalledWith('TEC-GEN-0020', { areaId: 2 });
+  });
+
+  it('mover el activo a un proceso de otro prefijo avisa que el código se reemite, y en qué serie', () => {
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
+
+    const aviso = screen.getByText('AL GUARDAR').closest('div')!;
+    expect(aviso).toHaveTextContent('la serie EST-GEN');
+    expect(aviso).toHaveTextContent('TEC-GEN-0020 queda retirado');
+    // Lo que el aviso decía hasta hoy, y que el servidor dejó de cumplir hace dos commits.
+    expect(aviso).not.toHaveTextContent('El código no cambia');
+  });
+
+  it('cuando el guardado reemite el código, la ficha se muda a la URL nueva', async () => {
+    mockGuardarDatosGenerales.mockResolvedValue({
+      ok: true,
+      mensaje: 'Se guardó 1 campo. El código se reemitió: TEC-GEN-0020 → EST-GEN-0007.',
+      codigoNuevo: 'EST-GEN-0007',
+    });
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Guardar \d+ cambios?$/ }));
+
+    await waitFor(() => expect(mockGuardarDatosGenerales).toHaveBeenCalledTimes(1));
+    // Sin esto la barra de direcciones se queda en un código retirado, que sólo resuelve
+    // porque `cargarActivo` lo rescata por la bitácora. Funcionar por el rescate no es
+    // funcionar.
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith('/sgsi/inventario/EST-GEN-0007'),
+    );
+  });
+
+  it('un guardado que NO reemite el código se queda donde está', async () => {
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Guardar \d+ cambios?$/ }));
+
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('mover el activo a un proceso del MISMO prefijo no reemite nada, y el aviso lo dice', () => {
+    ficha();
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '3' } });
+
+    const aviso = screen.getByText('AL GUARDAR').closest('div')!;
+    expect(aviso).toHaveTextContent('El código no cambia');
+    expect(aviso).not.toHaveTextContent('se reemite');
+  });
+
+  // En el alta no hay código que retirar: el de la cabecera es una previsualización que ya
+  // se recalcula sola al cambiar el proceso. Un aviso de «al guardar» hablando de reemisión
+  // —o negándola— ahí sólo puede confundir.
+  it('en el alta el aviso de clasificación no aparece', () => {
+    render(
+      <FichaActivo
+        activo={null}
+        catalogos={CATALOGOS_AREAS}
+        amenazas={AMENAZAS}
+        navegacion={{ codigos: [] }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
+
+    expect(screen.queryByText('AL GUARDAR')).not.toBeInTheDocument();
   });
 });
