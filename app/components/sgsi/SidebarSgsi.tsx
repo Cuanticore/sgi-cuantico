@@ -109,6 +109,7 @@ const GRUPOS: Grupo[] = [
     tituloCorto: 'OPE',
     items: [
       { etiqueta: 'Eventos e incidentes', abreviatura: 'EVT', href: '/sgsi/eventos' },
+      { etiqueta: 'Incidentes de Sentinel', abreviatura: 'SEN', href: '/sgsi/sentinel' },
       { etiqueta: 'Verificaciones', abreviatura: 'VRF', href: '/sgsi/verificaciones' },
       { etiqueta: 'Métricas del SGSI', abreviatura: 'MET', href: '/sgsi/metricas' },
       { etiqueta: 'Solicitudes', abreviatura: 'SOL', href: '/sgsi/solicitudes' },

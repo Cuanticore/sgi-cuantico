@@ -83,3 +83,5 @@ Errores.txt
 /playwright-report/
 /blob-report/
 /.playwright/
+# Mismo motivo, para el directorio que deja el MCP de Playwright.
+/.playwright-mcp/
