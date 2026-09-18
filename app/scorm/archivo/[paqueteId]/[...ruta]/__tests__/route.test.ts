@@ -139,4 +139,84 @@ describe('las guardas que ya existían', () => {
     const r = await GET(new Request('http://x/'), { params });
     expect(r.status).toBe(404);
   });
+
+  // La tercera guarda, que era la única sin red. Un `paqueteId` que no es número no puede
+  // llegar a la consulta: `Number('abc')` es `NaN` y `where` lo recibiría igual.
+  it('400 cuando el paqueteId no es un número', async () => {
+    const r = await GET(new Request('http://x/'), {
+      params: Promise.resolve({ paqueteId: 'abc', ruta: ['video', 'clase.mp4'] }),
+    });
+    expect(r.status).toBe(400);
+    // No se consulta nada con un id inválido.
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
+
+// El comentario de cabecera de la ruta enuncia la invariante entera —«van en los TRES
+// caminos»— y hasta acá sólo se afirmaba la CSP, que es un cuarto de ella.
+describe('las cabeceras comunes, completas', () => {
+  it('el 206 las lleva todas', async () => {
+    cabeceras.set('range', 'bytes=100-199');
+    const r = await GET(new Request('http://x/'), { params });
+
+    expect(r.status).toBe(206);
+    expect(r.headers.get('Content-Type')).toBe('video/mp4');
+    expect(r.headers.get('ETag')).toBe('"abc123"');
+    expect(r.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    // Un tramo de contenido inmutable se cachea igual que el archivo entero.
+    expect(r.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable');
+  });
+
+  // **El 416 es la excepción, y es deliberada.** La CSP, el `ETag` y el `nosniff` sí van
+  // —son política de seguridad y el recurso es el mismo—, pero el `Cache-Control` NO: una
+  // respuesta de error guardada por un año en un proxy compartido deja el curso caído para
+  // todo el mundo, y la petición mal formada de un solo reproductor basta para provocarla.
+  // Este test existe para que el próximo que «unifique» las tres ramas vea el rojo.
+  it('el 416 lleva la seguridad, pero no se cachea ni miente el Content-Type', async () => {
+    cabeceras.set('range', 'bytes=5000-6000');
+    const r = await GET(new Request('http://x/'), { params });
+
+    expect(r.status).toBe(416);
+    expect(r.headers.get('ETag')).toBe('"abc123"');
+    expect(r.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(r.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
+
+    expect(r.headers.get('Cache-Control')).toBe('no-store');
+    // El cuerpo es un texto de error, no el video: con `nosniff` encima, anunciar
+    // `video/mp4` sobre «rango no satisfacible» es mentirle al navegador.
+    expect(r.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+  });
+});
+
+describe('los bordes del cuerpo', () => {
+  it('un archivo de 0 bytes y sin Range responde 200 vacío', async () => {
+    findUnique.mockResolvedValue({
+      id: 42,
+      mime: 'text/plain',
+      sha256: 'vacio',
+      tamano: 0,
+      paquete: { dominiosExternos: [] },
+    });
+
+    const r = await GET(new Request('http://x/'), { params });
+
+    expect(r.status).toBe(200);
+    expect(r.headers.get('Content-Length')).toBe('0');
+    // Es el único camino donde `largo` es 0: sin el `Math.max` de la ruta el cálculo daría
+    // -1 y `substring(… FOR -1)` es un error de Postgres.
+    expect(queryRaw.mock.calls[0].slice(1)).toEqual([1, 0, 42]);
+    expect((await r.arrayBuffer()).byteLength).toBe(0);
+  });
+
+  // Entre las dos consultas no hay transacción: la fila puede irse (borrado del paquete en
+  // cascada). Sin esta guarda se respondía 200 con `Content-Length: 1000` y cuerpo vacío —y
+  // Node no cierra una respuesta que no cumple su `Content-Length`, así que el reproductor
+  // se queda esperando para siempre en vez de ver un error.
+  it('404 si la fila desaparece entre las dos consultas', async () => {
+    queryRaw.mockResolvedValue([]);
+
+    const r = await GET(new Request('http://x/'), { params });
+
+    expect(r.status).toBe(404);
+  });
 });
