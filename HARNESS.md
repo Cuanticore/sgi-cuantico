@@ -23,6 +23,7 @@ en verde** y reventaron en el primer uso real:
 | Bucle al crear catálogo | 2020 | elegir «crear» no llevaba a ningún lado: se revalidaba para siempre |
 | El mapeo se borraba a sí mismo | 2030 | el servidor rechazaba la decisión que la persona acababa de tomar |
 | `export const` en `'use server'` | 2093 | el despliegue falló: `main` no compilaba |
+| Columna inexistente en una migración | 2264 | el despliegue falló, y la base quedó con una migración marcada como fallida |
 
 Los tres comparten la misma forma. **Ninguno era un defecto de una pieza: los tres vivían
 entre las piezas.** Cada unidad hacía bien su trabajo; lo que fallaba era la composición —
@@ -51,8 +52,9 @@ comentarios, formato, tipos sin efecto en runtime, documentación—.
 ## Regla 2 · Ningún PR sin los tres checks en limpio
 
 ```bash
-npm run verificar         # prisma generate && tsc --noEmit && lint && test
-npm run verificar:build   # los cuatro de arriba, y además el build
+npm run verificar              # prisma generate && tsc --noEmit && lint && test
+npm run verificar:build        # los cuatro de arriba, y además el build
+npm run verificar:migraciones  # aplica TODAS las migraciones sobre una base vacía
 ```
 
 Es un solo comando y encadenado con `&&`: el primero que se pone rojo corta, y el código de
@@ -93,6 +95,26 @@ más de un minuto y `lib/__tests__/use-server.test.ts` cubre esa misma clase de 
 milisegundos, sobre los 36 archivos a la vez. El build sigue siendo obligatorio igual —
 atrapa lo que todavía no tiene test.
 
+**Las migraciones entraron el 18/09/2026, y por la misma razón.** `20260916200000_identidad_de_nivel`
+hacía `UPDATE "plantilla_nivel" SET "nombre" = …` sobre una tabla cuya columna se llama
+`nombre_nivel_3` y nunca se llamó de otra forma. Los cinco checks daban verde, y no por
+descuido: **ninguno EJECUTA una migración.** `prisma generate` lee el schema, no las
+migraciones; `tsc`, ESLint, Jest y el build ni las miran. El SQL de `prisma/migrations/`
+corría en un solo sitio —`prisma migrate deploy`— y ese sitio era producción.
+
+Una migración es código que corre **una sola vez, en el peor momento posible y sobre los
+únicos datos que no se pueden perder**. Que fuera lo único sin verificación previa no era una
+omisión menor: era el hueco más caro que quedaba.
+
+`verificar:migraciones` va aparte de `verificar` a propósito: necesita un Postgres, y
+encadenarlo haría que los checks fallaran en cualquier máquina sin base a mano —y la
+respuesta a eso siempre termina siendo saltárselos—. En el PR sí corre, contra un Postgres
+efímero que se levanta y se tira en el mismo paso.
+
+Lo que **no** encuentra: una base vacía no tiene los datos de producción, así que no detecta
+una violación de unicidad que sólo aparece con las filas reales. Encuentra la columna que no
+existe, el tipo mal escrito, el orden imposible — que es lo que tumbó el despliegue.
+
 ### Quién corre esto, y cuándo
 
 Hasta el 16/09/2026 la respuesta era «tú, a mano, o nadie»: el único workflow se disparaba con
@@ -102,7 +124,8 @@ eran condición para llegar a producción. Ahora son tres momentos:
 | Cuándo | Qué corre | Qué pasa si se pone rojo |
 |---|---|---|
 | Tu terminal, antes del PR | `npm run verificar:build` | te enteras en segundos, que es lo barato |
-| El PR (`Verificación`) | `npm run verificar:build` | el PR queda en rojo antes de mergear |
+| Tu terminal, si tocaste `prisma/migrations/` | `npm run verificar:migraciones` | necesita la base local arriba (`npm run db:up`) |
+| El PR (`Verificación`) | `npm run verificar:build` **y** las migraciones | el PR queda en rojo antes de mergear |
 | El push a `main` (`Build and Deploy`) | `npm run verificar` | **no se construye nada**: el contenedor viejo sigue sirviendo |
 
 El despliegue no corre el build en ese paso porque lo corre el `docker buildx build` de dos

@@ -11,6 +11,7 @@
     "e2e": "playwright test",
     "verificar": "npx prisma generate && npx tsc --noEmit && npm run lint && npm test",
     "verificar:build": "npm run verificar && npm run build",
+    "verificar:migraciones": "tsx scripts/verificar-migraciones.ts",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker-compose.dev.yml down"
   },
