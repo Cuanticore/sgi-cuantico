@@ -19,10 +19,17 @@
 -- `padre_id NULL`, asi que un unique comun sobre (grado, nombre, padre_id) dejaria pasar dos
 -- raices con el mismo nombre — que es EXACTAMENTE el caso que origino todo esto. La clausula
 -- existe desde PostgreSQL 15; el servidor corre 17.
-CREATE UNIQUE INDEX "nivel_activo_identidad"
+-- `IF NOT EXISTS` porque esta migracion ya fallo una vez en produccion (18/09/2026, P3018)
+-- DESPUES de esta linea: si Postgres alcanzo a crear el indice antes de abortar, reaplicarla
+-- sin la clausula volveria a fallar, ahora por una razon distinta y mas confusa.
+CREATE UNIQUE INDEX IF NOT EXISTS "nivel_activo_identidad"
   ON "nivel_activo" ("grado", "nombre", "padre_id") NULLS NOT DISTINCT;
 
 -- La plantilla se sembro en caja de titulo ('Codigo Fuente', 'Ambientes'). `faltantesDePlantilla`
 -- compara sin caja, asi que seguiria funcionando, pero la pantalla de niveles mostraria
 -- `Codigo Fuente` al lado de `CODIGO FUENTE` y nadie sabria cual de los dos es el nombre.
-UPDATE "plantilla_nivel" SET "nombre" = upper(btrim("nombre"));
+-- La columna es `nombre_nivel_3`, no `nombre`: `plantilla_nivel` nunca tuvo una columna
+-- llamada `nombre` — ver la migracion 20260904090000_gestion_tecnologica, que la crea con
+-- (id, clase_nivel, nombre_nivel_3, activo_esperado, obligatorio, orden). Escrito como
+-- `nombre`, este UPDATE tumbo el despliegue del 18/09/2026 con 42703.
+UPDATE "plantilla_nivel" SET "nombre_nivel_3" = upper(btrim("nombre_nivel_3"));

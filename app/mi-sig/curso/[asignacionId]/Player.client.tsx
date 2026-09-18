@@ -7,9 +7,11 @@
 // para escribir nada.
 
 import { useEffect, useRef, useState } from 'react';
-import { guardarIntento } from '@/app/mi-sig/acciones/curso';
+import { useRouter } from 'next/navigation';
+import { declararCursoTerminado, guardarIntento } from '@/app/mi-sig/acciones/curso';
 
 interface Props {
+  asignacionId: number;
   token: string;
   modelo: Record<string, string>;
   runnerUrl: string;
@@ -17,7 +19,8 @@ interface Props {
   soloLectura: boolean;
 }
 
-export default function Player({ token, modelo, runnerUrl, entradaUrl, soloLectura }: Props) {
+export default function Player({ asignacionId, token, modelo, runnerUrl, entradaUrl, soloLectura }: Props) {
+  const router = useRouter();
   const marco = useRef<HTMLIFrameElement>(null);
   const pantalla = useRef<HTMLElement>(null);
   const ultimoModelo = useRef<Record<string, string>>(modelo);
@@ -31,8 +34,70 @@ export default function Player({ token, modelo, runnerUrl, entradaUrl, soloLectu
   const [progreso, setProgreso] = useState(Number(modelo['cmi.progress_measure'] ?? '0'));
   const [inicializado, setInicializado] = useState(false);
   const [completa, setCompleta] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
+  const [terminando, setTerminando] = useState(false);
 
   const origenRunner = new URL(runnerUrl).origin;
+
+  // REQ-SIG-24 · REGISTRAR QUE SE TERMINÓ, Y CONFIAR EN EL REGISTRO.
+  //
+  // Coursebox no reporta la completitud por SCORM (el despacho corre en un iframe de un tercero
+  // y no llama a la API), así que el curso nunca cierra la asignación solo. La persona lo
+  // declara acá, y queda anotado como autodeclaración —no como resultado medido—. Se confirma
+  // antes, porque es una afirmación sobre uno mismo; y si el curso exige nota, se pide.
+  async function marcarTerminado(): Promise<void> {
+    if (terminando || soloLectura) return;
+    if (!window.confirm('¿Confirmás que terminaste el curso? Se registrará que lo completaste.')) {
+      return;
+    }
+    setTerminando(true);
+    try {
+      let r = await declararCursoTerminado(asignacionId);
+      if (r.requiereNota === true) {
+        const texto = window.prompt(`${r.mensaje ?? 'Este curso exige una nota.'}\n\nNota obtenida (0 a 100):`, '');
+        if (texto === null) {
+          setTerminando(false);
+          return;
+        }
+        const nota = Number(texto.replace(',', '.'));
+        if (!Number.isFinite(nota) || nota < 0 || nota > 100) {
+          setEstado('La nota debe ser un número entre 0 y 100.');
+          setTerminando(false);
+          return;
+        }
+        r = await declararCursoTerminado(asignacionId, nota);
+      }
+      if (r.ok) {
+        router.push('/mi-sig');
+        return;
+      }
+      setEstado(r.mensaje ?? 'No se pudo registrar el curso.');
+    } catch {
+      setEstado('No se pudo registrar el curso. Intentá de nuevo.');
+    }
+    setTerminando(false);
+  }
+
+  // SALIR Y VOLVER AL SIG. El curso ocupa la pantalla entera —tiene que hacerlo, un SCO se
+  // dibuja a sí mismo— y sin esto la única salida era el botón «atrás» del navegador. Guarda
+  // el avance antes de irse; si el guardado falla NO atrapa a la persona en el curso, se va
+  // igual. Es un `<a href>` real, así que sigue llevando a Mi SIG aunque el JavaScript falle.
+  async function salirYGuardar(evento: { preventDefault: () => void }): Promise<void> {
+    evento.preventDefault();
+    if (saliendo) return;
+    setSaliendo(true);
+    try {
+      if (!soloLectura) {
+        await guardarIntento(tokenVigente.current, ultimoModelo.current, false);
+      }
+    } catch {
+      // Volver al SIG es más importante que este último guardado: el reloj de 60 s ya
+      // salvó casi todo, y quedarse en el curso porque el guardado falló es el peor final.
+    }
+    // Al desmontarse el player, el navegador sale solo de pantalla completa —el elemento que
+    // la pedía deja de existir—, así que no hay que salir de ella a mano.
+    router.push('/mi-sig');
+  }
 
   // PANTALLA COMPLETA.
   //
@@ -155,8 +220,73 @@ export default function Player({ token, modelo, runnerUrl, entradaUrl, soloLectu
           fontFamily: 'system-ui',
         }}
       >
-        <progress value={progreso} max={1} style={{ width: '12rem' }} />
-        <span>{Math.round(progreso * 100)} %</span>
+        {/* Marca Cuantico: el curso lo sirve un tercero y ocupa toda la pantalla, así que sin
+            esto la persona pierde la referencia de que sigue dentro del SIG. El logo transparente
+            va sobre el header blanco. `alt` en español porque es lo que lee un lector de pantalla. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo%20transparente.png"
+          alt="Cuantico"
+          style={{ flex: 'none', height: '26px', width: 'auto', objectFit: 'contain' }}
+        />
+        <a
+          href="/mi-sig"
+          onClick={(e) => void salirYGuardar(e)}
+          title="Guardar el avance y volver a Mi SIG"
+          style={{
+            flex: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px 10px',
+            border: '1px solid #ccc',
+            borderRadius: '6px',
+            background: '#fff',
+            color: '#1f2937',
+            textDecoration: 'none',
+            fontFamily: 'system-ui',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            opacity: saliendo ? 0.6 : 1,
+          }}
+        >
+          ← {saliendo ? 'Saliendo…' : soloLectura ? 'Salir' : 'Salir y guardar'}
+        </a>
+        {/* REQ-SIG-24 · en repaso (`soloLectura`) la asignación ya está cerrada: no hay nada
+            que declarar. Sólo aparece mientras el curso está abierto de verdad. */}
+        {!soloLectura && (
+          <button
+            onClick={() => void marcarTerminado()}
+            disabled={terminando}
+            title="Registrar que terminaste el curso"
+            style={{
+              flex: 'none',
+              padding: '4px 12px',
+              border: '1px solid #0b5c44',
+              borderRadius: '6px',
+              background: terminando ? '#7fae9e' : '#0b7a5a',
+              color: '#fff',
+              fontFamily: 'system-ui',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: terminando ? 'default' : 'pointer',
+            }}
+          >
+            {terminando ? 'Registrando…' : '✓ Terminé el curso'}
+          </button>
+        )}
+        {/* El % SÓLO se muestra si el curso de verdad reporta avance. Un paquete de DESPACHO
+            —el contenido lo entrega un tercero como Coursebox— no llama `SetValue(progress_
+            measure)`: se queda en 0 para siempre y un «0 %» fijo confunde («¿no guardó?»). Un
+            paquete AUTOCONTENIDO sí puede reportarlo, y entonces `progreso > 0` y la barra
+            aparece. Verificado el 18/09/2026: Coursebox no reporta avance por SCORM. */}
+        {progreso > 0 && (
+          <>
+            <progress value={progreso} max={1} style={{ width: '12rem' }} />
+            <span>{Math.round(progreso * 100)} %</span>
+          </>
+        )}
         {soloLectura && <strong>· repaso: este intento no se registra</strong>}
         <span style={{ marginLeft: 'auto', color: '#555' }}>{estado}</span>
         <button

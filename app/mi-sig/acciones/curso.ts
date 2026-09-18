@@ -8,10 +8,11 @@
 
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
 import { registrar } from '@/lib/sgsi/bitacora';
-import { veredictoDelIntento } from '@/lib/sig/scorm-cierre';
+import { resultadoDeclarado, veredictoDelIntento } from '@/lib/sig/scorm-cierre';
 import { aDuracion, aSegundos, sumarDuraciones } from '@/lib/sig/scorm-tiempo';
 import { modeloInicial, validarEscritura } from '@/lib/sig/scorm-modelo';
 import { firmarIntento, motivoDe, verificarIntento } from '@/lib/sig/scorm-token';
@@ -410,4 +411,160 @@ export async function guardarIntento(
     mensaje: veredicto?.motivo,
     token: firmarIntento(verificado.intentoId, secreto()),
   };
+}
+
+export interface Declaracion {
+  ok: boolean;
+  mensaje?: string;
+  /// El curso exige nota y no se declaró: la pantalla la pide y vuelve a llamar con ella.
+  requiereNota?: boolean;
+}
+
+/// REQ-SIG-24 · la persona REGISTRA que terminó el curso, y se confía en el registro.
+///
+/// Coursebox no reporta la completitud por SCORM —el despacho corre en un iframe de un tercero
+/// y no llama a la API—, así que el player nunca recibe el «terminó» y la asignación no cierra
+/// sola. Se ofrece declararlo a mano. Queda anotado como AUTODECLARACIÓN, no como un resultado
+/// medido: la evidencia dice lo que es, y la bitácora registra quién lo declaró y cuándo.
+///
+/// Un curso sin evaluación cierra con la sola declaración; uno con evaluación pide la nota
+/// (P16), y ahí el aprobado lo decide `notaMinima`, como en cualquier cierre. Idempotente: una
+/// asignación ya cerrada devuelve ok sin duplicar el registro.
+export async function declararCursoTerminado(
+  asignacionId: number,
+  calificacion?: number | null,
+): Promise<Declaracion> {
+  const sesion = await getServerSession(authOptions);
+  const correo = sesion?.user?.email;
+  if (!correo) return { ok: false, mensaje: 'sin sesión' };
+
+  const asignacion = await prisma.asignacion.findUnique({
+    where: { id: asignacionId },
+    select: {
+      id: true,
+      estado: true,
+      personaId: true,
+      persona: { select: { correo: true } },
+      contenido: {
+        select: {
+          exigeEvaluacion: true,
+          notaMinima: true,
+          versiones: { orderBy: { version: 'desc' }, take: 1, select: { id: true } },
+          paquetes: { orderBy: { version: 'desc' }, take: 1, select: { id: true } },
+        },
+      },
+    },
+  });
+  if (asignacion === null) return { ok: false, mensaje: 'la asignación no existe' };
+  if (asignacion.persona.correo !== correo) return { ok: false, mensaje: 'no es tu asignación' };
+  if (asignacion.estado === 'REALIZADA') {
+    return { ok: true, mensaje: 'Ya estaba registrada como terminada.' };
+  }
+
+  const paqueteId = asignacion.contenido?.paquetes[0]?.id;
+  if (paqueteId === undefined) {
+    return { ok: false, mensaje: 'esta capacitación no tiene paquete SCORM' };
+  }
+
+  const exigeEvaluacion = asignacion.contenido?.exigeEvaluacion ?? false;
+  const notaMinima =
+    asignacion.contenido?.notaMinima == null ? null : Number(asignacion.contenido.notaMinima);
+  const nota = calificacion == null ? null : Number(calificacion);
+
+  const veredicto = veredictoDelIntento(resultadoDeclarado(nota), { exigeEvaluacion, notaMinima });
+  if (!veredicto.cierra) {
+    // La única razón para que una completitud declarada no cierre es que falte la nota exigida
+    // (P16). La pantalla la pide y vuelve a llamar con ella.
+    return {
+      ok: false,
+      requiereNota: true,
+      mensaje: 'Este curso exige una nota. Ingresá la que obtuviste para registrar el curso.',
+    };
+  }
+
+  const cabeceras = await headers();
+  await prisma.$transaction(async (tx) => {
+    // El intento abierto de la persona, o uno nuevo: la declaración vale aunque el player no
+    // haya alcanzado a crear intento (o la persona hiciera el curso sin dejarlo abierto).
+    const abierto = await tx.intentoScorm.findFirst({
+      where: { asignacionId, personaId: asignacion.personaId, estado: { in: ['EN_CURSO', 'SUSPENDIDO'] } },
+      orderBy: { numero: 'desc' },
+      select: { id: true },
+    });
+
+    let intentoId: number;
+    if (abierto !== null) {
+      intentoId = abierto.id;
+    } else {
+      const ultimo = await tx.intentoScorm.findFirst({
+        where: { asignacionId },
+        orderBy: { numero: 'desc' },
+        select: { numero: true },
+      });
+      const creado = await tx.intentoScorm.create({
+        data: {
+          asignacionId,
+          personaId: asignacion.personaId,
+          paqueteId,
+          numero: (ultimo?.numero ?? 0) + 1,
+          entry: 'ab-initio',
+          mode: 'normal',
+          cmi: {},
+          ip: cabeceras.get('x-forwarded-for') ?? cabeceras.get('x-real-ip'),
+          agente: cabeceras.get('user-agent'),
+        },
+        select: { id: true },
+      });
+      intentoId = creado.id;
+    }
+
+    await tx.intentoScorm.update({
+      where: { id: intentoId },
+      data: {
+        estado: 'COMPLETADO',
+        completionStatus: 'completed',
+        successStatus: 'unknown',
+        scoreScaled: nota === null ? null : nota / 100,
+        exit: 'normal',
+        terminadoEn: new Date(),
+      },
+    });
+
+    const registro = await tx.registroRealizado.create({
+      data: {
+        asignacionId,
+        asistio: veredicto.asistio,
+        calificacion: veredicto.calificacion,
+        aprobado: veredicto.aprobado,
+        versionContenidoId: asignacion.contenido?.versiones[0]?.id ?? null,
+        // Dice que es autodeclarado, no medido: la evidencia no finge lo que no es.
+        nota: `curso · AUTODECLARADO por el colaborador · ${veredicto.motivo}`,
+      },
+    });
+    await tx.intentoScorm.update({ where: { id: intentoId }, data: { registroId: registro.id } });
+
+    await tx.asignacion.update({
+      where: { id: asignacionId },
+      data: {
+        estado: 'REALIZADA',
+        fechaCierre: new Date(),
+        // No es un cierre administrativo: lo cerró la persona declarando que terminó.
+        cerradaPor: asignacion.personaId,
+      },
+    });
+
+    await registrar(tx, correo, [
+      {
+        tabla: 'intento_scorm',
+        registroId: String(intentoId),
+        campo: 'autodeclaracion',
+        anterior: null,
+        nuevo: `completado (autodeclarado)${nota === null ? '' : ` · nota ${nota}`}`,
+        motivo: 'el colaborador declaró haber terminado el curso',
+      },
+    ]);
+  });
+
+  revalidatePath('/mi-sig');
+  return { ok: true, mensaje: 'Registramos que terminaste el curso.' };
 }

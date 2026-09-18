@@ -173,9 +173,13 @@ export default function ColaboradoresClient({
               setEditando(null);
               router.refresh();
             }}
-            // La reasignación de pendientes vive en el censo, donde está su acción y su
-            // estado. Acá no se ofrece en vez de ofrecerla rota.
-            pieDeDatosBase={null}
+            // La reasignación dejó de ser un pie que arma quien llama: vive en la pestaña
+            // Pendientes del popup, con su propia acción y su propio estado. Así que acá
+            // sólo hay que decirle a quién se puede traspasar, y eso sale del mismo censo
+            // que esta pantalla ya recibe entero.
+            destinos={censo
+              .filter((c) => c.activa && c.id !== editando.id)
+              .map((c) => ({ id: c.id, nombre: c.nombre }))}
           />
         )}
 

@@ -24,6 +24,26 @@ export interface ExigenciaDelContenido {
   notaMinima: number | null;
 }
 
+/// REQ-SIG-24 · el resultado de una AUTODECLARACIÓN de completitud.
+///
+/// Coursebox no reporta el fin del curso por SCORM, así que se ofrece registrarlo a mano y se
+/// confía en el registro. Declarar es SIEMPRE «completado»; la nota es opcional —sólo la piden
+/// los cursos con evaluación—. El veredicto lo sigue dando `veredictoDelIntento`: un curso sin
+/// evaluación cierra con la sola completitud; uno con evaluación necesita la nota (P16), y con
+/// ella el aprobado lo decide `notaMinima` como en cualquier cierre. La nota va en 0–100.
+export function resultadoDeclarado(calificacion: number | null): ResultadoDelSco {
+  return {
+    completionStatus: 'completed',
+    // `unknown`, no `passed`: no se autodeclara haber aprobado. Si hay nota, el aprobado lo
+    // calcula `notaMinima`; si no, no hay nada que aprobar.
+    successStatus: 'unknown',
+    scoreScaled: calificacion === null ? null : calificacion / 100,
+    scoreRaw: null,
+    scoreMin: null,
+    scoreMax: null,
+  };
+}
+
 export interface Veredicto {
   /// ¿Se crea el `RegistroRealizado`? Un curso a medias no deja registro; un curso
   /// terminado sí, aunque no cierre.

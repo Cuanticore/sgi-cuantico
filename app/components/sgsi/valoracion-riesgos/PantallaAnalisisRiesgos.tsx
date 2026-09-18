@@ -302,6 +302,20 @@ export default function PantallaAnalisisRiesgos({
                   <th className="etiqueta-campo py-1.5 pr-3 text-left">Código</th>
                   <th className="etiqueta-campo py-1.5 pr-3 text-left">Nombre</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-center">Valor</th>
+                  {/* Una columna por dimensión, además del máximo. El encabezado lleva la
+                      letra —no hay ancho para más— y el nombre completo va en el accesible,
+                      que es también lo que un lector de pantalla anuncia. */}
+                  {DIMENSIONES.map((d) => (
+                    <th
+                      key={d.codigo}
+                      scope="col"
+                      aria-label={d.nombre}
+                      title={d.nombre}
+                      className="etiqueta-campo px-1 py-1.5 text-center"
+                    >
+                      {d.codigo}
+                    </th>
+                  ))}
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Criticidad</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Proceso</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Propietario</th>
@@ -313,7 +327,17 @@ export default function PantallaAnalisisRiesgos({
               </thead>
               <tbody>
                 {filasOrdenadas.map((f) => (
-                  <tr key={f.codigo} className="border-b border-hairline-faint">
+                  <tr
+                    key={f.codigo}
+                    // La banda y el estado del plan viajan como atributos y no sólo como
+                    // color: el color lo lee quien ve, esto lo lee quien filtra la tabla con
+                    // el inspector, y las pruebas.
+                    data-banda-residual={f.peorResidual?.banda ?? 'sin-calcular'}
+                    data-estado-plan={f.estadoPlan}
+                    className={`border-b border-hairline-faint ${
+                      esResidualAlarmante(f.peorResidual) ? 'bg-danger-bg' : ''
+                    }`}
+                  >
                     <td className="py-1.5 pr-3">
                       <span className="inline-flex items-center gap-1.5">
                         <Link
@@ -328,12 +352,34 @@ export default function PantallaAnalisisRiesgos({
                     <td className="py-1.5 pr-3 text-secondary">{f.nombre}</td>
                     <td className="px-2 py-1.5 text-center">
                       <span
+                        aria-label={`Valor del activo ${f.codigo}`}
+                        title={`Valor del activo: max(D, I, C) = ${f.valor}`}
                         className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-[4px] px-1.5 font-mono text-11 font-semibold tabular-nums text-white"
                         style={{ background: colorDeNivelValor(f.valor) }}
                       >
                         {f.valor}
                       </span>
                     </td>
+                    {/* Las tres dimensiones, sin badge de color: el color es del AGREGADO y
+                        repetirlo cuatro veces convierte la fila en un semáforo ilegible. La
+                        que empata con el máximo va en negrita, que es la pregunta real —
+                        «¿qué dimensión puso a este activo donde está?». */}
+                    {DIMENSIONES.map((d) => {
+                      const v = f.valores[d.codigo];
+                      return (
+                        <td key={d.codigo} className="px-1 py-1.5 text-center">
+                          <span
+                            aria-label={`${d.nombre} de ${f.codigo}`}
+                            title={`${d.nombre}: ${v}`}
+                            className={`font-mono text-11_5 tabular-nums ${
+                              v === f.valor ? 'font-bold text-primary' : 'text-secondary'
+                            }`}
+                          >
+                            {v}
+                          </span>
+                        </td>
+                      );
+                    })}
                     <td className="px-2 py-1.5">
                       {f.criticidad === null ? (
                         <span className="text-faint">sin clasificar</span>
@@ -357,22 +403,25 @@ export default function PantallaAnalisisRiesgos({
                     <td className="px-2 py-1.5">
                       <span className="inline-flex items-center gap-2">
                         <CeldaPlan estado={f.estadoPlan} />
-                        {/* El plan nace donde se ve la brecha. No se ofrece sobre un activo
-                            que no requiere plan: sería invitar a registrar trabajo que nadie
-                            pidió, y la lista de planes es justamente lo que hay que poder
-                            leer de un vistazo. */}
-                        {f.estadoPlan !== 'no-requiere' && (
-                          <button
-                            onClick={() => setActivoParaPlan(f.codigo)}
-                            // El texto visible es «+ plan» en las treinta filas; sin esto,
-                            // un lector de pantalla anuncia treinta botones indistinguibles.
-                            aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
-                            title={`Registrar planes de tratamiento para ${f.codigo}`}
-                            className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
-                          >
-                            + plan
-                          </button>
-                        )}
+                        {/* SE OFRECE EN TODAS LAS FILAS, y antes no.
+                            Se escondía sobre los activos `no-requiere` para no invitar a
+                            registrar trabajo que nadie pidió. La decisión se revirtió el
+                            18/09/2026: «no requiere» significa que sus controles alcanzan lo
+                            exigido HOY, no que nadie pueda decidir mejorarlos. Un plan
+                            preventivo sobre un control que ya cumple es una decisión legítima
+                            de quien lo registra —así lo dice también `planes-por-amenaza.ts`
+                            sobre la brecha: ordena la lista, no la filtra— y esconder el botón
+                            obligaba a salir a la pantalla de Planes para tomarla. */}
+                        <button
+                          onClick={() => setActivoParaPlan(f.codigo)}
+                          // El texto visible es «+ plan» en las treinta filas; sin esto,
+                          // un lector de pantalla anuncia treinta botones indistinguibles.
+                          aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
+                          title={`Registrar planes de tratamiento para ${f.codigo}`}
+                          className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
+                        >
+                          + plan
+                        </button>
                       </span>
                     </td>
                   </tr>
@@ -439,6 +488,39 @@ function Encabezado({
       </p>
     </header>
   );
+}
+
+/// Las tres dimensiones activas del modelo, en el orden de MAGERIT y del catálogo.
+///
+/// El orden es D · I · C y no el que se pida en una conversación suelta: es el mismo de
+/// `ValoresDimension`, el de la ficha del activo y el del seed (`orden` 1, 2, 3). Cuatro
+/// pantallas que muestran las mismas tres letras en órdenes distintos se leen mal justo
+/// cuando hay que comparar dos activos.
+///
+/// A y T están modeladas e inactivas en el catálogo; el día que se activen, esto deja de
+/// poder ser una constante y pasa a leerse de `Dimension` — igual que `valorMaximo` ya
+/// itera las activas en vez de tres constantes.
+const DIMENSIONES = [
+  { codigo: 'D', nombre: 'Disponibilidad' },
+  { codigo: 'I', nombre: 'Integridad' },
+  { codigo: 'C', nombre: 'Confidencialidad' },
+] as const;
+
+/// Las bandas cuyo residual pinta el renglón.
+///
+/// **Se nombran por su nombre y no por el orden del umbral** porque el catálogo es editable:
+/// `UmbralRiesgo` se parametriza y alguien puede insertar una banda intermedia. Un `orden <= 2`
+/// pintaría entonces la banda equivocada sin que nada falle.
+const BANDAS_ALARMANTES = ['Crítico', 'Alto'];
+
+/// Si el residual de un activo es de los que hay que ver sin leer la tabla.
+///
+/// `null` —«sin calcular»— **no se pinta**, y la distinción importa: pintarlo diría que el
+/// riesgo es alto, y lo que pasa es que no se sabe. Es la misma doctrina que sostiene el
+/// informe de valoración: eficacia desconocida no es riesgo alto ni riesgo bajo, es un estado
+/// del modelo. La columna «Peor residual» ya lo dice con su propia palabra.
+function esResidualAlarmante(nivel: NivelRiesgo | null): boolean {
+  return nivel !== null && BANDAS_ALARMANTES.includes(nivel.banda);
 }
 
 function Tarjeta({

@@ -57,6 +57,44 @@ jobs:
           npm ci
           npm run verificar:build
 
+      # LAS MIGRACIONES SON LO UNICO QUE NINGUN OTRO PASO EJECUTA.
+      #
+      # `prisma generate` lee el schema, no las migraciones. `tsc`, ESLint, Jest y el build ni
+      # las miran. El SQL de `prisma/migrations/` solo corria en un sitio —`migrate deploy`—
+      # y ese sitio era produccion: una migracion es codigo que corre UNA vez, en el peor
+      # momento y sobre los unicos datos que no se pueden perder.
+      #
+      # El 18/09/2026 eso costo un despliegue: `UPDATE "plantilla_nivel" SET "nombre" = …`
+      # sobre una tabla cuya columna se llama `nombre_nivel_3`. Verde en los cinco checks,
+      # `42703` contra la base real, y la migracion quedo marcada como fallida bloqueando
+      # todas las siguientes.
+      #
+      # Postgres efimero y aparte: el runner ES el host de produccion, y la base de al lado es
+      # la de verdad. Puerto 0 = el que el sistema tenga libre, para no chocar con el 5432 que
+      # ya esta ocupado ahi.
+      - name: Verificación — las migraciones aplican sobre una base vacía
+        run: |
+          set -euo pipefail
+          CONTENEDOR="verificacion-pg-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "CONTENEDOR_PG=$CONTENEDOR" >> "$GITHUB_ENV"
+          docker run -d --rm --name "$CONTENEDOR" \
+            -e POSTGRES_PASSWORD=verificacion -e POSTGRES_USER=verificacion \
+            -e POSTGRES_DB=verificacion -p 127.0.0.1:0:5432 postgres:17-alpine
+          PUERTO="$(docker port "$CONTENEDOR" 5432/tcp | head -1 | sed 's/.*://')"
+          for i in $(seq 1 30); do
+            if docker exec "$CONTENEDOR" pg_isready -U verificacion -d verificacion >/dev/null 2>&1; then break; fi
+            if [ "$i" = 30 ]; then echo "El Postgres de verificación no levantó."; exit 1; fi
+            sleep 1
+          done
+          DATABASE_URL="postgresql://verificacion:verificacion@127.0.0.1:$PUERTO/verificacion" \
+            npm run verificar:migraciones
+
+      # Se para SIEMPRE, incluso con la verificación en rojo — que es justo cuando uno se
+      # olvidaría. `--rm` en el `docker run` hace el resto.
+      - name: Apagar el Postgres de verificación
+        if: always()
+        run: docker rm -f "${CONTENEDOR_PG:-}" 2>/dev/null || true
+
       # El workspace del runner persiste entre ejecuciones y `node_modules` pesa alrededor de
       # un giga. En esta máquina eso importa: el despliegue #41 murió con `No space left on
       # device` y por eso existe el preflight de disco en `deploy.yml`. Se limpia siempre,

@@ -32,14 +32,26 @@ import { useState } from 'react';
 
 import { bloquearCuenta, desbloquearCuenta } from '@/app/sig/acciones/personas-bloqueo';
 import { confirmacionCoincide, motivoValido, MOTIVO_MINIMO } from '@/lib/sgsi/bloqueo';
+import type { PendienteDePersona } from '@/app/sig/acciones/persona-actividad';
 import type { PersonaFila } from './Personas.client';
 
 export default function BloqueoCuenta({
   persona,
+  pendientes,
   onIrAReasignar,
 }: {
   persona: PersonaFila;
-  /// Lleva a la pestaña de datos base, donde vive el panel de reasignación (R9). No se
+  /// Los pendientes de la persona, **cargados por el popup**, no por esta pestaña.
+  ///
+  /// Viajaban dentro de `PersonaFila` —los 91 arreglos del censo— y ahora se piden al abrir.
+  /// La consulta la dispara el popup cuando la sección activa es Pendientes **o** Cuenta,
+  /// justamente para que entrar directo acá no muestre una lista vacía sobre alguien que sí
+  /// tiene carga abierta.
+  ///
+  /// `null` es «todavía no llegaron», que no es «no tiene». El conteo de arriba sale de
+  /// `persona.pendientes`, que sigue en el censo y está desde el primer render.
+  pendientes: PendienteDePersona[] | null;
+  /// Lleva a la pestaña de Pendientes, donde vive el panel de reasignación (R9). No se
   /// duplica acá: una segunda forma de reasignar es una que mañana dice otra cosa.
   onIrAReasignar: () => void;
 }) {
@@ -148,23 +160,30 @@ export default function BloqueoCuenta({
           </p>
           {persona.pendientes > 0 && (
             <>
-              <ul className="flex max-h-[140px] flex-col gap-1 overflow-y-auto rounded-campo border border-hairline p-2">
-                {persona.abiertas.map((a) => (
-                  <li key={a.id} className="flex items-baseline justify-between gap-3 px-1">
-                    <span className="min-w-0 text-11_5 text-primary">
-                      <span className="font-mono text-10_5 text-muted">{a.codigo}</span> {a.titulo}
-                    </span>
-                    <span
-                      className="shrink-0 font-mono text-10"
-                      style={{
-                        color: a.vencida ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
-                      }}
-                    >
-                      {a.fechaLimite.slice(0, 10)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {/* «Todavía no llegaron» se dice; no se dibuja una lista vacía, que acá se
+                  leería como «no tiene nada que mover» justo antes de cortarle el acceso. */}
+              {pendientes === null ? (
+                <p className="text-11_5 text-muted">Cargando cuáles son…</p>
+              ) : (
+                <ul className="flex max-h-[140px] flex-col gap-1 overflow-y-auto rounded-campo border border-hairline p-2">
+                  {pendientes.map((a) => (
+                    <li key={a.id} className="flex items-baseline justify-between gap-3 px-1">
+                      <span className="min-w-0 text-11_5 text-primary">
+                        <span className="font-mono text-10_5 text-muted">{a.codigo}</span>{' '}
+                        {a.titulo}
+                      </span>
+                      <span
+                        className="shrink-0 font-mono text-10"
+                        style={{
+                          color: a.vencida ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
+                        }}
+                      >
+                        {a.fechaLimite.slice(0, 10)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <button
                 type="button"
                 onClick={onIrAReasignar}

@@ -4,7 +4,7 @@
 // porque es el caso real: un paquete de DESPACHO cuyo contenido no está en el zip. La
 // verificación 3 del requerimiento es exactamente esta prueba.
 
-import { analizarManifiesto } from '../scorm-manifiesto';
+import { analizarManifiesto, cursoExternoDe } from '../scorm-manifiesto';
 
 const ENTREGADO = `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="SingleCourseManifest" version="1.1"
@@ -217,5 +217,36 @@ describe('analizarManifiesto · lo que se rechaza con motivo', () => {
     // Pase o falle el análisis, lo que NUNCA puede aparecer es el contenido del archivo.
     const texto = JSON.stringify(r);
     expect(texto).not.toMatch(/root:/);
+  });
+});
+
+describe('cursoExternoDe · el id del curso de Coursebox, para cruzar con el webhook', () => {
+  // El `index.html` del despacho lleva el id del curso DENTRO del `course_token`, que es
+  // base64 de la URL del curso. Es la llave con la que el webhook «Course Completed» de
+  // Coursebox (campo `courseId`) se cruza con nuestro `PaqueteScorm`.
+  const INDEX_DESPACHO = `<!doctype html><html><head>
+    <script src="https://my.coursebox.ai/assets/scripts/scormxd-driver.min.js"></script></head>
+    <body><script>
+      var config = { remoteurl: "https://my.coursebox.ai",
+        contenturl: "https://my.coursebox.ai/scormxd/access?course_token=aHR0cHM6Ly9teS5jb3Vyc2Vib3guYWkvY291cnNlcy8wMWEwYTgyNi1iYjlhLTdhZjYtYTEwZi0wNGNiZDNkNTEwMmUvYWJvdXQ%3D&student_id=LEARNER_ID&student_name=LEARNER_NAME" };
+    </script></body></html>`;
+
+  it('saca el id del curso del course_token en base64', () => {
+    expect(cursoExternoDe([INDEX_DESPACHO])).toBe('01a0a826-bb9a-7af6-a10f-04cbd3d5102e');
+  });
+
+  it('también lo saca de una URL de curso escrita en claro', () => {
+    expect(cursoExternoDe(['<iframe src="https://my.coursebox.ai/courses/196716/about"></iframe>'])).toBe(
+      '196716',
+    );
+  });
+
+  it('un paquete autocontenido no tiene id externo', () => {
+    expect(cursoExternoDe(['<html><script src="scorm.js"></script></html>', 'var x = 1;'])).toBeNull();
+  });
+
+  it('no revienta con basura ni con un token que no es base64 de una URL', () => {
+    expect(cursoExternoDe(['course_token=no-es-base64-real'])).toBeNull();
+    expect(cursoExternoDe([''])).toBeNull();
   });
 });

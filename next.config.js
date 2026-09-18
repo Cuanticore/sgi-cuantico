@@ -6,6 +6,16 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   output: 'standalone',
 
+  // SÓLO DESARROLLO. El player SCORM sirve el contenido desde un origen distinto al de la
+  // aplicación (P3): en local eso es `127.0.0.1:3000` mientras la app vive en `localhost:3000`
+  // —el mismo servidor de Next, dos orígenes para el navegador—. Next 16 bloquea con 403 las
+  // peticiones a `/_next/*` que llegan de un origen fuera de esta lista (por omisión sólo
+  // `localhost`), así que el runner cargaba pero SUS PROPIOS CHUNKS quedaban prohibidos y el
+  // player se quedaba en «Cargando el curso…» para siempre. Autorizar `127.0.0.1` deja que el
+  // runner hidrate. No afecta a producción: `next build`/`start` ignoran esta clave y ahí los
+  // dos orígenes son servidores separados con sus propios recursos.
+  allowedDevOrigins: ['127.0.0.1'],
+
   // REQ-SIG-19 · P12 · la ruta pública de firma lleva el token EN LA RUTA.
   //
   // Una página no puede fijar cabeceras de respuesta por sí misma, y `/firmar` no pasa por el

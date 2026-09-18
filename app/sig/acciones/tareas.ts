@@ -16,6 +16,11 @@ import {
   type DatosObligacion,
 } from '@/lib/sig/obligacion-validacion';
 import { registrar } from '@/lib/sgsi/bitacora';
+import {
+  periodoDeFechaLimite,
+  validarAsignacionManual,
+  type DatosAsignacionManual,
+} from '@/lib/sig/asignacion-manual';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { correrTrabajo } from '@/lib/sig/trabajos';
 
@@ -609,6 +614,113 @@ export async function reasignarPendientesDe(
       ok: true,
       mensaje: `${abiertas.length} ${abiertas.length === 1 ? 'asignación reasignada' : 'asignaciones reasignadas'} a ${persona.nombre}.`,
       cambios: abiertas.length,
+    };
+  });
+}
+
+/// Asignarle algo a una persona desde su popup: un contenido del catálogo, o una tarea
+/// puntual.
+///
+/// **Vive junto a las reasignaciones y no en un archivo nuevo** porque crear carga y moverla
+/// son la misma clase de acto sobre el trabajo de alguien, con el mismo permiso y la misma
+/// bitácora. Separarlas habría duplicado las dos cosas.
+///
+/// Las reglas que se pueden decidir mirando sólo el formulario están en
+/// `lib/sig/asignacion-manual.ts`, donde se pueden probar. Acá queda lo que necesita la base:
+/// que la persona exista y esté activa, y que el contenido esté vigente.
+///
+/// **El periodo es el mes de la fecha límite**, y eso sólo es posible desde la migración
+/// 20260918120000_asignacion_manual: antes, el índice único con NULLS NOT DISTINCT hacía que
+/// una persona sólo pudiera tener UNA asignación manual por periodo.
+export async function asignarAPersona(
+  personaId: number,
+  datos: DatosAsignacionManual,
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('operacion:escribir');
+    const id = exigirId(personaId, 'la persona a la que se asigna');
+
+    const errores = validarAsignacionManual(datos, new Date());
+    if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
+
+    const persona = await prisma.persona.findUnique({
+      where: { id },
+      select: { nombre: true, activa: true },
+    });
+    if (!persona) return { ok: false, mensaje: 'La persona no existe.' };
+    // Asignarle trabajo a quien ya no está en el Directorio abre una tarea que nadie va a
+    // poder cerrar: la persona no entra a la aplicación. Lo que sí sigue exigible es lo que
+    // ya tenía, y para eso está la reasignación.
+    if (!persona.activa) {
+      return {
+        ok: false,
+        mensaje: `${persona.nombre} está inactiva: no puede entrar a cerrar lo que se le asigne.`,
+      };
+    }
+
+    const contenidoId = idOpcional(datos.contenidoId ?? undefined, 'el contenido');
+    let titulo: string | null = null;
+    let descripcion: string | null = null;
+
+    if (contenidoId !== undefined) {
+      const contenido = await prisma.contenidoSig.findUnique({
+        where: { id: contenidoId },
+        select: { titulo: true, activo: true },
+      });
+      if (!contenido) return { ok: false, mensaje: 'El contenido no existe.' };
+      if (!contenido.activo) {
+        return { ok: false, mensaje: `«${contenido.titulo}» está inactivo y no se puede asignar.` };
+      }
+    } else {
+      // Con contenido, el modelo IGNORA estos dos campos; sin él, son obligatorios. La
+      // validación pura ya rechazó que vengan los dos, así que acá sólo se copian.
+      titulo = (datos.titulo ?? '').trim();
+      descripcion = (datos.descripcion ?? '').trim();
+    }
+
+    const motivo = datos.motivo.trim();
+    const fechaLimite = new Date(`${datos.fechaLimite}T00:00:00.000Z`);
+
+    await prisma.$transaction(async (tx) => {
+      const fila = await tx.asignacion.create({
+        data: {
+          // Sin obligación: es lo que la hace manual, y lo que la deja fuera del índice
+          // parcial de idempotencia. El cron no la va a tocar ni la va a duplicar.
+          obligacionId: null,
+          contenidoId: contenidoId ?? null,
+          titulo,
+          descripcion,
+          personaId: id,
+          periodo: periodoDeFechaLimite(datos.fechaLimite),
+          fechaApertura: new Date(),
+          fechaLimite,
+        },
+        select: { id: true },
+      });
+
+      // **`'asignada a mano'` y no `'generada · <periodo>'`**, que es lo que escribe la
+      // generación automática. La franja de la última corrida del censo se arma leyendo esta
+      // misma tabla (`censo.query.ts`), y P28 ya documenta la trampa: sin distinguirlas, una
+      // asignación hecha a mano se leería como una sincronización que nunca ocurrió.
+      await registrar(tx, autor, [
+        {
+          tabla: 'asignacion',
+          registroId: String(fila.id),
+          campo: 'alta',
+          anterior: null,
+          nuevo: `asignada a mano · ${persona.nombre}`,
+          motivo,
+        },
+      ]);
+
+      return fila;
+    });
+
+    revalidatePath('/sig/personas');
+    return {
+      ok: true,
+      mensaje: `Asignada a ${persona.nombre}: aparece en su bandeja de Mi SIG.`,
+      cambios: 1,
     };
   });
 }

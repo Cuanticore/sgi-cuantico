@@ -22,7 +22,7 @@ import { bloqueoHabilitado } from '@/lib/sgsi/bloqueo';
 import { explicarFallo, oidsDelGrupoSig } from '@/lib/sgsi/directorio';
 import { esVencida } from '@/lib/sig/cierre';
 import { CAMPOS_DE_SINCRONIZACION, resumirCorrida } from '@/lib/sig/personas';
-import type { AsignacionAbierta, Corrida, PersonaFila } from './Personas.client';
+import type { Corrida, PersonaFila } from './Personas.client';
 import type { CatalogosDelPopup } from './PopupPersona';
 
 export interface Censo {
@@ -68,16 +68,17 @@ export async function cargarCenso(): Promise<Censo> {
         },
       },
     }),
+    // **Sólo lo que la COLUMNA necesita: la persona y la fecha.**
+    //
+    // Antes se traía además el título y el código de cada asignación, y el arreglo completo
+    // viajaba dentro de cada una de las 91 filas del censo para alimentar un panel que se
+    // mira de a una persona. Es el mismo patrón que `PopupPersona` ya rechaza tres veces
+    // —contactos (P9.3), grupos (P10) y resumen—, y la pestaña nueva necesita ADEMÁS el tipo
+    // y el avance del curso: sumarlo acá habría multiplicado el payload por un dato que casi
+    // nadie mira. La lista la pide `pendientesDePersona` al abrir la pestaña.
     prisma.asignacion.findMany({
       where: { estado: 'PENDIENTE' },
-      select: {
-        id: true,
-        personaId: true,
-        titulo: true,
-        fechaLimite: true,
-        contenido: { select: { codigo: true, titulo: true } },
-        obligacion: { select: { contenido: { select: { codigo: true, titulo: true } } } },
-      },
+      select: { personaId: true, fechaLimite: true },
       orderBy: { fechaLimite: 'asc' },
     }),
     // El rol no está en la base y no va a estar: lo dan los grupos del Directorio. Se
@@ -135,7 +136,7 @@ export async function cargarCenso(): Promise<Censo> {
   // Los catálogos del popup de REQ-SIG-15. Se leen aparte del `Promise.all` de arriba porque
   // ése ya devuelve cuatro cosas y agregarle cuatro más lo vuelve ilegible; son cuatro tablas
   // cortas y la latencia extra es de un viaje.
-  const [areas, cargos, tiposContrato, gruposInteres] = await Promise.all([
+  const [areas, cargos, tiposContrato, gruposInteres, contenidos] = await Promise.all([
     prisma.area.findMany({
       where: { activa: true },
       select: { id: true, nombre: true, prefijo: true },
@@ -156,6 +157,14 @@ export async function cargarCenso(): Promise<Censo> {
       select: { id: true, codigo: true, nombre: true, descripcion: true, derivado: true },
       orderBy: { orden: 'asc' },
     }),
+    // Lo que se le puede asignar a alguien a mano. Viaja UNA vez por pantalla —no una por
+    // fila— porque el `select` de asignar lo necesita entero y son unas pocas decenas de
+    // filas: es la misma economía que ya justifica traer las áreas y los cargos acá.
+    prisma.contenidoSig.findMany({
+      where: { activo: true },
+      select: { id: true, codigo: true, titulo: true, tipo: true, claseCurso: true, notaMinima: true },
+      orderBy: { codigo: 'asc' },
+    }),
   ]);
 
   const hoy = new Date();
@@ -165,22 +174,16 @@ export async function cargarCenso(): Promise<Censo> {
   // tareas todavía en plazo, y ese cero es la única señal de que hay carga que reasignar: la
   // pantalla decía que no había nada que mover justo cuando más había. Las vencidas siguen
   // contándose aparte, porque son las que urgen.
-  const abiertasDe = new Map<number, AsignacionAbierta[]>();
+  const abiertasDe = new Map<number, { abiertas: number; vencidas: number }>();
   for (const p of pendientes) {
-    const contenido = p.contenido ?? p.obligacion?.contenido ?? null;
-    const lista = abiertasDe.get(p.personaId) ?? [];
-    lista.push({
-      id: p.id,
-      codigo: contenido?.codigo ?? '—',
-      titulo: contenido?.titulo ?? p.titulo ?? 'Puntual',
-      fechaLimite: p.fechaLimite.toISOString(),
-      vencida: esVencida('PENDIENTE', p.fechaLimite, hoy),
-    });
-    abiertasDe.set(p.personaId, lista);
+    const cuenta = abiertasDe.get(p.personaId) ?? { abiertas: 0, vencidas: 0 };
+    cuenta.abiertas += 1;
+    if (esVencida('PENDIENTE', p.fechaLimite, hoy)) cuenta.vencidas += 1;
+    abiertasDe.set(p.personaId, cuenta);
   }
 
   const filas = personas.map((p) => {
-    const abiertas = abiertasDe.get(p.id) ?? [];
+    const abiertas = abiertasDe.get(p.id) ?? { abiertas: 0, vencidas: 0 };
     return {
       id: p.id,
       nombre: p.nombre,
@@ -202,11 +205,8 @@ export async function cargarCenso(): Promise<Censo> {
       correoPersonal: p.correoPersonal,
       ciudad: p.ciudad,
       direccion: p.direccion,
-      pendientes: abiertas.length,
-      vencidas: abiertas.filter((a) => a.vencida).length,
-      // El panel las lista una por una: reasignar «3 pendientes» sin decir cuáles obliga a
-      // salir de la pantalla para saber qué se está moviendo.
-      abiertas,
+      pendientes: abiertas.abiertas,
+      vencidas: abiertas.vencidas,
       rol: rolDeLaPersona(p.oid, miembrosDelGrupo.ok ? miembrosDelGrupo.datos : null),
       // Un activo sin código todavía no tiene URL propia, así que no se ofrece como enlace.
       activos: p.activosQueEncarna
@@ -217,7 +217,19 @@ export async function cargarCenso(): Promise<Censo> {
 
   return {
     filas,
-    catalogos: { areas, cargos, tiposContrato, gruposInteres },
+    catalogos: {
+      areas,
+      cargos,
+      tiposContrato,
+      gruposInteres,
+      contenidos: contenidos.map((c) => ({
+        ...c,
+        // `notaMinima` es `Decimal` de Prisma y no cruza el límite servidor→cliente: se
+        // convierte acá, preguntando por el nulo antes, porque `Number(null)` es 0 y un cero
+        // ahí diría que el contenido exige nota mínima de cero.
+        notaMinima: c.notaMinima === null ? null : Number(c.notaMinima),
+      })),
+    },
     corrida,
     administra,
     bloqueoDisponible,

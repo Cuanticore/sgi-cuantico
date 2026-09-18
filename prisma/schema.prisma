@@ -1729,6 +1729,16 @@ model Asignacion {
   /// La migracion la recrea con **NULLS NOT DISTINCT** (Postgres 15+): sin eso, dos filas
   /// con `activo_id` nulo se consideran distintas y la garantia se perderia justo para las
   /// obligaciones que NO son por activo, que son todas las que hay hoy.
+  ///
+  /// **En la base es PARCIAL: vale solo `WHERE obligacion_id IS NOT NULL`**
+  /// (20260918120000_asignacion_manual). Prisma no expresa ni el WHERE ni NULLS NOT
+  /// DISTINCT, asi que lo que se lee aca es mas estricto que lo que corre.
+  ///
+  /// Por que se acoto: una asignacion que no nace de una obligacion —una tarea puntual, una
+  /// accion de hallazgo, una alerta de metrica— lleva `obligacion_id` y `activo_id` en nulo,
+  /// y con NULLS NOT DISTINCT esos nulos chocan entre si. Sin el WHERE, una persona solo
+  /// podia tener UNA asignacion manual por periodo. El cron siempre escribe `obligacion_id`,
+  /// asi que su idempotencia queda intacta.
   @@unique([obligacionId, personaId, periodo, activoId])
   @@index([personaId, estado])
   @@index([fechaLimite])
@@ -4170,6 +4180,10 @@ model PaqueteScorm {
   entradaHref        String       @map("entrada_href")
   /// Los orígenes que el paquete declaró al analizarse. La CSP se arma con esto (D-5).
   dominiosExternos   String[]     @map("dominios_externos")
+  /// REQ-SIG-24 · el id del curso en el proveedor de despacho (Coursebox), sacado del
+  /// `course_token` al analizar. Es la llave con la que el webhook «Course Completed» cruza
+  /// el resultado con este paquete. Nulo en un AUTOCONTENIDO: no hay proveedor que reporte.
+  cursoExternoId     String?      @map("curso_externo_id")
   zipSha256          String       @map("zip_sha256")
   zipTamano          Int          @map("zip_tamano")
   archivos           Int

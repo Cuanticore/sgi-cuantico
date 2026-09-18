@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { CampoFecha } from './CampoFecha';
 import {
   guardarMisDatos,
   guardarMisHijos,
@@ -119,11 +120,11 @@ export default function MisDatosClient({
             />
           </Campo>
           <Campo etiqueta="FECHA DE NACIMIENTO">
-            <input
-              type="date"
+            <CampoFecha
               value={form.fechaNacimiento}
-              onChange={(e) => set('fechaNacimiento', e.target.value)}
+              onChange={(v) => set('fechaNacimiento', v)}
               className={ENTRADA}
+              ariaLabel="Fecha de nacimiento"
             />
           </Campo>
           <Campo etiqueta="CIUDAD">
@@ -190,15 +191,15 @@ export default function MisDatosClient({
                 />
               </Campo>
               <Campo etiqueta="NACIMIENTO">
-                <input
-                  type="date"
+                <CampoFecha
                   value={h.fechaNacimiento}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setFamilia((f) =>
-                      f.map((x, j) => (j === i ? { ...x, fechaNacimiento: e.target.value } : x)),
+                      f.map((x, j) => (j === i ? { ...x, fechaNacimiento: v } : x)),
                     )
                   }
                   className={ENTRADA}
+                  ariaLabel="Fecha de nacimiento del hijo"
                 />
               </Campo>
               <Campo etiqueta="GÉNERO">

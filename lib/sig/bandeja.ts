@@ -23,10 +23,30 @@ const VERBO: Record<TipoTarjeta, string> = {
   CAPACITACION: 'Registrar',
 };
 
-export function verboDeCierre(tipo: string): string {
+export function verboDeCierre(tipo: string, cursoIniciado = false): string {
+  // REQ-SIG-24 · un curso no se «registra»: se INICIA la primera vez y se REANUDA si ya hay
+  // un intento empezado. Es el mismo verbo que el panel ya usa en su enlace («Iniciar el
+  // curso» / «Reanudar el curso»), traído al botón de la bandeja para que los dos coincidan.
+  // «Registrar» —el fallback— invita a declarar una nota a mano, que es justo lo que un curso
+  // con paquete no permite (P14).
+  if (tipo === 'CURSO_VIRTUAL') return cursoIniciado ? 'Reanudar' : 'Iniciar';
+
   // Un tipo que no conocemos cae en «Registrar», que es lo que abre el panel genérico de
   // nota: el verbo acompaña al panel real, no a una suposición sobre el tipo.
   return VERBO[tipo as TipoTarjeta] ?? VERBO.TAREA;
+}
+
+/// REQ-SIG-24 · un curso con paquete se abre DIRECTO en el player; el resto pasa por el panel.
+///
+/// El panel de cierre existe para declarar nota, asistencia o firma. Un curso con paquete no
+/// declara nada a mano —lo cierra el propio curso (P14)—, así que ese panel sólo agregaba un
+/// clic y una explicación antes de lo único que se puede hacer: abrir el curso. Se salta.
+///
+/// `tienePaqueteScorm` es la condición entera: un curso de ENLACE no tiene paquete (tiene URL)
+/// y ningún otro tipo puede traer uno, así que esto es cierto exactamente cuando hay un curso
+/// que ejecutar. Devuelve la URL del player, o `null` para abrir el panel como el resto.
+export function enlaceDirectoAlCurso(tarjeta: { tienePaqueteScorm: boolean; id: number }): string | null {
+  return tarjeta.tienePaqueteScorm ? `/mi-sig/curso/${tarjeta.id}` : null;
 }
 
 /// El plazo en palabras, con el mismo verbo en los dos sentidos.

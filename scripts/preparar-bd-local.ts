@@ -117,7 +117,12 @@ async function main(): Promise<void> {
   console.log(`\n  Base local: ${base}  ·  rol: ${rol}  ·  127.0.0.1:${puerto}\n`);
 
   const superusuario = process.env.PGSUPERUSER ?? 'postgres';
-  const claveSuper = await pedirClave(`  Clave de «${superusuario}» (no se muestra ni se guarda): `);
+  // `PGSUPERPASS` existe para las terminales sin entrada interactiva (un runner, un agente).
+  // Cuando no está, se pide por teclado con el eco apagado, que es lo normal para una persona
+  // corriendo el .bat. En ninguno de los dos casos la clave se escribe a disco.
+  const claveSuper =
+    process.env.PGSUPERPASS ??
+    (await pedirClave(`  Clave de «${superusuario}» (no se muestra ni se guarda): `));
 
   const admin = new Client({
     host: '127.0.0.1',
@@ -200,8 +205,14 @@ async function main(): Promise<void> {
 /// `inet_client_addr()` devuelve NULL cuando la conexión no es por TCP, y 127.0.0.1 / ::1
 /// cuando es local de verdad. Cualquier otra cosa significa que del otro lado del puerto hay
 /// un servidor que ve llegar la conexión desde otra máquina — el túnel.
+///
+/// El driver `pg` entrega el `inet` CON su máscara —`127.0.0.1/32`, `::1/128`—, no como el
+/// texto pelado que muestra psql. Sin quitar el sufijo, una conexión perfectamente local se
+/// leía como remota y la guarda negaba todo. Se recorta antes de comparar.
 function esRemota(desde: string | null): boolean {
-  return desde !== null && desde !== '127.0.0.1' && desde !== '::1';
+  if (desde === null) return false;
+  const sinMascara = desde.split('/')[0];
+  return sinMascara !== '127.0.0.1' && sinMascara !== '::1';
 }
 
 /// Identificadores: el rol lleva un punto (`daniel.medina`), así que sin comillas Postgres lo

@@ -93,6 +93,144 @@ beforeEach(() => {
   mockSearchParams = new URLSearchParams();
 });
 
+/// Tres activos que cubren las tres situaciones que el renglón tiene que distinguir:
+/// residual Crítico, residual Alto y residual Medio.
+const TRES_BANDAS: ActivoAnalizable[] = [
+  // residual 25 → Crítico (≥ 20)
+  activo({ codigo: 'TEC-EQU-0003' }),
+  // residual 12 → Alto (10–19.9999), y su principal en 90 % así que NO requiere plan: es el
+  // caso que separa «alto» de «sin plan», que son dos preguntas distintas.
+  activo({
+    codigo: 'TEC-GEN-0004',
+    riesgos: [
+      { amenazaCodigo: 'A.11', amenazaNombre: 'Acceso no autorizado', potencial: '12', residual: '12', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.5.30', nivel: 90 } },
+    ],
+  }),
+  // residual 5 → Medio (4–9.9999)
+  activo({
+    codigo: 'FIN-DAT-0007',
+    proceso: 'Gestión Financiera',
+    riesgos: [
+      { amenazaCodigo: 'A.7', amenazaNombre: 'Error de usuario', potencial: '5', residual: '5', obsoleto: false, degradacion: { D: 1, I: 0, C: 0 }, principal: { codigo: 'A.5.30', nivel: 90 } },
+    ],
+  }),
+];
+
+function pintarGrilla(activos: ActivoAnalizable[] = TRES_BANDAS) {
+  return render(
+    <PantallaAnalisisRiesgos
+      activos={activos}
+      bandas={BANDAS}
+      umbral={4}
+      procesos={['Gestión Tecnológica', 'Gestión Financiera']}
+      propietarios={['Chief Operating Officer']}
+      personas={[]}
+      accionesParaDeuda={[]}
+      sinPlan={[]}
+    />,
+  );
+}
+
+function renglonDe(codigo: string): HTMLElement {
+  const fila = screen.getByRole('link', { name: codigo }).closest('tr');
+  if (fila === null) throw new Error(`No se encontró el renglón de ${codigo}`);
+  return fila;
+}
+
+describe('El renglón se pinta por la MAGNITUD del residual', () => {
+  // Lo que se lee de un vistazo en una grilla de treinta filas es el color, no una columna.
+  // Y lo que hay que ver primero es dónde quedó alto el riesgo DESPUÉS de los controles.
+  it('residual Crítico pinta el renglón', () => {
+    pintarGrilla();
+    const fila = renglonDe('TEC-EQU-0003');
+    expect(fila).toHaveAttribute('data-banda-residual', 'Crítico');
+    expect(fila.className).toContain('bg-danger-bg');
+  });
+
+  it('residual Alto pinta el renglón aunque el activo NO requiera plan', () => {
+    pintarGrilla();
+    const fila = renglonDe('TEC-GEN-0004');
+    expect(fila).toHaveAttribute('data-banda-residual', 'Alto');
+    expect(fila).toHaveAttribute('data-estado-plan', 'no-requiere');
+    expect(fila.className).toContain('bg-danger-bg');
+  });
+
+  it('residual Medio no se pinta', () => {
+    pintarGrilla();
+    const fila = renglonDe('FIN-DAT-0007');
+    expect(fila).toHaveAttribute('data-banda-residual', 'Medio');
+    expect(fila.className).not.toContain('bg-danger-bg');
+  });
+
+  // El color no puede ser la única señal: quien no distingue el rojo, o lee con lector de
+  // pantalla, tiene que enterarse igual. La columna «Peor residual» ya lo dice en palabras.
+  it('el rojo acompaña al texto, no lo reemplaza', () => {
+    pintarGrilla();
+    // `textContent` y no `getByText`: la celda parte el nivel y la banda en dos nodos
+    // («5» · «Crítico»), y lo que se comprueba acá es que la palabra esté, no cómo se maqueta.
+    expect(renglonDe('TEC-EQU-0003').textContent).toContain('Crítico');
+  });
+});
+
+describe('El valor por dimensión no se pierde detrás del máximo', () => {
+  // Recomendación del auditor (18/09/2026). Dos activos en valor 5 —uno por disponibilidad,
+  // otro por confidencialidad— exigen controles distintos, y la grilla los mostraba iguales.
+  const porConfidencialidad = activo({
+    codigo: 'LCO-DAT-0009',
+    valor: 5,
+    valores: { D: 2, I: 3, C: 5 },
+  });
+
+  it('muestra una columna por dimensión, además del valor', () => {
+    pintarGrilla([porConfidencialidad]);
+    // Los encabezados llevan el nombre completo; la columna sólo tiene ancho para la letra.
+    expect(screen.getByRole('columnheader', { name: /disponibilidad/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /integridad/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /confidencialidad/i })).toBeInTheDocument();
+  });
+
+  it('cada dimensión muestra su propio valor', () => {
+    pintarGrilla([porConfidencialidad]);
+    const fila = renglonDe('LCO-DAT-0009');
+    expect(within(fila).getByLabelText(/^Disponibilidad/)).toHaveTextContent('2');
+    expect(within(fila).getByLabelText(/^Integridad/)).toHaveTextContent('3');
+    expect(within(fila).getByLabelText(/^Confidencialidad/)).toHaveTextContent('5');
+  });
+
+  // La que de verdad importa: el máximo y las tres dimensiones tienen que contar la misma
+  // historia. Si el agregado dijera 5 y ninguna dimensión llegara a 5, una de las dos miente.
+  it('el valor agregado coincide con la mayor de las tres dimensiones', () => {
+    pintarGrilla([porConfidencialidad]);
+    const fila = renglonDe('LCO-DAT-0009');
+    expect(within(fila).getByLabelText(/^Valor del activo/)).toHaveTextContent('5');
+    expect(within(fila).getByLabelText(/^Confidencialidad/)).toHaveTextContent('5');
+  });
+});
+
+describe('Registrar un plan se puede desde cualquier activo de la grilla', () => {
+  it('ofrece «+ plan» también en el activo que no requiere plan', () => {
+    pintarGrilla();
+    expect(
+      within(renglonDe('TEC-GEN-0004')).getByRole('button', { name: /planes de tratamiento/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('lo ofrece igual en un residual Medio', () => {
+    pintarGrilla();
+    expect(
+      within(renglonDe('FIN-DAT-0007')).getByRole('button', { name: /planes de tratamiento/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('el botón abre el popup del activo de su propio renglón', () => {
+    pintarGrilla();
+    fireEvent.click(
+      within(renglonDe('FIN-DAT-0007')).getByRole('button', { name: /planes de tratamiento/i }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Planes de FIN-DAT-0007' })).toBeInTheDocument();
+  });
+});
+
 describe('REQ-SIG-20 §5 · la pantalla renderiza lo que el fixture trae (tarea 3.10)', () => {
   it('muestra las dos filas y la tarjeta EN ANÁLISIS coincide con la lista', () => {
     render(
@@ -323,13 +461,20 @@ describe('registrar planes desde la grilla', () => {
     ).toBeInTheDocument();
   });
 
-  it('un activo cuyo principal ya alcanza lo exigido NO lo ofrece', () => {
-    // Ofrecerlo sobre un activo sin brecha sería invitar a registrar trabajo que nadie pidió,
-    // y la lista de planes es justamente lo que hay que poder leer de un vistazo.
+  // ESTA PRUEBA AFIRMABA LO CONTRARIO, y se invirtió el 18/09/2026 por decisión del líder
+  // del SIG. Decía: «un activo cuyo principal ya alcanza lo exigido NO lo ofrece», porque
+  // ofrecerlo «sería invitar a registrar trabajo que nadie pidió».
+  //
+  // El argumento no se sostuvo en el uso: «no requiere» significa que sus controles alcanzan
+  // lo exigido HOY, no que nadie pueda decidir mejorarlos, y esconder el botón obligaba a
+  // salir a la pantalla de Planes para tomar una decisión preventiva perfectamente legítima.
+  // Se deja escrito el motivo y no sólo el cambio: una prueba que cambia de signo sin
+  // explicación parece un descuido seis meses después.
+  it('un activo cuyo principal ya alcanza lo exigido TAMBIÉN lo ofrece', () => {
     pintar();
     expect(
-      screen.queryByRole('button', { name: /Registrar planes de tratamiento para TEC-GEN-0004/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /Registrar planes de tratamiento para TEC-GEN-0004/ }),
+    ).toBeInTheDocument();
   });
 
   it('abre el popup del activo de esa fila, y no el de otro', () => {

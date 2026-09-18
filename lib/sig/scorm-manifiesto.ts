@@ -19,6 +19,10 @@ export interface PaqueteAnalizado {
   /// Los orígenes que el paquete necesita. Poblado ACÁ, al analizar, y no adivinado en
   /// tiempo de ejecución: la CSP de un curso es una decisión que se toma al subirlo (D-5).
   dominiosExternos: string[];
+  /// El id del curso en el proveedor de despacho (Coursebox), extraído del `course_token`.
+  /// Es la llave con la que el webhook «Course Completed» (campo `courseId`) se cruza con
+  /// este paquete. `null` en un AUTOCONTENIDO —no hay proveedor externo que reporte nada—.
+  cursoExternoId: string | null;
 }
 
 export type Resultado =
@@ -94,6 +98,36 @@ export function scriptsLocalesDe(html: string, entradaHref: string): string[] {
     rutas.push(normalizarRuta(limpio.startsWith('/') ? limpio.slice(1) : carpeta + limpio));
   }
   return [...new Set(rutas)];
+}
+
+const COURSE_TOKEN = /course_token=([A-Za-z0-9%+/=_-]+)/i;
+const CURSO_EN_URL = /coursebox\.ai\/courses\/([A-Za-z0-9_-]+)/i;
+
+/// El id del curso de Coursebox, para cruzarlo después con el webhook «Course Completed».
+///
+/// Vive DENTRO del `course_token` del despacho, que es base64 (a veces url-encoded) de la URL
+/// del curso: `…/courses/<id>/about`. Se decodifica y se saca el `<id>`. Si el token no es
+/// base64 de una URL, o el curso aparece en claro, también se cubre; y si no hay nada de
+/// Coursebox, es `null`. Puro: quien llama le pasa el HTML del SCO y sus scripts locales.
+export function cursoExternoDe(textos: readonly string[]): string | null {
+  for (const texto of textos) {
+    if (!texto) continue;
+
+    const conToken = COURSE_TOKEN.exec(texto);
+    if (conToken !== null) {
+      try {
+        const url = Buffer.from(decodeURIComponent(conToken[1]), 'base64').toString('utf8');
+        const enUrl = CURSO_EN_URL.exec(url) ?? /\/courses\/([A-Za-z0-9_-]+)/i.exec(url);
+        if (enUrl !== null) return enUrl[1];
+      } catch {
+        // Un token que no decodifica a una URL no es de lo que hablamos: se ignora y se sigue.
+      }
+    }
+
+    const enClaro = CURSO_EN_URL.exec(texto);
+    if (enClaro !== null) return enClaro[1];
+  }
+  return null;
 }
 
 /// Resuelve `.` y `..` sin salir de la raíz. Un `../` de más se queda en la raíz en vez de
@@ -206,6 +240,8 @@ export function analizarManifiesto(
       // ante un auditor.
       clase: dominios.length > 0 ? 'DESPACHO' : 'AUTOCONTENIDO',
       dominiosExternos: dominios,
+      // Sobre lo mismo que se miró para los dominios: el HTML del SCO y los scripts que carga.
+      cursoExternoId: cursoExternoDe(aRevisar),
     },
   };
 }
