@@ -130,3 +130,37 @@ export function textoDeRenglon(
     ? 'Renglón rojo — riesgo inherente de 4 a 5 y residual sin calcular'
     : 'Renglón rojo — riesgo residual de 4 a 5';
 }
+
+// ============================================================================
+// EL COLOR DE UNA BANDA
+// ============================================================================
+
+/// Rampa de severidad, la peor primero. Se indexa por la POSICIÓN de la banda y no por su
+/// nombre, así que renombrar una banda nunca la vuelve gris en silencio.
+///
+/// Vive acá y no en cada pantalla porque `FichaActivo` y la lista de Análisis la mostraban
+/// cada una con su copia, y dos copias de una escala de color es como la segunda queda con
+/// un token que ya no existe. Son nombres de variables CSS: este módulo ya decide
+/// presentación en `colorDeRenglon`, así que no es una frontera nueva.
+export const RAMPA_RIESGO = [
+  { bg: 'var(--hf-risk-critico-bg)', fg: 'var(--hf-risk-critico-fg)' },
+  { bg: 'var(--hf-risk-alto-bg)', fg: 'var(--hf-risk-alto-fg)' },
+  { bg: 'var(--hf-risk-medio-bg)', fg: 'var(--hf-risk-medio-fg)' },
+  { bg: 'var(--hf-risk-bajo-bg)', fg: 'var(--hf-risk-bajo-fg)' },
+];
+
+/// El color de un nivel de riesgo de activo.
+///
+/// `NivelRiesgo.nivel` viene de `nivelDeRiesgoDelActivo`: 5 es la peor banda y cada escalón
+/// hacia abajo resta uno. La rampa se indexa al revés —0 es la peor—, así que el índice es
+/// `5 − nivel`, acotado a la rampa.
+///
+/// Es el MISMO color con el que la matriz pinta la casilla donde ese activo cae, porque
+/// desde la opción B una casilla ocupada se pinta con la banda de su peor contenido. Que el
+/// renglón y la casilla coincidan no es cosmético: es lo que permite leer la lista y la
+/// matriz como dos vistas de la misma cosa.
+export function colorDeNivel(nivel: NivelRiesgo | null): { bg: string; fg: string } | null {
+  if (nivel === null) return null;
+  const i = Math.min(Math.max(5 - nivel.nivel, 0), RAMPA_RIESGO.length - 1);
+  return RAMPA_RIESGO[i];
+}

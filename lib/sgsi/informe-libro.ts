@@ -139,8 +139,20 @@ export async function construirLibroInforme(datos: DatosLibro): Promise<ExcelJS.
   const matrices = libro.addWorksheet('Matrices');
   encabezar(
     matrices,
-    ['Proceso', 'Matriz', 'Impacto', 'Frecuencia', 'Veces al año', 'Banda de la casilla', 'Riesgos'],
-    [34, 14, 16, 16, 14, 20, 10],
+    // Las dos bandas, porque no siempre coinciden y la diferencia es información: la de la
+    // ZONA sale del punto representativo del cruce, la de la CASILLA del peor riesgo que
+    // contiene. Donde difieren, la casilla está ocupada por algo más grave que su zona.
+    [
+      'Proceso',
+      'Matriz',
+      'Impacto',
+      'Frecuencia',
+      'Veces al año',
+      'Banda de la casilla',
+      'Banda de la zona',
+      'Riesgos',
+    ],
+    [34, 14, 16, 16, 14, 20, 20, 10],
   );
   for (const c of datos.capitulos) {
     for (const m of [c.matrizInherente, c.matrizResidual]) {
@@ -154,6 +166,7 @@ export async function construirLibroInforme(datos: DatosLibro): Promise<ExcelJS.
             col.nombre,
             col.vecesAno,
             m.bandas[i]?.[j] ?? '',
+            m.bandasZona[i]?.[j] ?? '',
             m.conteos[i]?.[j] ?? 0,
           ]);
         });

@@ -152,6 +152,11 @@ export async function seedEscalas(prisma: PrismaClient): Promise<void> {
     { clave: 'periodicidad_revision_completa', valor: 'anual', descripcion: null },
     { clave: 'periodicidad_revision_parcial', valor: 'semestral', descripcion: 'La madurez se reevalúa cada seis meses' },
     { clave: 'zona_horaria', valor: 'America/Bogota', descripcion: null },
+    {
+      clave: 'vigencia_acta_residual_meses',
+      valor: '12',
+      descripcion: 'Meses que un acta de aprobación del riesgo residual sigue vigente antes de exigir renovación',
+    },
   ];
   for (const p of parametros) {
     await prisma.parametro.upsert({

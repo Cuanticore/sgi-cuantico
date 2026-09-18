@@ -5,12 +5,14 @@
 // ni confundir «sin calcular» con «bajo».
 
 import {
+  agruparEnBandas,
   anclaDeProceso,
   armarInforme,
   peorBanda,
   SIN_CALCULAR,
   type ActivoDelInforme,
   type AceptacionDelInforme,
+  type ProcesoDelInforme,
 } from '../informe-valoracion';
 import { columnasDeEscala, filasDeUmbrales } from '../matriz-clasica';
 
@@ -354,5 +356,79 @@ describe('peorBanda', () => {
 
   it('una cifra fuera de todos los umbrales no se fuerza a una banda', () => {
     expect(peorBanda([-5], UMBRALES_RIESGO)).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('agruparEnBandas', () => {
+  // Los capítulos del informe son Áreas; el mapa de MAN-SIG-02 tiene bandas. Un comité lee
+  // «procesos misionales» y no «Gestión Comercial, Gestión de Proyectos, Soporte»: agrupar
+  // es lo que convierte una lista de diez capítulos en un documento navegable.
+  const cap = (proceso: string, enAnalisis: number) =>
+    ({ proceso, ancla: anclaDeProceso(proceso), enAnalisis }) as ProcesoDelInforme;
+
+  const CAPITULOS = [
+    cap('Gestión Tecnológica', 40),
+    cap('Gestión Comercial', 20),
+    cap('Transversal', 12),
+    cap('Gestión Estratégica', 5),
+    cap('Gestión Legal y Compras', 2),
+  ];
+
+  it('arma las bandas en el orden del mapa: estratégicos, misionales, apoyo', () => {
+    const bandas = agruparEnBandas(CAPITULOS);
+    expect(bandas.map((b) => b.titulo)).toEqual([
+      'Procesos estratégicos',
+      'Procesos misionales',
+      'Procesos de apoyo',
+      'Fuera del mapa de procesos',
+    ]);
+  });
+
+  it('conserva dentro de cada banda el orden en que venían los capítulos', () => {
+    // El orden global —por cuántos activos pone cada proceso en el análisis— lo decide
+    // `armarInforme`. Agrupar reparte, no reordena: si acá se volviera a ordenar habría dos
+    // criterios de orden y ninguno sería el que dice la cabecera del módulo.
+    const apoyo = agruparEnBandas(CAPITULOS).find((b) => b.titulo === 'Procesos de apoyo')!;
+    expect(apoyo.capitulos.map((c) => c.proceso)).toEqual([
+      'Gestión Tecnológica',
+      'Gestión Legal y Compras',
+    ]);
+  });
+
+  it('un área que no es proceso del mapa va a su propio bloque, no a «Apoyo»', () => {
+    const bandas = agruparEnBandas(CAPITULOS);
+    const fuera = bandas[bandas.length - 1];
+    expect(fuera.capitulos.map((c) => c.proceso)).toEqual(['Transversal']);
+    // Y no se cuela en ninguna banda del mapa.
+    for (const b of bandas.slice(0, 3)) {
+      expect(b.capitulos.map((c) => c.proceso)).not.toContain('Transversal');
+    }
+  });
+
+  it('las tres bandas del mapa se devuelven aunque queden vacías; la cuarta no', () => {
+    // Que el mapa tenga tres bandas es del mapa, no de los datos: una banda que desaparece
+    // cuando nadie la ocupa hace creer que el mapa tiene dos. «Fuera del mapa» es lo
+    // contrario —no es del mapa—, así que sólo aparece cuando hay algo que poner.
+    const bandas = agruparEnBandas([cap('Gestión Comercial', 3)]);
+    expect(bandas.map((b) => b.titulo)).toEqual([
+      'Procesos estratégicos',
+      'Procesos misionales',
+      'Procesos de apoyo',
+    ]);
+    expect(bandas[0].capitulos).toEqual([]);
+  });
+
+  it('no pierde ni duplica capítulos', () => {
+    // La invariante que hace que el índice del documento cuadre con lo que hay adentro.
+    const todos = agruparEnBandas(CAPITULOS).flatMap((b) => b.capitulos);
+    expect(todos).toHaveLength(CAPITULOS.length);
+    expect(new Set(todos.map((c) => c.proceso)).size).toBe(CAPITULOS.length);
+  });
+
+  it('cada banda lleva un ancla estable, derivada de su título', () => {
+    const bandas = agruparEnBandas(CAPITULOS);
+    expect(bandas[0].ancla).toBe('procesos-estrategicos');
+    expect(bandas[3].ancla).toBe('fuera-del-mapa-de-procesos');
   });
 });

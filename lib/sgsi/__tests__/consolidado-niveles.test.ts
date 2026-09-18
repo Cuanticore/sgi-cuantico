@@ -45,7 +45,7 @@ describe('jerarquiaDeNiveles', () => {
   // EL CASO QUE IMPORTA. Dos «Documentación» bajo padres distintos son DOS niveles.
   it('el mismo nombre bajo padres distintos son nodos distintos', () => {
     const { nodos } = jerarquiaDeNiveles(FILAS);
-    const docs = nodos.filter((n) => n.grado === 3 && n.nombre === 'Documentación');
+    const docs = nodos.filter((n) => n.grado === 3 && n.nombre === 'DOCUMENTACIÓN');
     expect(docs).toHaveLength(2);
     expect(new Set(docs.map((d) => d.padreCamino)).size).toBe(2);
   });
@@ -53,7 +53,7 @@ describe('jerarquiaDeNiveles', () => {
   it('no duplica un camino que aparece en muchas filas', () => {
     const repetido = [...FILAS, fila(12, 'CUANTICO', 'SIG', 'Documentación')];
     const { nodos } = jerarquiaDeNiveles(repetido);
-    expect(nodos.filter((n) => n.grado === 3 && n.nombre === 'Documentación')).toHaveLength(2);
+    expect(nodos.filter((n) => n.grado === 3 && n.nombre === 'DOCUMENTACIÓN')).toHaveLength(2);
   });
 
   it('cada grado 2 y 3 cuelga de su padre', () => {
@@ -120,5 +120,50 @@ describe('paridad · la descomposición del §7.1', () => {
     ];
     const raices = jerarquiaDeNiveles(filas).nodos.filter((n) => n.grado === 1);
     expect(raices.map((r) => r.nombre).sort()).toEqual(['CUANTICO', 'PRODUCTOS', 'PROYECTOS']);
+  });
+});
+
+// ─── La caja del nombre no es identidad ───────────────────────────────────────────────
+//
+// Hasta el 16/09/2026 el nombre se tomaba literal de la celda, con `.trim()` y nada más. Una
+// hoja que escribiera `Productos` donde otra escribió `PRODUCTOS` creaba una RAMA NUEVA del
+// árbol en vez de encontrar la que ya existía, y como `CLASE_DE_RAIZ` compara exacto, esa
+// raíz quedaba además sin clase.
+//
+// Así aparecieron las cinco raíces donde debía haber tres.
+describe('la caja del nombre no distingue niveles', () => {
+  it('dos filas que escriben la misma rama en distinta caja son UN solo nodo', () => {
+    const { nodos } = jerarquiaDeNiveles([
+      fila(8, 'PRODUCTOS', 'MINTRACE', 'Código fuente'),
+      fila(9, 'Productos', 'Mintrace', 'código fuente'),
+    ]);
+
+    expect(nodos.filter((n) => n.grado === 1)).toHaveLength(1);
+    expect(nodos.filter((n) => n.grado === 2)).toHaveLength(1);
+    expect(nodos.filter((n) => n.grado === 3)).toHaveLength(1);
+  });
+
+  it('el nombre queda normalizado', () => {
+    const { nodos } = jerarquiaDeNiveles([fila(8, 'Productos', 'Mintrace', 'código  fuente')]);
+
+    expect(nodos.map((n) => n.nombre)).toEqual(['PRODUCTOS', 'MINTRACE', 'CÓDIGO FUENTE']);
+  });
+
+  it('una raíz escrita en otra caja igual recibe su clase, y no se reporta', () => {
+    const { nodos, problemas } = jerarquiaDeNiveles([fila(8, 'Productos', 'X', 'Y')]);
+
+    expect(nodos.find((n) => n.grado === 1)?.clase).toBe('PRODUCTOS');
+    expect(problemas).toEqual([]);
+  });
+
+  it('el mismo nombre bajo padres distintos sigue siendo dos nodos', () => {
+    // La normalización no puede deshacer lo que el camino resuelve: «Documentación» cuelga
+    // de once ramas en el libro real.
+    const { nodos } = jerarquiaDeNiveles([
+      fila(8, 'CUANTICO', 'SIG', 'Documentación'),
+      fila(9, 'PRODUCTOS', 'MINTRACE', 'documentación'),
+    ]);
+
+    expect(nodos.filter((n) => n.grado === 3)).toHaveLength(2);
   });
 });

@@ -6,9 +6,11 @@
 
 import {
   columnaDeFrecuencia,
+  matrizDeActivos,
   columnasDeEscala,
   contarMatriz,
   filasDeUmbrales,
+  repartirPorBanda,
   ubicarRiesgo,
   type ColumnaFrecuencia,
   type FilaImpacto,
@@ -78,6 +80,11 @@ describe('ubicarRiesgo', () => {
       i: 0,
       inherente: 2,
       residual: 1,
+      // El valor REAL del riesgo viaja con la ubicación: es lo que permite que una casilla
+      // ocupada se pinte con lo que contiene y no con su punto representativo.
+      valorInherente: 4.8,
+      valorResidual: 0.48,
+      activoCodigo: undefined,
     });
   });
 
@@ -99,10 +106,10 @@ describe('ubicarRiesgo', () => {
 
 describe('contarMatriz', () => {
   const ubicaciones = [
-    { i: 0, inherente: 2, residual: 1 },
-    { i: 0, inherente: 2, residual: 1 },
-    { i: 1, inherente: 4, residual: -1 },
-    { i: -1, inherente: 0, residual: 0 },
+    { i: 0, inherente: 2, residual: 1, valorInherente: 4.75, valorResidual: 0.47 },
+    { i: 0, inherente: 2, residual: 1, valorInherente: 4.75, valorResidual: 0.47 },
+    { i: 1, inherente: 4, residual: -1, valorInherente: 375, valorResidual: null },
+    { i: -1, inherente: 0, residual: 0, valorInherente: 0, valorResidual: 0 },
   ];
 
   it('cuenta las casillas de la inherente', () => {
@@ -127,7 +134,52 @@ describe('contarMatriz', () => {
     expect(m.total + m.sinImpacto + m.sinResidual).toBe(ubicaciones.length);
   });
 
-  it('la banda es de la CASILLA, no de lo que cayó adentro: una casilla vacía sigue siendo crítica', () => {
+  // ── La regla que cambió, y por qué ───────────────────────────────────────────────────
+  //
+  // El punto representativo de una casilla usa la frecuencia NOMINAL de su columna. En la
+  // inherente eso es exacto —el ARO cae sobre un punto de la escala—, pero el ARO residual es
+  // continuo y `columnaDeFrecuencia` lo ajusta a la columna más cercana: la casilla pierde el
+  // factor. Medido sobre el registro real, 226 de 584 riesgos quedaban pintados MENOS graves
+  // de lo que son, incluido un residual de 13,00 en una casilla pintada Medio.
+  describe('una casilla ocupada se pinta con lo que contiene', () => {
+    it('el color sale del PEOR riesgo de la casilla, no de su punto representativo', () => {
+      // Muy alto (medio 4,75) × una vez al año = 4,75 → la zona dice Medio.
+      // Adentro cae un riesgo de 13,00, que es Alto. La casilla tiene que decir Alto.
+      const m = contarMatriz(
+        [{ i: 0, inherente: 2, residual: 2, valorInherente: 13, valorResidual: 13 }],
+        'residual',
+        FILAS,
+        COLUMNAS,
+        BANDAS_RIESGO,
+      );
+      expect(m.bandasZona[0][2]).toBe('Medio');
+      expect(m.bandas[0][2]).toBe('Alto');
+    });
+
+    it('la casilla VACÍA conserva la banda de su zona', () => {
+      const m = contarMatriz([], 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+      expect(m.conteos[0][4]).toBe(0);
+      expect(m.bandas[0][4]).toBe(m.bandasZona[0][4]);
+      expect(m.bandas[0][4]).toBe('Crítico');
+    });
+
+    it('manda el peor, no el último ni el promedio', () => {
+      const m = contarMatriz(
+        [
+          { i: 0, inherente: 2, residual: 2, valorInherente: 13, valorResidual: 13 },
+          { i: 0, inherente: 2, residual: 2, valorInherente: 1, valorResidual: 1 },
+        ],
+        'residual',
+        FILAS,
+        COLUMNAS,
+        BANDAS_RIESGO,
+      );
+      expect(m.conteos[0][2]).toBe(2);
+      expect(m.bandas[0][2]).toBe('Alto');
+    });
+  });
+
+  it('la banda de ZONA es de la casilla, no de lo que cayó adentro: una casilla vacía sigue siendo crítica', () => {
     const m = contarMatriz([], 'inherente', FILAS, COLUMNAS, BANDAS_RIESGO);
     // Muy alto (medio 4,75) × a diario (100) = 475 → Crítico, con cero riesgos adentro.
     expect(m.conteos[0][4]).toBe(0);
@@ -152,5 +204,179 @@ describe('los ejes salen del catálogo', () => {
   it('el encabezado se queda con el grado y la lectura completa viaja aparte', () => {
     expect(COLUMNAS[4].nombre).toBe('Muy alta');
     expect(COLUMNAS[4].lectura).toBe('Muy alta — a diario');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('matrizDeActivos', () => {
+  // Cuatro riesgos sobre dos activos. Cada activo entra UNA vez, en la casilla de su peor
+  // riesgo — la misma regla de agregación del inventario y de la página de análisis.
+  const u = (
+    activoCodigo: string,
+    i: number,
+    j: number,
+    valor: number,
+  ) => ({ i, inherente: j, residual: j, valorInherente: valor, valorResidual: valor, activoCodigo });
+
+  const UBIS = [
+    u('TEC-GEN-0004', 0, 2, 13), // el peor de este activo
+    u('TEC-GEN-0004', 2, 1, 0.4),
+    u('COM-APP-0001', 1, 2, 3),
+    u('COM-APP-0001', 3, 0, 0.01),
+  ];
+
+  it('cada activo aparece una sola vez, en la casilla de su peor riesgo', () => {
+    const m = matrizDeActivos(UBIS, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.total).toBe(2);
+    expect(m.conteos[0][2]).toBe(1);
+    expect(m.conteos[1][2]).toBe(1);
+    // El riesgo menor del mismo activo NO agrega una segunda marca.
+    expect(m.conteos[2][1]).toBe(0);
+    expect(m.conteos[3][0]).toBe(0);
+  });
+
+  it('la casilla lleva los códigos, para que se lea sin cruzar otra tabla', () => {
+    const m = matrizDeActivos(UBIS, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.codigos[0][2]).toEqual(['TEC-GEN-0004']);
+    expect(m.codigos[1][2]).toEqual(['COM-APP-0001']);
+  });
+
+  it('un activo cuyo residual no está calculado se informa, no se ubica en la banda más baja', () => {
+    const sinResidual = [
+      { i: 0, inherente: 2, residual: -1, valorInherente: 13, valorResidual: null, activoCodigo: 'X-1' },
+    ];
+    const m = matrizDeActivos(sinResidual, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.total).toBe(0);
+    expect(m.sinUbicar).toBe(1);
+    // En la inherente el mismo activo sí se ubica.
+    expect(matrizDeActivos(sinResidual, 'inherente', FILAS, COLUMNAS, BANDAS_RIESGO).total).toBe(1);
+  });
+
+  it('la casilla ocupada se pinta con su peor activo; la vacía, con su zona', () => {
+    const m = matrizDeActivos(UBIS, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.bandasZona[0][2]).toBe('Medio');
+    expect(m.bandas[0][2]).toBe('Alto');
+    expect(m.bandas[0][4]).toBe(m.bandasZona[0][4]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('repartirPorBanda', () => {
+  // La lista de «riesgos por nivel» que acompaña a cada matriz. Se cuenta por el valor
+  // PROPIO de cada riesgo y no por el color de la casilla que lo contiene: una casilla
+  // pintada Alto porque adentro hay un riesgo Alto no convierte en altos a los otros veinte
+  // riesgos medios que comparten esa casilla. Es la misma cuenta que hace la página de
+  // análisis, y es la que un comité compara contra el informe.
+  const UBIS = [
+    { i: 0, inherente: 2, residual: 2, valorInherente: 60, valorResidual: 13 },
+    { i: 0, inherente: 2, residual: 2, valorInherente: 40, valorResidual: 2 },
+    { i: 1, inherente: 3, residual: 1, valorInherente: 30, valorResidual: 0.4 },
+    { i: 2, inherente: 1, residual: -1, valorInherente: 5, valorResidual: null },
+    { i: -1, inherente: 0, residual: 0, valorInherente: 0.2, valorResidual: 0.2 },
+  ];
+
+  it('cuenta cada riesgo por su propio valor, no por el color de su casilla', () => {
+    const r = repartirPorBanda(UBIS, 'residual', BANDAS_RIESGO);
+    // Los dos primeros comparten casilla; uno es Alto y el otro Medio, y así se cuentan.
+    expect(r).toEqual([
+      { nombre: 'Crítico', n: 0 },
+      { nombre: 'Alto', n: 1 },
+      { nombre: 'Medio', n: 1 },
+      { nombre: 'Bajo', n: 1 },
+    ]);
+  });
+
+  it('en la inherente reparte sobre los mismos riesgos que dibuja la matriz', () => {
+    const r = repartirPorBanda(UBIS, 'inherente', BANDAS_RIESGO);
+    expect(r.map((b) => b.n)).toEqual([1, 2, 1, 0]);
+  });
+
+  // La invariante que hace que el pie de la matriz no pueda contradecir a la matriz: la
+  // suma del reparto es exactamente el total que entró en la rejilla.
+  it('la suma del reparto es el total de la matriz, en las dos caras', () => {
+    for (const cara of ['inherente', 'residual'] as const) {
+      const m = contarMatriz(UBIS, cara, FILAS, COLUMNAS, BANDAS_RIESGO);
+      const suma = repartirPorBanda(UBIS, cara, BANDAS_RIESGO).reduce((a, b) => a + b.n, 0);
+      expect(suma).toBe(m.total);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('matrizDeActivos · qué riesgo ubicó a cada activo', () => {
+  // La casilla se abre para ver los activos que contiene, y lo primero que hay que poder
+  // responder ahí es POR QUÉ está cada uno. La respuesta es el riesgo que lo ubicó: su peor
+  // riesgo. Si la matriz sólo devolviera los códigos, quien dibuja la pantalla tendría que
+  // volver a buscar ese máximo por su cuenta — y esa segunda cuenta es justamente la que
+  // termina discrepando de la primera.
+  const u = (activoCodigo: string, i: number, j: number, valor: number) => ({
+    i,
+    inherente: j,
+    residual: j,
+    valorInherente: valor,
+    valorResidual: valor,
+    activoCodigo,
+  });
+
+  const UBIS = [
+    u('TEC-GEN-0004', 2, 1, 0.4),
+    u('COM-APP-0001', 1, 2, 3),
+    u('TEC-GEN-0004', 0, 2, 13), // el peor de este activo: posición 2
+    u('COM-APP-0001', 3, 0, 0.01),
+  ];
+
+  it('cada casilla lleva la posición de la ubicación que puso ahí a cada activo', () => {
+    const m = matrizDeActivos(UBIS, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.indices[0][2]).toEqual([2]);
+    expect(m.indices[1][2]).toEqual([1]);
+    expect(m.indices[2][1]).toEqual([]);
+  });
+
+  it('los índices van en el mismo orden que los códigos, para poder leerlos en paralelo', () => {
+    // Dos activos en la misma casilla: los códigos se ordenan alfabéticamente y los índices
+    // tienen que seguirlos, o la pantalla le atribuye a un activo el riesgo de otro.
+    const juntos = [u('ZZZ-0001', 0, 2, 20), u('AAA-0001', 0, 2, 30)];
+    const m = matrizDeActivos(juntos, 'residual', FILAS, COLUMNAS, BANDAS_RIESGO);
+    expect(m.codigos[0][2]).toEqual(['AAA-0001', 'ZZZ-0001']);
+    expect(m.indices[0][2]).toEqual([1, 0]);
+  });
+});
+
+describe('matrizDeActivos · reparto por banda', () => {
+  // Cuántos ACTIVOS quedan en cada nivel, por el valor de su peor riesgo. Es la cifra que
+  // pide un comité —«cuántos activos me quedan en Alto»— y la misma que produce la página de
+  // análisis, que toma el nivel de un activo como el de su riesgo más alto. Viaja dentro de
+  // la matriz porque sale del mismo máximo por activo: calcularla aparte sería recorrer otra
+  // vez el mismo dato con otra regla de desempate.
+  const u = (activoCodigo: string, i: number, j: number, valor: number) => ({
+    i,
+    inherente: j,
+    residual: j,
+    valorInherente: valor,
+    valorResidual: valor,
+    activoCodigo,
+  });
+
+  it('cuenta activos, no riesgos: un activo con veinte riesgos medios pesa uno', () => {
+    const m = matrizDeActivos(
+      [
+        u('A-1', 0, 2, 13), // Alto
+        u('A-1', 1, 2, 3),
+        u('A-1', 1, 2, 3),
+        u('B-2', 1, 2, 3), // Medio
+        u('C-3', 3, 0, 0.01), // Bajo
+      ],
+      'residual',
+      FILAS,
+      COLUMNAS,
+      BANDAS_RIESGO,
+    );
+    expect(m.reparto).toEqual([
+      { nombre: 'Crítico', n: 0 },
+      { nombre: 'Alto', n: 1 },
+      { nombre: 'Medio', n: 1 },
+      { nombre: 'Bajo', n: 1 },
+    ]);
+    expect(m.reparto.reduce((a, b) => a + b.n, 0)).toBe(m.total);
   });
 });

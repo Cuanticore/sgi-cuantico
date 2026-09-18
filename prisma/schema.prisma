@@ -200,12 +200,13 @@ model Area {
   activa       Boolean @default(true)
   orden        Int
 
-  liderCargo          CargoResponsable? @relation("AreaLider", fields: [liderCargoId], references: [id])
+  liderCargo          CargoResponsable?      @relation("AreaLider", fields: [liderCargoId], references: [id])
   activos             Activo[]
   contadores          ContadorCodigo[]
   personas            Persona[]
   obligacionesAlcance Obligacion[]
-  hallazgos           Hallazgo[]        @relation("HallazgoArea")
+  hallazgos           Hallazgo[]             @relation("HallazgoArea")
+  actasResidual       FirmanteActaResidual[] @relation("AreaEnActaResidual")
 
   procesos Proceso[]
 
@@ -725,32 +726,33 @@ model Activo {
   bajaEn   DateTime? @map("baja_en")
   creadoEn DateTime  @default(now()) @map("creado_en")
 
-  area                Area                @relation(fields: [areaId], references: [id])
-  tipo                TipoMagerit         @relation(fields: [tipoId], references: [id])
-  subtipo             SubtipoMagerit      @relation(fields: [subtipoId], references: [id])
-  propietario         CargoResponsable?   @relation("ActivoPropietario", fields: [propietarioId], references: [id])
-  custodio            CargoResponsable?   @relation("ActivoCustodio", fields: [custodioId], references: [id])
-  ubicacion           Ubicacion?          @relation(fields: [ubicacionId], references: [id])
-  entorno             Entorno?            @relation(fields: [entornoId], references: [id])
-  proveedor           Proveedor?          @relation(fields: [proveedorId], references: [id])
-  superior            Activo?             @relation("ActivoJerarquia", fields: [superiorId], references: [id])
-  dependientes        Activo[]            @relation("ActivoJerarquia")
+  area                Area                 @relation(fields: [areaId], references: [id])
+  tipo                TipoMagerit          @relation(fields: [tipoId], references: [id])
+  subtipo             SubtipoMagerit       @relation(fields: [subtipoId], references: [id])
+  propietario         CargoResponsable?    @relation("ActivoPropietario", fields: [propietarioId], references: [id])
+  custodio            CargoResponsable?    @relation("ActivoCustodio", fields: [custodioId], references: [id])
+  ubicacion           Ubicacion?           @relation(fields: [ubicacionId], references: [id])
+  entorno             Entorno?             @relation(fields: [entornoId], references: [id])
+  proveedor           Proveedor?           @relation(fields: [proveedorId], references: [id])
+  superior            Activo?              @relation("ActivoJerarquia", fields: [superiorId], references: [id])
+  dependientes        Activo[]             @relation("ActivoJerarquia")
   valores             ActivoValor[]
   riesgos             Riesgo[]
-  obligacionesAlcance Obligacion[]        @relation("ObligacionAlcanceActivo")
-  asignaciones        Asignacion[]        @relation("AsignacionActivo")
+  obligacionesAlcance Obligacion[]         @relation("ObligacionAlcanceActivo")
+  asignaciones        Asignacion[]         @relation("AsignacionActivo")
   actasBorrado        ActaBorradoActivo[]
   eventosAfectado     ActivoAfectado[]
-  nivel               NivelActivo?        @relation(fields: [nivelId], references: [id])
-  persona             Persona?            @relation("ActivoCustodioPersona", fields: [personaId], references: [id])
-  criticidad          CriticidadNegocio?  @relation(fields: [criticidadId], references: [id])
-  dependenciasDe      DependenciaActivo[] @relation("DependenciaBase")
-  dependenciasHacia   DependenciaActivo[] @relation("DependenciaDestino")
-  despliegues         Despliegue[]        @relation("DespliegueActivo")
-  desplieguesServidor Despliegue[]        @relation("DespliegueServidor")
-  sistemas            Sistema[]           @relation("SistemaActivo")
+  nivel               NivelActivo?         @relation(fields: [nivelId], references: [id])
+  persona             Persona?             @relation("ActivoCustodioPersona", fields: [personaId], references: [id])
+  criticidad          CriticidadNegocio?   @relation(fields: [criticidadId], references: [id])
+  dependenciasDe      DependenciaActivo[]  @relation("DependenciaBase")
+  dependenciasHacia   DependenciaActivo[]  @relation("DependenciaDestino")
+  despliegues         Despliegue[]         @relation("DespliegueActivo")
+  desplieguesServidor Despliegue[]         @relation("DespliegueServidor")
+  sistemas            Sistema[]            @relation("SistemaActivo")
   /// Las cuentas del dominio que este activo encarna, cuando es de tipo `[P] Personal`.
   personasDelActivo   ActivoPersona[]
+  actasResidual       ActivoActaResidual[] @relation("ActivoEnActaResidual")
 
   @@index([areaId])
   @@index([tipoId])
@@ -1172,52 +1174,56 @@ model Persona {
   area  Area?             @relation(fields: [areaId], references: [id])
   cargo CargoResponsable? @relation(fields: [cargoId], references: [id])
 
-  obligacionesAlcance      Obligacion[]                   @relation("ObligacionAlcancePersona")
-  obligacionesSeguimiento  Obligacion[]                   @relation("ObligacionSeguimiento")
-  asignaciones             Asignacion[]                   @relation("AsignacionPersona")
-  ejecucionesRegistradas   EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
-  activosACargo            Activo[]                       @relation("ActivoCustodioPersona")
+  obligacionesAlcance       Obligacion[]                   @relation("ObligacionAlcancePersona")
+  obligacionesSeguimiento   Obligacion[]                   @relation("ObligacionSeguimiento")
+  asignaciones              Asignacion[]                   @relation("AsignacionPersona")
+  ejecucionesRegistradas    EjecucionVerificacion[]        @relation("EjecucionRegistradaPor")
+  activosACargo             Activo[]                       @relation("ActivoCustodioPersona")
   /// Los activos `[P] Personal` que esta cuenta ENCARNA. Distinto de `activosACargo`, que
   /// son los que custodia.
-  activosQueEncarna        ActivoPersona[]
-  hijos                    HijoColaborador[]              @relation("HijoDePersona")
-  autoevaluaciones         AutoevaluacionPuesto[]         @relation("AutoevaluacionDePersona")
-  productosResponsable     Producto[]                     @relation("ProductoResponsable")
-  sistemasPropietario      Sistema[]                      @relation("SistemaPropietario")
-  sistemasTecnico          Sistema[]                      @relation("SistemaResponsableTecnico")
-  puertasVerificadas       PuertaSistema[]                @relation("PuertaVerifica")
-  puertasAutorizadas       PuertaSistema[]                @relation("PuertaAutoriza")
-  excepcionesAprobadas     ExcepcionSeguridad[]           @relation("ExcepcionAprueba")
-  excepcionesCerradas      ExcepcionSeguridad[]           @relation("ExcepcionCierra")
-  pruebasEjecutadas        PruebaSeguridad[]              @relation("PruebaEjecutor")
-  tratamientosResponsable  TratamientoDatosPersonales[]   @relation("TratamientoResponsable")
-  liberacionesAutoriza     Liberacion[]                   @relation("LiberacionAutoriza")
-  liberacionesEjecuta      Liberacion[]                   @relation("LiberacionEjecuta")
-  metricasResponsable      Metrica[]                      @relation("MetricaResponsable")
-  medicionesRegistradas    MedicionMetrica[]              @relation("MedicionRegistradaPor")
-  asignacionesCerradasPor  Asignacion[]                   @relation("AsignacionCerradaPor")
-  enviosNotificacion       EnvioNotificacion[]
-  hallazgosDetectados      Hallazgo[]                     @relation("HallazgoDetectadoPor")
-  hallazgosClasificados    Hallazgo[]                     @relation("HallazgoClasificadoPor")
-  hallazgosResponsables    Hallazgo[]                     @relation("HallazgoResponsable")
-  hallazgosCerrados        Hallazgo[]                     @relation("HallazgoCerradoPor")
-  correccionesHallazgo     CorreccionHallazgo[]           @relation("CorreccionResponsable")
-  analisisCausa            AnalisisCausa[]
-  verificacionesHallazgo   VerificacionEficaciaHallazgo[]
-  necesidadesResponsables  NecesidadExpectativa[]         @relation("NecesidadResponsable")
-  requisitosLegales        RequisitoLegal[]               @relation("RequisitoResponsable")
-  evaluacionesCumplimiento EvaluacionCumplimiento[]       @relation("EvaluacionEvaluadoPor")
-  riesgosOrganizacionales  RiesgoOrganizacional[]         @relation("RiesgoOrgResponsable")
-  materializaciones        MaterializacionRiesgo[]        @relation("MaterializacionReportante")
-  contextosAprobados       AnalisisContexto[]             @relation("ContextoAprobadoPor")
-  programasAprobados       ProgramaAuditoria[]            @relation("ProgramaAprobadoPor")
-  programadasResponsable   AuditoriaProgramada[]          @relation("ProgramadaResponsable")
-  auditoriasLideradas      Auditoria[]                    @relation("AuditoriaLider")
-  equipoAuditorias         EquipoAuditor[]                @relation("EquipoAuditorPersona")
-  notasAuditor             NotaAuditor[]                  @relation("NotaAuditorAutor")
-  informesEmitidos         InformeAuditoria[]             @relation("InformeEmitidoPor")
-  perfilesAuditor          PerfilAuditor[]                @relation("PerfilPersona")
-  perfilesAprobados        PerfilAuditor[]                @relation("PerfilAprobadoPor")
+  activosQueEncarna         ActivoPersona[]
+  hijos                     HijoColaborador[]              @relation("HijoDePersona")
+  autoevaluaciones          AutoevaluacionPuesto[]         @relation("AutoevaluacionDePersona")
+  productosResponsable      Producto[]                     @relation("ProductoResponsable")
+  sistemasPropietario       Sistema[]                      @relation("SistemaPropietario")
+  sistemasTecnico           Sistema[]                      @relation("SistemaResponsableTecnico")
+  puertasVerificadas        PuertaSistema[]                @relation("PuertaVerifica")
+  puertasAutorizadas        PuertaSistema[]                @relation("PuertaAutoriza")
+  excepcionesAprobadas      ExcepcionSeguridad[]           @relation("ExcepcionAprueba")
+  excepcionesCerradas       ExcepcionSeguridad[]           @relation("ExcepcionCierra")
+  pruebasEjecutadas         PruebaSeguridad[]              @relation("PruebaEjecutor")
+  tratamientosResponsable   TratamientoDatosPersonales[]   @relation("TratamientoResponsable")
+  liberacionesAutoriza      Liberacion[]                   @relation("LiberacionAutoriza")
+  liberacionesEjecuta       Liberacion[]                   @relation("LiberacionEjecuta")
+  metricasResponsable       Metrica[]                      @relation("MetricaResponsable")
+  medicionesRegistradas     MedicionMetrica[]              @relation("MedicionRegistradaPor")
+  asignacionesCerradasPor   Asignacion[]                   @relation("AsignacionCerradaPor")
+  enviosNotificacion        EnvioNotificacion[]
+  hallazgosDetectados       Hallazgo[]                     @relation("HallazgoDetectadoPor")
+  hallazgosClasificados     Hallazgo[]                     @relation("HallazgoClasificadoPor")
+  hallazgosResponsables     Hallazgo[]                     @relation("HallazgoResponsable")
+  hallazgosCerrados         Hallazgo[]                     @relation("HallazgoCerradoPor")
+  correccionesHallazgo      CorreccionHallazgo[]           @relation("CorreccionResponsable")
+  analisisCausa             AnalisisCausa[]
+  verificacionesHallazgo    VerificacionEficaciaHallazgo[]
+  necesidadesResponsables   NecesidadExpectativa[]         @relation("NecesidadResponsable")
+  requisitosLegales         RequisitoLegal[]               @relation("RequisitoResponsable")
+  evaluacionesCumplimiento  EvaluacionCumplimiento[]       @relation("EvaluacionEvaluadoPor")
+  riesgosOrganizacionales   RiesgoOrganizacional[]         @relation("RiesgoOrgResponsable")
+  materializaciones         MaterializacionRiesgo[]        @relation("MaterializacionReportante")
+  contextosAprobados        AnalisisContexto[]             @relation("ContextoAprobadoPor")
+  programasAprobados        ProgramaAuditoria[]            @relation("ProgramaAprobadoPor")
+  programadasResponsable    AuditoriaProgramada[]          @relation("ProgramadaResponsable")
+  auditoriasLideradas       Auditoria[]                    @relation("AuditoriaLider")
+  equipoAuditorias          EquipoAuditor[]                @relation("EquipoAuditorPersona")
+  notasAuditor              NotaAuditor[]                  @relation("NotaAuditorAutor")
+  informesEmitidos          InformeAuditoria[]             @relation("InformeEmitidoPor")
+  actasResidualGeneradas    ActaRiesgoResidual[]           @relation("ActaResidualGeneradaPor")
+  firmasResidual            FirmanteActaResidual[]         @relation("FirmanteActaResidual")
+  firmasResidualRegistradas FirmanteActaResidual[]         @relation("RegistradorActaResidual")
+  soportesResidualCargados  SoporteActaResidual[]          @relation("SoporteResidualCargadoPor")
+  perfilesAuditor           PerfilAuditor[]                @relation("PerfilPersona")
+  perfilesAprobados         PerfilAuditor[]                @relation("PerfilAprobadoPor")
 
   versionesPublicadas VersionContenido[] @relation("VersionPublicadaPor")
 
@@ -1586,12 +1592,12 @@ model MiembroGrupoInteres {
 ///
 /// Tabla y no columnas porque la cantidad es variable, exactamente igual que los contactos.
 model HijoColaborador {
-  id              Int       @id @default(autoincrement())
-  personaId       Int       @map("persona_id")
+  id              Int      @id @default(autoincrement())
+  personaId       Int      @map("persona_id")
   nombre          String
-  fechaNacimiento DateTime  @map("fecha_nacimiento") @db.Date
+  fechaNacimiento DateTime @map("fecha_nacimiento") @db.Date
   genero          Genero
-  creadoEn        DateTime  @default(now()) @map("creado_en")
+  creadoEn        DateTime @default(now()) @map("creado_en")
 
   persona Persona @relation("HijoDePersona", fields: [personaId], references: [id], onDelete: Cascade)
 
@@ -1621,17 +1627,17 @@ enum Genero {
 /// seguir leyéndose con las preguntas de 2026 aunque el formulario de 2027 sea otro. Por eso
 /// viaja también `formularioVersion`.
 model AutoevaluacionPuesto {
-  id                 Int      @id @default(autoincrement())
-  personaId          Int      @map("persona_id")
+  id                Int      @id @default(autoincrement())
+  personaId         Int      @map("persona_id")
   /// Cuándo la respondió la persona.
-  respondidaEn       DateTime @default(now()) @map("respondida_en")
+  respondidaEn      DateTime @default(now()) @map("respondida_en")
   /// La versión del cuestionario con la que se respondió. Sin esto, las respuestas de un año
   /// se leerían contra las preguntas de otro.
-  formularioVersion  String   @map("formulario_version")
+  formularioVersion String   @map("formulario_version")
   /// `{ "<clave de pregunta>": "<respuesta>" }`, tal como el formulario las produjo.
-  respuestas         Json
+  respuestas        Json
   /// Lo que la persona quiso agregar por fuera de las preguntas.
-  observaciones      String?
+  observaciones     String?
 
   persona Persona @relation("AutoevaluacionDePersona", fields: [personaId], references: [id])
 
@@ -1656,15 +1662,15 @@ model AutoevaluacionPuesto {
 /// Tabla y no dos columnas en `Persona`: casi todo el mundo da dos contactos, y con columnas
 /// el segundo se llama `contacto2_nombre` y el tercero no cabe.
 model ContactoEmergencia {
-  id          Int      @id @default(autoincrement())
-  personaId   Int      @map("persona_id")
-  nombre      String
+  id         Int      @id @default(autoincrement())
+  personaId  Int      @map("persona_id")
+  nombre     String
   /// Texto libre: la lista cerrada de parentescos siempre le queda corta a alguien.
-  parentesco  String
-  telefono    String
+  parentesco String
+  telefono   String
   /// A quién se llama primero.
-  orden       Int      @default(1)
-  creadoEn    DateTime @default(now()) @map("creado_en")
+  orden      Int      @default(1)
+  creadoEn   DateTime @default(now()) @map("creado_en")
 
   persona Persona @relation("ContactoDePersona", fields: [personaId], references: [id])
 
@@ -2904,43 +2910,43 @@ model ActaBorradoActivo {
 /// corporativa, de la trazabilidad del numeral 4 del acta y de la inalterabilidad del
 /// registro. Prometer más de eso sería falso.
 model ActaAceptacion {
-  id                 Int      @id @default(autoincrement())
+  id                  Int                 @id @default(autoincrement())
   /// `ACT-2026-0001`. Inmutable: es la referencia con la que el acta se cita.
-  codigo             String   @unique
-  personaId          Int      @map("persona_id")
-  contenidoId        Int      @map("contenido_id")
+  codigo              String              @unique
+  personaId           Int                 @map("persona_id")
+  contenidoId         Int                 @map("contenido_id")
   /// La versión leída, congelada como número.
-  contenidoVersion   Int      @map("contenido_version")
+  contenidoVersion    Int                 @map("contenido_version")
   /// Y la FILA de esa versión, que es donde vive su texto. El número solo no prueba nada si
   /// el texto se sobreescribió — es la lección de D6, y acá importa más porque un acta es
   /// evidencia ante un auditor.
-  versionContenidoId Int?     @map("version_contenido_id")
+  versionContenidoId  Int?                @map("version_contenido_id")
   /// Un acta por registro de realizado: el acta ES el cierre de esa asignación.
-  registroId         Int      @unique @map("registro_id")
+  registroId          Int                 @unique @map("registro_id")
   /// **F2 · la declaración se COPIA, no se referencia.** Si mañana se cambia la redacción
   /// para las firmas futuras, esta acta conserva la suya. Referenciarla convertiría cada
   /// edición en una falsificación retroactiva de lo que la gente aceptó.
-  declaracion        String
+  declaracion         String
   /// **F3 · la huella del archivo mostrado.** Sin ella, «acepté la versión 2» no prueba
   /// nada si el archivo de la versión 2 cambió después.
-  documentoHash      String   @map("documento_hash")
+  documentoHash       String              @map("documento_hash")
   /// Lo TECLEADO. La identidad no la aporta este tecleo —la aporta la sesión autenticada
   /// con la cuenta corporativa— pero el tecleo es el acto deliberado que distingue firmar
   /// de hacer clic.
-  nombreFirmante     String   @map("nombre_firmante")
-  documentoFirmante  String   @map("documento_firmante")
-  aceptadoEn         DateTime @default(now()) @map("aceptado_en")
+  nombreFirmante      String              @map("nombre_firmante")
+  documentoFirmante   String              @map("documento_firmante")
+  aceptadoEn          DateTime            @default(now()) @map("aceptado_en")
   /// El numeral 4 del acta: la constancia de la aceptación. Es lo que sostiene la
   /// confiabilidad de una firma simple.
-  ip                 String?
-  agente             String?
-  sesionId           String?  @map("sesion_id")
+  ip                  String?
+  agente              String?
+  sesionId            String?             @map("sesion_id")
   /// El artefacto congelado del acta, guardado como `Evidencia`. **F5 · se genera al
   /// aceptar, no al consultar**: uno que se arma cada vez que alguien lo abre puede salir
   /// distinto mañana.
-  pdfId              Int?     @map("pdf_id")
+  pdfId               Int?                @map("pdf_id")
   /// SHA-256 del artefacto generado.
-  actaHash           String   @map("acta_hash")
+  actaHash            String              @map("acta_hash")
   /// **REQ-SIG-19 · el acta declara el medio REAL de identificacion.** El numeral 5 sostiene
   /// la confiabilidad en algo distinto segun la via, y decir «cuenta corporativa» en una
   /// firma por enlace seria falso en el documento que se le muestra a un auditor.
@@ -2951,11 +2957,11 @@ model ActaAceptacion {
   /// A donde se notifico. En la via por enlace es el correo personal al que fue; en la
   /// corporativa queda nulo. **Se copia al emitir** y no se referencia: si la persona cambia
   /// su correo despues, el acta tiene que seguir diciendo a donde se envio.
-  correoNotificacion String?  @map("correo_notificacion")
+  correoNotificacion  String?             @map("correo_notificacion")
   /// El codigo del enlace que produjo esta acta, `ENL-2026-0007`. **Es el codigo y nunca el
   /// token** (P2, P3): un token en un registro que audita las firmas es un token en manos de
   /// quien audita.
-  enlaceCodigo       String?  @map("enlace_codigo")
+  enlaceCodigo        String?             @map("enlace_codigo")
 
   persona          Persona           @relation("ActaPersona", fields: [personaId], references: [id])
   contenido        ContenidoSig      @relation(fields: [contenidoId], references: [id])
@@ -3655,6 +3661,17 @@ model NivelActivo {
   @@map("nivel_activo")
 }
 
+/// **La identidad de un nivel vive en un indice que este esquema NO declara.**
+///
+/// `20260916200000_identidad_de_nivel` crea `nivel_activo_identidad` sobre
+/// (grado, nombre, padre_id) con `NULLS NOT DISTINCT`, y esa clausula es lo unico que hace
+/// que sirva: en Postgres los NULL son distintos entre si dentro de un indice unico, y las
+/// raices tienen `padre_id NULL`. Un `@@unique([grado, nombre, padreId])` de Prisma dejaria
+/// pasar dos raices con el mismo nombre, que es el caso que origino toda la correccion.
+///
+/// No lo cambies por un `@@unique` «para que quede prolijo»: se veria igual y no protegeria
+/// nada. El nombre se escribe normalizado (`lib/sig/nombre-nivel.ts`).
+
 /// E8 · la configuracion minima de un producto o proyecto. **No bloquea: señala lo que
 /// falta.**
 ///
@@ -4226,4 +4243,174 @@ model IntentoScorm {
   @@unique([asignacionId, numero])
   @@index([estado, ultimaActividadEn])
   @@map("intento_scorm")
+}
+
+// ─── Aprobación del riesgo residual (ISO/IEC 27001:2022 · 6.1.3 e) ─────────────────────
+//
+// «Debe conservarse información documentada del proceso de apreciación y del plan de
+// tratamiento del riesgo, **incluida la aceptación de los riesgos residuales**». El SGSI ya
+// registraba la decisión —`AccionPlan` de tipo `ACEPTAR`, con justificación y fecha de
+// revisión— y no registraba el ACTO de aprobar: ni quién, ni cuándo, ni contra qué documento.
+//
+// **EL ACTA SE FIRMA FUERA DEL SISTEMA**, en papel o en sesión, por decisión del 16/09/2026.
+// La aplicación genera el documento y registra quién lo firmó cuando vuelve escaneado.
+//
+// Hay en este repositorio un mecanismo completo de firma electrónica —`ActaAceptacion`, con
+// huella del documento, declaración copiada, IP y acta inmutable— y **no se usa acá a
+// propósito**. Queda dicho para que nadie lo lea dentro de seis meses como un descuido: si
+// mañana se quiere firma electrónica, el camino es un `ContenidoSig` con `exigeFirma` y una
+// `Asignacion` por firmante, y no hay que construir nada.
+
+enum EstadoActaResidual {
+  EMITIDA
+  APROBADA
+  DESACTUALIZADA
+  VENCIDA
+  ANULADA
+
+  @@map("estado_acta_residual")
+}
+
+/// El acta de aprobación del riesgo residual de un periodo.
+///
+/// **No hay estado borrador: generar es emitir.** Un acta a medio hacer que se puede editar no
+/// congela nada, y lo que este documento tiene que congelar son las cifras que alguien firma.
+model ActaRiesgoResidual {
+  id              Int                @id @default(autoincrement())
+  /// `ARR-2026-001`. El año va en el código porque la numeración se reinicia con él, y sin el
+  /// año dos actas de años distintos podrían chocar.
+  codigo          String             @unique
+  /// `2026`. La misma forma que `Asignacion.periodo`.
+  periodo         String
+  /// Sólo `ANULADA` es significativo: el resto lo recalcula `estadoVigente` al leer. Un estado
+  /// guardado es un segundo lugar donde una verdad puede vivir.
+  estado          EstadoActaResidual @default(EMITIDA)
+  /// SHA-256 de `código|banda|cifra` de cada activo, ordenado. Si el de hoy difiere, el acta
+  /// afirma cifras que ya no son las vigentes y hay que emitir otra.
+  alcanceHash     String             @map("alcance_hash")
+  /// Cuántos activos quedaron FUERA por tener algún riesgo sin residual calculado. Va en el
+  /// acta y en el tablero: un acta que no lo dice se lee como si cubriera todo el inventario.
+  sinCalcular     Int                @map("sin_calcular")
+  generadaEn      DateTime           @default(now()) @map("generada_en")
+  generadaPorId   Int                @map("generada_por_id")
+  documentoSha256 String             @map("documento_sha256")
+  /// El PDF emitido. En base de datos, con el precedente de `EvidenciaArchivo` y su misma
+  /// razón: la evidencia que sostiene una auditoría no vive en un bucket que alguien puede
+  /// vaciar.
+  ///
+  /// **Ninguna consulta de listado selecciona esta columna.** Sólo la ruta de descarga.
+  documento       Bytes
+  motivoAnulacion String?            @map("motivo_anulacion")
+
+  generadaPor Persona                @relation("ActaResidualGeneradaPor", fields: [generadaPorId], references: [id])
+  activos     ActivoActaResidual[]
+  firmantes   FirmanteActaResidual[]
+  soportes    SoporteActaResidual[]
+
+  @@index([periodo])
+  @@map("acta_riesgo_residual")
+}
+
+/// El detalle CONGELADO del acta: un renglón por activo.
+///
+/// Los textos se copian y no se referencian. El acta tiene que seguir diciendo lo que decía
+/// aunque el activo se renombre o cambie de área — es la doctrina de la regla F2 de
+/// `ActaAceptacion`, y acá importa igual porque es evidencia ante un auditor.
+model ActivoActaResidual {
+  id                     Int     @id @default(autoincrement())
+  actaId                 Int     @map("acta_id")
+  activoId               Int     @map("activo_id")
+  codigo                 String
+  nombre                 String
+  proceso                String
+  banda                  String
+  cifraResidual          Decimal @map("cifra_residual") @db.Decimal(12, 4)
+  /// El plan de tratamiento que cubre este activo, cuando existe. Se CITA, no se reescribe: la
+  /// justificación ya está escrita en el plan y copiarla sería una segunda versión de ella.
+  planCodigo             String? @map("plan_codigo")
+  planTipo               String? @map("plan_tipo")
+  /// La justificación de la excepción, para la banda Crítica.
+  ///
+  /// **Nula al emitir, y a propósito.** El acta se firma en papel: el PDF imprime esta columna
+  /// en blanco para escribirla a mano junto a la firma. Esta fila existe para TRANSCRIBIRLA
+  /// después, de modo que la excepción se pueda consultar sin abrir el escaneo. Exigirla al
+  /// emitir obligaría a redactar en pantalla una justificación que todavía no se ha discutido
+  /// en la sesión donde se firma.
+  justificacionExcepcion String? @map("justificacion_excepcion")
+
+  acta   ActaRiesgoResidual @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  activo Activo             @relation("ActivoEnActaResidual", fields: [activoId], references: [id])
+
+  @@unique([actaId, activoId])
+  @@map("activo_acta_residual")
+}
+
+/// Un renglón de la hoja de firmas: un proceso.
+///
+/// **TRES estados, y la pantalla no puede confundir ninguno con otro.**
+///
+///   `resoluble = false`                    el área no tiene cargo líder, o el cargo no tiene
+///                                          persona activa. Es deuda del catálogo de cargos y
+///                                          no se arregla insistiéndole a nadie.
+///   `resoluble = true, aprobo = false`     hay a quién buscar, y no ha firmado.
+///   `aprobo = true`                        firmó `firmante`, en papel, y `registradoPor` dice
+///                                          quién lo asentó acá.
+model FirmanteActaResidual {
+  id              Int       @id @default(autoincrement())
+  actaId          Int       @map("acta_id")
+  areaId          Int       @map("area_id")
+  /// El nombre del proceso, copiado. Renombrar un área no puede reescribir un acta firmada.
+  proceso         String
+  cargoId         Int?      @map("cargo_id")
+  cargoNombre     String?   @map("cargo_nombre")
+  resoluble       Boolean
+  activos         Int
+  aprobo          Boolean   @default(false)
+  /// Quién firmó EL PAPEL, elegida entre las personas del cargo. Nula hasta que firme.
+  firmanteId      Int?      @map("firmante_id")
+  fechaFirma      DateTime? @map("fecha_firma") @db.Date
+  soporteId       Int?      @map("soporte_id")
+  /// Quién REGISTRÓ la firma en el sistema, que casi nunca es quien firmó.
+  ///
+  /// Separarlo de `firmanteId` es lo que impide que la aplicación afirme que alguien actuó
+  /// dentro de ella cuando firmó fuera. La diferencia entre «yo firmé» y «alguien registró que
+  /// firmé» tiene que seguir siendo legible seis meses después.
+  registradoPorId Int?      @map("registrado_por_id")
+  motivo          String?
+
+  acta          ActaRiesgoResidual   @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  area          Area                 @relation("AreaEnActaResidual", fields: [areaId], references: [id])
+  firmante      Persona?             @relation("FirmanteActaResidual", fields: [firmanteId], references: [id])
+  registradoPor Persona?             @relation("RegistradorActaResidual", fields: [registradoPorId], references: [id])
+  soporte       SoporteActaResidual? @relation(fields: [soporteId], references: [id])
+
+  @@unique([actaId, areaId])
+  @@map("firmante_acta_residual")
+}
+
+/// El acta firmada que vuelve escaneada.
+///
+/// Uno a muchos con el acta: una aprobación puede recogerse en dos sesiones, y cada carga
+/// cubre a quienes firmaron en ella.
+model SoporteActaResidual {
+  id             Int      @id @default(autoincrement())
+  actaId         Int      @map("acta_id")
+  nombreOriginal String   @map("nombre_original")
+  /// Verificado por CONTENIDO y no por extensión, con `lib/sgsi/anexo-archivo.ts`: una
+  /// extensión es una afirmación, el primer byte es un hecho.
+  mime           String
+  tamano         Int
+  sha256         String
+  /// Ninguna consulta de listado selecciona esta columna. Sólo la ruta de descarga.
+  bytes          Bytes
+  cargadoPorId   Int      @map("cargado_por_id")
+  cargadoEn      DateTime @default(now()) @map("cargado_en")
+  motivo         String?
+
+  acta       ActaRiesgoResidual     @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  cargadoPor Persona                @relation("SoporteResidualCargadoPor", fields: [cargadoPorId], references: [id])
+  firmantes  FirmanteActaResidual[]
+
+  @@index([actaId])
+  @@map("soporte_acta_residual")
 }

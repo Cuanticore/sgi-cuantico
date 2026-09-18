@@ -34,6 +34,8 @@ import {
   parsearOrigen,
 } from '@/lib/sgsi/origen-plan';
 import { clasificar } from '@/lib/sgsi/clasificar';
+import { evaluarBrecha, type EstadoBrecha } from '@/lib/sgsi/exigencia';
+import { agruparAmenazasEnPlanes } from '@/lib/sgsi/planes-por-amenaza';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -969,5 +971,433 @@ function normalizar(valor: string | null | undefined): string | null {
 function revalidarPlan(): void {
   for (const ruta of ['/', '/sgsi', '/sgsi/planes', '/sgsi/controles', '/sgsi/verificacion']) {
     revalidatePath(ruta);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// PLANES DESDE LA GRILLA DE ANÁLISIS DE RIESGOS
+// ═════════════════════════════════════════════════════════════════════════════════════════
+//
+// El plan nace donde se ve la brecha. Registrarlo desde la ficha del activo, amenaza por
+// amenaza, obliga a entrar al activo, abrir la pestaña, encontrar la fila y repetirlo por
+// cada amenaza: el trabajo se ve en la lista de análisis y se hace en otra pantalla.
+//
+// Acá se elige un activo y se marcan sus amenazas —una, varias o todas—, y salen los planes
+// que hagan falta. Cuántos hagan falta lo decide `lib/sgsi/planes-por-amenaza.ts`, que agrupa
+// por control principal: doce amenazas cuyos principales son tres controles son TRES planes.
+
+export interface AmenazaDelActivo {
+  amenazaCodigo: string;
+  amenazaNombre: string;
+  principalCodigo: string | null;
+  principalNombre: string | null;
+  /// Nivel actual del principal, en puntos. `null` = designado pero sin evaluar.
+  principalNivel: number | null;
+  /// Puntos de brecha, cuando hay una de NIVEL. `null` en todos los demás casos.
+  brecha: number | null;
+  /// El estado completo, para que la pantalla explique por qué no hay brecha en vez de
+  /// dejar una celda vacía que se lee como «no falta nada».
+  estadoBrecha: EstadoBrecha['tipo'];
+  /// El plan activo que ya la cubre, por origen o por control principal.
+  planExistente: string | null;
+  bandaResidual: string | null;
+}
+
+export interface PrefillPlanesActivo {
+  activoCodigo: string;
+  activoNombre: string;
+  amenazas: AmenazaDelActivo[];
+  responsable: { id: number; nombre: string } | null;
+  apruebaSugerido: { id: number; nombre: string } | null;
+  fechaObjetivo: string | null;
+  cargos: { id: number; nombre: string }[];
+  escalaMadurez: { id: number; nivel: number; nombre: string }[];
+}
+
+/// Lee todo lo que el popup de la grilla necesita para UN activo. De sólo lectura.
+///
+/// La brecha se evalúa con `evaluarBrecha` —la misma función que pinta la columna «Plan» de
+/// esa grilla—, no con una regla propia: si la pantalla dice que un activo requiere plan y el
+/// popup que lo abre dijera otra cosa, ninguna de las dos sería creíble.
+export async function datosPrefillPlanesActivo(
+  activoCodigo: string,
+): Promise<{ ok: boolean; mensaje: string; datos: PrefillPlanesActivo | null }> {
+  try {
+    await autorConPermiso('sgsi:ver');
+
+    const activo = await prisma.activo.findFirst({
+      where: { codigo: activoCodigo },
+      include: {
+        propietario: true,
+        criticidad: { select: { codigo: true } },
+        valores: { select: { dimension: { select: { codigo: true } }, valor: { select: { valor: true } } } },
+        riesgos: {
+          where: { obsoleto: false },
+          select: {
+            riesgoResidual: true,
+            amenaza: {
+              select: {
+                codigo: true,
+                nombre: true,
+                degradacion: {
+                  select: {
+                    dimension: { select: { codigo: true } },
+                    degradacion: { select: { factor: true } },
+                  },
+                },
+                controles: {
+                  where: { relevancia: { esPrincipal: true } },
+                  select: {
+                    control: {
+                      select: { codigo: true, nombre: true, actual: { select: { nivel: true } } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!activo) {
+      return { ok: false, mensaje: `No existe el activo ${activoCodigo}.`, datos: null };
+    }
+
+    const [planes, umbrales, criterio, cargos, escalaMadurez] = await Promise.all([
+      prisma.accionPlan.findMany({
+        where: { activa: true },
+        select: { codigo: true, origen: true, control: { select: { codigo: true } } },
+        orderBy: { codigo: 'asc' },
+      }),
+      prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
+      prisma.criterioAceptacion.findFirst({ where: { umbralRiesgo: { nombre: 'Crítico' } } }),
+      prisma.cargoResponsable.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } }),
+      prisma.escalaMadurez.findMany({ orderBy: { nivel: 'asc' } }),
+    ]);
+
+    const porDimension = new Map(activo.valores.map((v) => [v.dimension.codigo, v.valor.valor]));
+    const valores = {
+      D: porDimension.get('D') ?? 0,
+      I: porDimension.get('I') ?? 0,
+      C: porDimension.get('C') ?? 0,
+    };
+
+    const amenazas: AmenazaDelActivo[] = activo.riesgos.map((r) => {
+      const porDim = new Map(
+        r.amenaza.degradacion.map((d) => [d.dimension.codigo, Number(d.degradacion.factor)]),
+      );
+      const principal = r.amenaza.controles[0]?.control;
+      const estado = evaluarBrecha({
+        criticidad: activo.criticidad?.codigo ?? null,
+        valores,
+        degradacion: { D: porDim.get('D') ?? 0, I: porDim.get('I') ?? 0, C: porDim.get('C') ?? 0 },
+        nivelPrincipal: principal === undefined ? undefined : (principal.actual?.nivel ?? null),
+        codigoPrincipal: principal?.codigo,
+      });
+
+      // Las dos vías de cobertura, las mismas que `construirResolverDeuda`: el prefijo del
+      // origen y el control principal. Preguntarlo acá con una regla propia sería el segundo
+      // criterio que después discrepa del tablero.
+      const cubre = planes.find((p) => {
+        const o = parsearOrigen(p.origen);
+        if (o !== null && origenCubreRiesgo(o, { activoCodigo, amenazaCodigo: r.amenaza.codigo })) {
+          return true;
+        }
+        return principal !== undefined && p.control?.codigo === principal.codigo;
+      });
+
+      return {
+        amenazaCodigo: r.amenaza.codigo,
+        amenazaNombre: r.amenaza.nombre,
+        principalCodigo: principal?.codigo ?? null,
+        principalNombre: principal?.nombre ?? null,
+        principalNivel: principal?.actual?.nivel ?? null,
+        brecha: estado.tipo === 'brecha' ? estado.brecha : null,
+        estadoBrecha: estado.tipo,
+        planExistente: cubre?.codigo ?? null,
+        bandaResidual:
+          r.riesgoResidual === null ? null : clasificar(r.riesgoResidual.toString(), umbrales),
+      };
+    });
+
+    amenazas.sort(
+      (a, b) =>
+        (b.brecha ?? -1) - (a.brecha ?? -1) || a.amenazaCodigo.localeCompare(b.amenazaCodigo, 'es'),
+    );
+
+    const apruebaSugerido =
+      cargos.find((c) => c.nombre === criterio?.aprueba) ??
+      cargos.find((c) => c.nombre === 'Líder del SIG') ??
+      null;
+    const fecha = criterio ? fechaObjetivoPlan(new Date(), criterio.plazoEjecucion) : null;
+
+    return {
+      ok: true,
+      mensaje: 'Prellenado listo.',
+      datos: {
+        activoCodigo,
+        activoNombre: activo.nombre,
+        amenazas,
+        responsable: activo.propietario
+          ? { id: activo.propietario.id, nombre: activo.propietario.nombre }
+          : null,
+        apruebaSugerido: apruebaSugerido
+          ? { id: apruebaSugerido.id, nombre: apruebaSugerido.nombre }
+          : null,
+        fechaObjetivo: fecha ? fecha.toISOString().slice(0, 10) : null,
+        cargos: cargos.map((c) => ({ id: c.id, nombre: c.nombre })),
+        escalaMadurez: escalaMadurez.map((m) => ({ id: m.id, nivel: m.nivel, nombre: m.nombre })),
+      },
+    };
+  } catch (error) {
+    console.error('[sgsi] no se pudo prellenar los planes del activo', error);
+    return {
+      ok: false,
+      mensaje: error instanceof Error ? error.message : 'No se pudo leer el prellenado.',
+      datos: null,
+    };
+  }
+}
+
+export interface DatosPlanesActivo {
+  activoCodigo: string;
+  /// Las amenazas marcadas en el popup. Una, varias o todas.
+  amenazaCodigos: string[];
+  tipo: TipoAccion;
+  responsableId: number;
+  apruebaId: number;
+  fechaObjetivo?: string | null;
+  justificacionAceptacion?: string | null;
+  fechaRevisionAceptacion?: string | null;
+  instrumento?: string | null;
+  riesgoRemanente?: string | null;
+  motivo?: string | null;
+}
+
+export interface ResultadoPlanesActivo extends Resultado {
+  /// Los planes creados, en el orden en que se crearon.
+  creados: { codigo: string; controlCodigo: string; amenazas: string[] }[];
+  /// Las amenazas que no produjeron plan, con el motivo en palabras.
+  omitidas: { amenazaCodigo: string; motivo: string }[];
+}
+
+/// Registra los planes de las amenazas marcadas, en UNA transacción.
+///
+/// TODO O NADA, igual que la importación de planes. Un lote a medias deja a quien lo pidió
+/// sin saber cuáles de las doce amenazas que marcó quedaron cubiertas, y la única forma de
+/// averiguarlo sería revisarlas de a una — que es exactamente el trabajo que este popup
+/// existe para evitar.
+///
+/// EL ORIGEN NOMBRA LA PEOR AMENAZA DEL GRUPO, no las tres ni las doce. El prefijo
+/// verificable tiene lugar para un par (activo, amenaza) y ensancharlo cambiaría un formato
+/// que ya está escrito en la base. No se pierde nada: desde que la cobertura también se
+/// resuelve por control principal (`construirResolverDeuda`), el plan cubre todas las
+/// amenazas de su control sin enumerarlas en un campo de texto. La narrativa sí las cuenta,
+/// porque es lo que un auditor lee.
+export async function registrarPlanesActivo(
+  datos: DatosPlanesActivo,
+): Promise<ResultadoPlanesActivo> {
+  const vacio = { creados: [], omitidas: [] };
+  try {
+    const autor = await autorConPermiso('sgsi:escribir');
+    exigirId(datos.responsableId, 'el responsable');
+    exigirId(datos.apruebaId, 'quien aprueba');
+
+    if (datos.amenazaCodigos.length === 0) {
+      return { ok: false, mensaje: 'No hay ninguna amenaza marcada.', ...vacio };
+    }
+
+    // Las mismas reglas condicionales de 6.1.3 que `guardarAccion` y `registrarPlanCritico`.
+    // Se comprueban ANTES de abrir la transacción: rechazar en la fila siete de doce sería
+    // hacer trabajo para deshacerlo.
+    const errores: string[] = [];
+    if (datos.tipo === 'ACEPTAR') {
+      if (!datos.justificacionAceptacion) {
+        errores.push('Aceptar un riesgo necesita la justificación de la aceptación.');
+      }
+      if (!datos.fechaRevisionAceptacion) {
+        errores.push(
+          'Aceptar un riesgo necesita fecha de revisión: una aceptación sin vencimiento es una que nadie vuelve a mirar.',
+        );
+      }
+    }
+    if (datos.tipo === 'TRANSFERIR') {
+      if (!datos.instrumento) {
+        errores.push('Transferir necesita el instrumento (póliza, contrato o cláusula).');
+      }
+      if (!datos.riesgoRemanente) {
+        errores.push(
+          'Transferir necesita el riesgo remanente: transferir nunca mueve el riesgo completo.',
+        );
+      }
+    }
+    if (errores.length > 0) return { ok: false, mensaje: errores.join(' '), ...vacio };
+
+    const prefill = await datosPrefillPlanesActivo(datos.activoCodigo);
+    if (!prefill.ok || prefill.datos === null) {
+      return { ok: false, mensaje: prefill.mensaje, ...vacio };
+    }
+
+    const marcadas = new Set(datos.amenazaCodigos);
+    const { grupos, excluidas } = agruparAmenazasEnPlanes(
+      prefill.datos.amenazas
+        .filter((a) => marcadas.has(a.amenazaCodigo))
+        .map((a) => ({
+          amenazaCodigo: a.amenazaCodigo,
+          amenazaNombre: a.amenazaNombre,
+          principalCodigo: a.principalCodigo,
+          principalNombre: a.principalNombre,
+          brecha: a.brecha,
+          planExistente: a.planExistente,
+        })),
+    );
+
+    const omitidas = excluidas.map((e) => ({
+      amenazaCodigo: e.amenaza.amenazaCodigo,
+      motivo:
+        e.motivo === 'ya-cubierta'
+          ? `Ya la cubre el plan ${e.amenaza.planExistente}.`
+          : 'La amenaza no tiene control principal designado; no se registra un plan sobre un control que nadie declaró.',
+    }));
+
+    if (grupos.length === 0) {
+      return {
+        ok: true,
+        mensaje:
+          'No hay nada que registrar: todas las amenazas marcadas ya están cubiertas o no tienen control principal.',
+        creados: [],
+        omitidas,
+        cambios: 0,
+      };
+    }
+
+    const controles = await prisma.control.findMany({
+      where: { codigo: { in: grupos.map((g) => g.principalCodigo) } },
+      select: {
+        id: true,
+        codigo: true,
+        actual: { select: { nivel: true } },
+        objetivo: { select: { id: true } },
+      },
+    });
+    const controlPorCodigo = new Map(controles.map((c) => [c.codigo, c]));
+    const escalaPorNivel = new Map(prefill.datos.escalaMadurez.map((m) => [m.nivel, m.id]));
+
+    const creados = await prisma.$transaction(async (tx) => {
+      const codigos = await tx.accionPlan.findMany({ select: { codigo: true } });
+      let ultimo = codigos.reduce((mayor, a) => {
+        const n = /^PT-(\d+)$/.exec(a.codigo);
+        return n ? Math.max(mayor, Number(n[1])) : mayor;
+      }, 0);
+
+      const hechos: ResultadoPlanesActivo['creados'] = [];
+
+      for (const g of grupos) {
+        const control = controlPorCodigo.get(g.principalCodigo);
+        if (control === undefined) throw new Error(`No existe el control ${g.principalCodigo}.`);
+
+        const peor = g.amenazas[0];
+        const riesgo = await tx.riesgo.findFirst({
+          where: {
+            activo: { codigo: datos.activoCodigo },
+            amenaza: { codigo: peor.amenazaCodigo },
+          },
+          select: { codigo: true },
+        });
+        if (riesgo === null) {
+          throw new Error(`No existe el riesgo ${datos.activoCodigo} x ${peor.amenazaCodigo}.`);
+        }
+
+        const narrativa =
+          g.amenazas.length === 1
+            ? `Brecha de ${g.principalCodigo} sobre ${datos.activoCodigo} — ${peor.amenazaNombre}.`
+            : `Brecha de ${g.principalCodigo} sobre ${datos.activoCodigo} — ${g.amenazas.length} amenazas, la mayor ${peor.amenazaNombre}.`;
+        const origen = formatearOrigen(
+          riesgo.codigo,
+          datos.activoCodigo,
+          peor.amenazaCodigo,
+          narrativa,
+        );
+
+        // Un escalón por encima del actual, sin pasar de 90 — el mismo criterio que el
+        // prellenado del plan puntual. El objetivo propio del control manda si lo tiene.
+        const nivelActual = control.actual?.nivel ?? null;
+        const madurezObjetivoId =
+          control.objetivo?.id ??
+          escalaPorNivel.get(nivelActual === null ? 10 : Math.min(nivelActual + 10, 90)) ??
+          null;
+
+        ultimo += 1;
+        const nuevoCodigo = `PT-${String(ultimo).padStart(3, '0')}`;
+
+        await tx.accionPlan.create({
+          data: {
+            codigo: nuevoCodigo,
+            accion: `Elevar ${g.principalCodigo} para cerrar la brecha de ${datos.activoCodigo}`,
+            tipo: datos.tipo,
+            controlId: datos.tipo === 'MITIGAR' ? control.id : null,
+            origen,
+            responsableId: datos.responsableId,
+            apruebaId: datos.apruebaId,
+            fechaObjetivo: datos.fechaObjetivo
+              ? new Date(`${datos.fechaObjetivo}T00:00:00.000Z`)
+              : null,
+            madurezObjetivoId: datos.tipo === 'MITIGAR' ? madurezObjetivoId : null,
+            estado: 'NO_INICIADA',
+            avance: 0,
+            verificacion: 'PENDIENTE',
+            instrumento: datos.instrumento ?? null,
+            riesgoRemanente: datos.riesgoRemanente ?? null,
+            justificacionAceptacion: datos.justificacionAceptacion ?? null,
+            fechaRevisionAceptacion: datos.fechaRevisionAceptacion
+              ? new Date(`${datos.fechaRevisionAceptacion}T00:00:00.000Z`)
+              : null,
+          },
+        });
+
+        await registrarAlta(tx, autor, 'accion_plan', nuevoCodigo);
+        await registrar(tx, autor, [
+          {
+            tabla: 'accion_plan',
+            registroId: nuevoCodigo,
+            campo: 'origen',
+            anterior: null,
+            nuevo: origen,
+            motivo:
+              normalizar(datos.motivo) ??
+              `Registrado desde Análisis de riesgos para ${datos.activoCodigo}.`,
+          },
+        ]);
+
+        hechos.push({
+          codigo: nuevoCodigo,
+          controlCodigo: g.principalCodigo,
+          amenazas: g.amenazas.map((a) => a.amenazaCodigo),
+        });
+      }
+
+      return hechos;
+    });
+
+    revalidarPlan();
+    revalidatePath('/sgsi/valoracion-riesgos');
+    revalidatePath('/sgsi/inventario');
+
+    return {
+      ok: true,
+      mensaje: `Se ${creados.length === 1 ? 'registró' : 'registraron'} ${creados.length} ${
+        creados.length === 1 ? 'plan' : 'planes'
+      } para ${datos.activoCodigo}.`,
+      creados,
+      omitidas,
+      cambios: creados.length,
+    };
+  } catch (error) {
+    console.error('[sgsi] no se pudieron registrar los planes del activo', error);
+    return {
+      ok: false,
+      mensaje: error instanceof Error ? error.message : 'No se pudieron registrar los planes.',
+      ...vacio,
+    };
   }
 }

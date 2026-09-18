@@ -14,6 +14,7 @@ import { prisma } from '@/lib/db';
 import { registrar, registrarAlta } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, exigirId, type Resultado } from '@/app/sgsi/acciones/sesion';
 import { impedimentosParaDesactivar, validarPadre, type Nivel } from '@/lib/sig/niveles';
+import { normalizarNombreNivel } from '@/lib/sig/nombre-nivel';
 
 async function jerarquia(): Promise<Nivel[]> {
   return prisma.nivelActivo.findMany({
@@ -46,10 +47,12 @@ export async function crearNivel(datos: {
     const v = validarPadre(datos.grado, datos.padreId, niveles);
     if (!v.ok) return { ok: false, mensaje: `No se puede: ${v.motivo}.` };
 
-    // Un hermano con el mismo nombre bajo el mismo padre no es un error de la base —no hay
-    // unique— pero sí un árbol que nadie puede leer: dos «Ambientes» bajo MINTRACE no se
-    // distinguen en el mapa.
-    if (niveles.some((n) => n.padreId === datos.padreId && n.nombre.trim().toLowerCase() === datos.nombre.trim().toLowerCase())) {
+    // Un hermano con el mismo nombre bajo el mismo padre da un árbol que nadie puede leer:
+    // dos «Ambientes» bajo MINTRACE no se distinguen en el mapa. La comparación usa la misma
+    // regla que los escritores masivos, en vez de una copia propia: dos reglas parecidas se
+    // separan con el tiempo, y la que se queda corta sigue dando verde.
+    const nombre = normalizarNombreNivel(datos.nombre);
+    if (niveles.some((n) => n.padreId === datos.padreId && normalizarNombreNivel(n.nombre) === nombre)) {
       return { ok: false, mensaje: 'Ya hay un nivel con ese nombre en el mismo padre.' };
     }
 
@@ -57,7 +60,7 @@ export async function crearNivel(datos: {
       const creado = await tx.nivelActivo.create({
         data: {
           grado: datos.grado,
-          nombre: datos.nombre.trim(),
+          nombre,
           padreId: datos.padreId,
           orden: niveles.filter((n) => n.padreId === datos.padreId).length + 1,
         },
@@ -67,7 +70,7 @@ export async function crearNivel(datos: {
 
     revalidatePath('/tecnologia/niveles');
     revalidatePath('/tecnologia/mapa');
-    return { ok: true, mensaje: `Nivel «${datos.nombre.trim()}» creado.` };
+    return { ok: true, mensaje: `Nivel «${nombre}» creado.` };
   });
 }
 

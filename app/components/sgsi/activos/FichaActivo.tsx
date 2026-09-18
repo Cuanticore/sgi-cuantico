@@ -93,8 +93,10 @@ import {
 } from '@/app/sgsi/acciones/riesgos';
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
 import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
+import { codigoDebeReemitirse } from '@/lib/sgsi/codigo-activo';
 import { resolverEcuacion, type EcuacionResuelta } from '@/lib/sgsi/ecuacion';
 import { esCriticidadSospechosa } from '@/lib/sgsi/criticidad-coherencia';
+import { RAMPA_RIESGO } from '@/lib/sgsi/riesgo-activo';
 import {
   catalogoDeClase,
   claseDeControl,
@@ -226,14 +228,9 @@ const ANCHO_MINIMO_CONTROLES = 954;
 /// una línea sin comerse las dos columnas que mueven el cálculo (madurez y efecto).
 const ANCHO_DIALOGO_AMENAZA = 1344;
 
-/// Severity ramp, most severe first. Indexed by the band's POSITION in umbral_riesgo
-/// rather than by its name, so renaming a band never silently turns it grey.
-const RAMPA_RIESGO = [
-  { bg: 'var(--hf-risk-critico-bg)', fg: 'var(--hf-risk-critico-fg)' },
-  { bg: 'var(--hf-risk-alto-bg)', fg: 'var(--hf-risk-alto-fg)' },
-  { bg: 'var(--hf-risk-medio-bg)', fg: 'var(--hf-risk-medio-fg)' },
-  { bg: 'var(--hf-risk-bajo-bg)', fg: 'var(--hf-risk-bajo-fg)' },
-];
+// La rampa de severidad vive en `lib/sgsi/riesgo-activo.ts`. Estaba duplicada acá y en la
+// lista de Análisis: dos copias de una escala de color es como la segunda queda apuntando a
+// un token que ya no existe.
 
 const ABREVIATURA_RIESGO: Record<string, string> = {
   Crítico: 'CRÍT',
@@ -975,13 +972,11 @@ export default function FichaActivo({
     if (edicion.expuestoInternet !== baseEdicion.expuestoInternet) {
       datos.expuestoInternet = edicion.expuestoInternet;
     }
-    const nDatos = Object.keys(datos).length;
-
     // The MAGERIT classification. It IS saved, but the type deserves a warning rather
     // than silence: it decides which threats apply, so changing it rebuilds the asset's
-    // whole risk set. The code stays as it is — immutable and never reused — so the
-    // abbreviation it carries may stop matching the type, and the action records that in
-    // the bitácora.
+    // whole risk set. Moving the asset between processes — or changing its type — also
+    // re-issues the code, and `guardarDatosGenerales` records the old → new link in the
+    // bitácora.
     const clasificacion: string[] = [];
     if (edicion.areaId !== baseEdicion.areaId) {
       datos.areaId = edicion.areaId ?? undefined;
@@ -995,6 +990,13 @@ export default function FichaActivo({
       datos.subtipoId = edicion.subtipoId ?? undefined;
       clasificacion.push('el subtipo');
     }
+
+    // Se cuenta DESPUÉS de la clasificación, y no antes. Estos tres campos escriben en el
+    // mismo `datos` que el resto de la ficha, así que contar arriba dejaba a un cambio de
+    // proceso valiendo cero: el botón no se encendía, y si algo más sí lo encendía, el
+    // guardado se saltaba `guardarDatosGenerales` —que va tras `nDatos > 0`— y el cambio
+    // se perdía sin que nadie lo dijera.
+    const nDatos = Object.keys(datos).length;
 
     const valoracion: CambioValoracion[] = [];
     for (const d of DIMS) {
@@ -1278,7 +1280,18 @@ export default function FichaActivo({
 
       // The general data first: it touches no figure, so it can never be undone by the
       // recalculation the later actions run.
-      if (plan.nDatos > 0) await aplicar(guardarDatosGenerales(codigoActivo, plan.datos));
+      //
+      // This is also the only call that can change the asset's identity: moving it between
+      // processes re-issues the code, and the action answers with the new one. The old code
+      // still resolves to this asset —`cargarActivo` rescues it through the bitácora— but
+      // leaving the address bar on a retired code means the sheet works by the rescue, and a
+      // shared link would too. So the answer is kept and the route follows it below.
+      let codigoReemitido: string | null = null;
+      if (plan.nDatos > 0) {
+        const r = await guardarDatosGenerales(codigoActivo, plan.datos);
+        (r.ok ? logros : fallos).push(r.mensaje);
+        if (r.codigoNuevo !== undefined) codigoReemitido = r.codigoNuevo;
+      }
 
       // The valuation before every per-risk change. A dimension crossing the threshold is
       // what brings the risks into existence, so an exception whose risk does not exist
@@ -1331,6 +1344,13 @@ export default function FichaActivo({
 
       if (salir) {
         router.push('/sgsi/inventario');
+        return;
+      }
+      // `replace` y no `push`: el código viejo ya no nombra a nadie, y dejarlo en el
+      // historial sería ofrecer el botón Atrás hacia una identidad retirada. Navegar a la
+      // ruta nueva ya vuelve a pedir la página al servidor, así que no lleva `refresh`.
+      if (codigoReemitido !== null) {
+        router.replace(`/sgsi/inventario/${codigoReemitido}`);
         return;
       }
       router.refresh();
@@ -1427,6 +1447,23 @@ export default function FichaActivo({
   const codigoVista = nuevo
     ? `${area?.prefijo ?? '???'}-${tipo?.abreviatura ?? '???'}-${consecutivo}`
     : (activo?.codigo ?? '—');
+
+  /// La serie `AAA-TTT` a la que el activo se va a mudar, o `null` si el código se queda
+  /// como está. La decide `codigoDebeReemitirse`, la misma función que usa el servidor: la
+  /// regla mira lo que el código DICE —prefijo y abreviatura—, no los ids, así que mover el
+  /// activo entre dos procesos que comparten prefijo no reemite nada. Reimplementar la
+  /// comparación acá sería fabricar una segunda regla que puede discrepar de la primera, y
+  /// el aviso estaría afirmando algo que el guardado no va a hacer.
+  const serieNueva = (() => {
+    if (nuevo) return null;
+    const antes = {
+      prefijoArea: porId.area.get(baseEdicion.areaId)?.prefijo ?? '',
+      abreviaturaTipo: porId.tipo.get(baseEdicion.tipoId)?.abreviatura ?? '',
+    };
+    const despues = { prefijoArea: area?.prefijo ?? '', abreviaturaTipo: tipo?.abreviatura ?? '' };
+    if (!codigoDebeReemitirse(antes, despues)) return null;
+    return `${despues.prefijoArea}-${despues.abreviaturaTipo}`;
+  })();
 
   const posicion = navegacion.codigos.indexOf(activo?.codigo ?? '');
   const total = navegacion.codigos.length;
@@ -1794,6 +1831,7 @@ export default function FichaActivo({
         clasificacion={{
           campos: plan.clasificacion,
           cambiaTipo: plan.datos.tipoId !== undefined,
+          serieNueva,
         }}
         aviso={aviso}
         pendientes={plan.pendientes}
@@ -4865,9 +4903,10 @@ function FranjaInferior({
   impedimentos: string[];
   aviso: { ok: boolean; texto: string } | null;
   pendientes: number;
-  /// Which classification fields moved, and whether the type is among them: a type
-  /// change rebuilds the risk set, so it is announced before Save, not after.
-  clasificacion: { campos: string[]; cambiaTipo: boolean };
+  /// Which classification fields moved, whether the type is among them —a type change
+  /// rebuilds the risk set— and the `AAA-TTT` series the code moves to, or `null` when the
+  /// code stays put. All three are announced before Save, not after.
+  clasificacion: { campos: string[]; cambiaTipo: boolean; serieNueva: string | null };
   simulaciones: string[];
   guardando: boolean;
   yaDeBaja: boolean;
@@ -4928,10 +4967,18 @@ function FranjaInferior({
         </div>
       )}
 
-      {/* Advisory, not an impediment: the classification saves. The type is what decides
-          which threats apply, so it is worth knowing the risk set will be rebuilt before
-          pressing Save rather than reading it in the result afterwards. */}
-      {clasificacion.campos.length > 0 && (
+      {/* Advisory, not an impediment: the classification saves. Two consequences are worth
+          knowing BEFORE pressing Save rather than reading them in the result afterwards —
+          the type decides which threats apply, so the risk set is rebuilt; and the process
+          prefix and the type abbreviation are what the code SAYS, so moving either re-issues
+          it. This banner used to promise the code never changed; that stopped being true
+          when `guardarDatosGenerales` started re-issuing it, and the promise outlived the
+          behaviour by two commits. */}
+      {/* Nunca en el alta: ahí no hay nada que se «vaya a» reemitir ni ningún conjunto de
+          riesgos que regenerar, y el código de la cabecera es una previsualización que ya se
+          recalcula sola al mover el proceso. Un aviso negando el cambio junto a un código
+          que cambia a la vista es la contradicción que nos trajo hasta acá. */}
+      {!nuevo && clasificacion.campos.length > 0 && (
         <div className="flex flex-col gap-1 rounded-campo border border-brand-border bg-brand-100 px-3 py-2">
           <span
             className="font-mono text-9 tracking-[0.07em]"
@@ -4946,8 +4993,9 @@ function FranjaInferior({
             · Cambia {clasificacion.campos.join(' y ')}.
             {clasificacion.cambiaTipo &&
               ' El tipo decide qué amenazas aplican, así que se regenera el conjunto de riesgos del activo.'}{' '}
-            El código no cambia: es inmutable y no se reutiliza, y el cambio queda en la
-            bitácora.
+            {clasificacion.serieNueva === null
+              ? 'El código no cambia: la serie que lo forma sigue siendo la misma.'
+              : `El código se reemite en la serie ${clasificacion.serieNueva}, con el siguiente consecutivo libre. ${codigo} queda retirado, no se reasigna, sigue llevando a este activo, y la cadena queda en la bitácora.`}
           </span>
         </div>
       )}

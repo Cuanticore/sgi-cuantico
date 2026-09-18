@@ -56,6 +56,13 @@ export interface Ubicacion {
   /// La columna en la residual. `-1` cuando el ARO residual no está calculado — eficacia
   /// DESCONOCIDA, que no es lo mismo que frecuencia cero y la matriz no puede confundirlos.
   residual: number;
+  /// El riesgo REAL del par, las dos caras. Viaja con la ubicación porque el color de una
+  /// casilla ocupada sale de lo que contiene y no de su punto representativo — ver
+  /// `contarMatriz`. Sin esto la casilla no puede saber si miente.
+  valorInherente: number;
+  valorResidual: number | null;
+  /// El activo, para la matriz que ubica activos en vez de amenazas.
+  activoCodigo?: string;
 }
 
 /// Lo mínimo que hay que saber de un riesgo para ubicarlo.
@@ -65,6 +72,8 @@ export interface RiesgoUbicable {
   aro: number;
   /// Veces al año después de los controles. `null` es «sin calcular».
   aroResidual: number | null;
+  /// El código del activo. Opcional: sólo la matriz de activos lo necesita.
+  activoCodigo?: string;
 }
 
 /// La columna a la que cae una frecuencia: la más cercana EN ÓRDENES DE MAGNITUD.
@@ -111,6 +120,10 @@ export function ubicarRiesgo(
     inherente: columnaDeFrecuencia(riesgo.aro, columnas),
     residual:
       riesgo.aroResidual === null ? -1 : columnaDeFrecuencia(riesgo.aroResidual, columnas),
+    // El riesgo real, no el de la casilla: impacto × ARO, cada cara con su ARO.
+    valorInherente: riesgo.impacto * riesgo.aro,
+    valorResidual: riesgo.aroResidual === null ? null : riesgo.impacto * riesgo.aroResidual,
+    activoCodigo: riesgo.activoCodigo,
   };
 }
 
@@ -121,10 +134,30 @@ export interface MatrizClasica {
   cara: CaraMatriz;
   /// `conteos[i][j]` — cuántos riesgos en la casilla.
   conteos: number[][];
-  /// `bandas[i][j]` — la banda de riesgo de la casilla, por su riesgo representativo. Es
-  /// una propiedad de la CASILLA y no de lo que cayó adentro: una casilla vacía sigue siendo
-  /// crítica, y el informe la pinta igual. Esa es justamente la lectura que aporta.
+  /// `bandas[i][j]` — la banda con la que se PINTA la casilla.
+  ///
+  /// ── POR QUÉ NO ES SIEMPRE LA DE LA ZONA ───────────────────────────────────────────────
+  ///
+  /// El riesgo representativo de una casilla es el punto medio de su banda de impacto por la
+  /// frecuencia NOMINAL de su columna. En la matriz inherente eso funciona: el ARO de un
+  /// riesgo es exactamente uno de los cinco puntos de la escala, así que la casilla y lo que
+  /// contiene hablan del mismo número.
+  ///
+  /// En la residual no. El ARO residual es CONTINUO —`ARO × (1 − eficacia)`— y casi nunca
+  /// cae sobre un punto de la escala; `columnaDeFrecuencia` lo ajusta a la columna más
+  /// cercana en décadas, que es correcto como ubicación pero pierde el factor. Medido sobre
+  /// el registro real, 226 de 584 riesgos —el 39 %— quedaban dibujados en una casilla que
+  /// los pintaba MENOS graves de lo que son, incluido el peor riesgo del activo más crítico:
+  /// un residual de 13,00 (Alto) en una casilla pintada Medio.
+  ///
+  /// Así que una casilla OCUPADA se pinta con la banda del peor riesgo que contiene, y una
+  /// casilla VACÍA conserva la de su zona. La lectura documentada se preserva —una casilla
+  /// vacía en zona crítica sigue siendo crítica— y una casilla ocupada ya no puede mentir
+  /// sobre lo que tiene.
   bandas: (string | null)[][];
+  /// `bandasZona[i][j]` — la banda del punto representativo, siempre, esté ocupada o no. Es
+  /// lo que permite al pie de la matriz explicar la diferencia cuando las dos difieren.
+  bandasZona: (string | null)[][];
   /// Cuántos riesgos entraron en la matriz.
   total: number;
   /// Cuántos NO se pudieron ubicar, y por qué. Se informa: un riesgo que desaparece de la
@@ -144,6 +177,8 @@ export function contarMatriz(
   bandasRiesgo: readonly Umbral[],
 ): MatrizClasica {
   const conteos = filas.map(() => columnas.map(() => 0));
+  // El peor riesgo REAL de cada casilla, para pintarla con lo que contiene.
+  const peor = filas.map(() => columnas.map(() => Number.NEGATIVE_INFINITY));
   let total = 0;
   let sinImpacto = 0;
   let sinResidual = 0;
@@ -159,14 +194,161 @@ export function contarMatriz(
       continue;
     }
     conteos[u.i][j]++;
+    const valor = cara === 'inherente' ? u.valorInherente : u.valorResidual;
+    if (valor !== null && valor > peor[u.i][j]) peor[u.i][j] = valor;
     total++;
   }
 
-  const bandas = filas.map((f) =>
+  const bandasZona = filas.map((f) =>
     columnas.map((c) => clasificar(f.medio * c.vecesAno, bandasRiesgo)),
   );
+  const bandas = bandasZona.map((fila, i) =>
+    fila.map((zona, j) =>
+      conteos[i][j] === 0 ? zona : (clasificar(peor[i][j], bandasRiesgo) ?? zona),
+    ),
+  );
 
-  return { cara, conteos, bandas, total, sinImpacto, sinResidual };
+  return { cara, conteos, bandas, bandasZona, total, sinImpacto, sinResidual };
+}
+
+/// Cuántos riesgos hay en cada banda, contados por el valor PROPIO de cada riesgo.
+///
+/// Es la lista que acompaña a la matriz, y no se puede sacar sumando casillas. El color de
+/// una casilla lo pone su peor riesgo; los demás que comparten esa casilla no se vuelven
+/// graves por vecindad. Contar por casilla convertiría veinte riesgos medios en veinte altos
+/// cada vez que un alto cae al lado.
+///
+/// Reparte exactamente los riesgos que `contarMatriz` dibuja en esa cara —los que no se
+/// ubican quedan fuera de las dos cuentas—, así que la suma del reparto es su `total`. Esa
+/// igualdad es lo que impide que el pie de la matriz contradiga a la matriz.
+export function repartirPorBanda(
+  ubicaciones: readonly Ubicacion[],
+  cara: CaraMatriz,
+  bandasRiesgo: readonly Umbral[],
+): { nombre: string; n: number }[] {
+  const cuenta = new Map(bandasRiesgo.map((b) => [b.nombre, 0]));
+  for (const u of ubicaciones) {
+    if (u.i < 0) continue;
+    const j = cara === 'inherente' ? u.inherente : u.residual;
+    const valor = cara === 'inherente' ? u.valorInherente : u.valorResidual;
+    if (j < 0 || valor === null) continue;
+    const nombre = clasificar(valor, bandasRiesgo);
+    if (nombre === null) continue;
+    cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
+  }
+  return bandasRiesgo.map((b) => ({ nombre: b.nombre, n: cuenta.get(b.nombre) ?? 0 }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// LA MATRIZ DE ACTIVOS
+// ─────────────────────────────────────────────────────────────────────────────────────────
+//
+// La misma rejilla, pero cada casilla cuenta ACTIVOS y no pares activo-amenaza. Con 584
+// riesgos sobre 30 activos, la matriz de amenazas dice dónde está el riesgo y la de activos
+// dice de quién es — que es la pregunta que hace un comité.
+//
+// Cada activo aparece UNA vez, en la casilla de su PEOR riesgo. Es la misma regla de
+// agregación que ya usan el inventario y la página de análisis: el nivel de riesgo de un
+// activo es el de su riesgo más alto. Cualquier otra —la media, un percentil— escondería un
+// riesgo crítico detrás de una masa de riesgos bajos.
+
+export interface MatrizActivos {
+  cara: CaraMatriz;
+  /// `conteos[i][j]` — cuántos ACTIVOS caen ahí.
+  conteos: number[][];
+  /// `codigos[i][j]` — cuáles, ordenados. La matriz de activos se lee con los nombres a la
+  /// vista; un conteo sin los códigos obliga a cruzarla contra otra tabla.
+  codigos: string[][][];
+  /// `indices[i][j]` — la posición, dentro del arreglo de ubicaciones recibido, del riesgo
+  /// que ubicó a cada activo: su peor riesgo. En el MISMO orden que `codigos`.
+  ///
+  /// Sin esto, quien dibuje la casilla tiene que volver a buscar ese máximo por su cuenta
+  /// para poder explicar por qué está ahí cada activo, y esa segunda cuenta es la que
+  /// termina discrepando de la primera.
+  indices: number[][][];
+  bandas: (string | null)[][];
+  bandasZona: (string | null)[][];
+  total: number;
+  /// Cuántos ACTIVOS en cada banda, por el valor de su peor riesgo. Suma `total`.
+  reparto: { nombre: string; n: number }[];
+  /// Activos que no se pudieron ubicar en esta cara: sin impacto, o sin residual calculado.
+  sinUbicar: number;
+}
+
+export function matrizDeActivos(
+  ubicaciones: readonly Ubicacion[],
+  cara: CaraMatriz,
+  filas: readonly FilaImpacto[],
+  columnas: readonly ColumnaFrecuencia[],
+  bandasRiesgo: readonly Umbral[],
+): MatrizActivos {
+  // Primero el peor riesgo de cada activo en esta cara.
+  const peorDelActivo = new Map<
+    string,
+    { i: number; j: number; valor: number; indice: number }
+  >();
+  const vistos = new Set<string>();
+
+  ubicaciones.forEach((u, indice) => {
+    const codigo = u.activoCodigo;
+    if (codigo === undefined) return;
+    vistos.add(codigo);
+    const j = cara === 'inherente' ? u.inherente : u.residual;
+    const valor = cara === 'inherente' ? u.valorInherente : u.valorResidual;
+    if (u.i < 0 || j < 0 || valor === null) return;
+    const previo = peorDelActivo.get(codigo);
+    if (previo === undefined || valor > previo.valor) {
+      peorDelActivo.set(codigo, { i: u.i, j, valor, indice });
+    }
+  });
+
+  const conteos = filas.map(() => columnas.map(() => 0));
+  // Se arma como pares y se ordena una sola vez, para que código e índice no puedan
+  // desalinearse: dos arreglos ordenados por separado es como una casilla termina
+  // atribuyéndole a un activo el riesgo de su vecino.
+  const pares: { codigo: string; indice: number }[][][] = filas.map(() =>
+    columnas.map(() => [] as { codigo: string; indice: number }[]),
+  );
+  const peor = filas.map(() => columnas.map(() => Number.NEGATIVE_INFINITY));
+
+  for (const [codigo, u] of peorDelActivo) {
+    conteos[u.i][u.j]++;
+    pares[u.i][u.j].push({ codigo, indice: u.indice });
+    if (u.valor > peor[u.i][u.j]) peor[u.i][u.j] = u.valor;
+  }
+  for (const fila of pares) {
+    for (const celda of fila) celda.sort((a, b) => a.codigo.localeCompare(b.codigo, 'es'));
+  }
+  const codigos = pares.map((fila) => fila.map((celda) => celda.map((x) => x.codigo)));
+  const indices = pares.map((fila) => fila.map((celda) => celda.map((x) => x.indice)));
+
+  const cuenta = new Map(bandasRiesgo.map((b) => [b.nombre, 0]));
+  for (const u of peorDelActivo.values()) {
+    const nombre = clasificar(u.valor, bandasRiesgo);
+    if (nombre !== null) cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
+  }
+  const reparto = bandasRiesgo.map((b) => ({ nombre: b.nombre, n: cuenta.get(b.nombre) ?? 0 }));
+
+  const bandasZona = filas.map((f) =>
+    columnas.map((c) => clasificar(f.medio * c.vecesAno, bandasRiesgo)),
+  );
+  const bandas = bandasZona.map((fila, i) =>
+    fila.map((zona, j) =>
+      conteos[i][j] === 0 ? zona : (clasificar(peor[i][j], bandasRiesgo) ?? zona),
+    ),
+  );
+
+  return {
+    cara,
+    conteos,
+    codigos,
+    indices,
+    bandas,
+    bandasZona,
+    total: peorDelActivo.size,
+    reparto,
+    sinUbicar: vistos.size - peorDelActivo.size,
+  };
 }
 
 /// Los umbrales de impacto tal como los entrega el catálogo, convertidos en filas con su

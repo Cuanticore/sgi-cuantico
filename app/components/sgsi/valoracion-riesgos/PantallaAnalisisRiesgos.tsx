@@ -54,9 +54,10 @@ import {
   type MapaRtoPorCriticidad,
 } from '@/lib/sgsi/analisis-riesgos';
 import { construirResolverDeuda, type AccionPlanParaDeuda } from '@/lib/sgsi/deuda-planes';
-import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
+import { colorDeNivel, type NivelRiesgo, type UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
 import { colorDeNivelValor } from '@/lib/sgsi/valoracion-figura';
 import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
+import PopupPlanesActivo from './PopupPlanesActivo';
 
 /// Criterio §14.12 (segunda mitad) · las dos secuencias que esta pantalla ofrece. `'residual'`
 /// es el orden que ya existía y sigue siendo el predeterminado; `'criticidad'` reusa
@@ -96,6 +97,8 @@ export default function PantallaAnalisisRiesgos({
 }: PantallaAnalisisRiesgosProps) {
   const router = useRouter();
   const parametros = useSearchParams();
+  /// El activo cuyo popup de planes está abierto. `null` = ninguno.
+  const [activoParaPlan, setActivoParaPlan] = useState<string | null>(null);
 
   const catalogos: CatalogosFiltroAnalisis = useMemo(
     () => ({
@@ -352,7 +355,25 @@ export default function PantallaAnalisisRiesgos({
                       <CeldaBanda nivel={f.peorResidual} />
                     </td>
                     <td className="px-2 py-1.5">
-                      <CeldaPlan estado={f.estadoPlan} />
+                      <span className="inline-flex items-center gap-2">
+                        <CeldaPlan estado={f.estadoPlan} />
+                        {/* El plan nace donde se ve la brecha. No se ofrece sobre un activo
+                            que no requiere plan: sería invitar a registrar trabajo que nadie
+                            pidió, y la lista de planes es justamente lo que hay que poder
+                            leer de un vistazo. */}
+                        {f.estadoPlan !== 'no-requiere' && (
+                          <button
+                            onClick={() => setActivoParaPlan(f.codigo)}
+                            // El texto visible es «+ plan» en las treinta filas; sin esto,
+                            // un lector de pantalla anuncia treinta botones indistinguibles.
+                            aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
+                            title={`Registrar planes de tratamiento para ${f.codigo}`}
+                            className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
+                          >
+                            + plan
+                          </button>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -361,6 +382,17 @@ export default function PantallaAnalisisRiesgos({
           </div>
         )}
       </section>
+
+      {activoParaPlan !== null && (
+        <PopupPlanesActivo
+          key={activoParaPlan}
+          activoCodigo={activoParaPlan}
+          onCerrar={() => setActivoParaPlan(null)}
+          // El popup registra; refrescar la lista es de quien la monta. Sin esto la columna
+          // «Plan» seguiría diciendo «pendiente» sobre un activo que acaba de recibir uno.
+          onRegistrado={() => router.refresh()}
+        />
+      )}
     </main>
   );
 }
@@ -442,13 +474,24 @@ function Tarjeta({
   );
 }
 
-function CeldaBanda({ nivel }: { nivel: { nivel: number; banda: string } | null }) {
+/// El nivel con el color de su banda — el MISMO con el que la matriz pinta la casilla donde
+/// ese activo cae. Desde la opción B una casilla ocupada se pinta con la banda de su peor
+/// contenido, así que el renglón y la casilla coinciden y las dos vistas se leen juntas.
+///
+/// El color nunca es el único portador: el renglón sigue diciendo la banda en palabras, para
+/// quien no pueda verlo.
+function CeldaBanda({ nivel }: { nivel: NivelRiesgo | null }) {
   if (nivel === null) {
     return <span className="text-11_5 text-faint">sin calcular</span>;
   }
+  const c = colorDeNivel(nivel);
   return (
-    <span className="text-11_5 text-secondary">
-      <span className="font-mono font-semibold tabular-nums">{nivel.nivel}</span> · {nivel.banda}
+    <span
+      className="inline-flex items-center gap-1.5 rounded-campo px-2 py-0.5 text-11_5 font-semibold"
+      style={c === null ? undefined : { background: c.bg, color: c.fg }}
+      title={`Cae en la casilla ${nivel.banda} de la matriz · ${nivel.figura}`}
+    >
+      <span className="font-mono tabular-nums">{nivel.nivel}</span> · {nivel.banda}
     </span>
   );
 }

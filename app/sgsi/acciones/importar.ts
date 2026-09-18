@@ -39,6 +39,7 @@ import {
   type FilaResuelta,
 } from '@/lib/sgsi/plantilla-lectura';
 import { diagnosticoDeFormato, type Sustitucion } from '@/lib/sgsi/consolidado';
+import { normalizarNombreNivel } from '@/lib/sig/nombre-nivel';
 import {
   CATALOGOS_CURABLES,
   esCreable,
@@ -271,7 +272,11 @@ async function idDeNivel3(
   n2: string,
   n3: string,
 ): Promise<number | null> {
-  const nombres = [n1.trim(), n2.trim(), n3.trim()];
+  // Normalizado, no solo recortado: la caja de la celda no decide la identidad de un nivel.
+  // Con `.trim()` a secas, una plantilla que escribiera `Productos` creaba una raiz nueva
+  // junto a `PRODUCTOS` —y sin `clase`, porque este camino nunca la asigna—, que es
+  // exactamente como aparecio la quinta raiz del arbol.
+  const nombres = [n1, n2, n3].map(normalizarNombreNivel);
   if (nombres.some((n) => n === '')) return null;
 
   let padreId: number | null = null;

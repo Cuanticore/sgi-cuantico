@@ -185,6 +185,25 @@ export function areaHomonima(
   );
 }
 
+/// La banda del mapa a la que pertenece un ÁREA, por su nombre. `null` cuando el área no es
+/// un proceso del mapa.
+///
+/// Existe porque el activo lleva Área y el mapa lleva banda, y son dos catálogos distintos:
+/// diez áreas contra nueve procesos, con los prefijos cruzados —`PRY` contra `PRO`, `LEG`
+/// contra `LCO`— y «Transversal», que es área y no es proceso. El informe de riesgos agrupa
+/// por área y un comité lee por banda, así que la traducción tiene que existir en un solo
+/// lugar: dos formas de emparejarlas es como el informe y la pantalla terminan poniendo el
+/// mismo proceso en capítulos distintos.
+///
+/// Reusa la regla de `areaHomonima` —comparar sin partículas— en vez de escribir otra. Y
+/// devuelve `null` en vez de caer en «Apoyo»: inventarle una banda a un área que el mapa no
+/// declara sería que el informe afirme una clasificación que MAN-SIG-02 no respalda.
+export function bandaDelArea(nombreArea: string): TipoProceso | null {
+  const area = { id: 0, nombre: nombreArea };
+  const proceso = PROCESOS_DEL_MAPA.find((p) => areaHomonima(p, [area]) !== null);
+  return proceso?.tipo ?? null;
+}
+
 export const ETIQUETA_TIPO: Record<TipoProceso, string> = {
   ESTRATEGICO: 'Estratégico',
   MISIONAL: 'Misional',

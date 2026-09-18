@@ -16,7 +16,11 @@
 import 'dotenv/config';
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3004';
+// 3000 y no 3004: es el puerto del callback de Azure AD registrado para local, y el que
+// `NEXTAUTH_URL` declara en `.env`. Producción sigue en 3004 (Dockerfile, compose, despliegue)
+// y no depende de esto. Si los dos números se separan, el recorrido arranca un servidor en un
+// puerto y visita otro.
+const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

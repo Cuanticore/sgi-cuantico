@@ -16,6 +16,7 @@ import {
   restaurarAccion,
 } from '@/app/sgsi/acciones/plan';
 import type { EstadoAccion } from '@prisma/client';
+import type { AlcancePlan } from '@/lib/sgsi/alcance-plan';
 import PopupAccion from './PopupAccion';
 import FranjaSinPlan, { type FilaFranjaSinPlan } from './FranjaSinPlan';
 import GanttPlanes from './GanttPlanes';
@@ -48,7 +49,9 @@ export interface AccionVista {
     actual: number | null;
     objetivo: number | null;
   } | null;
-  riesgosQueMueve: number | null;
+  /// Qué mitiga el plan: el control, sus amenazas de la valoración y a cuántos riesgos y
+  /// activos llega. `null` = sin calcular, que NO es «no mitiga nada».
+  alcance: AlcancePlan | null;
   controlId: number | null;
   responsableId: number;
   apruebaId: number;
@@ -214,8 +217,10 @@ export default function PlanesTratamiento({
     return suma + Math.max(0, (a.control.objetivo ?? 0) - (a.control.actual ?? 0));
   }, 0);
 
+  // Se suman los riesgos y no los activos: cada amenaza tiene UN principal, así que ningún
+  // riesgo se cuenta dos veces. Los activos sí se solapan entre planes y sumarlos mentiría.
   const riesgosAlcanzados = alcanceCalculable
-    ? vigentes.reduce((s, a) => s + (a.riesgosQueMueve ?? 0), 0)
+    ? vigentes.reduce((s, a) => s + (a.alcance?.riesgos ?? 0), 0)
     : null;
 
   const kpis = [
@@ -382,7 +387,7 @@ export default function PlanesTratamiento({
                 <Th ancho={100}>Control</Th>
                 <Th ancho={220}>Madurez actual → objetivo</Th>
                 <Th ancho={62}>Salto</Th>
-                <Th ancho={120}>Riesgos</Th>
+                <Th ancho={150}>Qué mitiga</Th>
                 <Th ancho={150}>Responsable</Th>
                 <Th ancho={140}>Fecha objetivo</Th>
                 <Th ancho={150}>Estado</Th>
@@ -470,13 +475,7 @@ export default function PlanesTratamiento({
                       </span>
                     </Td>
                     <Td>
-                      {a.riesgosQueMueve === null ? (
-                        <span className="text-10_5 text-faint">sin calcular</span>
-                      ) : (
-                        <span className="font-mono text-11 tabular-nums text-secondary">
-                          {a.riesgosQueMueve}
-                        </span>
-                      )}
+                      <CeldaAlcance alcance={a.alcance} />
                     </Td>
                     <Td>
                       <span className="text-11_5 text-muted">{a.responsable}</span>
@@ -607,6 +606,135 @@ function BarraDoble({ control }: { control: AccionVista['control'] }) {
   );
 }
 
+/// QUÉ MITIGA EL PLAN. Va arriba del detalle, antes que el origen y el seguimiento, porque
+/// es la pregunta que trae al comité: a quién protege esto.
+///
+/// Las amenazas son las de la VALORACIÓN de las que el control es PRINCIPAL — no el catálogo
+/// entero, ni las que acompaña como complementario. Un complementario no contiene la amenaza,
+/// y listarlo haría creer que el plan la cubre. Lo decide `lib/sgsi/alcance-plan.ts`.
+function BloqueAlcance({ alcance }: { alcance: AlcancePlan | null }) {
+  const marco =
+    'mb-5 rounded-tarjeta border border-border-default bg-surface px-4 pt-3.5 pb-4';
+
+  if (alcance === null) {
+    return (
+      <section className={marco}>
+        <p className="etiqueta-campo">Qué mitiga este plan</p>
+        <p className="mt-1.5 text-11_5 text-faint">
+          Sin calcular: todavía no hay ninguna relevancia asignada en el cruce
+          control-amenaza, así que no se sabe qué contiene este control — que no es lo mismo
+          que no contener nada.
+        </p>
+      </section>
+    );
+  }
+
+  if (alcance.estado === 'sin-control') {
+    return (
+      <section className={marco}>
+        <p className="etiqueta-campo">Qué mitiga este plan</p>
+        <p className="mt-1.5 text-11_5 text-secondary">
+          Este plan no mejora ningún control, así que no contiene amenazas ni tiene madurez
+          que mover. Es el caso de transferir o aceptar: el riesgo remanente se traslada o se
+          asume, no se reduce.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className={marco}>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="etiqueta-campo">Qué mitiga este plan</p>
+        <p className="text-11_5 text-secondary">
+          <span className="font-mono font-semibold">{alcance.control?.codigo}</span>{' '}
+          {alcance.control?.nombre}
+        </p>
+      </div>
+
+      {alcance.estado === 'sin-amenazas' ? (
+        <p className="mt-2.5 rounded-campo border border-warn-border bg-warn-100 px-3 py-2 text-11_5 leading-relaxed text-warn-text">
+          Este control <strong>no es el principal de ninguna amenaza</strong> de la valoración.
+          El plan eleva su madurez, pero hoy no cierra ninguna brecha del registro de riesgos:
+          ninguna amenaza depende de él para contenerse.
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
+            <Cifra n={alcance.amenazas.length} pie="amenazas contenidas" />
+            <Cifra n={alcance.riesgos} pie="riesgos de la valoración" />
+            <Cifra n={alcance.activos} pie="activos alcanzados" />
+            {alcance.brecha !== null && <Cifra n={alcance.brecha} pie="puntos de brecha" />}
+          </div>
+
+          <ul className="mt-3 flex flex-col border-t border-hairline-faint">
+            {alcance.amenazas.map((a) => (
+              <li
+                key={a.codigo}
+                className="flex items-baseline gap-2.5 border-b border-hairline-faint py-1.5"
+              >
+                <span className="w-[46px] flex-none font-mono text-11 font-semibold text-secondary-soft">
+                  {a.codigo}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-11_5 text-secondary">{a.nombre}</span>
+                <span className="flex-none font-mono text-11 tabular-nums text-muted">
+                  {a.riesgos} {a.riesgos === 1 ? 'riesgo' : 'riesgos'} · {a.activos}{' '}
+                  {a.activos === 1 ? 'activo' : 'activos'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+/// La versión de una línea, para la columna. El detalle lo da `BloqueAlcance`.
+///
+/// «Sin calcular» y «no contiene ninguna amenaza» se dicen distinto y con color distinto:
+/// el primero es una deuda del modelo, el segundo un hecho sobre el plan. Un guion para los
+/// dos dejaría al lector sin saber cuál de las dos cosas está mirando.
+function CeldaAlcance({ alcance }: { alcance: AlcancePlan | null }) {
+  if (alcance === null) return <span className="text-10_5 text-faint">sin calcular</span>;
+  if (alcance.estado === 'sin-control') {
+    return <span className="text-10_5 text-faint">sin control</span>;
+  }
+  if (alcance.estado === 'sin-amenazas') {
+    return (
+      <span
+        className="text-10_5 font-semibold text-warn-text"
+        title="Este control no es el principal de ninguna amenaza de la valoración: el plan no cierra ninguna brecha del registro."
+      >
+        ninguna amenaza
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-11 text-secondary"
+      title={alcance.amenazas.map((a) => `${a.codigo} ${a.nombre}`).join(' · ')}
+    >
+      <span className="font-mono tabular-nums font-semibold">{alcance.amenazas.length}</span>{' '}
+      {alcance.amenazas.length === 1 ? 'amenaza' : 'amenazas'}
+      <br />
+      <span className="text-10_5 text-muted">
+        <span className="font-mono tabular-nums">{alcance.riesgos}</span> riesgos ·{' '}
+        <span className="font-mono tabular-nums">{alcance.activos}</span> activos
+      </span>
+    </span>
+  );
+}
+
+function Cifra({ n, pie }: { n: number; pie: string }) {
+  return (
+    <span className="flex flex-col">
+      <span className="cifra text-17 tabular-nums text-primary">{n}</span>
+      <span className="text-10_5 text-faint">{pie}</span>
+    </span>
+  );
+}
+
 function Detalle({
   accion,
   pendiente,
@@ -629,6 +757,8 @@ function Detalle({
 
   return (
     <section className="mt-4 rounded-tarjeta border border-border-default bg-subtle p-5">
+      <BloqueAlcance alcance={accion.alcance} />
+
       <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div>
           <p className="etiqueta-campo">Origen y justificación</p>

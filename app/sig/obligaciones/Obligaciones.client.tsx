@@ -14,7 +14,12 @@
 import { useMemo, useState } from 'react';
 import { desactivarObligacion } from '@/app/sig/acciones/tareas';
 
-export type TipoObligacion = 'LECTURA' | 'VERIFICACION' | 'CAPACITACION' | 'TAREA';
+export type TipoObligacion =
+  | 'LECTURA'
+  | 'VERIFICACION'
+  | 'CAPACITACION'
+  | 'TAREA'
+  | 'CURSO_VIRTUAL';
 
 export interface ObligacionFila {
   id: number;
@@ -31,14 +36,37 @@ export interface ObligacionFila {
 }
 
 /// Los colores del lienzo. Cada tipo el suyo: el color es lo que hace legible la lista.
-const TIPO: Record<TipoObligacion, { etiqueta: string; fondo: string; texto: string }> = {
+///
+/// El violeta del curso virtual es el mismo de la bandeja y del historial, a propósito: el
+/// colaborador ve esa tarjeta en Mi SIG y quien administra ve esta fila, y son la misma cosa.
+///
+/// Se indexa por `string` y NO por `TipoObligacion`. El tipo lo decide `TipoContenido` en la
+/// base, no esta pantalla, y un mapa tipado no impide nada en runtime: cuando REQ-SIG-24
+/// agregó `CURSO_VIRTUAL` este mapa siguió teniendo cuatro entradas y `tsc` no dijo una
+/// palabra, porque `page.tsx` entrega el tipo con un `as`. La lista maestra del numeral 8 se
+/// cayó entera en cuanto existió la primera obligación sobre un curso.
+const TIPO: Record<string, { etiqueta: string; fondo: string; texto: string }> = {
   LECTURA: { etiqueta: 'Lectura', fondo: '#e9f0fb', texto: '#12437f' },
   VERIFICACION: { etiqueta: 'Verificación', fondo: '#fff3e6', texto: '#8a4407' },
   CAPACITACION: { etiqueta: 'Capacitación', fondo: '#e8f4ef', texto: '#0b5c44' },
   TAREA: { etiqueta: 'Tarea', fondo: '#f5f7f6', texto: '#4a544f' },
+  CURSO_VIRTUAL: { etiqueta: 'Curso Virtual', fondo: '#efeafc', texto: '#4a2f9b' },
 };
 
-const ORDEN_TIPOS: TipoObligacion[] = ['LECTURA', 'VERIFICACION', 'CAPACITACION', 'TAREA'];
+/// Un tipo que esta pantalla no conoce se dibuja crudo, en gris, y no tumba nada. Queda
+/// feo y se ve —que es justo lo que hace que alguien lo corrija—, pero quien administra
+/// las obligaciones conserva su pantalla.
+function chipDeTipo(tipo: string): { etiqueta: string; fondo: string; texto: string } {
+  return TIPO[tipo] ?? { etiqueta: tipo, fondo: '#f5f7f6', texto: '#4a544f' };
+}
+
+const ORDEN_TIPOS: TipoObligacion[] = [
+  'LECTURA',
+  'VERIFICACION',
+  'CAPACITACION',
+  'CURSO_VIRTUAL',
+  'TAREA',
+];
 
 /// Pliega caja y acentos. Buscar «capacitacion» tiene que encontrar «Capacitación»: quien
 /// escribe en el buscador de una lista de 31 filas no va a poner las tildes.
@@ -92,7 +120,7 @@ export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] 
                 fontWeight: activo ? 600 : 500,
               }}
             >
-              {t === 'TODOS' ? 'Todos' : TIPO[t].etiqueta}
+              {t === 'TODOS' ? 'Todos' : chipDeTipo(t).etiqueta}
               <span className="font-mono text-10 opacity-75">{conteo}</span>
             </button>
           );
@@ -153,12 +181,7 @@ export default function ObligacionesClient({ filas }: { filas: ObligacionFila[] 
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span
-                    className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 uppercase"
-                    style={{ background: TIPO[o.tipo].fondo, color: TIPO[o.tipo].texto }}
-                  >
-                    {TIPO[o.tipo].etiqueta}
-                  </span>
+                  <ChipTipo tipo={o.tipo} />
                 </td>
                 <td className="px-4 py-3 text-secondary-soft">{o.alcance}</td>
                 <td className="px-4 py-3 text-secondary-soft">{o.periodicidad}</td>
@@ -281,6 +304,18 @@ function PanelDesactivar({
         </div>
       </div>
     </div>
+  );
+}
+
+function ChipTipo({ tipo }: { tipo: TipoObligacion }) {
+  const { etiqueta, fondo, texto } = chipDeTipo(tipo);
+  return (
+    <span
+      className="rounded-[4px] px-2 py-0.5 font-mono text-9_5 uppercase"
+      style={{ background: fondo, color: texto }}
+    >
+      {etiqueta}
+    </span>
   );
 }
 

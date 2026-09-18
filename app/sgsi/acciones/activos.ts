@@ -204,9 +204,11 @@ export interface DatosGenerales {
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
 }
 
-/// Saves the sheet's general data. The code is never among the editable fields: it is
-/// immutable and non-reusable, and changing the asset's area or type does NOT change it —
-/// that change goes to the log instead.
+/// Saves the sheet's general data. The code is never among the EDITABLE fields — nobody
+/// types one — but it is not frozen either: changing the asset's area or type changes what
+/// the code says, so this action re-issues it and logs the old → new link. See the header
+/// of `lib/sgsi/codigo-activo.ts` for why, and for what that obliges in the same
+/// transaction. The number left behind is retired and never reassigned.
 export async function guardarDatosGenerales(
   codigoActivo: string,
   datos: DatosGenerales,
@@ -674,7 +676,9 @@ export async function crearActivo(
 
     return {
       ok: true,
-      mensaje: `Se creó el activo ${creado}. El código es inmutable y no se reutiliza.${conRiesgos}`,
+      // «No se reutiliza» sigue siendo cierto y es lo que importa acá. «Inmutable» dejó de
+      // serlo: mover el activo de proceso o de tipo reemite el código.
+      mensaje: `Se creó el activo ${creado}. El número no se reutiliza.${conRiesgos}`,
       cambios: 1,
       codigo: creado,
     };

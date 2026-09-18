@@ -149,6 +149,7 @@ describe('construirResolverDeuda — el ResolverDeudaPlan que analisis-riesgos.t
     const resolver = construirResolverDeuda([
       {
         activa: true,
+        controlCodigo: null,
         origen: formatearOrigen('R-0123', 'TEC-GEN-0004', 'A.24', 'Residual crítico'),
       },
     ]);
@@ -164,6 +165,7 @@ describe('construirResolverDeuda — el ResolverDeudaPlan que analisis-riesgos.t
     const resolver = construirResolverDeuda([
       {
         activa: false,
+        controlCodigo: null,
         origen: formatearOrigen('R-0123', 'TEC-GEN-0004', 'A.24', 'Residual crítico'),
       },
     ]);
@@ -172,7 +174,7 @@ describe('construirResolverDeuda — el ResolverDeudaPlan que analisis-riesgos.t
 
   it('un origen sin el prefijo verificable (legado, "Agregada desde Controles…") no cubre nada', () => {
     const resolver = construirResolverDeuda([
-      { activa: true, origen: 'Agregada desde Controles y madurez. El control está en L2.' },
+      { activa: true, controlCodigo: null, origen: 'Agregada desde Controles y madurez. El control está en L2.' },
     ]);
     expect(resolver({ activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'A.24' })).toBe(false);
   });
@@ -182,17 +184,117 @@ describe('construirResolverDeuda — el ResolverDeudaPlan que analisis-riesgos.t
   // revisión/aprobador para ACEPTAR; el resolutor solo mira "¿hay un plan activo?".
   it('cubre sin importar el tipo del plan (ACEPTAR también saca al riesgo de la deuda)', () => {
     const resolver = construirResolverDeuda([
-      { activa: true, origen: formatearOrigen('R-0009', 'TEC-SER-0051', 'A.24', 'Aceptado') },
+      { activa: true, controlCodigo: null, origen: formatearOrigen('R-0009', 'TEC-SER-0051', 'A.24', 'Aceptado') },
     ]);
     expect(resolver({ activoCodigo: 'TEC-SER-0051', amenazaCodigo: 'A.24' })).toBe(true);
   });
 
   it('no coincide con otro activo ni con otra amenaza del mismo activo', () => {
     const resolver = construirResolverDeuda([
-      { activa: true, origen: formatearOrigen('R-0123', 'TEC-GEN-0004', 'A.24', 'x') },
+      { activa: true, controlCodigo: null, origen: formatearOrigen('R-0123', 'TEC-GEN-0004', 'A.24', 'x') },
     ]);
     expect(resolver({ activoCodigo: 'TEC-EQU-0003', amenazaCodigo: 'A.24' })).toBe(false);
     expect(resolver({ activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'A.11' })).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+describe('construirResolverDeuda — cobertura por el CONTROL PRINCIPAL', () => {
+  // ── POR QUÉ HACÍA FALTA UNA SEGUNDA VÍA ────────────────────────────────────────────────
+  //
+  // El plan es sobre un CONTROL (D-4), pero el prefijo de `origen` nombra UN par
+  // (activo, amenaza). Un plan sobre A.8.12 no podía cubrir los 84 riesgos cuyo principal es
+  // A.8.12: habría que escribir 84 planes idénticos, o 84 prefijos en un solo campo de texto.
+  //
+  // Medido contra el registro real (16-sep-2026): los 18 planes vigentes en producción
+  // llevan el origen en prosa, sin prefijo. Con la regla anterior el sistema afirmaba que
+  // NINGUNO de los 584 riesgos tenía plan, con 18 planes registrados y fechados.
+  //
+  // La vía nueva es la misma que ya usa la exigencia para decidir si hay brecha: si el
+  // control principal de la amenaza tiene un plan activo, esa brecha está siendo atendida.
+  // No hay texto que mantener y no hay nada que reescribir cuando se reemite el código de un
+  // activo — que es justamente lo que hoy hay que hacer a mano.
+  const PLAN_SOBRE_A812 = {
+    activa: true,
+    controlCodigo: 'A.8.12',
+    origen: 'Las políticas de Purview están activas pero sin afinar ni medir.',
+  };
+
+  it('un plan sobre el control principal cubre el riesgo, aunque el origen sea prosa', () => {
+    const resolver = construirResolverDeuda([PLAN_SOBRE_A812]);
+    expect(
+      resolver({
+        activoCodigo: 'TEC-GEN-0004',
+        amenazaCodigo: 'E.14',
+        principalCodigo: 'A.8.12',
+      }),
+    ).toBe(true);
+  });
+
+  it('un plan sobre un control que NO es el principal de esa amenaza no la cubre', () => {
+    // Que A.8.12 mejore no dice nada sobre una amenaza que contiene otro control. Cubrir por
+    // «el plan toca algún control de la amenaza» convertiría cualquier plan en una coartada.
+    const resolver = construirResolverDeuda([PLAN_SOBRE_A812]);
+    expect(
+      resolver({
+        activoCodigo: 'TEC-GEN-0004',
+        amenazaCodigo: 'A.24',
+        principalCodigo: 'A.5.29',
+      }),
+    ).toBe(false);
+  });
+
+  it('sin principal designado, la vía del control no aplica y sólo vale el prefijo', () => {
+    // Una amenaza sin principal no tiene brecha evaluable; darla por cubierta porque existe
+    // algún plan sería el tablero que afirma con precisión que no falta nada.
+    const resolver = construirResolverDeuda([PLAN_SOBRE_A812]);
+    expect(resolver({ activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'E.14' })).toBe(false);
+    expect(
+      resolver({ activoCodigo: 'TEC-GEN-0004', amenazaCodigo: 'E.14', principalCodigo: null }),
+    ).toBe(false);
+  });
+
+  it('un plan dado de baja no cubre por control, igual que no cubre por origen', () => {
+    const resolver = construirResolverDeuda([{ ...PLAN_SOBRE_A812, activa: false }]);
+    expect(
+      resolver({
+        activoCodigo: 'TEC-GEN-0004',
+        amenazaCodigo: 'E.14',
+        principalCodigo: 'A.8.12',
+      }),
+    ).toBe(false);
+  });
+
+  it('un plan sin control —un ACEPTAR, por ejemplo— no cubre por esta vía', () => {
+    // `controlId` sólo es obligatorio cuando el tipo es MITIGAR. Un plan sin control no puede
+    // decir qué brecha cierra, y hacerlo cubrir «lo que sea» sería inventar el dato.
+    const resolver = construirResolverDeuda([
+      { activa: true, controlCodigo: null, origen: 'Aceptación formal del riesgo remanente.' },
+    ]);
+    expect(
+      resolver({
+        activoCodigo: 'TEC-GEN-0004',
+        amenazaCodigo: 'E.14',
+        principalCodigo: 'A.8.12',
+      }),
+    ).toBe(false);
+  });
+
+  it('las dos vías conviven: el prefijo sigue cubriendo aunque el control no coincida', () => {
+    const resolver = construirResolverDeuda([
+      {
+        activa: true,
+        controlCodigo: 'A.5.1',
+        origen: formatearOrigen('R-0123', 'TEC-GEN-0004', 'A.24', 'Aceptado por el comité'),
+      },
+    ]);
+    expect(
+      resolver({
+        activoCodigo: 'TEC-GEN-0004',
+        amenazaCodigo: 'A.24',
+        principalCodigo: 'A.5.29',
+      }),
+    ).toBe(true);
   });
 });
 
@@ -251,6 +353,9 @@ describe('activosSinPlan — las filas nombradas de la franja (tarea 4.17)', () 
       activoNombre: `Nombre ${activoCodigo}`,
       amenazaCodigo,
       amenazaNombre: `Amenaza ${amenazaCodigo}`,
+      // Sin principal designado: estos casos prueban la antigüedad y el orden de la cola,
+      // no la cobertura, y dejar un principal acá los cubriría a todos por esa vía.
+      principalCodigo: null,
       calculos: [{ calculadoEn: dia(desdeQueEsCritico), riesgoResidual: '30' }],
     };
   }
@@ -277,7 +382,7 @@ describe('activosSinPlan — las filas nombradas de la franja (tarea 4.17)', () 
       [riesgo('TEC-GEN-0004', 'A.24', 14)],
       BANDAS,
       construirResolverDeuda([
-        { activa: true, origen: formatearOrigen('R-1', 'TEC-GEN-0004', 'A.24', 'x') },
+        { activa: true, controlCodigo: null, origen: formatearOrigen('R-1', 'TEC-GEN-0004', 'A.24', 'x') },
       ]),
       '15 días',
       AHORA,
@@ -316,6 +421,7 @@ describe('activosSinPlan — las filas nombradas de la franja (tarea 4.17)', () 
           activoCodigo: 'TEC-GEN-0004',
           activoNombre: 'x',
           amenazaCodigo: 'A.24',
+          principalCodigo: null,
           amenazaNombre: 'x',
           calculos: [{ calculadoEn: dia(15), riesgoResidual: '5' }], // Medio, no Crítico
         },

@@ -45,6 +45,24 @@ ENV PORT=3004
 ENV HOSTNAME=0.0.0.0
 
 RUN apk add --no-cache openssl libc6-compat
+
+# Chromium, para `lib/pdf.ts` (el acta de aprobación del riesgo residual).
+#
+# Va en el RUNNER y no sólo en el builder: el PDF se genera en tiempo de ejecución, cada vez
+# que alguien emite un acta.
+#
+# Es el paquete del sistema y NO el que descarga `puppeteer`. Ese viene enlazado contra glibc
+# y en Alpine no arranca — y falla al ejecutarse, no al instalarse, así que el error aparecería
+# la primera vez que alguien pida un acta en producción, no en el build. De ahí `puppeteer-core`
+# en package.json y esta línea acá.
+#
+# Cuesta unos 300 MB de imagen. No hay forma más barata: la alternativa era imprimir el acta
+# desde el navegador de quien la genera, y entonces el documento que se archiva no sería el
+# que el servidor produjo.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
