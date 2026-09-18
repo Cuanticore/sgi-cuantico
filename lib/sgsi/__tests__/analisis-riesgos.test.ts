@@ -81,6 +81,30 @@ function activo(p: Partial<ActivoAnalizable> = {}): ActivoAnalizable {
   };
 }
 
+// Recomendación del auditor (18/09/2026): el valor del activo es `max(D, I, C)`, y esa
+// agregación borra CUÁL dimensión lo puso ahí. Dos activos en valor 5 —uno por
+// disponibilidad, otro por confidencialidad— exigen controles distintos, y la grilla los
+// mostraba idénticos.
+describe('la fila conserva el valor por dimensión, no sólo el máximo', () => {
+  it('lleva D, I y C tal como vienen del activo', () => {
+    const [fila] = filasAnalisis(
+      { activos: [activo({ valor: 5, valores: { D: 5, I: 2, C: 3 } })], bandas: BANDAS, umbral: 4 },
+      FILTROS_ANALISIS_VACIOS,
+    );
+    expect(fila.valores).toEqual({ D: 5, I: 2, C: 3 });
+  });
+
+  // El máximo tiene que seguir saliendo del activo y no recalcularse acá: `valorActivo` de
+  // `formulas.ts` es su único dueño, y una segunda cuenta es como las dos se separan.
+  it('el valor agregado sigue siendo el que trae el activo', () => {
+    const [fila] = filasAnalisis(
+      { activos: [activo({ valor: 5, valores: { D: 5, I: 2, C: 3 } })], bandas: BANDAS, umbral: 4 },
+      FILTROS_ANALISIS_VACIOS,
+    );
+    expect(fila.valor).toBe(5);
+  });
+});
+
 /// Construye los 299 activos de la distribución V19 (§2 del handoff): 3 en valor 5, 34 en
 /// valor 4, 244 en valor 3, 18 en valor 2. Los de valor 3 y 2 no entran al análisis (umbral
 /// 4) y no llevan riesgos, igual que un activo bajo el umbral no los genera (P1).

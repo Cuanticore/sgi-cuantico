@@ -172,6 +172,41 @@ describe('El renglón se pinta por la MAGNITUD del residual', () => {
   });
 });
 
+describe('El valor por dimensión no se pierde detrás del máximo', () => {
+  // Recomendación del auditor (18/09/2026). Dos activos en valor 5 —uno por disponibilidad,
+  // otro por confidencialidad— exigen controles distintos, y la grilla los mostraba iguales.
+  const porConfidencialidad = activo({
+    codigo: 'LCO-DAT-0009',
+    valor: 5,
+    valores: { D: 2, I: 3, C: 5 },
+  });
+
+  it('muestra una columna por dimensión, además del valor', () => {
+    pintarGrilla([porConfidencialidad]);
+    // Los encabezados llevan el nombre completo; la columna sólo tiene ancho para la letra.
+    expect(screen.getByRole('columnheader', { name: /disponibilidad/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /integridad/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /confidencialidad/i })).toBeInTheDocument();
+  });
+
+  it('cada dimensión muestra su propio valor', () => {
+    pintarGrilla([porConfidencialidad]);
+    const fila = renglonDe('LCO-DAT-0009');
+    expect(within(fila).getByLabelText(/^Disponibilidad/)).toHaveTextContent('2');
+    expect(within(fila).getByLabelText(/^Integridad/)).toHaveTextContent('3');
+    expect(within(fila).getByLabelText(/^Confidencialidad/)).toHaveTextContent('5');
+  });
+
+  // La que de verdad importa: el máximo y las tres dimensiones tienen que contar la misma
+  // historia. Si el agregado dijera 5 y ninguna dimensión llegara a 5, una de las dos miente.
+  it('el valor agregado coincide con la mayor de las tres dimensiones', () => {
+    pintarGrilla([porConfidencialidad]);
+    const fila = renglonDe('LCO-DAT-0009');
+    expect(within(fila).getByLabelText(/^Valor del activo/)).toHaveTextContent('5');
+    expect(within(fila).getByLabelText(/^Confidencialidad/)).toHaveTextContent('5');
+  });
+});
+
 describe('Registrar un plan se puede desde cualquier activo de la grilla', () => {
   it('ofrece «+ plan» también en el activo que no requiere plan', () => {
     pintarGrilla();

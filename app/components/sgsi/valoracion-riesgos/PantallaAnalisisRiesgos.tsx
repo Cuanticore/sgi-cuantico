@@ -302,6 +302,20 @@ export default function PantallaAnalisisRiesgos({
                   <th className="etiqueta-campo py-1.5 pr-3 text-left">Código</th>
                   <th className="etiqueta-campo py-1.5 pr-3 text-left">Nombre</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-center">Valor</th>
+                  {/* Una columna por dimensión, además del máximo. El encabezado lleva la
+                      letra —no hay ancho para más— y el nombre completo va en el accesible,
+                      que es también lo que un lector de pantalla anuncia. */}
+                  {DIMENSIONES.map((d) => (
+                    <th
+                      key={d.codigo}
+                      scope="col"
+                      aria-label={d.nombre}
+                      title={d.nombre}
+                      className="etiqueta-campo px-1 py-1.5 text-center"
+                    >
+                      {d.codigo}
+                    </th>
+                  ))}
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Criticidad</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Proceso</th>
                   <th className="etiqueta-campo px-2 py-1.5 text-left">Propietario</th>
@@ -338,12 +352,34 @@ export default function PantallaAnalisisRiesgos({
                     <td className="py-1.5 pr-3 text-secondary">{f.nombre}</td>
                     <td className="px-2 py-1.5 text-center">
                       <span
+                        aria-label={`Valor del activo ${f.codigo}`}
+                        title={`Valor del activo: max(D, I, C) = ${f.valor}`}
                         className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-[4px] px-1.5 font-mono text-11 font-semibold tabular-nums text-white"
                         style={{ background: colorDeNivelValor(f.valor) }}
                       >
                         {f.valor}
                       </span>
                     </td>
+                    {/* Las tres dimensiones, sin badge de color: el color es del AGREGADO y
+                        repetirlo cuatro veces convierte la fila en un semáforo ilegible. La
+                        que empata con el máximo va en negrita, que es la pregunta real —
+                        «¿qué dimensión puso a este activo donde está?». */}
+                    {DIMENSIONES.map((d) => {
+                      const v = f.valores[d.codigo];
+                      return (
+                        <td key={d.codigo} className="px-1 py-1.5 text-center">
+                          <span
+                            aria-label={`${d.nombre} de ${f.codigo}`}
+                            title={`${d.nombre}: ${v}`}
+                            className={`font-mono text-11_5 tabular-nums ${
+                              v === f.valor ? 'font-bold text-primary' : 'text-secondary'
+                            }`}
+                          >
+                            {v}
+                          </span>
+                        </td>
+                      );
+                    })}
                     <td className="px-2 py-1.5">
                       {f.criticidad === null ? (
                         <span className="text-faint">sin clasificar</span>
@@ -453,6 +489,22 @@ function Encabezado({
     </header>
   );
 }
+
+/// Las tres dimensiones activas del modelo, en el orden de MAGERIT y del catálogo.
+///
+/// El orden es D · I · C y no el que se pida en una conversación suelta: es el mismo de
+/// `ValoresDimension`, el de la ficha del activo y el del seed (`orden` 1, 2, 3). Cuatro
+/// pantallas que muestran las mismas tres letras en órdenes distintos se leen mal justo
+/// cuando hay que comparar dos activos.
+///
+/// A y T están modeladas e inactivas en el catálogo; el día que se activen, esto deja de
+/// poder ser una constante y pasa a leerse de `Dimension` — igual que `valorMaximo` ya
+/// itera las activas en vez de tres constantes.
+const DIMENSIONES = [
+  { codigo: 'D', nombre: 'Disponibilidad' },
+  { codigo: 'I', nombre: 'Integridad' },
+  { codigo: 'C', nombre: 'Confidencialidad' },
+] as const;
 
 /// Las bandas cuyo residual pinta el renglón.
 ///

@@ -181,7 +181,17 @@ export type EstadoPlanActivo = 'no-requiere' | 'con-plan' | 'pendiente' | 'sin-d
 export interface FilaAnalisis {
   codigo: string;
   nombre: string;
+  /// `max(D, I, C)`, tal como lo trae el activo. **No se recalcula acá**: `valorActivo` de
+  /// `formulas.ts` es su único dueño, y una segunda cuenta es como las dos se separan.
   valor: number;
+  /// Los tres valores por dimensión, además del máximo. Se propagan tal cual desde
+  /// `ActivoAnalizable.valores` — ver allá por qué el máximo no alcanza.
+  ///
+  /// Llegan hasta la FILA, y no sólo hasta el motor de exigencia, por recomendación del
+  /// auditor (18/09/2026): la grilla mostraba dos activos en valor 5 como idénticos cuando
+  /// uno lo es por disponibilidad y el otro por confidencialidad, que exigen controles
+  /// distintos.
+  valores: { D: number; I: number; C: number };
   criticidad: string | null;
   proceso: string;
   propietario: string | null;
@@ -397,6 +407,7 @@ function filaDe(
     codigo: a.codigo,
     nombre: a.nombre,
     valor: a.valor,
+    valores: a.valores,
     criticidad: a.criticidad,
     proceso: a.proceso,
     propietario: a.propietario,
