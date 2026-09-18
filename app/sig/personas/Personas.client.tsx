@@ -4,24 +4,17 @@ import Link from 'next/link';
 
 // app/sig/personas/Personas.client.tsx
 //
-// Tabla del censo con chips Activas/Inactivas/Todas, el botón de sincronizar (A1) y el
-// panel de reasignación de una persona inactiva (R9): sus pendientes se listan y se
-// reasignan, nunca se cierran solas.
+// Tabla del censo con chips Activas/Inactivas/Todas y el botón de sincronizar (A1). Cada
+// fila abre el popup de la persona: el nombre en Datos base, y el botón de la columna
+// Pendientes en la pestaña que lista lo que tiene abierto.
 
 import { useState } from 'react';
 import { sincronizarDirectorio } from '@/app/sig/acciones/personas';
-import { reasignarPendientesDe } from '@/app/sig/acciones/tareas';
 import type { RolDeclarado } from '@/lib/sgsi/permisos';
-import PopupPersona, { type CatalogosDelPopup } from './PopupPersona';
-
-/// Una asignación abierta de la persona, para listarla antes de moverla.
-export interface AsignacionAbierta {
-  id: number;
-  codigo: string;
-  titulo: string;
-  fechaLimite: string;
-  vencida: boolean;
-}
+import PopupPersona, {
+  type CatalogosDelPopup,
+  type SeccionDelPopup,
+} from './PopupPersona';
 
 export interface PersonaFila {
   id: number;
@@ -32,9 +25,13 @@ export interface PersonaFila {
   activa: boolean;
   sincronizadaEn: string | null;
   /// Pendientes ABIERTOS. Las vencidas son un subconjunto, no el total.
+  ///
+  /// **Son los dos NÚMEROS, no la lista.** El arreglo de asignaciones abiertas viajaba acá
+  /// dentro —91 veces, una por fila del censo— para alimentar un panel que se mira de a una
+  /// persona. Ahora la lista la pide `pendientesDePersona` al abrir la pestaña; estos dos
+  /// números se quedan porque son la columna y se miran siempre.
   pendientes: number;
   vencidas: number;
-  abiertas: AsignacionAbierta[];
   /// Derivado del Directorio al leer, nunca guardado. `DESCONOCIDO` no es Colaborador.
   rol: RolDeclarado;
   /// REQ-SIG-12 · los activos `[P] Personal` que esta cuenta ENCARNA — de los que la
@@ -127,7 +124,14 @@ export default function PersonasClient({
   // La persona ABIERTA, que ya no es lo mismo que «la que se está reasignando»: el lienzo
   // hace de cada fila un botón, así que se abre también a quien no tiene nada que mover.
   const [elegida, setElegida] = useState<PersonaFila | null>(null);
-  const [destino, setDestino] = useState('');
+  // En qué pestaña abre el popup. El nombre abre en Datos base —se vino a editar—; el botón
+  // de la columna abre en Pendientes, que es lo que se vino a ver.
+  const [seccionInicial, setSeccionInicial] = useState<SeccionDelPopup>('base');
+
+  const abrir = (p: PersonaFila, seccion: SeccionDelPopup) => {
+    setSeccionInicial(seccion);
+    setElegida(p);
+  };
 
   const visibles = filas.filter((f) =>
     filtro === 'todas' ? true : filtro === 'activas' ? f.activa : !f.activa,
@@ -157,29 +161,6 @@ export default function PersonasClient({
     // Directorio que quedó afuera y alguien tiene que decidir qué hacer con cada una:
     // recargar a los 900 ms se llevaría por delante la única vez que eso se dice.
     if (r.conflictos.length === 0) setTimeout(() => window.location.reload(), 900);
-  }
-
-  async function reasignar() {
-    if (!elegida) return;
-    setError(null);
-    setMensaje(null);
-    // `reasignando.id` es el id de la PERSONA, y esta acción es la que espera eso. Antes se
-    // llamaba a `reasignarAsignacion`, que recibe el id de una ASIGNACIÓN: con ese número
-    // movía la tarea de un tercero sin relación con nadie de este panel.
-    const r = await reasignarPendientesDe(
-      elegida.id,
-      Number(destino),
-      elegida.activa
-        ? `reasignación de la carga abierta de ${elegida.nombre}`
-        : `reasignación por inactivación de ${elegida.nombre}`,
-    );
-    if (r.ok) {
-      setMensaje(r.mensaje);
-      setElegida(null);
-      setDestino('');
-    } else {
-      setError(r.mensaje);
-    }
   }
 
   return (
@@ -336,7 +317,7 @@ export default function PersonasClient({
                     hay que revisar— no se podía abrir: la celda caía en un `<span>` muerto.
                   */}
                   <button
-                    onClick={() => setElegida(p)}
+                    onClick={() => abrir(p, 'base')}
                     className="flex w-full items-center gap-2.5 text-left focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                   >
                     <span
@@ -433,28 +414,39 @@ export default function PersonasClient({
                 </td>
                 <td className="px-4 py-3 text-right">
                   {p.pendientes > 0 ? (
+                    // **Rotulado y con borde.** Era un número monoespaciado suelto: un botón
+                    // que no parece un botón. Y aterrizaba en Datos base, donde la lista
+                    // estaba al final de un formulario de edición; ahora abre la pestaña que
+                    // contesta la pregunta que se vino a hacer.
                     <button
-                      onClick={() => setElegida(p)}
-                      className="font-mono text-11 font-semibold"
+                      onClick={() => abrir(p, 'pendientes')}
+                      className="rounded-campo border px-2.5 py-1 text-11 font-semibold"
                       // Rojo solo si hay vencidas. Antes la columna contaba únicamente
                       // vencidas, así que todo número era rojo por construcción; ahora
                       // cuenta lo abierto y pintarlo todo de rojo diría que todo urge.
                       style={{
                         color:
                           p.vencidas > 0 ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
+                        borderColor:
+                          p.vencidas > 0 ? 'var(--hf-danger-text)' : 'var(--hf-border-field)',
+                        background: 'var(--hf-bg-surface)',
                       }}
                       title={
                         p.vencidas > 0
-                          ? `${p.pendientes} abierta(s), ${p.vencidas} vencida(s) — reasignar`
-                          : `${p.pendientes} abierta(s) en plazo — reasignar`
+                          ? `${p.pendientes} abierta(s), ${p.vencidas} vencida(s) — ver`
+                          : `${p.pendientes} abierta(s) en plazo — ver`
                       }
                     >
-                      {p.pendientes}
+                      <span className="font-mono">{p.pendientes}</span>
                       {p.vencidas > 0 && (
-                        <span className="text-9_5"> ({p.vencidas} venc.)</span>
+                        <span className="font-mono text-9_5"> ({p.vencidas} venc.)</span>
                       )}
+                      <span className="ml-1.5 font-sans font-medium">Ver pendientes</span>
                     </button>
                   ) : (
+                    // Con cero no hay botón: abriría una lista vacía, que es una promesa
+                    // incumplida. La fila entera sigue abriendo a la persona desde su nombre,
+                    // que es el camino para la desvinculada sin carga.
                     <span className="font-mono text-11 text-muted">0</span>
                   )}
                 </td>
@@ -464,120 +456,27 @@ export default function PersonasClient({
         </table>
       </div>
 
-      {/* REQ-SIG-15 §3 · la fila abre el POPUP, y el panel de reasignación pasa a ser el pie
-          de su pestaña de datos base. Antes eran dos superficies para la misma persona: una
-          para mover pendientes y ninguna para editar el área, que es el campo del que
-          dependía que las obligaciones por área generaran algo. */}
+      {/* REQ-SIG-15 §3 · la fila abre el POPUP. El panel de reasignación era el pie de su
+          pestaña de datos base, y desde hoy vive en la pestaña **Pendientes**, junto a la
+          lista que mueve y a los otros dos verbos que se ejercen sobre ella.
+
+          Se MUDÓ, no se duplicó: dos listas de lo mismo alimentadas por dos consultas es la
+          cicatriz del `rowCount` que HARNESS.md documenta. Y con eso este archivo dejó de
+          armar un `ReactNode` de noventa líneas para pasárselo al popup. */}
       {elegida && (
         <PopupPersona
           persona={elegida}
           catalogos={catalogos}
           administra={administra}
           bloqueoDisponible={bloqueoDisponible}
+          seccionInicial={seccionInicial}
+          // Las personas activas a las que se puede traspasar. Se arman acá porque el censo
+          // entero ya está en memoria: pedirlas de nuevo desde el popup sería un viaje al
+          // servidor por una lista que ya viajó.
+          destinos={filas
+            .filter((f) => f.activa && f.id !== elegida.id)
+            .map((f) => ({ id: f.id, nombre: f.nombre }))}
           onCerrar={() => setElegida(null)}
-          pieDeDatosBase={
-            <div className="flex flex-col gap-3">
-              {/* El eyebrow del lienzo nombra la situación antes que a la persona: quien abre
-                  esto necesita saber en un renglón por qué está acá. */}
-              <div className="flex flex-col gap-1">
-                <span
-                  className="etiqueta-campo"
-                  style={{
-                    color: !elegida.activa && elegida.pendientes > 0
-                      ? 'var(--hf-danger-text)'
-                      : 'var(--hf-text-label)',
-                  }}
-                >
-                  {eyebrow(elegida)}
-                </span>
-                <h2 className="text-13 font-semibold text-primary">
-                  {elegida.activa
-                    ? `Carga abierta de ${elegida.nombre}`
-                    : `${elegida.nombre} ya no figura en el Directorio`}
-                </h2>
-              </div>
-            <p className="text-12_5 text-muted">
-              {elegida.pendientes === 0
-                ? // Cero abiertas no es lo mismo que «nada que hacer acá»: se dice que no
-                  // hay nada que mover, en vez de ofrecer una reasignación vacía.
-                  'No tiene asignaciones abiertas: no hay nada que reasignar.'
-                : elegida.activa
-                  ? 'Estas asignaciones pasan completas a otra persona, con motivo en bitácora.'
-                  : 'Sus pendientes siguen exigibles y hay que reasignarlas. No se cierran solas (R9).'}
-              {elegida.vencidas > 0 && (
-                <>
-                  {' '}
-                  <strong style={{ color: 'var(--hf-danger-text)' }}>
-                    {elegida.vencidas} vencida(s).
-                  </strong>
-                </>
-              )}
-            </p>
-
-            {elegida.pendientes > 0 && (
-              <>
-              {/* Se listan una por una: mover «3 pendientes» sin decir cuáles obliga a salir
-                  de la pantalla para saber qué se está reasignando. */}
-              <ul className="flex max-h-[210px] flex-col gap-1 overflow-y-auto rounded-campo border border-border-field p-2">
-                {elegida.abiertas.map((a) => (
-                  <li key={a.id} className="flex items-baseline justify-between gap-3 px-1 py-1">
-                    <span className="min-w-0 text-12_5 text-primary">
-                      <span className="font-mono text-11 text-muted">{a.codigo}</span>{' '}
-                      {a.titulo}
-                    </span>
-                    <span
-                      className="shrink-0 font-mono text-10_5"
-                      style={{
-                        color: a.vencida ? 'var(--hf-danger-text)' : 'var(--hf-text-secondary)',
-                      }}
-                    >
-                      {a.fechaLimite.slice(0, 10)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <label className="flex flex-col gap-1">
-                <span className="etiqueta-campo">Reasignar a</span>
-                <select
-                  value={destino}
-                  onChange={(e) => setDestino(e.target.value)}
-                  className="rounded-campo border border-border-field bg-surface px-3 py-2 text-13"
-                >
-                  <option value="">Seleccionar persona activa</option>
-                  {filas
-                    .filter((f) => f.activa && f.id !== elegida.id)
-                    .map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.nombre}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              </>
-            )}
-            {elegida.pendientes > 0 && (
-              <div className="flex justify-end">
-                <button
-                  onClick={reasignar}
-                  disabled={!destino}
-                  className="rounded-campo px-4 py-2 text-12_5 font-semibold text-white disabled:opacity-50"
-                  style={{ background: 'var(--hf-danger-text)' }}
-                >
-                  {/* Dice cuántas porque las mueve TODAS, en una transacción. Un «Reasignar»
-                      suelto al lado de una lista no dice si mueve una o las seis. */}
-                  {elegida.pendientes === 1
-                    ? 'Reasignar la pendiente'
-                    : `Reasignar las ${elegida.pendientes}`}
-                </button>
-              </div>
-            )}
-            {mensaje && (
-              <p className="text-12" style={{ color: 'var(--hf-accent-700)' }}>
-                {mensaje}
-              </p>
-            )}
-            </div>
-          }
         />
       )}
     </main>

@@ -1,8 +1,11 @@
 # Personas · pendientes, asignar, exportar y formación · diseño
 
-**Fecha:** 2026-09-18 · **Estado:** propuesta, pendiente de revisión
+**Fecha:** 2026-09-18 · **Estado:** **implementado**, con dos verificaciones pendientes
 **Revisión 2 (18/09/2026):** entran «Asignar» y «Exportar»; A-1 queda resuelto por decisión
 de Daniel Medina —la puerta por rol a `Líderes SIG` alcanza—.
+**Revisión 3 (18/09/2026):** construido. Ver
+[Estado de la implementación](#estado-de-la-implementación) para qué quedó verificado y qué
+no, y para las tres desviaciones entre esta spec y el código.
 **Pantalla:** `/sig/personas` (y `/sig/colaboradores`, que usa el mismo censo y el mismo popup)
 
 ---
@@ -726,6 +729,81 @@ despliegue del 16/09/2026.
 | **A-6** | **Op-2**: el índice único de `asignacion` pasa a parcial. Es condición para que «Asignar» exista. | Sin Op-2 no hay «Asignar» construible sin ensuciar `periodo`, y los dos defectos de `metricas.ts` y `hallazgos.ts` siguen abiertos. Si Op-2 se rechaza, hay que decidir cuál de las dos cosas se cede. |
 | **A-7** | «Asignar» es asignarle a **esta** persona, desde su popup. | Si lo que se quiere es asignar en lote —el mismo curso a doce personas—, eso no es una pestaña: es una pantalla, y probablemente la inversa que ya está anotada abajo. |
 | **A-8** | «Exportar» son los **pendientes**. | Si se esperaba exportar el censo completo —personas con área, cargo y rol— es otra hoja y otras columnas, y conviene decidirlo ahora porque la ruta se escribe una sola vez. |
+
+---
+
+## Estado de la implementación
+
+Construido el 18/09/2026. Los cuatro checks de la Regla 2 en verde: `tsc` 0 errores, ESLint 0
+errores (los 5 warnings preexistentes), **2581 pruebas en 145 suites**, y el build compila con
+`/api/sig/exportar-pendientes` registrada.
+
+### Lo que se verificó, y cómo
+
+| Pieza | Prueba | Estado |
+|---|---|---|
+| Reglas del avance y la frontera de formación | `lib/sig/__tests__/formacion.test.ts` | **19 casos, verde**. Se vieron 14 en rojo por aserción contra un esqueleto antes de escribir el módulo. |
+| Validación de la asignación manual | `lib/sig/__tests__/asignacion-manual.test.ts` | **12 casos, verde**. 8 vistos en rojo primero. |
+| El libro de exportación | `lib/sig/__tests__/pendientes-libro.test.ts` | **8 casos, verde**. Los 8 vistos en rojo primero. |
+| `'use server'` sin `export const` | `lib/__tests__/use-server.test.ts` | Verde; escanea el directorio y ya cubre los archivos nuevos. |
+
+### Lo que **no** se pudo verificar, y es la deuda de este cambio
+
+**1 · La migración no se aplicó ni se probó contra ninguna base.** Es lo más importante que
+queda abierto, porque es la pieza de la que depende que «Asignar» funcione.
+
+No hay base escribible alcanzable desde acá, verificado el 18/09/2026:
+
+- `localhost:15432` (producción por el túnel) está cerrado, y el rol `daniel.medina` es de
+  sólo lectura aunque estuviera abierto: no puede correr una migración.
+- `localhost:5432` responde, pero rechaza la clave del `.env` —esa es la del túnel— y crear
+  `sgi_sgsi` ahí exige el superusuario `postgres`, cuya clave no está disponible.
+- `localhost:5437` (el Postgres de `docker-compose.dev.yml`) está cerrado y Docker no corre.
+
+**Consecuencia concreta: el caso que la Regla 1 declaraba imprescindible —dos asignaciones
+manuales a la misma persona en el mismo mes— no se ejecutó.** No se vio fallar antes ni pasar
+después. La migración está escrita y razonada, pero su efecto es **teoría verificada por
+lectura**, no por ejecución. Quien la aplique tiene que correr ese caso primero, y verlo en
+rojo, antes de creerle a este documento.
+
+**2 · `e2e/personas.spec.ts` se escribió y no se corrió.** `npm run e2e` necesita el túnel.
+Los 10 pasos están, y el 4 —comparar el número de la columna contra las filas de la lista— es
+el que convierte la cicatriz del `rowCount` en algo que se comprueba solo.
+
+**3 · El recorrido a mano de asignar y reasignar tampoco se ejecutó**, por lo mismo: escriben,
+y no hay base escribible.
+
+### Tres desviaciones entre esta spec y el código
+
+Vale la regla de la casa: el código manda sobre lo que el sistema hace, la spec sobre lo que
+debería hacer. Acá los tres casos son mejoras y la spec queda corregida a lo construido.
+
+1. **`fraseSinProgreso` devuelve `string | null`, no `string`.** `null` es «no hay nada que
+   explicar» —una lectura no habla de avance en absoluto— y es distinto de una cadena vacía.
+2. **`avanceDelCurso` es el punto de entrada único**, y `progresoDeCurso` / `fraseSinProgreso`
+   quedan expuestas sólo para probarlas. El caso torcido —un curso de clase `ENLACE` con
+   intentos colgados— sólo se resuelve bien si una sola función mira las dos cosas a la vez.
+3. **No existe `pendientes-coherentes.test.ts`.** La coherencia entre el número de la columna
+   y el largo de la lista se sostiene con el predicado escrito idéntico en los tres lugares,
+   cada uno con el comentario que dice por qué no puede cambiar, y **se comprueba en el paso 4
+   del spec de punta a punta**, que mide las dos cuentas contra datos reales. Un test que
+   compare dos archivos leyendo su texto habría comprobado que dos cadenas coinciden, no que
+   dos consultas cuentan lo mismo.
+
+### Archivos
+
+Nuevos: `lib/sig/formacion.ts`, `lib/sig/asignacion-manual.ts`, `lib/sig/pendientes-libro.ts`,
+`app/sig/acciones/persona-actividad.ts`, `app/api/sig/exportar-pendientes/route.ts`,
+`app/sig/personas/PendientesPersona.tsx`, `app/sig/personas/FormacionPersona.tsx`,
+`prisma/migrations/20260918120000_asignacion_manual/`, `e2e/personas.spec.ts`, y las tres
+suites de prueba.
+
+Modificados: `censo.query.ts` (pierde `abiertas`, gana el catálogo de contenidos),
+`Personas.client.tsx` (botón rotulado, `seccionInicial`, deja de armar el pie),
+`PopupPersona.tsx` (dos pestañas, carga a nivel de popup, `SeccionDelPopup` exportado),
+`BloqueoCuenta.tsx` (recibe los pendientes por prop), `tareas.ts` (`asignarAPersona`),
+`Colaboradores.client.tsx` (`destinos` en vez de `pieDeDatosBase`), `prisma/schema.prisma`
+(la nota de que el índice es parcial en la base).
 
 ---
 

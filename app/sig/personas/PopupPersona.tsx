@@ -37,9 +37,29 @@ import type { ContactoPropuesto } from '@/lib/sig/contactos';
 import BloqueoCuenta from './BloqueoCuenta';
 import Link from 'next/link';
 import { resumenDePersona, type ResumenDePersona } from '@/app/sig/acciones/persona-resumen';
+import {
+  formacionDePersona,
+  pendientesDePersona,
+  type FilaFormacion,
+  type PendienteDePersona,
+} from '@/app/sig/acciones/persona-actividad';
 import AsociarPc from './AsociarPc';
 import LicenciasPersona from './LicenciasPersona';
+import PendientesPersona from './PendientesPersona';
+import FormacionPersona from './FormacionPersona';
 import type { PersonaFila } from './Personas.client';
+
+/// Un contenido que se le puede asignar a alguien a mano. Viaja en los catálogos —una vez por
+/// pantalla, no una por fila— porque el `select` de asignar lo necesita entero y son unas
+/// pocas decenas de filas.
+export interface ContenidoAsignable {
+  id: number;
+  codigo: string;
+  titulo: string;
+  tipo: string;
+  claseCurso: string | null;
+  notaMinima: number | null;
+}
 
 export interface CatalogosDelPopup {
   areas: { id: number; nombre: string; prefijo: string }[];
@@ -52,9 +72,23 @@ export interface CatalogosDelPopup {
     descripcion: string | null;
     derivado: boolean;
   }[];
+  contenidos: ContenidoAsignable[];
 }
 
-type Seccion = 'resumen' | 'base' | 'licencias' | 'contactos' | 'grupos' | 'cuenta';
+/// Las pestañas del popup. Se exporta porque la tabla decide en cuál abrir: el nombre lleva
+/// a Datos base y el botón de la columna a Pendientes, y esa elección tiene que ser un valor
+/// tipado y no una cadena suelta que mañana no coincida con ninguna pestaña.
+export type SeccionDelPopup =
+  | 'resumen'
+  | 'base'
+  | 'pendientes'
+  | 'formacion'
+  | 'licencias'
+  | 'contactos'
+  | 'grupos'
+  | 'cuenta';
+
+type Seccion = SeccionDelPopup;
 
 /// El estado del formulario. Cadenas y no números porque los `select` y los `input` trabajan
 /// con cadenas; la conversión ocurre una vez, al enviar.
@@ -136,7 +170,8 @@ export default function PopupPersona({
   administra,
   bloqueoDisponible,
   onCerrar,
-  pieDeDatosBase,
+  seccionInicial = 'base',
+  destinos,
 }: {
   persona: PersonaFila;
   catalogos: CatalogosDelPopup;
@@ -148,12 +183,14 @@ export default function PopupPersona({
   /// rota, y alguien va a probarlo con tres personas distintas antes de concluirlo.
   bloqueoDisponible: boolean;
   onCerrar: () => void;
-  /// El panel de reasignación de pendientes (R9), que pasa a ser el pie de esta pestaña en
-  /// vez de vivir en una superficie propia. Lo arma quien llama, porque su acción y su estado
-  /// ya viven allá.
-  pieDeDatosBase: React.ReactNode;
+  /// En qué pestaña abre. La columna Pendientes manda `'pendientes'`, porque quien aprieta
+  /// ese botón vino a ver qué le falta a alguien, no a editarle el contrato.
+  seccionInicial?: Seccion;
+  /// Las personas activas a las que se puede traspasar la carga. Las arma quien llama: ya
+  /// tiene el censo entero, y volver a pedirlo acá sería un viaje por una lista que ya viajó.
+  destinos: { id: number; nombre: string }[];
 }) {
-  const [seccion, setSeccion] = useState<Seccion>('base');
+  const [seccion, setSeccion] = useState<Seccion>(seccionInicial);
   const [f, setF] = useState<Formulario>(() => desdeLaFila(persona));
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -247,6 +284,82 @@ export default function PopupPersona({
       vigente = false;
     };
   }, [seccion, persona.id, resumen]);
+
+  // ── Los pendientes ────────────────────────────────────────────────────────────────────
+  //
+  // **Se piden a nivel del POPUP y no de la pestaña**, que es lo que los distingue de los
+  // contactos y los grupos. Los miran DOS pestañas: la de Pendientes, que es su casa, y la de
+  // Cuenta, que advierte qué carga queda abierta antes de bloquear (P22). Si se cargaran sólo
+  // al abrir Pendientes, entrar directo a Cuenta mostraría «no tiene pendientes» sobre alguien
+  // que sí tiene — que es la peor forma posible de fallar en esa pantalla.
+  //
+  // Dejaron de viajar en el censo: eran 91 arreglos completos en el payload de una pantalla
+  // donde se mira uno por vez. La columna conserva los dos números, que es lo que se mira
+  // siempre.
+  const [pendientes, setPendientes] = useState<PendienteDePersona[] | null>(null);
+  const [errorPendientes, setErrorPendientes] = useState<string | null>(null);
+  const pedidoDePendientes = useRef(false);
+
+  useEffect(() => {
+    if (seccion !== 'pendientes' && seccion !== 'cuenta') return;
+    if (!administra) return;
+    if (pendientes !== null || pedidoDePendientes.current) return;
+
+    let vigente = true;
+    pedidoDePendientes.current = true;
+    void pendientesDePersona(persona.id)
+      .then((r) => {
+        if (!vigente) return;
+        if (!r.ok || r.pendientes === null) {
+          setErrorPendientes(r.mensaje);
+          return;
+        }
+        setPendientes(r.pendientes);
+      })
+      .finally(() => {
+        pedidoDePendientes.current = false;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [seccion, administra, persona.id, pendientes]);
+
+  // ── La formación ──────────────────────────────────────────────────────────────────────
+  const [formacion, setFormacion] = useState<{
+    enCurso: FilaFormacion[];
+    realizadas: FilaFormacion[];
+    noCursadas: FilaFormacion[];
+  } | null>(null);
+  const [errorFormacion, setErrorFormacion] = useState<string | null>(null);
+  const pedidoDeFormacion = useRef(false);
+
+  useEffect(() => {
+    if (seccion !== 'formacion') return;
+    if (!administra) return;
+    if (formacion !== null || pedidoDeFormacion.current) return;
+
+    let vigente = true;
+    pedidoDeFormacion.current = true;
+    void formacionDePersona(persona.id)
+      .then((r) => {
+        if (!vigente) return;
+        if (!r.ok || r.enCurso === null || r.realizadas === null || r.noCursadas === null) {
+          setErrorFormacion(r.mensaje);
+          return;
+        }
+        setFormacion({
+          enCurso: r.enCurso,
+          realizadas: r.realizadas,
+          noCursadas: r.noCursadas,
+        });
+      })
+      .finally(() => {
+        pedidoDeFormacion.current = false;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [seccion, administra, persona.id, formacion]);
 
   // P10 · las membresías se piden al abrir la pestaña, igual que los contactos y por la misma
   // razón de fondo: no inflar el payload del censo con un dato que casi nadie mira.
@@ -368,6 +481,16 @@ export default function PopupPersona({
     // contesta de un vistazo; el contrato y los grupos están una pestaña al lado.
     { clave: 'resumen', etiqueta: 'Resumen' },
     { clave: 'base', etiqueta: 'Datos base' },
+    {
+      clave: 'pendientes',
+      etiqueta: 'Pendientes',
+      cuantos: persona.pendientes,
+      // La marca de atención se enciende con las VENCIDAS, no con las abiertas: una persona
+      // con seis tareas en plazo está normal, y pintarla igual que a una con una vencida
+      // enseña a ignorar la marca.
+      atencion: persona.vencidas > 0,
+    },
+    { clave: 'formacion', etiqueta: 'Formación' },
     { clave: 'licencias', etiqueta: 'Licencias' },
     { clave: 'contactos', etiqueta: 'Contactos' },
     {
@@ -399,7 +522,14 @@ export default function PopupPersona({
               ahí un botón habilitado prometería un cambio que no ocurre. Y Cuenta tiene su
               propio botón, con su propia confirmación: un «Guardar» genérico al lado de un
               bloqueo es exactamente el clic que P20 viene a hacer imposible. */}
-          {administra && seccion !== 'licencias' && seccion !== 'cuenta' && (
+          {administra &&
+            seccion !== 'licencias' &&
+            seccion !== 'cuenta' &&
+            // Pendientes y Formación no editan la persona: tienen sus propios botones, con
+            // sus propias confirmaciones. Un «Guardar» genérico al lado de «Asignar»
+            // prometería que guarda la asignación, y no guarda nada.
+            seccion !== 'pendientes' &&
+            seccion !== 'formacion' && (
             <button
               type="button"
               onClick={guardar}
@@ -551,10 +681,38 @@ export default function PopupPersona({
             </div>
 
             <Avisos error={error} mensaje={mensaje} frases={frases} />
-
-            {/* R9 · el panel de reasignación, ahora como pie de esta pestaña. */}
-            <div className="border-t border-hairline-strong pt-3">{pieDeDatosBase}</div>
           </div>
+        )}
+
+        {/* La lista de pendientes y sus tres verbos. **Vive acá y en ningún otro lado**: era
+            el pie de Datos base, donde la pregunta «¿qué le falta?» aterrizaba dentro de un
+            formulario de edición y enmarcada como un traspaso. */}
+        {seccion === 'pendientes' && (
+          <PendientesPersona
+            persona={persona}
+            pendientes={pendientes}
+            error={errorPendientes}
+            administra={administra}
+            contenidos={catalogos.contenidos}
+            destinos={destinos}
+            onCambio={() => {
+              // Acaba de cambiar lo que la lista cuenta: se vuelve a pedir. La columna del
+              // censo queda vieja hasta recargar, y la acción ya revalida esa ruta.
+              setPendientes(null);
+              pedidoDePendientes.current = false;
+            }}
+          />
+        )}
+
+        {seccion === 'formacion' && (
+          <FormacionPersona
+            personaId={persona.id}
+            enCurso={formacion?.enCurso ?? null}
+            realizadas={formacion?.realizadas ?? null}
+            noCursadas={formacion?.noCursadas ?? null}
+            error={errorFormacion}
+            administra={administra}
+          />
         )}
 
         {/* §3.2 · la pestaña LEE y no escribe (D-2). Las dos consultas de Graph degradan por
@@ -841,8 +999,12 @@ export default function PopupPersona({
         {seccion === 'cuenta' && (
           <BloqueoCuenta
             persona={persona}
-            // P22 · el bloqueo OFRECE reasignar, y la oferta lleva al único panel que lo hace.
-            onIrAReasignar={() => setSeccion('base')}
+            // P22 · el bloqueo lista los pendientes y OFRECE moverlos, pero no los mueve. La
+            // lista llega desde acá y no de una consulta propia: dos consultas de lo mismo
+            // son dos que mañana cuentan distinto, justo en la pantalla donde el número
+            // decide si alguien bloquea o reasigna primero.
+            pendientes={pendientes}
+            onIrAReasignar={() => setSeccion('pendientes')}
           />
         )}
       </Pestanas>
