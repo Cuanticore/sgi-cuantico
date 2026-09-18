@@ -111,3 +111,7 @@ vocabulario OK · NC · OM · RM · Fortaleza, las actas y el informe en versió
 preliminar y final. Emitir el final congela las notas y promueve cada NC y OM a
 hallazgo del módulo B con origen tipado a la auditoría, el proceso y el numeral.
 La independencia (C2) y el perfil del auditor (C3) se validan en el servidor.
+
+## Clasificación de la información
+
+**Clasificación de la información:** Pública — conforme a PRO-SIG-05 (numeral 5.3). Repositorio de divulgación abierta de CUANTICO. No debe contener credenciales, datos personales ni código fuente de uso restringido.
