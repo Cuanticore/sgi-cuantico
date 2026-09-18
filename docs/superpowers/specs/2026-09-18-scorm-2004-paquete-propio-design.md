@@ -256,17 +256,69 @@ lo que permite que el SCO alcance el runner dos niveles arriba.
 degradar un `passed` previo a `incomplete`; en 2004 los campos están separados y escribir
 `cmi.completion_status = 'incomplete'` no toca el `success_status`. El problema se disuelve.
 
+#### El bloqueante: las dos páginas son UN SOLO SCO
+
+El curso son dos páginas —`index.html` y `cuestionario.html`— que se cargan en **el mismo
+iframe**. El runner vive en el iframe **padre** y no se recarga al navegar entre ellas, así que
+`sesion.current` sobrevive a la navegación (`Runner.client.tsx:44`).
+
+`scorm-api.js` llama hoy a `SCORM.terminar()` en `beforeunload`. La secuencia que produce:
+
+| | Qué pasa |
+|---|---|
+| 1 | `index.html` → `Initialize` → `iniciado = true` |
+| 2 | La persona pulsa «Continuar a la evaluación» → `beforeunload` → **`Terminate`** → `terminado = true` (`Runner.client.tsx:80-87`), y un commit **final** |
+| 3 | `cuestionario.html` → `Initialize` → **104 · Content Instance Terminated** (`validarInitialize`, `scorm-modelo.ts:200-204`) |
+| 4 | Cada `SetValue` del cuestionario → **133 · Store Data After Termination** |
+
+**La evaluación no reporta nada**: ni nota, ni completitud, ni las cinco interacciones. Y peor: el
+commit final del paso 2 corre `veredictoDelIntento` con `completion_status = incomplete`, que
+devuelve `registrar: false` — el intento queda terminado, sin registro y sin nota.
+
+Esto ocurre **hoy**, con el paquete en 1.2, y seguiría ocurriendo en 2004 si sólo se tradujera la
+API. No es un defecto del player: un SCO que llama `Terminate` al navegar internamente está
+diciéndole al LMS que acabó. El player le cree, que es lo correcto.
+
+La regla, y es la que ordena los tres archivos:
+
+> **`Terminate` lo llama el SCO UNA vez, cuando de verdad acabó.** `beforeunload` sólo hace
+> `Commit`. La única llamada a `Terminate` vive en `cuestionario.html`, después de reportar el
+> resultado.
+
+Y como cada página llama a `Initialize` al cargar, la segunda recibe **103 · Already Initialized**.
+No es un error que haya que sortear: es el estándar diciendo «esta sesión ya está abierta», que es
+exactamente lo que queremos. El shim lo trata como éxito.
+
+Si la persona abandona a mitad de la lección y cierra la pestaña, nunca hay `Terminate`: el
+`pagehide` del runner hace un commit no final (`Runner.client.tsx:182-186`), el intento queda
+`EN_CURSO` con su avance, y `trabajos-scorm.ts` lo recoge como abandonado si se queda colgado. Es
+el comportamiento diseñado, y con esto se preserva.
+
 #### `index.html` — acá está el avance
 
-El `<nav class="pasos">` ya tiene los pasos. Al entrar a cada uno:
+**Corrección sobre una lectura apresurada:** `<nav class="pasos">` **no** es un navegador de pasos;
+es el pie con el enlace a la evaluación. Los pasos son **siete `<h2>`** en una sola página que se
+recorre con scroll (`index.html:36,51,55,65,78,81,86`). El avance no sale de un índice: sale de
+**hasta dónde llegó la persona**.
+
+Un `IntersectionObserver` sobre los siete `<h2>`, con marca de agua que nunca baja —volver a subir
+no deshace lo leído—, sobre ocho unidades (siete pasos + el cuestionario):
 
 ```js
-SCORM.guardar('cmi.progress_measure', (pasoActual + 1) / TOTAL_PASOS);  // 0–1
-SCORM.guardar('cmi.location', String(pasoActual));                       // para reanudar
-SCORM.persistir();
+var TOTAL = 8;
+var alcanzado = 0;
+
+function reportarAvance(unidad) {
+  if (unidad <= alcanzado) return;          // marca de agua: nunca retrocede
+  alcanzado = unidad;
+  SCORM.guardar('cmi.progress_measure', alcanzado / TOTAL);   // 0–1
+  SCORM.guardar('cmi.location', String(alcanzado));           // para reanudar
+  SCORM.persistir();
+}
 ```
 
-Y al abrir, si `cmi.entry === 'resume'`, saltar al paso que diga `cmi.location`.
+Y al abrir, si `cmi.entry === 'resume'`, se lee `cmi.location` y se hace `scrollIntoView` sobre ese
+`<h2>`.
 
 Con eso `guardarIntento` escribe la columna `progressMeasure`, y `progresoDeCurso`
 (`formacion.ts:77-78`) pinta «Va por el 43 %». **Cero líneas nuevas en el SIG.**
@@ -285,6 +337,10 @@ SCORM.guardar('cmi.score.max', 100);
 SCORM.guardar('cmi.progress_measure', 1);
 SCORM.guardar('cmi.exit', 'normal');
 ```
+
+Y **acá, y sólo acá, se llama `Terminate`** — después de registrar las cinco interacciones y el
+resultado. Es la única salida del SCO que afirma que el curso acabó, y la que dispara el cierre
+con `final = true`.
 
 Que `completion_status` sea `completed` **también cuando reprueba** es deliberado y es lo que
 `veredictoDelIntento` necesita: un intento reprobado **se registra** con su nota y **no cierra** la
