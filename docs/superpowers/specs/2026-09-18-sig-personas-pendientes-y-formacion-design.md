@@ -1,7 +1,7 @@
 # Personas · pendientes, asignar, exportar y formación · diseño
 
-**Fecha:** 2026-09-18 · **Estado:** **implementado y verificado contra base**; falta el
-recorrido a mano de la Regla 3
+**Fecha:** 2026-09-18 · **Estado:** **implementado y verificado**: base, punta a punta y el
+recorrido a mano de escritura de la Regla 3
 **Revisión 2 (18/09/2026):** entran «Asignar» y «Exportar»; A-1 queda resuelto por decisión
 de Daniel Medina —la puerta por rol a `Líderes SIG` alcanza—.
 **Revisión 3 (18/09/2026):** construido. Ver
@@ -823,12 +823,44 @@ de Formación, que hoy no arranca en el montaje pero lo haría en cuanto alguien
 ahí — `seccionInicial` es un prop público, y dejarlo frágil «porque hoy nadie lo usa así» es
 dejar la trampa puesta.
 
+### El recorrido de escritura, ejecutado a mano
+
+Asignar y reasignar **escriben**, así que no pueden entrar a `e2e/`: esos specs sólo leen,
+porque corren contra producción por el túnel. Este recorrido se condujo con Playwright desde un
+guion suelto, contra la base LOCAL, y borró al final exactamente lo que creó.
+
+```
+  1 · Abrir el censo                  -> 1 pendiente(s) en la celda
+  2 · Abrir en Pendientes             -> 1 fila listada, con «Empezado; el curso no
+                                          reporta avance» — la regla D-5, en vivo
+  3 · Llenar el panel de asignar      -> ACE-SIG-01 · Aceptación de las políticas,
+                                          vence 2026-10-31, con motivo
+  4 · Asignar                         -> «Asignada a Daniel Medina: aparece en su
+                                          bandeja de Mi SIG.» · la lista pasa a 2
+  5 · SEGUNDA del mismo mes (2026-10) -> OK · la lista pasa a 3
+  6 · Fecha pasada y sin motivo       -> RECHAZADA, con las dos razones
+  7 · Reasignar las 3                 -> «3 asignaciones reasignadas a Albeiro Medina.»
+  8 · La lista tras reasignar         -> 0 filas
+```
+
+**El paso 5 es el que cierra el círculo.** La migración ya estaba probada al nivel del índice;
+esto comprueba que el flujo real —el botón, la acción, la transacción y la bitácora— tampoco
+choca. Con el índice viejo, esa segunda asignación habría tumbado la operación entera.
+
+El paso 4 muestra además que la lista se refresca sola: a los 800 ms todavía se ve la lista
+vieja con 1 fila, a los 2 000 ms ya hay 2 y el mensaje de éxito. No hay que recargar la
+pantalla.
+
+**Estado de la base al terminar**, comprobado y no afirmado: las mismas 2 asignaciones de
+antes, con sus dueños originales, y 0 filas de bitácora de `asignacion`.
+
 ### Lo que **no** se ejecutó
 
-**El recorrido a mano de asignar y reasignar desde la pantalla.** Escriben, y los specs de
-`e2e/` sólo leen. El índice está probado al nivel de la base —que es donde vivía el defecto— y
-las validaciones tienen sus 12 casos, pero nadie apretó todavía el botón «Asignar» contra una
-pantalla corriendo. Es lo que el PR tiene que escribir paso a paso.
+Nada de este cambio queda sin ejercitar. Lo que sigue pendiente es de otro orden: el spec de
+punta a punta corrió contra la base **local sembrada**, con 9 personas y 2 asignaciones, no
+contra el censo real de 91 personas por el túnel. Los conteos que comprueba son relativos —la
+columna contra la lista— así que el tamaño no cambia lo que prueba, pero conviene correrlo una
+vez contra datos reales antes de mergear.
 
 ### Tres desviaciones entre esta spec y el código
 
