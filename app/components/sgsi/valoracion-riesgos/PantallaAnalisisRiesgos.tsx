@@ -313,7 +313,17 @@ export default function PantallaAnalisisRiesgos({
               </thead>
               <tbody>
                 {filasOrdenadas.map((f) => (
-                  <tr key={f.codigo} className="border-b border-hairline-faint">
+                  <tr
+                    key={f.codigo}
+                    // La banda y el estado del plan viajan como atributos y no sólo como
+                    // color: el color lo lee quien ve, esto lo lee quien filtra la tabla con
+                    // el inspector, y las pruebas.
+                    data-banda-residual={f.peorResidual?.banda ?? 'sin-calcular'}
+                    data-estado-plan={f.estadoPlan}
+                    className={`border-b border-hairline-faint ${
+                      esResidualAlarmante(f.peorResidual) ? 'bg-danger-bg' : ''
+                    }`}
+                  >
                     <td className="py-1.5 pr-3">
                       <span className="inline-flex items-center gap-1.5">
                         <Link
@@ -357,22 +367,25 @@ export default function PantallaAnalisisRiesgos({
                     <td className="px-2 py-1.5">
                       <span className="inline-flex items-center gap-2">
                         <CeldaPlan estado={f.estadoPlan} />
-                        {/* El plan nace donde se ve la brecha. No se ofrece sobre un activo
-                            que no requiere plan: sería invitar a registrar trabajo que nadie
-                            pidió, y la lista de planes es justamente lo que hay que poder
-                            leer de un vistazo. */}
-                        {f.estadoPlan !== 'no-requiere' && (
-                          <button
-                            onClick={() => setActivoParaPlan(f.codigo)}
-                            // El texto visible es «+ plan» en las treinta filas; sin esto,
-                            // un lector de pantalla anuncia treinta botones indistinguibles.
-                            aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
-                            title={`Registrar planes de tratamiento para ${f.codigo}`}
-                            className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
-                          >
-                            + plan
-                          </button>
-                        )}
+                        {/* SE OFRECE EN TODAS LAS FILAS, y antes no.
+                            Se escondía sobre los activos `no-requiere` para no invitar a
+                            registrar trabajo que nadie pidió. La decisión se revirtió el
+                            18/09/2026: «no requiere» significa que sus controles alcanzan lo
+                            exigido HOY, no que nadie pueda decidir mejorarlos. Un plan
+                            preventivo sobre un control que ya cumple es una decisión legítima
+                            de quien lo registra —así lo dice también `planes-por-amenaza.ts`
+                            sobre la brecha: ordena la lista, no la filtra— y esconder el botón
+                            obligaba a salir a la pantalla de Planes para tomarla. */}
+                        <button
+                          onClick={() => setActivoParaPlan(f.codigo)}
+                          // El texto visible es «+ plan» en las treinta filas; sin esto,
+                          // un lector de pantalla anuncia treinta botones indistinguibles.
+                          aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
+                          title={`Registrar planes de tratamiento para ${f.codigo}`}
+                          className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
+                        >
+                          + plan
+                        </button>
                       </span>
                     </td>
                   </tr>
@@ -439,6 +452,23 @@ function Encabezado({
       </p>
     </header>
   );
+}
+
+/// Las bandas cuyo residual pinta el renglón.
+///
+/// **Se nombran por su nombre y no por el orden del umbral** porque el catálogo es editable:
+/// `UmbralRiesgo` se parametriza y alguien puede insertar una banda intermedia. Un `orden <= 2`
+/// pintaría entonces la banda equivocada sin que nada falle.
+const BANDAS_ALARMANTES = ['Crítico', 'Alto'];
+
+/// Si el residual de un activo es de los que hay que ver sin leer la tabla.
+///
+/// `null` —«sin calcular»— **no se pinta**, y la distinción importa: pintarlo diría que el
+/// riesgo es alto, y lo que pasa es que no se sabe. Es la misma doctrina que sostiene el
+/// informe de valoración: eficacia desconocida no es riesgo alto ni riesgo bajo, es un estado
+/// del modelo. La columna «Peor residual» ya lo dice con su propia palabra.
+function esResidualAlarmante(nivel: NivelRiesgo | null): boolean {
+  return nivel !== null && BANDAS_ALARMANTES.includes(nivel.banda);
 }
 
 function Tarjeta({
