@@ -127,6 +127,33 @@ minutos y tu terminal tarda segundos.
 > Requiere permisos de administración sobre el repositorio. El gate del push a `main` **no
 > depende de esto** y bloquea desde el primer despliegue.
 
+### Qué deja el despliegue cuando se cae
+
+Un rojo en `Build and Deploy` escribe un resumen en la página del run —no sólo en el log, que
+hay que descargar y leer entero— con lo que hace falta para decidir sin entrar al servidor:
+
+- **qué contenedor siguió sirviendo**, porque un despliegue caído no deja producción vacía y
+  suponer lo contrario lleva a movimientos apurados;
+- **qué migraciones quedaron en mal estado**, con el comando exacto para resolverlas;
+- las últimas migraciones registradas y las últimas líneas del contenedor.
+
+Entró el 18/09/2026. Ese día `migrate deploy` abortó con `42703: column "nombre" does not
+exist` y el log decía eso y nada más. Lo que de verdad importaba —que el índice SÍ se había
+creado antes de abortar, y que había **dos** migraciones rotas y no una— hubo que ir a
+buscarlo por SSH. Ese diagnóstico ya estaba ahí: la conexión abierta, el contenedor
+corriendo, el estado a una consulta de distancia.
+
+Y entrar a producción a diagnosticar es justo lo que uno no quiere estar haciendo con el
+despliegue caído y prisa encima: es el momento de menos calma y más permisos.
+
+El despliegue exitoso también deja resumen, y avisa si quedan migraciones rotas aunque haya
+pasado — una migración que nadie resolvió no falla hoy, falla el día que alguien agregue la
+siguiente, sin relación aparente con su cambio.
+
+`lib/__tests__/despliegue-diagnosticable.test.ts` es lo que impide que esto se borre: es un
+bloque de YAML que sólo corre cuando algo ya salió mal, así que puede romperse y pasar meses
+sin que nadie lo note — hasta el día que se necesita.
+
 ## Regla 3 · Ningún merge sin prueba de punta a punta, cuando aplica
 
 «De punta a punta» significa **ejecutar el recorrido completo como lo hace una persona**,
