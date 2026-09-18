@@ -75,21 +75,41 @@ function esNamespace(origen: string): boolean {
 /// documento, y las dos cosas sí son orígenes de contenido.
 const ANCLA_HREF = /<a\b[^>]*?\shref\s*=\s*["']([^"']+)["']/gi;
 
+/// Sólo una NAVEGACIÓN gana la exención: http, https, o una URL relativa o
+/// protocol-relative. Todo lo demás —`javascript:`, `data:`, `vbscript:`— corre o carga en
+/// el documento actual, y la CSP sí lo gobierna. La condición va en positivo a propósito:
+/// una lista negra se queda corta el día que aparezca un esquema nuevo.
+function esNavegacion(href: string): boolean {
+  const limpio = href.trim();
+  if (limpio.startsWith('//')) return true; // protocol-relative
+  const esquema = /^([a-z][a-z0-9+.-]*):/i.exec(limpio);
+  if (esquema === null) return true; // relativa, ancla, query
+  const s = esquema[1].toLowerCase();
+  return s === 'http' || s === 'https';
+}
+
 /// Los orígenes que aparecen en un texto. Heurística deliberada y acotada: no pretende
 /// encontrar todo lo que un curso pueda cargar en tiempo de ejecución — para eso está la
 /// CSP, que bloquea lo no declarado y lo hace visible (P18).
 ///
-/// **Un `<a href>` no cuenta.** No carga nada y no transmite nada: es una navegación que la
-/// persona puede tomar, con su propia sesión y en otra pestaña, y ninguna directiva de CSP
-/// la gobierna. Contarlo clasificaría como DESPACHO a un curso que enlaza a una norma, a un
+/// **Un `<a href>` de navegación no cuenta.** No carga nada y no transmite nada: la persona
+/// puede tomarlo, con su propia sesión y en otra pestaña, y ninguna directiva de CSP lo
+/// gobierna. Contarlo clasificaría como DESPACHO a un curso que enlaza a una norma, a un
 /// manual o a la intranet —que es lo normal en un curso del SGSI— y haría que la bitácora
 /// afirmara un envío de datos a un tercero que nunca ocurre. Es el mismo argumento de
 /// `NAMESPACES`, aplicado a los hipervínculos.
 ///
+/// **De navegación**, y por eso `esNavegacion` filtra el esquema: un `href` que empieza con
+/// `javascript:` corre en el documento actual y transmite al hacer clic, y uno `data:` navega
+/// a un documento de origen opaco. Ninguno de los dos es «la persona se va al sitio del
+/// tercero», que es el argumento entero de la exención, así que ninguno la gana y sus
+/// dominios cuentan como carga.
+///
 /// La regla es ASIMÉTRICA a propósito: se descarta el origen cuyas apariciones son TODAS
-/// destinos de enlace. Basta con que aparezca una vez cargándose —un `<script src>`, un
-/// `<iframe>`, un `fetch`, un `window.location`— para que cuente como antes. Eso es lo que
-/// impide que sea una puerta: un despacho real CARGA al tercero, y esa carga se sigue viendo.
+/// destinos de un enlace de navegación. Basta con que aparezca una vez cargándose —un
+/// `<script src>`, un `<iframe>`, un `fetch`, un `window.location`— para que cuente como
+/// antes. Eso es lo que impide que sea una puerta: un despacho real CARGA al tercero, y esa
+/// carga se sigue viendo.
 export function dominiosDe(texto: string): string[] {
   const todos = (texto.match(ORIGEN_EXTERNO) ?? []).filter((o) => !esNamespace(o));
   if (todos.length === 0) return [];
@@ -99,6 +119,7 @@ export function dominiosDe(texto: string): string[] {
 
   const comoEnlace = new Map<string, number>();
   for (const [, href] of texto.matchAll(ANCLA_HREF)) {
+    if (!esNavegacion(href)) continue;
     for (const o of href.match(ORIGEN_EXTERNO) ?? []) {
       comoEnlace.set(o, (comoEnlace.get(o) ?? 0) + 1);
     }

