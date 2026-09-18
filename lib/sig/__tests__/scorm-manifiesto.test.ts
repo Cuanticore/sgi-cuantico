@@ -4,7 +4,7 @@
 // porque es el caso real: un paquete de DESPACHO cuyo contenido no está en el zip. La
 // verificación 3 del requerimiento es exactamente esta prueba.
 
-import { analizarManifiesto, cursoExternoDe } from '../scorm-manifiesto';
+import { analizarManifiesto, cursoExternoDe, dominiosDe } from '../scorm-manifiesto';
 
 const ENTREGADO = `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="SingleCourseManifest" version="1.1"
@@ -248,5 +248,66 @@ describe('cursoExternoDe · el id del curso de Coursebox, para cruzar con el web
   it('no revienta con basura ni con un token que no es base64 de una URL', () => {
     expect(cursoExternoDe(['course_token=no-es-base64-real'])).toBeNull();
     expect(cursoExternoDe([''])).toBeNull();
+  });
+});
+
+describe('un hipervínculo no es un origen de contenido', () => {
+  // Un `<a href>` NO carga nada y NO transmite nada: es una navegación que la persona puede
+  // tomar, con su propia sesión y en otra pestaña. Ninguna directiva de CSP la gobierna.
+  //
+  // Clasificarlo como DESPACHO hace que `abrirIntento` anote «correo y nombre → ese dominio»
+  // en la bitácora de datos a terceros. Es una afirmación falsa ante un auditor, y además le
+  // abre el dominio en la CSP. Es el mismo argumento del filtro de NAMESPACES.
+  const SOLO_ENLACE = `<html><body>
+    <h2>Practica en el sistema</h2>
+    <a href="https://org8fcf0faf.crm3.dynamics.com/main.aspx?etn=lead" target="_blank">Mis leads</a>
+  </body></html>`;
+
+  it('descarta el dominio que sólo aparece como destino de un <a href>', () => {
+    expect(dominiosDe(SOLO_ENLACE)).toEqual([]);
+  });
+
+  it('el paquete que sólo enlaza afuera es AUTOCONTENIDO', () => {
+    const r = analizarManifiesto(AUTOCONTENIDO, ['imsmanifest.xml', 'shared/launch.html'], {
+      'shared/launch.html': SOLO_ENLACE,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.paquete.clase).toBe('AUTOCONTENIDO');
+    expect(r.paquete.dominiosExternos).toEqual([]);
+  });
+
+  // **La otra mitad, y es la que prueba que esto no es una puerta.** Un despacho real CARGA
+  // al tercero. Si el mismo dominio aparece además cargándose, cuenta como antes.
+  it('el mismo dominio, si además se CARGA, sigue siendo DESPACHO', () => {
+    const enlazaYCarga = `<html><body>
+      <a href="https://proveedor.example.com/ayuda" target="_blank">Ayuda</a>
+      <script src="https://proveedor.example.com/driver.js"></script>
+    </body></html>`;
+
+    expect(dominiosDe(enlazaYCarga)).toEqual(['https://proveedor.example.com']);
+
+    const r = analizarManifiesto(AUTOCONTENIDO, ['imsmanifest.xml', 'shared/launch.html'], {
+      'shared/launch.html': enlazaYCarga,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.paquete.clase).toBe('DESPACHO');
+  });
+
+  it('un iframe al tercero sigue siendo DESPACHO aunque también haya un enlace', () => {
+    const conIframe = `<html><body>
+      <a href="https://proveedor.example.com/ayuda">Ayuda</a>
+      <iframe src="https://proveedor.example.com/curso?course_token=abc"></iframe>
+    </body></html>`;
+    expect(dominiosDe(conIframe)).toEqual(['https://proveedor.example.com']);
+  });
+
+  // Un `.js` no tiene `<a href>`, así que nada se descarta ahí. Es donde un driver de
+  // despacho arma la URL del proveedor, y ese escaneo no se toca.
+  it('no descarta nada dentro de un JavaScript', () => {
+    expect(dominiosDe(`var url = "https://proveedor.example.com/lanzar";`)).toEqual([
+      'https://proveedor.example.com',
+    ]);
   });
 });
