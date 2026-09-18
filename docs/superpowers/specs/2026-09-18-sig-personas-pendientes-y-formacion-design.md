@@ -1,6 +1,7 @@
 # Personas · pendientes, asignar, exportar y formación · diseño
 
-**Fecha:** 2026-09-18 · **Estado:** **implementado**, con dos verificaciones pendientes
+**Fecha:** 2026-09-18 · **Estado:** **implementado y verificado contra base**; falta el
+recorrido a mano de la Regla 3
 **Revisión 2 (18/09/2026):** entran «Asignar» y «Exportar»; A-1 queda resuelto por decisión
 de Daniel Medina —la puerta por rol a `Líderes SIG` alcanza—.
 **Revisión 3 (18/09/2026):** construido. Ver
@@ -747,31 +748,87 @@ errores (los 5 warnings preexistentes), **2581 pruebas en 145 suites**, y el bui
 | El libro de exportación | `lib/sig/__tests__/pendientes-libro.test.ts` | **8 casos, verde**. Los 8 vistos en rojo primero. |
 | `'use server'` sin `export const` | `lib/__tests__/use-server.test.ts` | Verde; escanea el directorio y ya cubre los archivos nuevos. |
 
-### Lo que **no** se pudo verificar, y es la deuda de este cambio
+### La migración, verificada contra base
 
-**1 · La migración no se aplicó ni se probó contra ninguna base.** Es lo más importante que
-queda abierto, porque es la pieza de la que depende que «Asignar» funcione.
+**Ejecutado el 18/09/2026 contra `localhost:5432/sgi_sgsi`**, la base local sembrada.
+Reproducible con `scripts/verificar-indice-asignacion.ts`, que quedó en el repositorio:
 
-No hay base escribible alcanzable desde acá, verificado el 18/09/2026:
+```
+  OK   1 · índice viejo, dos manuales        la segunda falló · 23505 asignacion_..._key
+  OK   2 · índice parcial, dos manuales      las dos entraron
+  OK   3 · índice parcial, misma obligación  la segunda falló · 23505 asignacion_..._key
+  OK   4 · la base quedó como estaba         2 asignaciones
+```
 
-- `localhost:15432` (producción por el túnel) está cerrado, y el rol `daniel.medina` es de
-  sólo lectura aunque estuviera abierto: no puede correr una migración.
-- `localhost:5432` responde, pero rechaza la clave del `.env` —esa es la del túnel— y crear
-  `sgi_sgsi` ahí exige el superusuario `postgres`, cuya clave no está disponible.
-- `localhost:5437` (el Postgres de `docker-compose.dev.yml`) está cerrado y Docker no corre.
+Los tres escenarios son los que hacen que esto pruebe algo:
 
-**Consecuencia concreta: el caso que la Regla 1 declaraba imprescindible —dos asignaciones
-manuales a la misma persona en el mismo mes— no se ejecutó.** No se vio fallar antes ni pasar
-después. La migración está escrita y razonada, pero su efecto es **teoría verificada por
-lectura**, no por ejecución. Quien la aplique tiene que correr ese caso primero, y verlo en
-rojo, antes de creerle a este documento.
+1. **El defecto, reproducido.** Con el índice viejo la segunda asignación manual levanta
+   `23505` sobre ese índice exacto. Es el rojo que la Regla 1 exige ver primero: sin él, el
+   punto 2 pasaría igual aunque el defecto nunca hubiera existido.
+2. **El arreglo.** Con el índice parcial las dos entran.
+3. **Lo que no se podía romper.** Con el índice parcial, dos asignaciones de la **misma
+   obligación** siguen chocando: la idempotencia del cron quedó intacta. Si este escenario
+   dejara entrar las dos, la migración habría roto justo lo que el índice existía para
+   proteger, y nadie lo notaría hasta ver asignaciones duplicadas en la bandeja de alguien.
 
-**2 · `e2e/personas.spec.ts` se escribió y no se corrió.** `npm run e2e` necesita el túnel.
-Los 10 pasos están, y el 4 —comparar el número de la columna contra las filas de la lista— es
-el que convierte la cicatriz del `rowCount` en algo que se comprueba solo.
+Todo corre dentro de una transacción que termina en `ROLLBACK` —en PostgreSQL el DDL es
+transaccional, así que el `DROP INDEX` se revierte igual que los `INSERT`— y el punto 4
+comprueba contando que la base quedó como estaba, en vez de afirmarlo. El script sólo corre
+contra `localhost`, con la misma guarda que `preparar-bd-local.ts`.
 
-**3 · El recorrido a mano de asignar y reasignar tampoco se ejecutó**, por lo mismo: escriben,
-y no hay base escribible.
+### El recorrido de punta a punta, ejecutado
+
+`npx playwright test e2e/personas.spec.ts`, contra `localhost:5432/sgi_sgsi`:
+
+```
+  1 · Abrir /sig/personas                -> 9 filas
+  2 · Primera con pendientes             -> 1 en la celda
+  3 · Abre en Pendientes                 -> aria-selected=true
+  4 · Columna == filas de la lista       -> 1 == 1
+  5 · Sin vencidas                       -> ninguna fila dice «Vencida»
+  6 · Filtro «Sólo formación»            -> 1 de 1, y vuelve
+  7 · Ningún 0% inventado                -> ninguna fila mezcla «no reporta» con un porcentaje
+  8 · Pestaña Formación                  -> En curso y pendiente (1) CUR-001 Inducción Corporativa
+  9 · Exportar                           -> pendientes-daniel-medina-2026-09-18.xlsx
+ 10 · Cerrar sin escribir                -> 9 filas siguen
+
+  1 passed (15.1s)
+```
+
+### El defecto que el recorrido encontró, y que ninguna otra prueba veía
+
+La primera corrida **falló en el paso 4**: la pestaña se quedaba en «Cargando lo que tiene
+abierto…» para siempre. Los cuatro checks de la Regla 2 estaban en verde mientras tanto.
+
+La causa es de composición, no de una pieza. React en modo estricto —que Next trae activo por
+omisión en desarrollo— monta cada efecto, lo limpia y lo vuelve a montar:
+
+```
+1er montaje  -> pide, marca el ref «en vuelo»
+limpieza     -> vigente = false
+2º montaje   -> ve el ref en vuelo y se va sin pedir
+la respuesta -> se descarta por vigente
+finally      -> libera el ref, pero ya nadie vuelve a disparar el efecto
+```
+
+**Los otros cinco efectos de `PopupPersona` tienen el mismo patrón y nunca fallaron**, porque
+sólo se alcanzan por clic, después del montaje. `seccionInicial` hizo que uno arrancara en el
+montaje y destapó una trampa que ya estaba puesta. Es exactamente la forma que describe
+`HARNESS.md`: el defecto no vivía en ninguna pieza, vivía entre ellas.
+
+El arreglo es sacar la bandera `vigente` de los dos efectos nuevos, con el porqué escrito al
+lado. No hacía falta: el popup se monta por persona y `persona.id` no cambia mientras vive, así
+que no hay respuesta vieja de otra persona contra la que protegerse. Se sacó también del efecto
+de Formación, que hoy no arranca en el montaje pero lo haría en cuanto alguien abra el popup
+ahí — `seccionInicial` es un prop público, y dejarlo frágil «porque hoy nadie lo usa así» es
+dejar la trampa puesta.
+
+### Lo que **no** se ejecutó
+
+**El recorrido a mano de asignar y reasignar desde la pantalla.** Escriben, y los specs de
+`e2e/` sólo leen. El índice está probado al nivel de la base —que es donde vivía el defecto— y
+las validaciones tienen sus 12 casos, pero nadie apretó todavía el botón «Asignar» contra una
+pantalla corriendo. Es lo que el PR tiene que escribir paso a paso.
 
 ### Tres desviaciones entre esta spec y el código
 

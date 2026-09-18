@@ -305,11 +305,29 @@ export default function PopupPersona({
     if (!administra) return;
     if (pendientes !== null || pedidoDePendientes.current) return;
 
-    let vigente = true;
+    // **Sin bandera `vigente`, y no es un olvido.**
+    //
+    // Los otros cinco efectos de este archivo descartan la respuesta si el efecto se limpió
+    // antes de que llegara. A ellos nunca les hizo daño porque **sólo se alcanzan por clic**,
+    // después del montaje. Éste no: con `seccionInicial='pendientes'` —que es como lo abre el
+    // botón de la columna— corre en el montaje, y ahí React en modo estricto monta, limpia y
+    // vuelve a montar. La secuencia era:
+    //
+    //   1er montaje  -> pide, marca el ref en vuelo
+    //   limpieza     -> vigente = false
+    //   2º montaje   -> ve el ref en vuelo y se va sin pedir
+    //   la respuesta -> se DESCARTA por vigente
+    //   finally      -> libera el ref, pero ya nadie vuelve a disparar el efecto
+    //
+    // Resultado: «Cargando lo que tiene abierto…» para siempre. Lo atrapó el paso 4 del
+    // recorrido de punta a punta, que es exactamente para lo que existe.
+    //
+    // Descartar no hacía falta acá: el popup se monta por persona y `persona.id` no cambia
+    // mientras vive, así que no hay respuesta vieja de otra persona contra la que protegerse.
+    // La única guarda que se necesita es el ref, que evita el pedido duplicado.
     pedidoDePendientes.current = true;
     void pendientesDePersona(persona.id)
       .then((r) => {
-        if (!vigente) return;
         if (!r.ok || r.pendientes === null) {
           setErrorPendientes(r.mensaje);
           return;
@@ -319,9 +337,6 @@ export default function PopupPersona({
       .finally(() => {
         pedidoDePendientes.current = false;
       });
-    return () => {
-      vigente = false;
-    };
   }, [seccion, administra, persona.id, pendientes]);
 
   // ── La formación ──────────────────────────────────────────────────────────────────────
@@ -338,11 +353,13 @@ export default function PopupPersona({
     if (!administra) return;
     if (formacion !== null || pedidoDeFormacion.current) return;
 
-    let vigente = true;
+    // Sin bandera `vigente`, por lo mismo que arriba. `seccionInicial` es un prop público:
+    // el día que alguien abra el popup directo en Formación, este efecto va a correr en el
+    // montaje igual que el de pendientes, y quedaría colgado en «Cargando» para siempre.
+    // Dejarlo frágil «porque hoy nadie lo usa así» es dejar puesta la trampa.
     pedidoDeFormacion.current = true;
     void formacionDePersona(persona.id)
       .then((r) => {
-        if (!vigente) return;
         if (!r.ok || r.enCurso === null || r.realizadas === null || r.noCursadas === null) {
           setErrorFormacion(r.mensaje);
           return;
@@ -356,9 +373,6 @@ export default function PopupPersona({
       .finally(() => {
         pedidoDeFormacion.current = false;
       });
-    return () => {
-      vigente = false;
-    };
   }, [seccion, administra, persona.id, formacion]);
 
   // P10 · las membresías se piden al abrir la pestaña, igual que los contactos y por la misma

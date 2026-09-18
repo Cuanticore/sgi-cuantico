@@ -138,7 +138,12 @@ test('el recorrido de pendientes y formación', async ({ page }) => {
   anotar('9 · Exportar', descarga.suggestedFilename());
 
   // ── 10 · Cerrar, y la tabla sigue en pie ──────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Cerrar' }).click();
+  //
+  // El popup tiene DOS botones de cerrar y está bien que los tenga: la × del encabezado, que
+  // es el gesto universal, y el del pie, que es el que se encuentra sin levantar la vista
+  // después de leer. Se elige la × por su `aria-label`, que es lo único que los distingue —
+  // el del pie no tiene ninguno, y por eso `getByRole` los traía a los dos.
+  await page.getByLabel('Cerrar').click();
   await expect(page.getByRole('tab', { name: /Pendientes/ })).toHaveCount(0);
   await expect(filas.first()).toBeVisible();
   anotar('10 · Cerrar sin escribir', `${await filas.count()} filas siguen`);
