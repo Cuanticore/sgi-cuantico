@@ -53,8 +53,32 @@ describe('analizarRango', () => {
 
   it('un archivo vacío no tiene ningún byte que satisfacer', () => {
     expect(analizarRango('bytes=0-0', 0)).toEqual({ clase: 'inatendible' });
+    // **El que sostiene la guarda `tamano === 0`.** El caso de arriba NO la pincha: lo
+    // atrapa antes `desde >= tamano` (`0 >= 0`). La única rama donde el archivo vacío
+    // produce un rango negativo es la del sufijo, porque calcula contra `tamano - 1`. Sin
+    // este renglón se puede borrar la guarda y la suite queda verde, con la función
+    // devolviendo `{ desde: 0, hasta: -1 }` — que aguas abajo es un `Content-Range` inválido.
+    expect(analizarRango('bytes=-500', 0)).toEqual({ clase: 'inatendible' });
     // Sin cabecera sigue siendo una respuesta completa, de cero bytes.
     expect(analizarRango(null, 0)).toEqual({ clase: 'completo' });
+  });
+
+  // Los dos rangos de UN byte, que es donde se nota un off-by-one y donde no se nota en
+  // ningún otro lado. Con `bytes=-500` sobre 1000 el resultado es `500-999`, donde `desde`
+  // y el largo coinciden numéricamente y varias fórmulas erradas dan el mismo número; con
+  // `-1` esa coincidencia no existe. Y `bytes=0-0` es lo que manda un reproductor para
+  // sondear si el servidor soporta rangos antes de pedir nada en serio.
+  it('un rango de un solo byte se calcula bien en los dos extremos', () => {
+    expect(analizarRango('bytes=-1', MIL)).toEqual({ clase: 'parcial', desde: 999, hasta: 999 });
+    expect(analizarRango('bytes=0-0', MIL)).toEqual({ clase: 'parcial', desde: 0, hasta: 0 });
+  });
+
+  // El ABNF del RFC 7233 §2.1 define `bytes-unit = "bytes"`, y los literales entre comillas
+  // en ABNF son insensibles a mayúsculas por el RFC 5234 §2.3. Ningún cliente real lo manda
+  // así, y la consecuencia de no aceptarlo sería benigna —un 200 con el archivo entero—,
+  // pero cuesta un carácter y esta función existe para acertar en los bordes.
+  it('la unidad no distingue mayúsculas', () => {
+    expect(analizarRango('Bytes=0-499', MIL)).toEqual({ clase: 'parcial', desde: 0, hasta: 499 });
   });
 
   // Se responde el archivo entero en vez de `multipart/byteranges`: ningún reproductor lo

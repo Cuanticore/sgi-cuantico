@@ -19,8 +19,16 @@ export type Rango =
   | { clase: 'inatendible' };
 
 /// Un solo rango de bytes. Lo que no case —varios rangos, otra unidad, basura— cae en
-/// `completo`: responder de más es correcto y es lo que el estándar permite; adivinar no.
-const UN_RANGO = /^bytes=(\d*)-(\d*)$/;
+/// `completo`: responder de más es correcto y es lo que el estándar permite (RFC 7233 §3.1,
+/// «a server MAY ignore the Range header field»); adivinar no.
+///
+/// La `i` es por el ABNF: `bytes-unit = "bytes"`, y un literal entre comillas en ABNF es
+/// insensible a mayúsculas (RFC 5234 §2.3). No afecta a los dígitos.
+///
+/// Los espacios, en cambio, se rechazan a propósito. El `OWS` de la regla de lista sólo
+/// aparece alrededor de las COMAS, no dentro de un `byte-range-spec` ni pegado al `=`:
+/// aceptar `bytes= 0-499` sería más permisivo que el estándar sin ganar ningún cliente.
+const UN_RANGO = /^bytes=(\d*)-(\d*)$/i;
 
 export function analizarRango(cabecera: string | null, tamano: number): Rango {
   if (cabecera === null || cabecera.trim() === '') return { clase: 'completo' };
