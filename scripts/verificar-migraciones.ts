@@ -68,9 +68,15 @@ async function main(): Promise<void> {
     await enPostgres(base, `CREATE DATABASE ${citar(nombre)}`);
     creada = true;
 
+    // `npx` en Windows es `npx.cmd`, y `execFileSync` no resuelve extensiones de PATHEXT:
+    // sin `shell`, acá muere con `spawnSync npx ENOENT` y el mensaje de arriba acusa a las
+    // migraciones de algo que no hicieron. En CI —Linux— funcionaba de las dos formas, así
+    // que el fallo sólo aparecía en la máquina donde alguien lo corre a mano, que es
+    // justamente donde este script sirve para no esperar al despliegue.
     execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, DATABASE_URL: haciaBase(base, nombre) },
+      shell: process.platform === 'win32',
     });
 
     console.log('\n  Las migraciones aplican limpias sobre una base vacía.\n');
