@@ -29,12 +29,35 @@ export function esOrigenDeContenido(hostDeLaPeticion: string | null, origenConte
 /// La CSP del contenido de un paquete. `default-src 'none'` y sólo lo que el paquete
 /// declaró: en un AUTOCONTENIDO no se permite ningún dominio externo, y en un DESPACHO
 /// exactamente los suyos (D-5).
-export function cspDelPaquete(dominios: readonly string[]): string {
+///
+/// `origenApp` es el origen de la aplicación (`SCORM_ORIGEN_APP`), y va en `frame-ancestors`.
+/// No es opcional por gusto: la cadena de embebido es app → runner → contenido, y los dos
+/// primeros son de ORÍGENES DISTINTOS por diseño (P3) — en producción `sig.cuantico.com`
+/// embebe `cursos.sig.cuantico.com`. `frame-ancestors` valida TODA la cadena de ancestros,
+/// no sólo el padre inmediato: con `'self'` a secas el abuelo —la aplicación— queda fuera y
+/// el navegador bloquea el iframe del curso antes de cargar nada. Ése era el defecto que
+/// dejaba el player en «Cargando el curso…» para siempre, en local y en producción, y que no
+/// se vio porque el player nunca se corrió de punta a punta (§16.4). Sin `origenApp` la
+/// directiva se queda en `'self'` —el comportamiento viejo—, para no cambiar en silencio la
+/// CSP de un llamador que todavía no lo pase.
+export function cspDelPaquete(dominios: readonly string[], origenApp?: string): string {
   // Sin repetidos: el mismo dominio puede venir del HTML del SCO y de su driver, y una CSP
   // con el origen tres veces es válida pero ilegible justo cuando alguien la está leyendo
   // porque el curso no carga.
   const externos = [...new Set(dominios)].join(' ');
   const con = (base: string) => (externos === '' ? base : `${base} ${externos}`);
+
+  // El origen de la app en `frame-ancestors`, junto a `'self'` (el runner, mismo origen que
+  // el contenido). Se normaliza a `esquema://host[:puerto]` y se descarta si es basura: un
+  // valor inválido acá abriría o rompería la directiva en silencio.
+  let ancestros = "'self'";
+  if (origenApp !== undefined && origenApp.trim() !== '') {
+    try {
+      ancestros = `'self' ${new URL(origenApp).origin}`;
+    } catch {
+      ancestros = "'self'";
+    }
+  }
   return [
     "default-src 'none'",
     con("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
@@ -49,7 +72,7 @@ export function cspDelPaquete(dominios: readonly string[]): string {
     // con el origen del documento que lo crea, así que `'self'` y `blob:` es todo lo que
     // puede necesitar, y sumarle el tercero no habilitaría nada real.
     "worker-src 'self' blob:",
-    "frame-ancestors 'self'",
+    `frame-ancestors ${ancestros}`,
     "base-uri 'none'",
     // Se queda en `'none'` a propósito: un curso no tiene por qué enviar formularios a
     // ningún lado. Si alguno lo necesitara, es algo que hay que ver y decidir, no permitir

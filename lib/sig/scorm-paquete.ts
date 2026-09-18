@@ -199,6 +199,7 @@ export async function guardarPaquete(
       tituloOrganizacion: analisis.paquete.tituloOrganizacion,
       entradaHref: analisis.paquete.entradaHref,
       dominiosExternos: analisis.paquete.dominiosExternos,
+      cursoExternoId: analisis.paquete.cursoExternoId,
       zipSha256: createHash('sha256').update(zip).digest('hex'),
       zipTamano: zip.length,
       archivos: entradas.length,

@@ -48,7 +48,13 @@ export async function GET(
         'Cache-Control': 'public, max-age=31536000, immutable',
         ETag: `"${archivo.sha256}"`,
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': cspDelPaquete(archivo.paquete.dominiosExternos),
+        // `SCORM_ORIGEN_APP` va en `frame-ancestors`: la app embebe el runner que embebe este
+        // contenido, y `frame-ancestors` mira toda la cadena. Sin él, `'self'` bloquea a la
+        // app (otro origen) y el curso no carga. Ver `cspDelPaquete`.
+        'Content-Security-Policy': cspDelPaquete(
+          archivo.paquete.dominiosExternos,
+          process.env.SCORM_ORIGEN_APP,
+        ),
       },
     },
   );

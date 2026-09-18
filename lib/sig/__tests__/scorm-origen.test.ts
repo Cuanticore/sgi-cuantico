@@ -65,4 +65,29 @@ describe('cspDelPaquete', () => {
       csp.split(';').filter((d) => d.includes('https://a.com')).length,
     );
   });
+
+  // La cadena de embebido es app -> runner -> contenido, y los dos primeros son de ORIGENES
+  // DISTINTOS por diseño (P3): en produccion `sig.cuantico.com` embebe `cursos.sig.cuantico.com`.
+  // `frame-ancestors` valida TODA la cadena de ancestros, no solo el padre: con `'self'` a
+  // secas, el abuelo —la aplicacion— queda fuera y el navegador bloquea el iframe del curso
+  // antes de que cargue nada. Es el defecto que dejaba el player en «Cargando el curso...»
+  // para siempre, en local y en produccion, porque nunca se corrio de punta a punta (§16.4).
+  it('deja que la aplicacion embeba el contenido (frame-ancestors incluye su origen)', () => {
+    const csp = cspDelPaquete(['https://my.coursebox.ai'], 'https://sig.cuantico.com');
+    expect(csp).toContain("frame-ancestors 'self' https://sig.cuantico.com");
+  });
+
+  it('en local admite el origen de la app aunque sea 127.0.0.1', () => {
+    const csp = cspDelPaquete([], 'http://localhost:3000');
+    expect(csp).toContain("frame-ancestors 'self' http://localhost:3000");
+  });
+
+  // Sin origen de app declarado se queda en `'self'`: es el comportamiento viejo, y no se
+  // cuela un `'self' undefined` que rompa la directiva.
+  it('sin origen de app declarado, frame-ancestors queda en self limpio', () => {
+    const csp = cspDelPaquete(['https://my.coursebox.ai']);
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).not.toContain('undefined');
+    expect(csp).not.toMatch(/frame-ancestors 'self' \S/);
+  });
 });

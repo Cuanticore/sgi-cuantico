@@ -7,7 +7,43 @@
 // calcula con `aprobadoDe()`, que ya existe y ya se usa en el cierre manual: dos formas de
 // decidir lo mismo terminan discrepando, y la discrepancia aparece en la auditoría.
 
-import { calificacionDe, veredictoDelIntento } from '../scorm-cierre';
+import { calificacionDe, veredictoDelIntento, resultadoDeclarado } from '../scorm-cierre';
+
+describe('resultadoDeclarado · la persona declara que terminó (REQ-SIG-24, plan de confianza)', () => {
+  // Coursebox no reporta la completitud por SCORM, así que se ofrece registrarla a mano y se
+  // confía en el registro. La declaración es SIEMPRE «completado»; la nota es opcional.
+  it('sin nota es un curso completado sin resultado medido', () => {
+    const r = resultadoDeclarado(null);
+    expect(r.completionStatus).toBe('completed');
+    expect(r.successStatus).toBe('unknown');
+    expect(r.scoreScaled).toBeNull();
+  });
+
+  // Un curso que NO exige evaluación se cierra con la sola declaración: completó, sin nota.
+  it('un curso sin evaluación se cierra con la sola declaración', () => {
+    const v = veredictoDelIntento(resultadoDeclarado(null), { exigeEvaluacion: false, notaMinima: null });
+    expect(v.cierra).toBe(true);
+    expect(v.asistio).toBe(true);
+  });
+
+  // Un curso que SÍ exige evaluación no se cierra sin nota (P16): la declaración de nota es
+  // lo que falta, y por eso la opción la pide cuando el contenido la exige.
+  it('un curso con evaluación NO se cierra si no se declara la nota', () => {
+    const v = veredictoDelIntento(resultadoDeclarado(null), { exigeEvaluacion: true, notaMinima: 60 });
+    expect(v.cierra).toBe(false);
+  });
+
+  // Con la nota declarada, el veredicto lo da `notaMinima` como en cualquier cierre. La nota
+  // va en 0–100, igual que la que produce `calificacionDe`.
+  it('con la nota declarada, cierra y decide aprobado con notaMinima', () => {
+    const aprob = veredictoDelIntento(resultadoDeclarado(80), { exigeEvaluacion: true, notaMinima: 60 });
+    expect(aprob.cierra).toBe(true);
+    expect(aprob.calificacion).toBe(80);
+    expect(aprob.aprobado).toBe(true);
+    const reprob = veredictoDelIntento(resultadoDeclarado(30), { exigeEvaluacion: true, notaMinima: 60 });
+    expect(reprob.aprobado).toBe(false);
+  });
+});
 
 const COMPLETO = {
   completionStatus: 'completed',

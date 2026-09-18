@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { Bandeja, TarjetaBandeja } from './bandeja.query';
-import { textoPlazo, verboDeCierre } from '@/lib/sig/bandeja';
+import { textoPlazo, verboDeCierre, enlaceDirectoAlCurso } from '@/lib/sig/bandeja';
 import PanelCierre from './PanelCierre';
 import PanelFirma from './PanelFirma';
 
@@ -325,20 +325,42 @@ function Tarjeta({
       <span className="flex-none text-11_5 text-muted">
         {tarjeta.fechaLimite.toISOString().slice(0, 10)}
       </span>
-      <button
-        onClick={() => alCerrar(tarjeta)}
-        className="flex-none rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300"
-        style={{
-          background: tarjeta.vencida
-            ? 'var(--hf-danger-text)'
-            : tarjeta.dias <= 7
-              ? 'var(--hf-brand-nav)'
-              : 'var(--hf-text-secondary-soft)',
-        }}
-      >
-        {verboDeCierre(tarjeta.tipo)}
-      </button>
+      <AccionTarjeta tarjeta={tarjeta} alCerrar={alCerrar} />
     </article>
+  );
+}
+
+/// La acción de una tarjeta pendiente. Un curso con paquete lleva DIRECTO al player —un enlace
+/// de verdad, sin panel intermedio (REQ-SIG-24)—; el resto abre el panel de cierre. El estilo
+/// es el mismo en los dos para que el borde del plazo se lea igual.
+function AccionTarjeta({
+  tarjeta,
+  alCerrar,
+}: {
+  tarjeta: TarjetaBandeja;
+  alCerrar: (t: TarjetaBandeja) => void;
+}) {
+  const clase =
+    'flex-none rounded-campo px-3.5 py-2 text-12_5 font-semibold text-white transition-colors focus:outline-hidden focus:ring-2 focus:ring-accent-300';
+  const fondo = tarjeta.vencida
+    ? 'var(--hf-danger-text)'
+    : tarjeta.dias <= 7
+      ? 'var(--hf-brand-nav)'
+      : 'var(--hf-text-secondary-soft)';
+  const verbo = verboDeCierre(tarjeta.tipo, tarjeta.cursoIniciado);
+
+  const directo = enlaceDirectoAlCurso(tarjeta);
+  if (directo !== null) {
+    return (
+      <Link href={directo} className={clase} style={{ background: fondo }}>
+        {verbo}
+      </Link>
+    );
+  }
+  return (
+    <button onClick={() => alCerrar(tarjeta)} className={clase} style={{ background: fondo }}>
+      {verbo}
+    </button>
   );
 }
 

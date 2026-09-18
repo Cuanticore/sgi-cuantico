@@ -27,6 +27,7 @@ export default async function Page({ params }: { params: Promise<{ asignacionId:
 
   return (
     <Player
+      asignacionId={id}
       token={apertura.token as string}
       modelo={apertura.modelo as Record<string, string>}
       runnerUrl={apertura.runnerUrl as string}

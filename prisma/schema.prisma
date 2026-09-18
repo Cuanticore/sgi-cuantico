@@ -4180,6 +4180,10 @@ model PaqueteScorm {
   entradaHref        String       @map("entrada_href")
   /// Los orígenes que el paquete declaró al analizarse. La CSP se arma con esto (D-5).
   dominiosExternos   String[]     @map("dominios_externos")
+  /// REQ-SIG-24 · el id del curso en el proveedor de despacho (Coursebox), sacado del
+  /// `course_token` al analizar. Es la llave con la que el webhook «Course Completed» cruza
+  /// el resultado con este paquete. Nulo en un AUTOCONTENIDO: no hay proveedor que reporte.
+  cursoExternoId     String?      @map("curso_externo_id")
   zipSha256          String       @map("zip_sha256")
   zipTamano          Int          @map("zip_tamano")
   archivos           Int

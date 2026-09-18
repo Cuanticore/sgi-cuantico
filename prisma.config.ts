@@ -14,6 +14,11 @@ export default defineConfig({
     url: process.env.DATABASE_URL ?? '',
   },
   migrations: {
-    seed: 'tsx prisma/seed.ts',
+    // `--tsconfig tsconfig.scripts.json` mapea `server-only` a un módulo vacío. Sin eso, el
+    // seed revienta con `Cannot find module 'server-only'`: la cadena de imports pasa por
+    // `lib/sgsi/bitacora.ts`, que empieza con `import 'server-only'`, y ese paquete sólo lo
+    // sabe resolver el runtime de Next, no un `tsx` pelado. En un script de Node —servidor por
+    // definición— la marca no protege nada. Ver el encabezado de tsconfig.scripts.json.
+    seed: 'tsx --tsconfig tsconfig.scripts.json prisma/seed.ts',
   },
 });
