@@ -162,16 +162,24 @@ export const ELEMENTOS: Record<string, Definicion> = {
   // respuestas legítimas, que es peor que guardarlas sin mirar. Se acota el largo, que es
   // lo que el estándar exige como mínimo.
   //
-  // El índice interno NO queda acotado, y es deliberado: `correct_responses._count` es de
-  // sólo lectura y el estándar no obliga al LMS a llevar su cuenta, así que no hay tope
-  // contra el cual comparar sin inventarlo.
+  // El índice interno NO queda acotado, y es deliberado: `Conteos` sólo lleva `objetivos` e
+  // `interacciones`, así que hoy no hay tope contra el cual comparar sin cambiarle la firma
+  // a algo que usan el runner y el servidor. `indiceDe` toma el PRIMER índice de la ruta
+  // —el de la interacción—, que es el que sí se acota y el que importa (P9).
+  //
+  // **Deuda, y conviene que quede dicha:** el estándar SÍ obliga al LMS a mantener
+  // `correct_responses._count` —por eso está `RO` una línea más arriba—, y hoy nadie lo
+  // mantiene: ni `modeloInicial` lo inicializa ni el runner lo sube al escribir. Antes de
+  // este cambio daba igual, porque no había forma de escribir bajo esa colección. Ahora un
+  // curso puede escribir el patrón y, si después lee el `_count`, recibe 403. Lo mismo para
+  // `interactions.n.objectives._count`.
   'cmi.interactions.n.correct_responses.n.pattern': { acceso: 'RW', tipo: cadena(4000) },
-  'cmi.interactions.n.objectives.n.id': { acceso: 'RW', tipo: cadena(4000) },
   'cmi.interactions.n.result': { acceso: 'RW', tipo: cadena(250) },
   'cmi.interactions.n.weighting': { acceso: 'RW', tipo: decimal(-1_000_000, 1_000_000) },
   'cmi.interactions.n.latency': { acceso: 'RW', tipo: { clase: 'duracion' } },
   'cmi.interactions.n.description': { acceso: 'RW', tipo: cadena(250) },
   'cmi.interactions.n.objectives._count': { acceso: 'RO', tipo: { clase: 'entero', minimo: 0 } },
+  'cmi.interactions.n.objectives.n.id': { acceso: 'RW', tipo: cadena(4000) },
   'cmi.comments_from_learner._count': { acceso: 'RO', tipo: { clase: 'entero', minimo: 0 } },
   'cmi.comments_from_learner.n.comment': { acceso: 'RW', tipo: cadena(4000) },
   'cmi.comments_from_learner.n.location': { acceso: 'RW', tipo: cadena(250) },
