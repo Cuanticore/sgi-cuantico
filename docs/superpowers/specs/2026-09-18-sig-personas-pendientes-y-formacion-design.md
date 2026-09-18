@@ -1,6 +1,8 @@
-# Personas · ver pendientes y formación · diseño
+# Personas · pendientes, asignar, exportar y formación · diseño
 
 **Fecha:** 2026-09-18 · **Estado:** propuesta, pendiente de revisión
+**Revisión 2 (18/09/2026):** entran «Asignar» y «Exportar»; A-1 queda resuelto por decisión
+de Daniel Medina —la puerta por rol a `Líderes SIG` alcanza—.
 **Pantalla:** `/sig/personas` (y `/sig/colaboradores`, que usa el mismo censo y el mismo popup)
 
 ---
@@ -33,8 +35,9 @@ pantalla para contestar.
 
 ## Qué se construye, en una frase
 
-**Dos pestañas nuevas en el popup de persona —Pendientes y Formación— y un botón con rótulo
-en la columna Pendientes que abre el popup directo en la primera de ellas.**
+**Dos pestañas nuevas en el popup de persona —Pendientes y Formación—, un botón con rótulo en
+la columna que abre el popup directo en la primera, y tres verbos sobre esa lista: ver,
+asignar y exportar.**
 
 ---
 
@@ -47,6 +50,12 @@ en la columna Pendientes que abre el popup directo en la primera de ellas.**
 - Pestaña **Pendientes**: las asignaciones abiertas de la persona, con su tipo, su plazo y
   —cuando son curso virtual con paquete— el avance del último intento. Absorbe el bloque de
   reasignación que hoy es el pie de Datos base.
+- **Asignar**: darle a esta persona una actividad que no le tocaba —un contenido del catálogo
+  o una tarea puntual—, con plazo y motivo. **Hoy no existe ningún camino para esto**, y
+  antes de construirlo hay que levantar un bloqueo del esquema (ver
+  [El bloqueo](#el-bloqueo--hoy-no-caben-dos-asignaciones-manuales-por-persona-y-periodo)).
+- **Exportar**: descargar la lista de pendientes como `.xlsx`, de una persona o de todo el
+  censo, por la misma ruta.
 - Pestaña **Formación**: lo cursado y lo que está en curso, con progreso, calificación y
   estado. Incluye lo que **no** se va a cursar (no aplica / anulada) con su motivo.
 - Un módulo puro con las reglas de redacción del progreso, y sus pruebas.
@@ -57,8 +66,10 @@ en la columna Pendientes que abre el popup directo en la primera de ellas.**
 - **No se toca el expediente** `/sig/colaboradores/[id]`. Sigue siendo el lugar de las filas
   completas, y la pestaña Formación enlaza a él igual que hoy lo hace el Resumen. La pestaña
   responde «¿se formó?»; el expediente responde «¿qué pasó exactamente en el intento 2?».
-- **No se cierran ni se registran asignaciones desde acá.** Las dos pestañas leen. La única
-  escritura es la reasignación, que ya existe y sólo cambia de lugar.
+- **No se cierran ni se registran asignaciones desde acá.** Cerrar es un acto de la persona
+  que la tiene, y vive en su bandeja de Mi SIG con su panel, su firma y su registro. Desde
+  Personas se **abre** trabajo y se **mueve**; no se declara cumplido el trabajo ajeno.
+- **No se asigna en lote.** Una asignación por vez, a la persona cuyo popup está abierto.
 - **No se crea una noción nueva de «formación» en la base.** Se deriva del tipo de contenido
   que ya está declarado.
 - No se toca la bandeja de Mi SIG ni el reproductor.
@@ -164,21 +175,89 @@ de progreso, y el encabezado de la pestaña cuenta las dos cosas por separado:
 
 Y un filtro de un clic —«Sólo formación»— para quien vino exactamente a eso.
 
-### D-7 · Leerlas exige `personas:administrar`; contarlas no
+### D-7 · El control de acceso es el rol de líder que ya existe; no se agrega ninguno
 
-Las dos pestañas nuevas leen por acción de servidor con `autorConPermiso('personas:administrar')`,
-igual que `resumenDePersona` y `leerContactosEmergencia`. Sin el permiso, las pestañas existen
-y explican qué permiso hace falta, como ya hace el resto del popup (P2). El censo —y por tanto
-**la columna con el número**— sigue siendo visible para quien entra a la pantalla, sin cambios.
+**Decidido el 18/09/2026: la puerta por rol a `Líderes SIG` alcanza, y no se construye nada
+encima.** Lo que sigue es por qué eso ya está resuelto en el código, y qué hay que escribir
+igual para que siga siendo cierto.
 
-La reasignación conserva su permiso actual, que es **otro**: `operacion:escribir`
-(`app/sig/acciones/tareas.ts:568`). Mover el bloque de pestaña no cambia quién puede usarlo.
+Verificado en `lib/sgsi/permisos.ts:97`: el mapa `POR_GRUPO` tiene **una sola entrada**,
+`Líderes SIG`, y esa entrada trae todos los permisos, incluidos `operacion:ver`,
+`operacion:escribir` y `personas:administrar`. El layout de `/sig` exige `operacion:ver`
+(`app/sig/layout.tsx:20`). De ahí se sigue que **quien logra ver la pantalla de Personas ya
+tiene `personas:administrar`**: no hay ningún rol intermedio que vea el censo y no pueda
+abrirlo. El banner de «Solo lectura» del popup (P2) es hoy código inalcanzable, y se deja
+como está: es una defensa correcta para el día que exista un segundo grupo.
 
-> ⚠️ **Supuesto A-1.** Hoy la lista de pendientes viaja en el censo y la ve cualquiera que
-> abra la pantalla; con D-3 + D-7 pasa a exigir `personas:administrar`. Es un endurecimiento,
-> y es deliberado, pero **es un cambio de comportamiento observable**. Si la intención es que
-> los pendientes de otra persona sigan siendo públicos dentro del SIG, hay que decirlo y la
-> acción se queda sin `autorConPermiso`.
+Consecuencia para las pestañas nuevas: no hay distinción que diseñar. La columna, la lista y
+la formación los ve la misma gente.
+
+**Las acciones nuevas llevan `autorConPermiso('personas:administrar')` igual**, y no es un
+control adicional: es el mismo, escrito donde se puede exigir. Una server action de Next es un
+endpoint público —tiene su propia URL y **no hereda la puerta del layout**—, así que una
+acción sin verificación es alcanzable por cualquiera con sesión, sea del grupo o no. Es lo que
+ya hacen `resumenDePersona` y `leerContactosEmergencia`. Hoy la llamada no rechaza a nadie que
+hubiera pasado por la pantalla; existe para que la afirmación de arriba siga siendo verdad
+cuando alguien cree el segundo grupo.
+
+La reasignación conserva su permiso actual, que es **otro nombre para la misma gente**:
+`operacion:escribir` (`app/sig/acciones/tareas.ts:568`). Mover el bloque de pestaña no cambia
+quién puede usarlo. **Asignar** usa el mismo, por la misma razón: crear una asignación y
+moverla son la misma clase de acto sobre la carga de alguien.
+
+---
+
+## El bloqueo · hoy no caben dos asignaciones manuales por persona y periodo
+
+**Esto hay que resolverlo antes de poder construir «Asignar», y no es una preferencia de
+diseño: es una restricción del esquema que hoy rechaza la segunda fila.**
+
+El índice único de `asignacion`, recreado a mano en
+`prisma/migrations/20260903143000_alcance_por_activo/migration.sql:57`:
+
+```sql
+CREATE UNIQUE INDEX "asignacion_obligacion_id_persona_id_periodo_activo_id_key"
+  ON "asignacion" ("obligacion_id", "persona_id", "periodo", "activo_id")
+  NULLS NOT DISTINCT;
+```
+
+`NULLS NOT DISTINCT` es exactamente lo que hace falta para que el cron sea reintentable: sin
+eso, dos filas con `activo_id` nulo no chocarían y la idempotencia se perdería para todas las
+obligaciones que no son por activo. La migración lo explica bien y la decisión es correcta.
+
+Pero una asignación **manual** no tiene obligación ni activo. Su llave se reduce a
+`(NULL, persona_id, periodo, NULL)`, y con `NULLS NOT DISTINCT` esos nulos **sí** chocan.
+Resultado: **una persona sólo puede tener una asignación manual por periodo**. La segunda
+levanta violación de unicidad y, como todo esto corre dentro de `$transaction`, tumba la
+operación entera.
+
+### Tres salidas, y una recomendada
+
+| | Qué se hace | Por qué sí / por qué no |
+|---|---|---|
+| **Op-1** | Meter un discriminador en `periodo` (`2026-09#FOR-CAP-04`). | **No.** `periodo` es la etiqueta legible del periodo —`2026-T3`, `2026-09`— y la bandeja, los reportes y el planificador agrupan por ella. Ensuciarla con una llave sintética rompe su significado en todo lo que ya la lee. Es, además, el parche que hoy ya está en el código y que produjo los dos defectos de abajo. |
+| **Op-2** | Hacer el índice **parcial**: único sólo `WHERE obligacion_id IS NOT NULL`. | **Sí, recomendada.** El cron siempre escribe `obligacionId`, así que su idempotencia queda intacta, verbatim. Y libera la asignación manual, que nunca fue idempotente porque nada la reintenta. Una migración, sin cambio de datos. |
+| **Op-3** | Crear una `Obligacion` «puntual» por cada asignación manual. | **No.** Una obligación es una regla recurrente con alcance y periodicidad. Inventar una por cada tarea suelta llena el catálogo de reglas que no son reglas, y el planificador tendría que aprender a ignorarlas. |
+
+### Dos defectos que este bloqueo ya está causando, hoy, en producción
+
+No los introduce este cambio: están en `main` desde antes. Los encontré al verificar si
+«Asignar» era construible, y los dejo anotados para el desarrollador — **no los toco**.
+
+1. **`app/sig/acciones/metricas.ts:86`** crea la tarea de alerta con `obligacionId` nulo,
+   `activoId` nulo y `periodo: datos.periodo` (`2026-09`). **Dos métricas distintas con el
+   mismo responsable que crucen umbral en el mismo periodo colisionan**: la segunda medición
+   no se puede registrar. Falla el `$transaction` completo, así que no es que se pierda la
+   alerta — es que **no se puede guardar la medición**. El único guarda que hay es contra
+   repetir el periodo de *la misma* métrica (`metricas.ts:50`), que no cubre este caso.
+
+2. **`app/sig/acciones/hallazgos.ts:309`** crea la acción con `periodo: hallazgo.codigo`,
+   que es Op-1 aplicado a mano para esquivar la colisión. Funciona para un hallazgo con una
+   acción, y **falla en cuanto un hallazgo tiene dos acciones para el mismo responsable**:
+   misma llave, violación de unicidad, la acción no se crea.
+
+Los dos se arreglan solos con Op-2. Si Op-2 se rechaza, los dos siguen abiertos y hay que
+tratarlos aparte.
 
 ---
 
@@ -213,6 +292,8 @@ La reasignación conserva su permiso actual, que es **otro**: `operacion:escribi
 
   4 abiertas · 1 vencida · 2 de formación            [ Sólo formación ]
 
+  [ + Asignar ]   [ Reasignar todas ]   [ Exportar ]
+
   ─────────────────────────────────────────────────────────────────────
   POL-LEC-02   Política de contraseñas               LECTURA
                Vencida hace 6 días
@@ -238,9 +319,81 @@ La reasignación conserva su permiso actual, que es **otro**: `operacion:escribi
   mañana / Vencida hace N días» con un solo verbo en los dos sentidos. **No se escribe una
   segunda redacción del plazo**: la que existe se reusa.
 - El bloque de reasignación baja tal cual está hoy, con sus textos, incluida la distinción
-  entre persona activa e inactiva y el aviso de las vencidas.
-- Con cero abiertas, la pestaña dice que no hay nada que reasignar —el texto que ya existe— y
-  el bloque de reasignación no se dibuja.
+  entre persona activa e inactiva y el aviso de las vencidas. Pasa a abrirse desde
+  **Reasignar todas** en vez de estar siempre desplegado: con el botón de asignar al lado, un
+  selector de destino permanentemente a la vista invita a mover cuando se quería agregar.
+- Con cero abiertas, la pestaña dice que no hay nada que reasignar —el texto que ya existe—,
+  **Reasignar** y **Exportar** no se dibujan, y **Asignar** sí: es justamente la persona a la
+  que hay que ponerle algo.
+
+### Asignar
+
+Un panel dentro de la misma pestaña —no un popup sobre el popup, que deja dos capas de
+«Cerrar» encima de la misma persona—. Dos orígenes, una sola decisión:
+
+```
+  ASIGNARLE ALGO A DANIEL MEDINA
+
+  ( • ) Un contenido del catálogo      (   ) Una tarea puntual
+
+        Contenido:  [ FOR-CAP-04 · Seguridad de la información  ▾ ]
+                    Curso virtual · paquete · exige evaluación, mínimo 70
+
+        Vence:      [ 2026-10-31 ]
+        Motivo:     [ ingreso fuera del periodo de inducción        ]
+
+        ⚠ Ya tiene FOR-CAP-04 abierta, con vencimiento el 30/09.
+          Asignarla de nuevo le deja dos.
+
+                                        [ Cancelar ]  [ Asignar ]
+```
+
+- **El selector de contenido excluye lo que ya tiene abierto**… no. Lo **marca**, y avisa,
+  pero no lo esconde. Esconderlo haría imposible el caso legítimo —reasignar un curso que la
+  persona reprobó y debe repetir— y, peor, dejaría a quien mira sin saber por qué el contenido
+  que busca no está en la lista. El aviso aparece al elegirlo, antes de confirmar.
+- **El motivo es obligatorio.** Es la regla de la casa: se exige donde la decisión tiene
+  consecuencia. Asignar le abre trabajo a una persona y le corre un plazo; dentro de seis meses
+  «¿por qué tengo esto?» tiene que tener respuesta en la bitácora. La reasignación ya lo exige
+  (`tareas.ts:571`) y no hay motivo para que crear pese menos que mover.
+- **El plazo no tiene valor por omisión.** Proponer «+30 días» sería el número inventado que
+  este repo prohíbe en todas partes; la fecha la pone quien asigna. Lo único que se valida es
+  que no sea anterior a hoy.
+- Con **tarea puntual**, el selector se reemplaza por título y descripción, que es lo que el
+  modelo pide cuando no hay contenido (`prisma/schema.prisma:1688`).
+- El `periodo` de una asignación manual se escribe como el mes de la fecha límite (`2026-10`),
+  que es lo que la bandeja y los reportes esperan leer ahí. **Esto sólo es posible con Op-2**;
+  con el índice de hoy, la segunda del mes falla.
+- Al asignar se refresca la lista y el contador de la pestaña, y la fila nueva aparece en su
+  lugar por urgencia. El número de la columna del censo queda viejo hasta recargar: se
+  revalida la ruta, igual que hace la reasignación.
+
+### Exportar
+
+Un `.xlsx` real por `GET /api/sig/exportar-pendientes`, siguiendo punto por punto el patrón de
+`app/api/sgsi/exportar-activos/route.ts`, que ya resolvió esto bien:
+
+- La ruta **no está bajo `/sig`**, así que la puerta del layout no la ve: verifica la sesión y
+  `puede(rol, 'operacion:ver')` de forma explícita. Con sesión buena y sin permiso responde
+  **403**, no 404 — quien tiene cuenta merece saber que existe y que no le corresponde.
+- **Una ruta, dos entradas.** Sin parámetros exporta los pendientes de todo el censo; con
+  `?persona=<id>` exporta los de una. El botón de la pestaña usa la segunda; un botón en la
+  franja de la pantalla usa la primera, respetando el chip Activas/Inactivas/Todas vía
+  `?estado=`. Dos rutas para dos vistas de la misma lista es el error que D-2 evita adentro y
+  que no tiene por qué repetirse afuera.
+- **Cómo se ve el archivo vive en `lib/sig/pendientes-libro.ts`**, sin sesión y sin Prisma, para
+  que una prueba pueda construir el libro y leerlo de vuelta. Es literalmente lo que dice el
+  encabezado de `exportar-activos` sobre `inventario-libro.ts`, y es lo que permite que el
+  formato esté probado sin montar la pantalla.
+- Columnas, una fila por asignación abierta: `Código`, `Título`, `Tipo`, `Persona`, `Correo`,
+  `Área`, `Cargo`, `Periodo`, `Fecha límite`, `Días` (negativos si está vencida), `Estado del
+  plazo` (`En plazo` / `Vencida`), `Avance del curso` (el porcentaje, **vacío cuando el paquete
+  no lo reporta** — nunca 0), `Intentos`.
+- Nombre del archivo: `pendientes-<censo|persona>-AAAA-MM-DD.xlsx`.
+
+> El archivo lleva nombres, correos y la carga de trabajo de personas reales. No entra al
+> repositorio, y es la misma clase de dato que `HARNESS.md` mantiene fuera con los libros del
+> SGSI y con `test-results/`.
 
 ### Pestaña Formación
 
@@ -362,6 +515,41 @@ export async function pendientesDePersona(personaId: number): Promise<ResultadoP
 export async function formacionDePersona(personaId: number): Promise<ResultadoFormacion>;
 ```
 
+Y en `app/sig/acciones/tareas.ts`, donde ya viven `reasignarAsignacion` y
+`reasignarPendientesDe` —crear y mover la carga de alguien son vecinos, y el archivo ya trae
+la bitácora y los permisos de esa familia—:
+
+```ts
+export async function asignarAPersona(
+  personaId: number,
+  datos: {
+    /// Uno de los dos, nunca los dos. Con `contenidoId`, el título y la descripción los
+    /// manda el contenido; sin él, son obligatorios (`prisma/schema.prisma:1688`).
+    contenidoId?: number;
+    titulo?: string;
+    descripcion?: string;
+    fechaLimite: string;
+    /// Obligatorio. Asignar le abre trabajo a alguien: dentro de seis meses «¿por qué
+    /// tengo esto?» tiene que tener respuesta en la bitácora.
+    motivo: string;
+  },
+): Promise<Resultado>;
+```
+
+Valida, en este orden, y cada una con su mensaje: la persona existe y está activa; hay
+contenido **o** título, no ambos ni ninguno; la fecha límite no es anterior a hoy; el motivo
+no está vacío. Escribe una fila de `bitacora` con `tabla: 'asignacion'`, `campo: 'alta'` y el
+motivo de quien asignó, distinguible de la generación automática —que escribe
+`'generada · <periodo>'`— porque la franja de la última corrida del censo se arma leyendo esa
+misma tabla (`censo.query.ts:106`) y **no puede confundir una asignación manual con una
+sincronización**. Es exactamente la trampa que P28 ya documenta en ese archivo.
+
+### `app/api/sig/exportar-pendientes/route.ts` y `lib/sig/pendientes-libro.ts` — nuevos
+
+La ruta hace sesión, permiso, consulta y descarga; el libro no sabe de ninguna de las cuatro
+cosas. La separación es la de `exportar-activos` / `inventario-libro.ts`, y existe para que el
+formato se pueda probar: `exceljs` ya es dependencia (`package.json:24`).
+
 ```ts
 export interface PendienteDePersona {
   id: number;            // Asignacion.id
@@ -416,7 +604,11 @@ confunda con «esta persona no tiene nada».
 | `app/sig/personas/censo.query.ts` | Deja de armar y enviar `abiertas`. Conserva `pendientes` y `vencidas`. |
 | `app/sig/personas/Personas.client.tsx` | `PersonaFila` pierde `abiertas`. La celda pasa a botón rotulado. Abre el popup con `seccionInicial='pendientes'`. Deja de construir `pieDeDatosBase`. |
 | `app/sig/personas/PopupPersona.tsx` | Dos secciones nuevas; el prop `pieDeDatosBase` desaparece; entra `seccionInicial`. Carga de pendientes a nivel de popup (D-3), siguiendo el patrón de `contactos`/`grupos`/`resumen`: un `useState` + un `useRef` de pedido en vuelo. |
-| `app/sig/personas/PendientesPersona.tsx` | **Nuevo.** La pestaña Pendientes, con el bloque de reasignación adentro. Aparte porque `PopupPersona.tsx` ya tiene 980 líneas y cuatro estados asíncronos. |
+| `prisma/migrations/<fecha>_asignacion_manual/` | **Nuevo.** Op-2: el índice único pasa a parcial, `WHERE obligacion_id IS NOT NULL`. Se escribe a mano, con su comentario, como ya se hizo en `20260903143000_alcance_por_activo`: Prisma no expresa ni `NULLS NOT DISTINCT` ni el `WHERE`. |
+| `app/sig/acciones/tareas.ts` | Entra `asignarAPersona`. |
+| `app/sig/personas/PendientesPersona.tsx` | **Nuevo.** La pestaña Pendientes, con el bloque de reasignación y el panel de asignar adentro. Aparte porque `PopupPersona.tsx` ya tiene ~980 líneas y cuatro estados asíncronos. |
+| `app/api/sig/exportar-pendientes/route.ts` | **Nuevo.** Sesión, permiso, consulta, descarga. |
+| `lib/sig/pendientes-libro.ts` | **Nuevo.** El libro, sin sesión y sin Prisma, para poder probarlo. |
 | `app/sig/personas/FormacionPersona.tsx` | **Nuevo.** La pestaña Formación, con el mismo criterio de `LicenciasPersona.tsx`: la pestaña que se carga sola vive en su archivo. |
 | `app/sig/personas/BloqueoCuenta.tsx` | Recibe los pendientes por prop desde el popup en vez de leerlos de `persona.abiertas`. |
 | `app/sig/colaboradores/Colaboradores.client.tsx` | Usa el mismo censo y el mismo popup: hay que verificar que no dependa de `abiertas` ni del prop que se va. |
@@ -449,8 +641,41 @@ comprueba que **las dos usan el mismo predicado** —`{ estado: 'PENDIENTE' }`, 
 adicionales de fecha ni de tipo— leyendo los dos archivos, al estilo de
 `lib/__tests__/use-server.test.ts`, que ya escanea 36 archivos en milisegundos.
 
-`lib/__tests__/use-server.test.ts` cubre solo el archivo nuevo de acciones sin tocarlo: ya
-escanea el directorio.
+`lib/sig/__tests__/pendientes-libro.test.ts` — nuevo. Construye el libro y lo lee de vuelta,
+que es para lo que el módulo no importa Prisma:
+
+1. Una fila por asignación abierta, y el encabezado en el orden declarado.
+2. Un curso **sin** `progressMeasure` deja la celda de avance **vacía**, no en `0`. En una
+   hoja de cálculo un cero se suma, se promedia y se grafica: es la peor superficie posible
+   para confundir «no sé» con «cero».
+3. Una vencida sale con días negativos y `Estado del plazo = Vencida`, coherente con el signo.
+4. Sin pendientes, el libro se genera igual con sólo el encabezado — un archivo vacío es una
+   respuesta, un error no.
+
+`lib/sig/__tests__/asignacion-manual.test.ts` — nuevo, sobre las validaciones puras de
+`asignarAPersona` (que viven en un helper de `lib/sig/`, no dentro de la acción):
+
+1. Con `contenidoId` **y** título → rechaza, porque el modelo ignora el título y quien lo
+   escribió creería que se guardó.
+2. Sin ninguno de los dos → rechaza.
+3. Fecha límite anterior a hoy → rechaza. Nace vencida y nadie lo quiso.
+4. Motivo vacío o sólo espacios → rechaza.
+5. El `periodo` derivado de la fecha límite es el mes (`2026-10-31` → `2026-10`), en el
+   formato que la bandeja ya lee.
+
+`lib/__tests__/use-server.test.ts` cubre solo los archivos nuevos de acciones sin tocarlo: ya
+escanea el directorio. Importa acá porque `TIPOS_DE_FORMACION` **no puede** vivir en el
+archivo `'use server'`.
+
+### La prueba que este cambio no puede dejar de tener
+
+**Dos asignaciones manuales a la misma persona en el mismo mes.** Es el bloqueo entero en un
+caso, y es el que hay que **ver en rojo antes de escribir la migración**: hoy la segunda
+levanta violación de unicidad. Necesita base, así que va donde estén las pruebas que la usan;
+si no hay ninguna todavía, va como paso obligatorio del recorrido de punta a punta escrito en
+el PR, con el mensaje de error de antes y el resultado de después.
+
+Sin este caso, Op-2 se escribe y nadie comprueba que resolvió algo.
 
 ### Regla 3 · punta a punta
 
@@ -473,8 +698,13 @@ la base de producción por el túnel (la regla que `HARNESS.md` fija para `e2e/`
    número no supera el total.
 8. Cerrar el popup → la tabla sigue en pie y no hubo escritura.
 
-El recorrido **con escritura** —reasignar— no entra al spec por la regla de sólo lectura; se
-prueba a mano y el PR escribe el recorrido, con el formato que `HARNESS.md` exige.
+9. **Exportar** en la pestaña → llega un `.xlsx` con `content-type` de hoja de cálculo y con
+   tantas filas de datos como decía el contador. Descargar es leer: entra al spec.
+
+Los recorridos **con escritura** —asignar y reasignar— no entran al spec por la regla de sólo
+lectura de `e2e/`. Se prueban a mano y el PR escribe el recorrido paso a paso, con el formato
+que `HARNESS.md` exige. El de asignar tiene que incluir, explícitamente, **la segunda
+asignación del mismo mes**.
 
 ### Los tres checks
 
@@ -488,11 +718,14 @@ despliegue del 16/09/2026.
 
 | # | Supuesto | Qué cambia si es falso |
 |---|---|---|
-| **A-1** | Leer los pendientes de otra persona pasa a exigir `personas:administrar` (D-7). | Si deben seguir siendo visibles para todo el SIG, la acción se queda sin `autorConPermiso` y el endurecimiento se anota como deuda aparte. |
+| ~~**A-1**~~ | ~~Leer los pendientes de otra persona pasa a exigir `personas:administrar`.~~ **Resuelto el 18/09/2026:** la puerta por rol a `Líderes SIG` alcanza y no se agrega control nuevo. Ver D-7. | — |
 | **A-2** | La pestaña Formación lista sólo formación **asignada** en el SIG (sale de `Asignacion`). | Si se espera cargar formación externa a mano, es un modelo nuevo y un alcance distinto: spec propia. |
 | **A-3** | El bloque de reasignación **se muda** a la pestaña Pendientes y desaparece de Datos base (D-2). | Si se prefiere no tocar Datos base, hay que decidir cuál de las dos listas es la buena — y esa es exactamente la decisión que D-2 evita. |
 | **A-4** | La pestaña Pendientes lista **todas** las abiertas, no sólo las de formación. | El pedido dice «en especial las de formación»; se resolvió con marca y filtro (D-6), no restringiendo la lista. |
 | **A-5** | Con cero pendientes no hay botón, se sigue viendo el `0` plano. | Si se quiere botón siempre, abre una lista vacía y hay que redactar ese estado. |
+| **A-6** | **Op-2**: el índice único de `asignacion` pasa a parcial. Es condición para que «Asignar» exista. | Sin Op-2 no hay «Asignar» construible sin ensuciar `periodo`, y los dos defectos de `metricas.ts` y `hallazgos.ts` siguen abiertos. Si Op-2 se rechaza, hay que decidir cuál de las dos cosas se cede. |
+| **A-7** | «Asignar» es asignarle a **esta** persona, desde su popup. | Si lo que se quiere es asignar en lote —el mismo curso a doce personas—, eso no es una pestaña: es una pantalla, y probablemente la inversa que ya está anotada abajo. |
+| **A-8** | «Exportar» son los **pendientes**. | Si se esperaba exportar el censo completo —personas con área, cargo y rol— es otra hoja y otras columnas, y conviene decidirlo ahora porque la ruta se escribe una sola vez. |
 
 ---
 
@@ -506,4 +739,12 @@ despliegue del 16/09/2026.
   con los intentos adentro. Cambio de copy, spec aparte.
 - No hay ningún lugar que conteste **«¿a cuántas personas les falta el curso X?»** — la
   pregunta inversa, que es la que se hace al cerrar un periodo de concienciación. Se contesta
-  hoy mirando persona por persona. Es una pantalla, no una pestaña.
+  hoy mirando persona por persona. Es una pantalla, no una pestaña, y es también donde
+  viviría el asignar en lote que A-7 deja afuera.
+- Los **dos defectos** de `metricas.ts` y `hallazgos.ts` documentados arriba. Op-2 los cierra
+  de paso; si Op-2 no entra, quedan abiertos y necesitan su propio arreglo.
+- `app/components/sgsi/inventario/InventarioActivos.tsx:1150` le dice al usuario
+  «Revis**á** la sesión e intent**á** de nuevo». Es voseo, y `HARNESS.md` lo prohíbe
+  explícitamente en el copy visible. Una línea de corrección, ajena a este cambio; se anota
+  acá porque la encontré leyendo el patrón de exportación que esta spec copia — y conviene
+  que el patrón que se copia no arrastre el defecto.
