@@ -156,6 +156,17 @@ export const ELEMENTOS: Record<string, Definicion> = {
   'cmi.interactions.n.timestamp': { acceso: 'RW', tipo: cadena(30) },
   'cmi.interactions.n.learner_response': { acceso: 'RW', tipo: cadena(4000) },
   'cmi.interactions.n.correct_responses._count': { acceso: 'RO', tipo: { clase: 'entero', minimo: 0 } },
+  // `cadena(4000)` y no un tipo por clase de interacción: el patrón de una respuesta
+  // correcta tiene gramática propia según `type` (`choice` usa `a[,]b`, `numeric` un rango,
+  // `matching` pares). Validarla de verdad es otro módulo; validarla a medias rechazaría
+  // respuestas legítimas, que es peor que guardarlas sin mirar. Se acota el largo, que es
+  // lo que el estándar exige como mínimo.
+  //
+  // El índice interno NO queda acotado, y es deliberado: `correct_responses._count` es de
+  // sólo lectura y el estándar no obliga al LMS a llevar su cuenta, así que no hay tope
+  // contra el cual comparar sin inventarlo.
+  'cmi.interactions.n.correct_responses.n.pattern': { acceso: 'RW', tipo: cadena(4000) },
+  'cmi.interactions.n.objectives.n.id': { acceso: 'RW', tipo: cadena(4000) },
   'cmi.interactions.n.result': { acceso: 'RW', tipo: cadena(250) },
   'cmi.interactions.n.weighting': { acceso: 'RW', tipo: decimal(-1_000_000, 1_000_000) },
   'cmi.interactions.n.latency': { acceso: 'RW', tipo: { clase: 'duracion' } },

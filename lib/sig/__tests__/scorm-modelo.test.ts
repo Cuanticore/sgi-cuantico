@@ -195,3 +195,43 @@ describe('frase', () => {
     expect(frase(9999)).toBe('General Exception');
   });
 });
+
+describe('interacciones · la respuesta correcta se puede guardar', () => {
+  // Sin esto el curso recibe 401 y el servidor descarta el valor: quedaba registrado qué
+  // respondió la persona y si acertó, pero no CONTRA QUÉ. Un detalle por pregunta sin la
+  // respuesta correcta no lo puede revisar nadie que no tenga el curso a mano.
+  const SIN_COLECCIONES = { objetivos: 0, interacciones: 0 };
+
+  it('normaliza los DOS índices de la ruta', () => {
+    expect(normalizar('cmi.interactions.3.correct_responses.1.pattern')).toBe(
+      'cmi.interactions.n.correct_responses.n.pattern',
+    );
+    expect(normalizar('cmi.interactions.3.objectives.1.id')).toBe(
+      'cmi.interactions.n.objectives.n.id',
+    );
+  });
+
+  it('acepta el patrón de la respuesta correcta', () => {
+    expect(
+      validarEscritura('cmi.interactions.0.correct_responses.0.pattern', 'b', ABIERTO, SIN_COLECCIONES),
+    ).toBe(OK);
+  });
+
+  it('acepta el objetivo asociado a una interacción', () => {
+    expect(
+      validarEscritura('cmi.interactions.0.objectives.0.id', 'OBJ-1', ABIERTO, SIN_COLECCIONES),
+    ).toBe(OK);
+  });
+
+  // P9 · el índice que se acota es el de la INTERACCIÓN, no el del patrón. `indiceDe`
+  // devuelve el primero de la ruta, y tiene que seguir haciéndolo: la interacción 5 no
+  // existe cuando sólo hay una, y aceptarla guardaría un hueco que nadie puede interpretar.
+  it('sigue acotando contra el índice de la interacción', () => {
+    expect(
+      indiceDe('cmi.interactions.5.correct_responses.0.pattern'),
+    ).toBe(5);
+    expect(
+      validarEscritura('cmi.interactions.5.correct_responses.0.pattern', 'b', ABIERTO, SIN_COLECCIONES),
+    ).toBe(FALLO_GENERAL_AL_FIJAR);
+  });
+});
