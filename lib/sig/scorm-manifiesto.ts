@@ -75,26 +75,55 @@ function esNamespace(origen: string): boolean {
 /// documento, y las dos cosas sí son orígenes de contenido.
 const ANCLA_HREF = /<a\b[^>]*?\shref\s*=\s*["']([^"']+)["']/gi;
 
-/// Un `href` gana la exención sólo si **ES** una URL de navegación: empieza por `http://`,
-/// `https://` o `//` (protocol-relative). Nada más.
+/// ¿Este `href` es una navegación —la persona se va a otro lado— o lleva una URL adentro de
+/// un payload que corre acá?
 ///
-/// Escrito así y no analizando el esquema, y el motivo es el que importa: un `href` sin
-/// ningún `https?://` adentro no aporta nada a esta función —no llega a contarse—, así que
-/// los únicos que importan son los que SÍ contienen uno. Y ahí la pregunta que discrimina no
-/// es qué esquema declara, sino si el `href` **es** esa URL o la lleva **adentro** de otra
-/// cosa. `javascript:fetch("https://…")`, `data:text/html,<script src="https://…">`,
-/// `&#106;avascript:`, `java&#9;script:` — todos la llevan adentro, y ninguno empieza por ella.
+/// **La pregunta que NO se hace es «¿qué esquema declara?».** Contestar ésa obliga a
+/// reproducir la normalización de URL del navegador: decodificar las entidades del atributo
+/// —`&#106;avascript:` ejecuta— y descartar TAB, LF, CR y los controles C0 —`java<TAB>script:`
+/// también—. Ahí vive una familia entera de evasiones con veinte años de historia, y cada
+/// parche tapa la variante que alguien pensó.
 ///
-/// Esto evita tener que reproducir la normalización de URL del navegador —decodificar
-/// entidades, descartar TAB/LF/CR y los controles C0— que es donde vive una familia entera de
-/// evasiones y donde cada parche tapa la variante que alguien pensó. Acá lo raro no necesita
-/// ser previsto: no empieza por `http`, no gana la exención, cuenta como carga. **El lado
-/// conservador es el que sale por construcción, no el que hay que acordarse de programar.**
+/// En su lugar, tres tramos, y el orden importa:
+///
+///   1. **Llano o nada.** Un `href` con una referencia numérica o un carácter de control no
+///      es un enlace a una norma. Se rechaza sin decodificarlo.
+///   2. **Absoluta:** el `href` EMPIEZA por `http://`, `https://` o `//`. Es la URL, no la
+///      contiene — `javascript:fetch("https://…")` la lleva adentro y no empieza por ella.
+///   3. **Relativa:** sin esquema, que según el RFC 3986 §3.1 es no tener `:` antes del
+///      primer `/`, `?` o `#`.
+///
+/// Lo que no cae en ninguno de los tres cuenta como carga. **El lado conservador sale por
+/// construcción, no de acordarse de programarlo**: un esquema nuevo que nadie previó no se
+/// exime solo.
 ///
 /// El `.trim()` es seguro y necesario: el navegador también descarta el espacio en blanco de
-/// los extremos, y `"\tjavascript:…"` queda en `"javascript:…"`, que sigue sin ganar nada.
+/// los extremos, y `"\tjavascript:…"` queda en `"javascript:…"`, que no gana nada.
 function esNavegacion(href: string): boolean {
-  return /^(https?:\/\/|\/\/)/i.test(href.trim());
+  const limpio = href.trim();
+
+  // **Primero: que sea LLANO.** Un enlace a una norma, a un manual o a la intranet no lleva
+  // referencias numéricas (`&#106;`) ni caracteres de control. Las dos cosas sí son las
+  // formas conocidas de disfrazar un esquema, y funcionan porque el navegador las resuelve
+  // ANTES de que la URL exista —el parser de HTML decodifica el atributo, y el analizador de
+  // URL descarta TAB, LF, CR y los controles C0— mientras que este texto está crudo.
+  //
+  // Se rechaza en vez de decodificar a propósito. Reproducir esa normalización con
+  // expresiones regulares es la carrera que no se gana: cada parche tapa la variante que
+  // alguien pensó. Acá lo que no se entiende no se exime, y ése es el lado seguro.
+  if (/&#|[\x00-\x1f\x7f]/.test(limpio)) return false;
+
+  // Absoluta: el `href` **ES** la URL. No «declara el esquema http» — empieza por él.
+  if (/^(https?:)?\/\//i.test(limpio)) return true;
+
+  // Relativa: sin esquema, que según el RFC 3986 §3.1 es no tener `:` antes del primer `/`,
+  // `?` o `#`. Hace falta porque un curso sale por su propia página —
+  // `<a href="salir.html?volver=https://intranet.empresa.com">`— y esa navegación es tan
+  // navegación como la absoluta. Sin este tramo, ese enlace volvía a producir un DESPACHO
+  // falso, que es justo lo que este filtro vino a cerrar.
+  const corte = limpio.search(/[/?#]/);
+  const antes = corte === -1 ? limpio : limpio.slice(0, corte);
+  return !antes.includes(':');
 }
 
 /// Los orígenes que aparecen en un texto. Heurística deliberada y acotada: no pretende
