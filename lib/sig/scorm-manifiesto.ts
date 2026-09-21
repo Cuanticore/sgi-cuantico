@@ -75,17 +75,26 @@ function esNamespace(origen: string): boolean {
 /// documento, y las dos cosas sí son orígenes de contenido.
 const ANCLA_HREF = /<a\b[^>]*?\shref\s*=\s*["']([^"']+)["']/gi;
 
-/// Sólo una NAVEGACIÓN gana la exención: http, https, o una URL relativa o
-/// protocol-relative. Todo lo demás —`javascript:`, `data:`, `vbscript:`— corre o carga en
-/// el documento actual, y la CSP sí lo gobierna. La condición va en positivo a propósito:
-/// una lista negra se queda corta el día que aparezca un esquema nuevo.
+/// Un `href` gana la exención sólo si **ES** una URL de navegación: empieza por `http://`,
+/// `https://` o `//` (protocol-relative). Nada más.
+///
+/// Escrito así y no analizando el esquema, y el motivo es el que importa: un `href` sin
+/// ningún `https?://` adentro no aporta nada a esta función —no llega a contarse—, así que
+/// los únicos que importan son los que SÍ contienen uno. Y ahí la pregunta que discrimina no
+/// es qué esquema declara, sino si el `href` **es** esa URL o la lleva **adentro** de otra
+/// cosa. `javascript:fetch("https://…")`, `data:text/html,<script src="https://…">`,
+/// `&#106;avascript:`, `java&#9;script:` — todos la llevan adentro, y ninguno empieza por ella.
+///
+/// Esto evita tener que reproducir la normalización de URL del navegador —decodificar
+/// entidades, descartar TAB/LF/CR y los controles C0— que es donde vive una familia entera de
+/// evasiones y donde cada parche tapa la variante que alguien pensó. Acá lo raro no necesita
+/// ser previsto: no empieza por `http`, no gana la exención, cuenta como carga. **El lado
+/// conservador es el que sale por construcción, no el que hay que acordarse de programar.**
+///
+/// El `.trim()` es seguro y necesario: el navegador también descarta el espacio en blanco de
+/// los extremos, y `"\tjavascript:…"` queda en `"javascript:…"`, que sigue sin ganar nada.
 function esNavegacion(href: string): boolean {
-  const limpio = href.trim();
-  if (limpio.startsWith('//')) return true; // protocol-relative
-  const esquema = /^([a-z][a-z0-9+.-]*):/i.exec(limpio);
-  if (esquema === null) return true; // relativa, ancla, query
-  const s = esquema[1].toLowerCase();
-  return s === 'http' || s === 'https';
+  return /^(https?:\/\/|\/\/)/i.test(href.trim());
 }
 
 /// Los orígenes que aparecen en un texto. Heurística deliberada y acotada: no pretende
@@ -99,11 +108,12 @@ function esNavegacion(href: string): boolean {
 /// afirmara un envío de datos a un tercero que nunca ocurre. Es el mismo argumento de
 /// `NAMESPACES`, aplicado a los hipervínculos.
 ///
-/// **De navegación**, y por eso `esNavegacion` filtra el esquema: un `href` que empieza con
-/// `javascript:` corre en el documento actual y transmite al hacer clic, y uno `data:` navega
-/// a un documento de origen opaco. Ninguno de los dos es «la persona se va al sitio del
-/// tercero», que es el argumento entero de la exención, así que ninguno la gana y sus
-/// dominios cuentan como carga.
+/// **De navegación**, y por eso `esNavegacion` exige que el `href` EMPIECE por la URL. Un
+/// `javascript:fetch("https://…")` corre en el documento actual y transmite al hacer clic —y
+/// la CSP sí lo gobierna con `connect-src`—, y un `data:text/html,…` navega a un documento de
+/// origen opaco. Ninguno de los dos es «la persona se va al sitio del tercero», que es el
+/// argumento entero de la exención; los dos llevan la URL ADENTRO de un payload, y por eso
+/// no la ganan y sus dominios cuentan como carga.
 ///
 /// La regla es ASIMÉTRICA a propósito: se descarta el origen cuyas apariciones son TODAS
 /// destinos de un enlace de navegación. Basta con que aparezca una vez cargándose —un

