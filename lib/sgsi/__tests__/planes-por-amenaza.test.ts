@@ -6,6 +6,7 @@
 
 import {
   agruparAmenazasEnPlanes,
+  ordenarAmenazasPorResidual,
   type AmenazaParaPlan,
 } from '../planes-por-amenaza';
 
@@ -120,5 +121,62 @@ describe('agruparAmenazasEnPlanes', () => {
 
   it('sin amenazas no hay planes ni excluidas', () => {
     expect(agruparAmenazasEnPlanes([])).toEqual({ grupos: [], excluidas: [] });
+  });
+});
+
+describe('ordenarAmenazasPorResidual', () => {
+  function fila(amenazaCodigo: string, residual: number | null, brecha: number | null = null) {
+    return { amenazaCodigo, residual, brecha };
+  }
+
+  it('el residual más alto va primero: es el orden en que se decide qué tratar', () => {
+    const r = ordenarAmenazasPorResidual([
+      fila('A.10', 1.2),
+      fila('E.2', 9.6),
+      fila('A.6', 4.8),
+    ]);
+    expect(r.map((a) => a.amenazaCodigo)).toEqual(['E.2', 'A.6', 'A.10']);
+  });
+
+  it('el residual manda sobre la brecha: una brecha grande con residual bajo no sube', () => {
+    // La brecha dice cuánto falta del control; el residual, cuánto riesgo queda. Lo que se
+    // prioriza tratar es lo segundo.
+    const r = ordenarAmenazasPorResidual([
+      fila('A.10', 1.2, 40),
+      fila('E.2', 9.6, 10),
+    ]);
+    expect(r.map((a) => a.amenazaCodigo)).toEqual(['E.2', 'A.10']);
+  });
+
+  it('a igual residual desempata la brecha mayor', () => {
+    const r = ordenarAmenazasPorResidual([
+      fila('A.10', 4.8, 10),
+      fila('E.2', 4.8, 40),
+    ]);
+    expect(r.map((a) => a.amenazaCodigo)).toEqual(['E.2', 'A.10']);
+  });
+
+  it('a igual residual y brecha desempata el código, para que dos corridas den lo mismo', () => {
+    const r = ordenarAmenazasPorResidual([
+      fila('E.2', 4.8, 10),
+      fila('A.10', 4.8, 10),
+    ]);
+    expect(r.map((a) => a.amenazaCodigo)).toEqual(['A.10', 'E.2']);
+  });
+
+  it('sin residual calculado va al final, aunque tenga la brecha más grande', () => {
+    // «No se pudo calcular» no es «riesgo alto». Ponerlo arriba pediría tratar primero
+    // justamente lo que todavía no se sabe cuánto pesa.
+    const r = ordenarAmenazasPorResidual([
+      fila('A.10', null, 40),
+      fila('E.2', 0.4, null),
+    ]);
+    expect(r.map((a) => a.amenazaCodigo)).toEqual(['E.2', 'A.10']);
+  });
+
+  it('no muta la lista que recibe', () => {
+    const entrada = [fila('A.10', 1.2), fila('E.2', 9.6)];
+    ordenarAmenazasPorResidual(entrada);
+    expect(entrada.map((a) => a.amenazaCodigo)).toEqual(['A.10', 'E.2']);
   });
 });

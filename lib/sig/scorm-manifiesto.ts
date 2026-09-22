@@ -70,12 +70,105 @@ function esNamespace(origen: string): boolean {
   return NAMESPACES.includes(host);
 }
 
+/// El destino de un `<a href>`. No incluye `<link href>` ni `<base href>` a propósito: el
+/// primero CARGA una hoja de estilos y el segundo reescribe todas las URL relativas del
+/// documento, y las dos cosas sí son orígenes de contenido.
+const ANCLA_HREF = /<a\b[^>]*?\shref\s*=\s*["']([^"']+)["']/gi;
+
+/// ¿Este `href` es una navegación —la persona se va a otro lado— o lleva una URL adentro de
+/// un payload que corre acá?
+///
+/// **La pregunta que NO se hace es «¿qué esquema declara?».** Contestar ésa obliga a
+/// reproducir la normalización de URL del navegador: decodificar las entidades del atributo
+/// —`&#106;avascript:` ejecuta— y descartar TAB, LF, CR y los controles C0 —`java<TAB>script:`
+/// también—. Ahí vive una familia entera de evasiones con veinte años de historia, y cada
+/// parche tapa la variante que alguien pensó.
+///
+/// En su lugar, tres tramos, y el orden importa:
+///
+///   1. **Llano o nada.** Un `href` con una referencia numérica o un carácter de control no
+///      es un enlace a una norma. Se rechaza sin decodificarlo.
+///   2. **Absoluta:** el `href` EMPIEZA por `http://`, `https://` o `//`. Es la URL, no la
+///      contiene — `javascript:fetch("https://…")` la lleva adentro y no empieza por ella.
+///   3. **Relativa:** sin esquema, que según el RFC 3986 §3.1 es no tener `:` antes del
+///      primer `/`, `?` o `#`.
+///
+/// Lo que no cae en ninguno de los tres cuenta como carga. **El lado conservador sale por
+/// construcción, no de acordarse de programarlo**: un esquema nuevo que nadie previó no se
+/// exime solo.
+///
+/// El `.trim()` es seguro y necesario: el navegador también descarta el espacio en blanco de
+/// los extremos, y `"\tjavascript:…"` queda en `"javascript:…"`, que no gana nada.
+function esNavegacion(href: string): boolean {
+  const limpio = href.trim();
+
+  // **Primero: que sea LLANO.** Un enlace a una norma, a un manual o a la intranet no lleva
+  // referencias numéricas (`&#106;`) ni caracteres de control. Las dos cosas sí son las
+  // formas conocidas de disfrazar un esquema, y funcionan porque el navegador las resuelve
+  // ANTES de que la URL exista —el parser de HTML decodifica el atributo, y el analizador de
+  // URL descarta TAB, LF, CR y los controles C0— mientras que este texto está crudo.
+  //
+  // Se rechaza en vez de decodificar a propósito. Reproducir esa normalización con
+  // expresiones regulares es la carrera que no se gana: cada parche tapa la variante que
+  // alguien pensó. Acá lo que no se entiende no se exime, y ése es el lado seguro.
+  if (/&#|[\x00-\x1f\x7f]/.test(limpio)) return false;
+
+  // Absoluta: el `href` **ES** la URL. No «declara el esquema http» — empieza por él.
+  if (/^(https?:)?\/\//i.test(limpio)) return true;
+
+  // Relativa: sin esquema, que según el RFC 3986 §3.1 es no tener `:` antes del primer `/`,
+  // `?` o `#`. Hace falta porque un curso sale por su propia página —
+  // `<a href="salir.html?volver=https://intranet.empresa.com">`— y esa navegación es tan
+  // navegación como la absoluta. Sin este tramo, ese enlace volvía a producir un DESPACHO
+  // falso, que es justo lo que este filtro vino a cerrar.
+  const corte = limpio.search(/[/?#]/);
+  const antes = corte === -1 ? limpio : limpio.slice(0, corte);
+  return !antes.includes(':');
+}
+
 /// Los orígenes que aparecen en un texto. Heurística deliberada y acotada: no pretende
 /// encontrar todo lo que un curso pueda cargar en tiempo de ejecución — para eso está la
 /// CSP, que bloquea lo no declarado y lo hace visible (P18).
+///
+/// **Un `<a href>` de navegación no cuenta.** No carga nada y no transmite nada: la persona
+/// puede tomarlo, con su propia sesión y en otra pestaña, y ninguna directiva de CSP lo
+/// gobierna. Contarlo clasificaría como DESPACHO a un curso que enlaza a una norma, a un
+/// manual o a la intranet —que es lo normal en un curso del SGSI— y haría que la bitácora
+/// afirmara un envío de datos a un tercero que nunca ocurre. Es el mismo argumento de
+/// `NAMESPACES`, aplicado a los hipervínculos.
+///
+/// **De navegación**, y por eso `esNavegacion` exige que el `href` EMPIECE por la URL. Un
+/// `javascript:fetch("https://…")` corre en el documento actual y transmite al hacer clic —y
+/// la CSP sí lo gobierna con `connect-src`—, y un `data:text/html,…` navega a un documento de
+/// origen opaco. Ninguno de los dos es «la persona se va al sitio del tercero», que es el
+/// argumento entero de la exención; los dos llevan la URL ADENTRO de un payload, y por eso
+/// no la ganan y sus dominios cuentan como carga.
+///
+/// La regla es ASIMÉTRICA a propósito: se descarta el origen cuyas apariciones son TODAS
+/// destinos de un enlace de navegación. Basta con que aparezca una vez cargándose —un
+/// `<script src>`, un `<iframe>`, un `fetch`, un `window.location`— para que cuente como
+/// antes. Eso es lo que impide que sea una puerta: un despacho real CARGA al tercero, y esa
+/// carga se sigue viendo.
 export function dominiosDe(texto: string): string[] {
-  const encontrados = (texto.match(ORIGEN_EXTERNO) ?? []).filter((o) => !esNamespace(o));
-  return [...new Set(encontrados)].sort();
+  const todos = (texto.match(ORIGEN_EXTERNO) ?? []).filter((o) => !esNamespace(o));
+  if (todos.length === 0) return [];
+
+  const apariciones = new Map<string, number>();
+  for (const o of todos) apariciones.set(o, (apariciones.get(o) ?? 0) + 1);
+
+  const comoEnlace = new Map<string, number>();
+  for (const [, href] of texto.matchAll(ANCLA_HREF)) {
+    if (!esNavegacion(href)) continue;
+    for (const o of href.match(ORIGEN_EXTERNO) ?? []) {
+      comoEnlace.set(o, (comoEnlace.get(o) ?? 0) + 1);
+    }
+  }
+
+  const cargados = [...apariciones.entries()]
+    .filter(([origen, veces]) => veces > (comoEnlace.get(origen) ?? 0))
+    .map(([origen]) => origen);
+
+  return [...new Set(cargados)].sort();
 }
 
 const SCRIPT_SRC = /<script[^>]+src\s*=\s*["']([^"']+)["']/gi;

@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db';
 import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { registrar } from '@/lib/sgsi/bitacora';
 import { guardarPaquete } from '@/lib/sig/scorm-paquete';
+import { techoEfectivoMb } from '@/lib/sig/limite-paquete';
 
 export interface RespuestaSubida {
   ok: boolean;
@@ -36,7 +37,12 @@ export async function subirPaqueteScorm(datos: FormData): Promise<RespuestaSubid
     return { ok: false, mensaje: 'falta el contenido o el archivo' };
   }
 
-  const maxMb = Number(process.env.SCORM_TAMANO_MAX_MB ?? 200);
+  // El techo NO es libre: aguas arriba lo acota `bodySizeLimit` de `next.config.js`, y ese
+  // corte ocurre ANTES de que esta función exista. Por eso `techoEfectivoMb` deja que la
+  // variable de entorno BAJE el techo y nunca lo suba — antes decía `?? 200` contra un
+  // límite de cuerpo de 1 MB, y este `if` era código muerto: la petición moría en el borde
+  // con un error de plataforma, y el mensaje de abajo no se podía emitir nunca.
+  const maxMb = techoEfectivoMb(process.env.SCORM_TAMANO_MAX_MB);
   // El techo se valida ANTES de descomprimir (P6): un .zip de 3 GB no debe llegar a yauzl.
   if (archivo.size > maxMb * 1024 * 1024) {
     return {

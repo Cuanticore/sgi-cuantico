@@ -36,3 +36,43 @@ export function esDiaPosteriorOIgual(a: Date, b: Date): boolean {
 function diaEmpaquetado(fecha: Date): number {
   return fecha.getUTCFullYear() * 10000 + (fecha.getUTCMonth() + 1) * 100 + fecha.getUTCDate();
 }
+
+// ── De una cadena a un día ──────────────────────────────────────────────────────────────
+
+/// El piso y el techo de una fecha que una persona puede tener en su ficha.
+///
+/// El piso es 1900 y no una fecha de la empresa: este módulo no sabe de qué fecha se trata
+/// —un ingreso, un cambio de área—, y poner un piso más alto rechazaría un dato legítimo de
+/// alguien que no se le ocurrió a quien escribió esta línea.
+///
+/// El techo es el año en curso MÁS CINCO, y no «hoy». Registrar a quien empieza el mes que
+/// viene es lo más común del alta, y un contrato firmado con un año de anticipación tampoco
+/// es raro. Lo que el techo ataca es el error de tecleo: la cifra transpuesta —2062 por
+/// 2026— y el año corrido —0202—, que son fechas VÁLIDAS y por eso no las atrapa nada más.
+const ANIO_MINIMO = 1900;
+const ANIOS_HACIA_ADELANTE = 5;
+
+/// La cadena `YYYY-MM-DD` como el día UTC que representa, o `null` si no lo representa.
+///
+/// **Era una función privada de `app/sig/acciones/personas-edicion.ts`**, y el alta de
+/// colaborador hacía la misma conversión sin su guarda —`new Date(…)` a secas—. Dos piezas
+/// haciendo lo mismo desde orígenes distintos: exactamente lo que cuenta el encabezado de
+/// este módulo sobre `diaDe`, y la razón de que viva acá y no se copie.
+///
+/// Devuelve `null` en los tres casos, y son el mismo caso para quien llama: **no hay una
+/// fecha que guardar**. Vacío, ilegible, o imposible. Quien llame decide si eso es «no se
+/// declaró» —y no escribe la columna— o si es un error que hay que contarle a alguien; lo que
+/// no puede es recibir un `Invalid Date` y pasárselo a la base.
+///
+/// `hoy` es un parámetro para poder probar el techo sin que la prueba caduque.
+export function dia(valor: string | null | undefined, hoy: Date = new Date()): Date | null {
+  if (valor === null || valor === undefined || valor.trim() === '') return null;
+
+  const fecha = new Date(`${valor.slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(fecha.getTime())) return null;
+
+  const anio = fecha.getUTCFullYear();
+  if (anio < ANIO_MINIMO || anio > hoy.getUTCFullYear() + ANIOS_HACIA_ADELANTE) return null;
+
+  return fecha;
+}

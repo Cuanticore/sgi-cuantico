@@ -13,7 +13,13 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta } from '@/lib/sgsi/bitacora';
 import { autorConPermiso, ejecutar, exigirId, type Resultado } from '@/app/sgsi/acciones/sesion';
-import { impedimentosParaDesactivar, validarPadre, type Nivel } from '@/lib/sig/niveles';
+import {
+  claseDeNivel,
+  impedimentosParaDesactivar,
+  validarPadre,
+  type ClaseNivel,
+  type Nivel,
+} from '@/lib/sig/niveles';
 import { normalizarNombreNivel } from '@/lib/sig/nombre-nivel';
 
 async function jerarquia(): Promise<Nivel[]> {
@@ -56,6 +62,32 @@ export async function crearNivel(datos: {
       return { ok: false, mensaje: 'Ya hay un nivel con ese nombre en el mismo padre.' };
     }
 
+    // **Esta acción es el único sitio por el que el vocabulario de grado 3 se amplía**, y por eso
+    // pide `tecnologia:administrar`. La ficha del activo puede INSTANCIAR un nombre del catálogo
+    // bajo una rama con `activo:valorar` —decir que INC también tiene código fuente no inventa
+    // nada—, pero no puede agregar un nombre que nadie decidió.
+    //
+    // Si no catalogáramos acá, el catálogo sería una jaula: nadie tendría por dónde ampliarlo y
+    // el árbol se llenaría otra vez de nombres que el selector no ofrece. Catalogarlo en la misma
+    // transacción, con bitácora, es lo que lo mantiene como decisión y no como residuo.
+    let catalogar: ClaseNivel | null = null;
+    let ordenEnCatalogo = 1;
+    if (datos.grado === 3 && datos.padreId !== null) {
+      // La clase sale de la RAÍZ, subiendo por `padreId`. Los grados 2 y 3 no la guardan.
+      const clase = claseDeNivel(datos.padreId, niveles);
+      // Una rama cuya cadena no llega a una raíz con clase no cataloga nada: el nivel se crea
+      // igual —el árbol roto tiene que poder repararse— pero meter su nombre en el vocabulario de
+      // una clase adivinada contaminaría el selector de todas las demás ramas.
+      if (clase !== null) {
+        const catalogo = await prisma.catalogoNivel3.findMany({
+          where: { clase },
+          select: { nombre: true },
+        });
+        ordenEnCatalogo = catalogo.length + 1;
+        if (!catalogo.some((c) => normalizarNombreNivel(c.nombre) === nombre)) catalogar = clase;
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       const creado = await tx.nivelActivo.create({
         data: {
@@ -66,11 +98,24 @@ export async function crearNivel(datos: {
         },
       });
       await registrarAlta(tx, autor, 'nivel_activo', String(creado.id));
+
+      if (catalogar !== null) {
+        const entrada = await tx.catalogoNivel3.create({
+          data: { clase: catalogar, nombre, orden: ordenEnCatalogo },
+        });
+        await registrarAlta(tx, autor, 'catalogo_nivel_3', String(entrada.id));
+      }
     });
 
     revalidatePath('/tecnologia/niveles');
     revalidatePath('/tecnologia/mapa');
-    return { ok: true, mensaje: `Nivel «${nombre}» creado.` };
+    return {
+      ok: true,
+      mensaje:
+        catalogar === null
+          ? `Nivel «${nombre}» creado.`
+          : `Nivel «${nombre}» creado, y agregado al vocabulario de ${catalogar}.`,
+    };
   });
 }
 

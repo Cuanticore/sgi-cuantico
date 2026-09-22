@@ -38,6 +38,7 @@
 // van al final, aunque signifiquen cosas distintas — uno es trabajo pendiente, el otro una
 // decisión — porque para efectos de ORDEN los dos son «sin urgencia de recuperación».
 
+import { esBandaAlarmante } from './alto-sin-plan';
 import { clasificar } from './clasificar';
 import {
   evaluarBrecha,
@@ -110,8 +111,7 @@ export interface RiesgoAnalizable {
   /// amenazas que degradan D, y una que sólo degrada C no recibe exigencia de ella.
   degradacion: { D: number; I: number; C: number };
   /// El control PRINCIPAL de la amenaza. `undefined` = la amenaza no tiene principal
-  /// designado — hoy, las 57, porque los 272 pares de `ControlAmenaza` siguen con
-  /// `relevanciaId` en null. `nivel: null` = lo tiene y nadie lo evaluó.
+  /// designado. `nivel: null` = lo tiene y nadie lo evaluó.
   ///
   /// Que sea opcional y no un `| null` es deliberado: `undefined` y `null` significan cosas
   /// distintas y `evaluarBrecha` las distingue. Colapsarlas produciría el «tablero que
@@ -206,6 +206,23 @@ export interface FilaAnalisis {
   /// `estadoPlan`, que sí distingue los tres casos.
   peorBrecha: number | null;
   estadoPlan: EstadoPlanActivo;
+  /// REQ-SIG-24 §7 · hay al menos un riesgo vigente en banda Alto o Crítico que ningún plan
+  /// activo cubre. Es UNA PREGUNTA DISTINTA de `estadoPlan`: ésa mira la brecha del control,
+  /// ésta el riesgo que queda. Un activo puede tener el control al día y el residual alto.
+  altoSinPlan: boolean;
+  /// Algún plan activo cubre alguno de sus riesgos vigentes, HAYA O NO BRECHA.
+  ///
+  /// LA TERCERA PREGUNTA, y la que faltaba (22/09/2026). `estadoPlan` contesta «¿le falta
+  /// algo?» y `altoSinPlan` «¿queda riesgo alto sin tratar?»; ésta contesta «¿tiene planes?».
+  /// Las dos primeras sólo se pueden responder mirando lo que FALTA, así que ninguna puede
+  /// hacer de ésta: `estadoPlanDe` recorre únicamente los riesgos con deuda, y cuando no hay
+  /// ninguno cae a `no-requiere` por muchos planes que el activo tenga.
+  ///
+  /// Se midió contra la base: `FIN-APP-0001` y `PRO-APP-0002` tienen ocho planes cada uno y
+  /// salían indistinguibles de un activo sin ninguno. La celda «Plan» leía `estadoPlan` para
+  /// esto, así que un activo cuyo plan YA CERRÓ la brecha perdía el enlace a ese plan — cuanto
+  /// mejor funcionaba el tratamiento, más se escondía su evidencia.
+  tienePlanes: boolean;
 }
 
 export interface DatosAnalisis {
@@ -326,6 +343,56 @@ function estadoPlanDe(
   return indeterminadas ? 'sin-determinar' : 'no-requiere';
 }
 
+/// REQ-SIG-24 §7 · ¿queda algún riesgo en banda alarmante que ningún plan cubra?
+///
+/// Sin `resolver` es `false`, por la misma doctrina que hace que `estadoPlan` sea
+/// `sin-determinar` y no `pendiente`: «no miré» no es «falta». Y un residual `null` tampoco
+/// cuenta — «sin calcular» no es «alto».
+///
+/// La forma de `principalCodigo` es IDÉNTICA a la de `estadoPlanDe`, y es deliberado: las dos
+/// compuertas le preguntan al mismo resolutor, y si armaran la pregunta distinto un plan
+/// cubriría una y no la otra — el mismo activo saldría rojo y ámbar según a quién se preguntara.
+function altoSinPlanDe(
+  a: ActivoAnalizable,
+  bandas: readonly UmbralRiesgo[],
+  resolver: ResolverDeudaPlan | undefined,
+): boolean {
+  if (resolver === undefined) return false;
+  return a.riesgos.some((r) => {
+    if (r.obsoleto || r.residual === null) return false;
+    if (!esBandaAlarmante(clasificar(r.residual, bandas))) return false;
+    return !resolver({
+      activoCodigo: a.codigo,
+      amenazaCodigo: r.amenazaCodigo,
+      principalCodigo: r.principal === undefined ? undefined : (r.principal?.codigo ?? null),
+    });
+  });
+}
+
+/// ¿algún plan activo cubre alguno de sus riesgos VIGENTES? Sin mirar si hay brecha.
+///
+/// LE PREGUNTA AL MISMO RESOLUTOR que `estadoPlanDe` y `altoSinPlanDe`, y la pregunta se arma
+/// IDÉNTICA — `principalCodigo` incluido. El resolutor cubre hoy por prefijo de `origen` o por
+/// control principal, y va a cambiar; si acá hubiera un tercer criterio para saber si hay plan,
+/// las tres respuestas se separarían y sería el mismo defecto un nivel más arriba: el mismo
+/// activo tendría o no tendría plan según a quién se le preguntara.
+///
+/// Lo único que cambia respecto de las otras dos es POR DÓNDE se recorre: todos los riesgos no
+/// obsoletos, y no sólo los que tienen deuda o los que quedaron en banda alarmante.
+///
+/// Sin `resolver` es `false`, por la misma doctrina: «no miré» no es «no tiene».
+function tienePlanesDe(a: ActivoAnalizable, resolver: ResolverDeudaPlan | undefined): boolean {
+  if (resolver === undefined) return false;
+  return a.riesgos.some((r) => {
+    if (r.obsoleto) return false;
+    return resolver({
+      activoCodigo: a.codigo,
+      amenazaCodigo: r.amenazaCodigo,
+      principalCodigo: r.principal === undefined ? undefined : (r.principal?.codigo ?? null),
+    });
+  });
+}
+
 /// La peor brecha del activo, en puntos, para la columna «Brecha». `null` cuando ninguna
 /// amenaza tiene una brecha de NIVEL — puede haberla de verificación, que no tiene puntos.
 export function peorBrecha(
@@ -418,6 +485,10 @@ function filaDe(
     peorResidual: peorResidual(a, bandas),
     peorBrecha: peorBrecha(a, hayVerificacionVigente),
     estadoPlan: estadoPlanDe(a, resolver, hayVerificacionVigente),
+    altoSinPlan: altoSinPlanDe(a, bandas, resolver),
+    // Las tres preguntas al mismo resolutor, una al lado de la otra: «¿le falta algo?»,
+    // «¿queda riesgo alto sin tratar?» y «¿tiene planes?».
+    tienePlanes: tienePlanesDe(a, resolver),
   };
 }
 
@@ -444,18 +515,78 @@ export function ordenarPorCriticidad(
   filas: readonly FilaAnalisis[],
   rtoPorCodigo: MapaRtoPorCriticidad,
 ): FilaAnalisis[] {
+  return [...filas].sort((x, y) => compararPorCriticidad(x, y, rtoPorCodigo));
+}
+
+/// El criterio de §11 como COMPARADOR de dos filas, que es la forma que pide una grilla:
+/// AG Grid ordena llamando a un `comparator(a, b)` por columna, no reordenando el arreglo.
+///
+/// Está extraído de `ordenarPorCriticidad` —que ahora lo llama— y no escrito al lado: dos
+/// comparadores para el mismo criterio es exactamente como los dos se separan, y el día que
+/// se separaran, la columna y el selector de orden dirían cosas distintas sobre las mismas
+/// filas.
+export function compararPorCriticidad(
+  x: FilaAnalisis,
+  y: FilaAnalisis,
+  rtoPorCodigo: MapaRtoPorCriticidad,
+): number {
   const rtoDe = (f: FilaAnalisis): number | null =>
     f.criticidad === null ? null : (rtoPorCodigo.get(f.criticidad) ?? null);
 
-  return [...filas].sort((x, y) => {
-    const rx = rtoDe(x);
-    const ry = rtoDe(y);
-    if (rx === null && ry === null) return x.codigo.localeCompare(y.codigo, 'es');
-    if (rx === null) return 1;
-    if (ry === null) return -1;
-    if (rx !== ry) return rx - ry;
-    return x.codigo.localeCompare(y.codigo, 'es');
-  });
+  const rx = rtoDe(x);
+  const ry = rtoDe(y);
+  if (rx === null && ry === null) return x.codigo.localeCompare(y.codigo, 'es');
+  if (rx === null) return 1;
+  if (ry === null) return -1;
+  if (rx !== ry) return rx - ry;
+  return x.codigo.localeCompare(y.codigo, 'es');
+}
+
+/// Las cinco tarjetas contadas DESDE LAS FILAS, no desde los filtros.
+///
+/// POR QUÉ EXISTE, ADEMÁS DE `tarjetasAnalisis` (21/09/2026). La pantalla dejó de tener sus
+/// seis filtros propios y pasó a filtrar con la grilla. `tarjetasAnalisis` cuenta a partir de
+/// un `FiltrosAnalisis` y por tanto no sabe nada de lo que la grilla esconda: con ella sola,
+/// la tarjeta diría 30 mientras la grilla muestra 12, y la pantalla tendría **dos verdades
+/// sobre cuántos activos hay** — el defecto que evita desde su primera línea.
+///
+/// Esta función no puede desacordar con la lista **por construcción**: cuenta las mismas
+/// filas que la grilla tiene pintadas. No es una segunda derivación de las mismas reglas: los
+/// estados ya vienen decididos en cada `FilaAnalisis` por `filasAnalisis`, y acá sólo se
+/// agrupan.
+///
+/// Las dos formas conviven a propósito. `tarjetasAnalisis` sigue respondiendo «cuántos hay en
+/// total», que es una pregunta sobre el inventario y no sobre la vista.
+export function tarjetasDeFilas(
+  filas: readonly FilaAnalisis[],
+  deTotalSinFiltrar: number,
+): TarjetasDeFilas {
+  const cuantas = (cumple: (f: FilaAnalisis) => boolean) => filas.filter(cumple).length;
+
+  return {
+    enAnalisis: { n: filas.length, deTotal: deTotalSinFiltrar },
+    deTotalSinFiltrar,
+    muyAltos: cuantas((f) => f.valor === 5),
+    altos: cuantas((f) => f.valor === 4),
+    // CON BRECHA son los que tienen brecha MEDIDA, tengan plan o no: `pendiente` es «falta el
+    // plan» y `con-plan` es «ya lo tiene», y los dos parten de que hay brecha. SIN PLAN es el
+    // subconjunto al que además le falta. Sumarlas sería contar dos veces a los mismos.
+    conBrecha: cuantas((f) => f.estadoPlan === 'pendiente' || f.estadoPlan === 'con-plan'),
+    // Separada de CON BRECHA a propósito: sumarlas diría que hay brechas donde nadie miró.
+    sinDeterminar: cuantas((f) => f.estadoPlan === 'sin-determinar'),
+    sinPlan: cuantas((f) => f.estadoPlan === 'pendiente'),
+  };
+}
+
+export interface TarjetasDeFilas {
+  enAnalisis: { n: number; deTotal: number };
+  /// Los activos vigentes del inventario, que no dependen de lo que la vista muestre.
+  deTotalSinFiltrar: number;
+  muyAltos: number;
+  altos: number;
+  conBrecha: number;
+  sinDeterminar: number;
+  sinPlan: number;
 }
 
 /// Las filas de la lista: un renglón por activo en análisis que cumple los seis filtros,

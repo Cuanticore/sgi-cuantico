@@ -105,10 +105,13 @@ const CATALOGOS: Catalogos = {
   // selects de la cabecera se encadenen de verdad y no sólo se dibujen.
   personas: [],
   niveles: [
-    { id: 10, grado: 1, nombre: 'PRODUCTOS', padreId: null },
-    { id: 20, grado: 2, nombre: 'MINTRACE', padreId: 10 },
-    { id: 30, grado: 3, nombre: 'Ambientes', padreId: 20 },
+    // `clase` sólo en la raíz: los grados 2 y 3 la heredan subiendo por `padreId`. Si se
+    // guardara en los tres, un hijo podría contradecir a su padre.
+    { id: 10, grado: 1, nombre: 'PRODUCTOS', padreId: null, clase: 'PRODUCTOS' as const, activo: true },
+    { id: 20, grado: 2, nombre: 'MINTRACE', padreId: 10, clase: null, activo: true },
+    { id: 30, grado: 3, nombre: 'Ambientes', padreId: 20, clase: null, activo: true },
   ],
+  catalogoNivel3: [{ clase: 'PRODUCTOS' as const, nombre: 'CÓDIGO FUENTE', orden: 1 }],
   escalaValor: [
     { id: 5, valor: 5, etiqueta: '5 — Muy Alto' },
     { id: 4, valor: 4, etiqueta: '4 — Alto' },
@@ -925,5 +928,109 @@ describe('REQ-SIG-01 §3 · el cambio de clasificación cuenta como cambio pendi
     fireEvent.change(screen.getByLabelText('PROCESO O ÁREA'), { target: { value: '2' } });
 
     expect(screen.queryByText('AL GUARDAR')).not.toBeInTheDocument();
+  });
+});
+
+describe('El selector de Nivel 3 ofrece el catálogo, y no crea nada hasta guardar', () => {
+  // EL DEFECTO QUE ESTE BLOQUE EXISTE PARA IMPEDIR. El selector ofrecía sólo los nodos que ya
+  // colgaban del Nivel 2, así que un activo de código fuente en una rama que todavía no lo
+  // tuviera obligaba a salir a `/tecnologia/niveles` a crear el nodo y volver.
+  //
+  // La regla de QUÉ se ofrece vive en `lib/sig/catalogo-nivel-3.ts` y se prueba ahí, sin montar
+  // nada. Lo que se prueba acá es lo que sólo se ve montando: que elegir del catálogo **no
+  // dispara ninguna acción**, y que al guardar viaja como `nivelNuevo` y no como `nivelId`.
+
+  const mockGuardarDatosGenerales = guardarDatosGenerales as jest.Mock;
+
+  beforeEach(() => {
+    mockGuardarDatosGenerales.mockReset();
+    mockGuardarDatosGenerales.mockResolvedValue({ ok: true, mensaje: 'Listo.' });
+    router.replace.mockReset();
+    router.refresh.mockReset();
+  });
+
+  function ficha() {
+    return render(
+      <FichaActivo
+        activo={activo('TEC-GEN-0020', 5)}
+        catalogos={CATALOGOS}
+        amenazas={AMENAZAS}
+        navegacion={{ codigos: ['TEC-GEN-0020'] }}
+      />,
+    );
+  }
+
+  /// Lleva la rama hasta MINTRACE, que tiene un solo hijo («Ambientes») y al que el catálogo de
+  /// PRODUCTOS le puede aportar CÓDIGO FUENTE.
+  function hastaMintrace() {
+    fireEvent.change(screen.getByLabelText('NIVEL 1'), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText('NIVEL 2'), { target: { value: '20' } });
+  }
+
+  it('ofrece un nombre del catálogo que la rama todavía no tiene', () => {
+    ficha();
+    hastaMintrace();
+
+    const nivel3 = screen.getByLabelText('NIVEL 3') as HTMLSelectElement;
+    const textos = [...nivel3.options].map((o) => o.text);
+
+    expect(textos).toContain('Ambientes');
+    expect(textos).toContain('CÓDIGO FUENTE');
+  });
+
+  it('elegir del catálogo NO dispara ninguna acción', () => {
+    ficha();
+    hastaMintrace();
+
+    fireEvent.change(screen.getByLabelText('NIVEL 3'), {
+      target: { value: 'nuevo:CÓDIGO FUENTE' },
+    });
+
+    // Es la propiedad que hace que abrir el selector y arrepentirse no deje un nodo huérfano
+    // en un árbol que el mapa y el grafo dibujan.
+    expect(mockGuardarDatosGenerales).not.toHaveBeenCalled();
+  });
+
+  it('dice que el nodo se crea al guardar, y que salir sin guardar no crea nada', () => {
+    ficha();
+    hastaMintrace();
+
+    fireEvent.change(screen.getByLabelText('NIVEL 3'), {
+      target: { value: 'nuevo:CÓDIGO FUENTE' },
+    });
+
+    expect(screen.getByText(/Al guardar se crea «CÓDIGO FUENTE» bajo MINTRACE/)).toBeInTheDocument();
+    expect(screen.getByText(/Si sales sin guardar, no se crea nada/)).toBeInTheDocument();
+  });
+
+  it('al guardar viaja como nivelNuevo, no como nivelId', async () => {
+    ficha();
+    hastaMintrace();
+
+    fireEvent.change(screen.getByLabelText('NIVEL 3'), {
+      target: { value: 'nuevo:CÓDIGO FUENTE' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Guardar \d+ cambios?$/ }));
+
+    await waitFor(() => expect(mockGuardarDatosGenerales).toHaveBeenCalledTimes(1));
+    expect(mockGuardarDatosGenerales).toHaveBeenCalledWith('TEC-GEN-0020', {
+      nivelNuevo: { nivel2Id: 20, nombre: 'CÓDIGO FUENTE' },
+    });
+  });
+
+  it('elegir un nodo existente después de uno del catálogo limpia la intención', async () => {
+    // Los dos son excluyentes: un activo no puede apuntar a un nodo y a la vez pedir que se cree
+    // otro. Si `nivelNuevo` sobreviviera, el servidor lo resolvería y pisaría al elegido.
+    ficha();
+    hastaMintrace();
+
+    fireEvent.change(screen.getByLabelText('NIVEL 3'), {
+      target: { value: 'nuevo:CÓDIGO FUENTE' },
+    });
+    fireEvent.change(screen.getByLabelText('NIVEL 3'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Guardar \d+ cambios?$/ }));
+
+    await waitFor(() => expect(mockGuardarDatosGenerales).toHaveBeenCalledTimes(1));
+    expect(mockGuardarDatosGenerales).toHaveBeenCalledWith('TEC-GEN-0020', { nivelId: 30 });
   });
 });

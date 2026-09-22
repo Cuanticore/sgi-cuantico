@@ -3,24 +3,28 @@
 // app/components/sgsi/valoracion-riesgos/PantallaAnalisisRiesgos.tsx
 //
 // REQ-SIG-20 §5 (P4, D7) — «Análisis de riesgos»: los activos que alcanzan el umbral de
-// valoración (los 37, no los 299), ordenados por peor residual, con cinco tarjetas y seis
-// filtros que reescopan la lista y las tarjetas A LA VEZ.
+// valoración (30 de 378 vigentes, umbral 4, medido el 21/09/2026), ordenados por peor
+// residual, con seis tarjetas y una grilla que el lector filtra por columna.
 //
-// LAS TARJETAS Y LA LISTA NUNCA SE CONTRADICEN. Las dos salen de `lib/sgsi/analisis-riesgos.ts`
-// con los MISMOS filtros (`filasAnalisis`/`tarjetasAnalisis`); esta pantalla no vuelve a filtrar
-// nada por su cuenta. Es la misma garantía que REQ-SIG-18 §7.4 exigió para el inventario.
+// LAS TARJETAS Y LA LISTA NUNCA SE CONTRADICEN. Es la garantía más importante de esta
+// pantalla —la misma que REQ-SIG-18 §7.4 exigió para el inventario— y la forma de sostenerla
+// CAMBIÓ el 21/09/2026, así que conviene leerla con cuidado antes de tocar nada:
 //
-// LOS FILTROS VIVEN EN LA URL, igual que el inventario (REQ-SIG-18 §7.1): se hidratan del
-// primer render y se reflejan con `router.replace` sin apilar historial, para que una vista
-// filtrada sea enlazable — es lo que permite que la Fase 4 (`FranjaSinPlan`, tarea 4.17)
-// enlace acá ya filtrado por «sin plan» sin que esta pantalla tenga que cambiar.
+//   Antes · las tarjetas y la lista salían de la misma llamada con los mismos filtros
+//           (`tarjetasAnalisis`/`filasAnalisis`), y la pantalla no filtraba por su cuenta.
+//   Ahora · filtra la grilla, y las tarjetas cuentan LAS FILAS QUE LA GRILLA DEJA VISIBLES
+//           (`tarjetasDeFilas`). No pueden desacordar porque cuentan el mismo arreglo.
+//
+// Lo que NO se puede hacer es volver a contar las tarjetas desde `FiltrosAnalisis` dejando
+// el filtro de la grilla encendido: ahí es donde la tarjeta diría 30 y la lista mostraría 12.
+//
+// LOS SEIS DESPLEGABLES SE RETIRARON, pero `FiltrosAnalisis` NO: se sigue hidratando de la
+// URL en el primer render, porque otras pantallas enlazan acá ya filtrado —`FranjaSinPlan`
+// (tarea 4.17) enlaza por «sin plan»— y ese contrato no es de esta pantalla romperlo. Lo que
+// desapareció es la fila de campos, no la capacidad de llegar acá con un recorte puesto.
 //
 // EL CLIC EN UNA FILA abre el overlay del activo en Amenazas (`?activo=<código>&tab=amenazas`)
 // reusando el contrato de la tarea 3.2 — no una ficha nueva, no una segunda derivación.
-//
-// LA COLUMNA «PLAN» Y LA TARJETA SIN PLAN degradan con elegancia mientras la Fase 4
-// (`lib/sgsi/deuda-planes.ts`) no exista: `tarjetas.sinPlan` es `null`, no `0`, y las filas en
-// banda Crítico muestran «Fase 4» en vez de inventar un «pendiente» o un «✓» que nadie calculó.
 //
 // EL ORDEN (criterio §14.12, segunda mitad) es peor residual por defecto —el orden que ya
 // existía— o criticidad (RTO), reusando sin cambios `ordenarPorCriticidad` de
@@ -30,39 +34,52 @@
 // («¿cuáles activos?» vs. «¿en qué orden?») en un solo contrato. Reordenar nunca cambia
 // `filas.length` ni las tarjetas: ambas siguen leyendo el mismo arreglo de `filasAnalisis`,
 // solo se le aplica `ordenarPorCriticidad` encima cuando corresponde.
+//
+// LA LISTA LA PINTA AG GRID (Community, MIT) desde el 21/09/2026, y ya no una `<table>`
+// escrita a mano. Lo que eso agrega es que el lector controla la vista: mover, redimensionar,
+// ocultar y fijar columnas, ordenar por varias a la vez, y que su disposición siga ahí mañana.
+// Trece columnas no caben en una pantalla, y antes no había forma de decidir cuáles ver.
+//
+// Las decisiones de la grilla —qué columnas, en qué orden, cómo ordenan, qué clase lleva
+// cada fila— viven en `lib/sgsi/columnas-analisis.ts`, puro y probado sin renderizar. La
+// documentación de AG Grid desaconseja jsdom y la suite de este repo es jsdom: sin esa
+// separación, la Regla 1 del harness pasaría a costar un arranque de navegador por iteración.
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   FILTROS_ANALISIS_VACIOS,
-  SIN_ASIGNAR,
-  TODAS_CRITICIDADES,
-  TODAS_PERSONAS_ANALISIS,
-  TODOS_PROCESOS,
-  TODOS_PROPIETARIOS_ANALISIS,
   consultaDeFiltrosAnalisis,
   filasAnalisis,
   filtrosAnalisisDesdeUrl,
-  ordenarPorCriticidad,
   parametrosDeFiltrosAnalisis,
   tarjetasAnalisis,
+  tarjetasDeFilas,
   type ActivoAnalizable,
   type CatalogosFiltroAnalisis,
-  type EstadoPlanActivo,
+  type FilaAnalisis,
   type FiltrosAnalisis,
   type MapaRtoPorCriticidad,
 } from '@/lib/sgsi/analisis-riesgos';
 import { construirResolverDeuda, type AccionPlanParaDeuda } from '@/lib/sgsi/deuda-planes';
-import { colorDeNivel, type NivelRiesgo, type UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
-import { colorDeNivelValor } from '@/lib/sgsi/valoracion-figura';
-import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
+import type { UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
+import FranjaSinPlan, { type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
 import PopupPlanesActivo from './PopupPlanesActivo';
+import type { AccionesGrilla } from './GrillaAnalisis';
 
-/// Criterio §14.12 (segunda mitad) · las dos secuencias que esta pantalla ofrece. `'residual'`
-/// es el orden que ya existía y sigue siendo el predeterminado; `'criticidad'` reusa
-/// `ordenarPorCriticidad` sin escribir un segundo comparador.
-type OrdenAnalisis = 'residual' | 'criticidad';
+/// AG Grid no aporta nada al HTML inicial y sí lo engorda, así que entra por `next/dynamic`
+/// con `ssr: false`. El reemplazo mientras carga reserva un alto parecido al de la grilla
+/// para que la página no dé un salto cuando llega.
+const GrillaAnalisis = dynamic(() => import('./GrillaAnalisis'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[420px] items-center justify-center text-12_5 text-faint">
+      Cargando la lista…
+    </div>
+  ),
+});
 
 export interface PantallaAnalisisRiesgosProps {
   activos: ActivoAnalizable[];
@@ -81,7 +98,7 @@ export interface PantallaAnalisisRiesgosProps {
   /// la pantalla arma acá el `MapaRtoPorCriticidad` que `ordenarPorCriticidad` necesita, un
   /// `Map` no cruza el límite servidor→cliente como prop. Opcional con default `[]` para no
   /// romper a quien todavía no lo provee.
-  criticidadesRto?: { codigo: string; rtoMinutos: number | null }[];
+  criticidadesRto?: { codigo: string; rtoMinutos: number | null; nombre?: string; descripcion?: string | null }[];
 }
 
 export default function PantallaAnalisisRiesgos({
@@ -145,21 +162,42 @@ export default function PantallaAnalisisRiesgos({
   const resolverDeuda = useMemo(() => construirResolverDeuda(accionesParaDeuda), [accionesParaDeuda]);
 
   const filas = useMemo(() => filasAnalisis(datos, filtros, resolverDeuda), [datos, filtros, resolverDeuda]);
+
+  // LAS TARJETAS CUENTAN LO QUE LA GRILLA MUESTRA, y no lo que los filtros dicen.
+  //
+  // Desde que los seis desplegables se retiraron y filtra la grilla, contar desde
+  // `FiltrosAnalisis` dejaría a las tarjetas ciegas a lo que la grilla esconda: dirían 30
+  // mientras la lista muestra 12. `tarjetasDeFilas` cuenta las filas visibles, así que las
+  // dos no pueden desacordar por construcción.
+  //
+  // Arranca con todas las filas porque la grilla todavía no ha avisado: es el mismo número
+  // que dirá en cuanto avise, no un valor de relleno.
+  const [filasVisibles, setFilasVisibles] = useState<FilaAnalisis[] | null>(null);
   const tarjetas = useMemo(
-    () => tarjetasAnalisis(datos, filtros, resolverDeuda),
-    [datos, filtros, resolverDeuda],
+    () => tarjetasDeFilas(filasVisibles ?? filas, activos.length),
+    [filasVisibles, filas, activos.length],
   );
 
-  // Criterio §14.12 (segunda mitad) · el orden es local, no un filtro: no cambia `filas`, solo
-  // en qué secuencia se muestran las mismas filas ya filtradas (ver comentario de cabecera).
-  const [orden, setOrden] = useState<OrdenAnalisis>('residual');
+  // Y si además el lector ordenó por una columna de la grilla, el rótulo tiene que decirlo:
+  // seguir afirmando «por peor residual» sobre una lista ordenada por proceso sería mentir.
+  const [ordenPersonalizado, setOrdenPersonalizado] = useState(false);
+  // Las acciones de la grilla suben hasta acá para mostrarse en la franja del encabezado,
+  // junto a «Generar informe». La lista se lee mejor sin una segunda barra de controles pegada
+  // encima; es el mismo motivo por el que el título de la sección se retiró.
+  const [acciones, setAcciones] = useState<AccionesGrilla | null>(null);
+  const [menuColumnas, setMenuColumnas] = useState(false);
+  const criticidadesParaLaGrilla = useMemo(
+    () =>
+      criticidadesRto.map((c) => ({
+        codigo: c.codigo,
+        nombre: c.nombre ?? c.codigo,
+        descripcion: c.descripcion ?? null,
+      })),
+    [criticidadesRto],
+  );
   const rtoPorCriticidad: MapaRtoPorCriticidad = useMemo(
     () => new Map(criticidadesRto.map((c) => [c.codigo, c.rtoMinutos])),
     [criticidadesRto],
-  );
-  const filasOrdenadas = useMemo(
-    () => (orden === 'criticidad' ? ordenarPorCriticidad(filas, rtoPorCriticidad) : filas),
-    [filas, orden, rtoPorCriticidad],
   );
   // El total SIN filtrar, para el encabezado — que diga «37 de 299» siempre, no lo que el
   // filtro actual dejó ver.
@@ -168,6 +206,14 @@ export default function PantallaAnalisisRiesgos({
     [datos, resolverDeuda],
   );
   const sinPlanCodigos = useMemo(() => new Set(sinPlan.map((f) => f.activoCodigo)), [sinPlan]);
+
+  // Los filtros vigentes viajan en el enlace de cada código, para que cerrar el overlay vuelva
+  // exactamente a la lista filtrada que se estaba mirando. Memorizado porque la grilla lo usa
+  // como dependencia de sus renderizadores: una función nueva en cada render los rehace todos.
+  const hrefDeFilaConFiltros = useCallback(
+    (codigo: string) => hrefDeFila(codigo, filtros),
+    [filtros],
+  );
 
   const hayFiltros = consultaDeFiltrosAnalisis(filtros) !== '';
 
@@ -188,7 +234,17 @@ export default function PantallaAnalisisRiesgos({
 
   return (
     <main className="px-8 pt-6 pb-14">
-      <Encabezado umbral={umbral} totalEnAnalisis={totalEnAnalisis} totalVigentes={activos.length} />
+      <Encabezado
+        umbral={umbral}
+        totalEnAnalisis={totalEnAnalisis}
+        totalVigentes={activos.length}
+        acciones={acciones}
+        menuColumnas={menuColumnas}
+        onAlternarMenu={() => {
+          acciones?.releerColumnas();
+          setMenuColumnas((v) => !v);
+        }}
+      />
 
       {avisosDeUrl.length > 0 && (
         <div className="mt-3 rounded-campo border border-border-field bg-subtle px-3 py-2 text-11_5 text-muted">
@@ -198,39 +254,23 @@ export default function PantallaAnalisisRiesgos({
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+      {/* LAS SEIS EN UNA SOLA LÍNEA. Antes eran `md:grid-cols-5` con seis tarjetas, así que
+          la sexta bajaba sola a un segundo renglón y se leía como si fuera de otra categoría.
+          Con seis columnas y menos relleno caben las seis, y el bloque vuelve a leerse como
+          lo que es: un solo marcador de seis cifras. En pantallas angostas siguen bajando de
+          a dos, que es lo correcto — apretar seis en un móvil las haría ilegibles. */}
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Tarjeta
           etiqueta="EN ANÁLISIS"
           valor={`${tarjetas.enAnalisis.n}`}
-          nota={`de ${tarjetas.enAnalisis.deTotal}`}
-          activa={!hayFiltros}
-          onClick={() => setFiltros(() => FILTROS_ANALISIS_VACIOS)}
+          nota={`de ${tarjetas.deTotalSinFiltrar}`}
         />
-        <Tarjeta
-          etiqueta="MUY ALTOS"
-          valor={String(tarjetas.muyAltos)}
-          nota="valor 5"
-          activa={filtros.valor === 5}
-          onClick={() => setFiltros((f) => ({ ...f, valor: f.valor === 5 ? 'ambos' : 5 }))}
-        />
-        <Tarjeta
-          etiqueta="ALTOS"
-          valor={String(tarjetas.altos)}
-          nota="valor 4"
-          activa={filtros.valor === 4}
-          onClick={() => setFiltros((f) => ({ ...f, valor: f.valor === 4 ? 'ambos' : 4 }))}
-        />
+        <Tarjeta etiqueta="MUY ALTOS" valor={String(tarjetas.muyAltos)} nota="valor 5" />
+        <Tarjeta etiqueta="ALTOS" valor={String(tarjetas.altos)} nota="valor 4" />
         <Tarjeta
           etiqueta="CON BRECHA"
           valor={String(tarjetas.conBrecha)}
           nota="no alcanzan lo exigido"
-          activa={filtros.estadoPlan === 'requiere-plan'}
-          onClick={() =>
-            setFiltros((f) => ({
-              ...f,
-              estadoPlan: f.estadoPlan === 'requiere-plan' ? 'todos' : 'requiere-plan',
-            }))
-          }
         />
         {/* REQ-SIG-24 §7 · va SEPARADA de CON BRECHA a propósito: sumarlas diría que hay
             brechas donde nadie miró. Mientras REQ-SIG-21 no asigne las 272 relevancias,
@@ -239,195 +279,60 @@ export default function PantallaAnalisisRiesgos({
         <Tarjeta
           etiqueta="SIN DETERMINAR"
           valor={String(tarjetas.sinDeterminar)}
-          nota="sin control principal → REQ-SIG-21"
-          activa={false}
-          onClick={() => {}}
+          nota="sin control principal"
         />
-        <Tarjeta
-          etiqueta="SIN PLAN"
-          valor={tarjetas.sinPlan === null ? '—' : String(tarjetas.sinPlan)}
-          nota="con brecha, sin plan"
-          activa={filtros.estadoPlan === 'pendiente'}
-          deshabilitada={tarjetas.sinPlan === null}
-          onClick={() =>
-            setFiltros((f) => ({
-              ...f,
-              estadoPlan: f.estadoPlan === 'pendiente' ? 'todos' : 'pendiente',
-            }))
-          }
-        />
+        <Tarjeta etiqueta="SIN PLAN" valor={String(tarjetas.sinPlan)} nota="con brecha, sin plan" />
       </div>
 
       <div className="mt-5">
         <FranjaSinPlan filas={sinPlan} />
       </div>
 
-      <FilaDeFiltros
-        filtros={filtros}
-        procesos={procesos}
-        propietarios={propietarios}
-        personas={personas}
-        criticidades={catalogos.criticidades}
-        hayFiltros={hayFiltros}
-        onCambiar={setFiltros}
-        onLimpiar={() => setFiltros(() => FILTROS_ANALISIS_VACIOS)}
-      />
+      {/* LOS SEIS DESPLEGABLES SE RETIRARON EL 21/09/2026 y filtra la grilla, por columna.
+          Lo que se gana: filtrar por cualquiera de las trece columnas y no por seis campos
+          elegidos de antemano, con el filtro donde está el dato. Lo que había que cuidar es
+          que las tarjetas siguieran contando lo mismo que la lista, y eso lo resuelve
+          `tarjetasDeFilas` sobre las filas visibles — ver arriba.
 
+          `FiltrosAnalisis` NO desapareció: sigue leyéndose de la URL, porque otras pantallas
+          enlazan acá ya filtrado y ese contrato no es de esta pantalla romperlo. */}
+
+      {/* SIN TÍTULO «Activos en análisis». El h1 de la página ya dice qué es esto, y el
+          párrafo de abajo lo explica; repetirlo encima de la lista sólo empujaba la grilla
+          hacia abajo. El conteo y el selector de orden se fueron a la barra de la grilla,
+          que ahora es la única franja de controles encima de la lista. */}
       <section className="mt-5 rounded-tarjeta border border-border-default bg-surface p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-15 font-bold text-primary">Activos en análisis</h2>
-          <div className="flex items-baseline gap-3">
-            <p className="text-11_5 text-faint">
-              {filas.length} activos ·{' '}
-              {orden === 'residual' ? 'orden por peor residual' : 'orden por criticidad (RTO)'}
-            </p>
-            <Select
-              etiqueta="Orden"
-              valor={orden}
-              opciones={['residual', 'criticidad']}
-              rotulos={{ residual: 'Peor residual', criticidad: 'Criticidad (RTO)' }}
-              onChange={(v) => setOrden(v as OrdenAnalisis)}
-            />
-          </div>
-        </div>
-        {filasOrdenadas.length === 0 ? (
-          <p className="parrafo mt-4 text-12_5 text-muted">
+        {filas.length === 0 ? (
+          <p className="parrafo text-12_5 text-muted">
             Ningún activo cumple esta combinación de filtros.
           </p>
         ) : (
-          <div className="tabla-ancha mt-3">
-            <table className="w-full border-collapse text-12_5">
-              <thead>
-                <tr className="border-b border-hairline-strong">
-                  <th className="etiqueta-campo py-1.5 pr-3 text-left">Código</th>
-                  <th className="etiqueta-campo py-1.5 pr-3 text-left">Nombre</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-center">Valor</th>
-                  {/* Una columna por dimensión, además del máximo. El encabezado lleva la
-                      letra —no hay ancho para más— y el nombre completo va en el accesible,
-                      que es también lo que un lector de pantalla anuncia. */}
-                  {DIMENSIONES.map((d) => (
-                    <th
-                      key={d.codigo}
-                      scope="col"
-                      aria-label={d.nombre}
-                      title={d.nombre}
-                      className="etiqueta-campo px-1 py-1.5 text-center"
-                    >
-                      {d.codigo}
-                    </th>
-                  ))}
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Criticidad</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Proceso</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Propietario</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-right">Amenazas</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Peor inherente</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Peor residual</th>
-                  <th className="etiqueta-campo px-2 py-1.5 text-left">Plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filasOrdenadas.map((f) => (
-                  <tr
-                    key={f.codigo}
-                    // La banda y el estado del plan viajan como atributos y no sólo como
-                    // color: el color lo lee quien ve, esto lo lee quien filtra la tabla con
-                    // el inspector, y las pruebas.
-                    data-banda-residual={f.peorResidual?.banda ?? 'sin-calcular'}
-                    data-estado-plan={f.estadoPlan}
-                    className={`border-b border-hairline-faint ${
-                      esResidualAlarmante(f.peorResidual) ? 'bg-danger-bg' : ''
-                    }`}
-                  >
-                    <td className="py-1.5 pr-3">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Link
-                          href={hrefDeFila(f.codigo, filtros)}
-                          className="font-mono font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
-                        >
-                          {f.codigo}
-                        </Link>
-                        {sinPlanCodigos.has(f.codigo) && <PuntoSinPlan />}
-                      </span>
-                    </td>
-                    <td className="py-1.5 pr-3 text-secondary">{f.nombre}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      <span
-                        aria-label={`Valor del activo ${f.codigo}`}
-                        title={`Valor del activo: max(D, I, C) = ${f.valor}`}
-                        className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-[4px] px-1.5 font-mono text-11 font-semibold tabular-nums text-white"
-                        style={{ background: colorDeNivelValor(f.valor) }}
-                      >
-                        {f.valor}
-                      </span>
-                    </td>
-                    {/* Las tres dimensiones, sin badge de color: el color es del AGREGADO y
-                        repetirlo cuatro veces convierte la fila en un semáforo ilegible. La
-                        que empata con el máximo va en negrita, que es la pregunta real —
-                        «¿qué dimensión puso a este activo donde está?». */}
-                    {DIMENSIONES.map((d) => {
-                      const v = f.valores[d.codigo];
-                      return (
-                        <td key={d.codigo} className="px-1 py-1.5 text-center">
-                          <span
-                            aria-label={`${d.nombre} de ${f.codigo}`}
-                            title={`${d.nombre}: ${v}`}
-                            className={`font-mono text-11_5 tabular-nums ${
-                              v === f.valor ? 'font-bold text-primary' : 'text-secondary'
-                            }`}
-                          >
-                            {v}
-                          </span>
-                        </td>
-                      );
-                    })}
-                    <td className="px-2 py-1.5">
-                      {f.criticidad === null ? (
-                        <span className="text-faint">sin clasificar</span>
-                      ) : (
-                        <span className="inline-block rounded-badge border border-border-default bg-subtle px-2 py-0.5 font-mono text-11 font-semibold text-secondary-soft">
-                          {f.criticidad}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-secondary">{f.proceso}</td>
-                    <td className="px-2 py-1.5 text-secondary">{f.propietario ?? '—'}</td>
-                    <td className="px-2 py-1.5 text-right font-mono tabular-nums text-secondary">
-                      {f.cantidadAmenazas}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <CeldaBanda nivel={f.peorInherente} />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <CeldaBanda nivel={f.peorResidual} />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <span className="inline-flex items-center gap-2">
-                        <CeldaPlan estado={f.estadoPlan} />
-                        {/* SE OFRECE EN TODAS LAS FILAS, y antes no.
-                            Se escondía sobre los activos `no-requiere` para no invitar a
-                            registrar trabajo que nadie pidió. La decisión se revirtió el
-                            18/09/2026: «no requiere» significa que sus controles alcanzan lo
-                            exigido HOY, no que nadie pueda decidir mejorarlos. Un plan
-                            preventivo sobre un control que ya cumple es una decisión legítima
-                            de quien lo registra —así lo dice también `planes-por-amenaza.ts`
-                            sobre la brecha: ordena la lista, no la filtra— y esconder el botón
-                            obligaba a salir a la pantalla de Planes para tomarla. */}
-                        <button
-                          onClick={() => setActivoParaPlan(f.codigo)}
-                          // El texto visible es «+ plan» en las treinta filas; sin esto,
-                          // un lector de pantalla anuncia treinta botones indistinguibles.
-                          aria-label={`Registrar planes de tratamiento para ${f.codigo}`}
-                          title={`Registrar planes de tratamiento para ${f.codigo}`}
-                          className="rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-semibold text-secondary-soft hover:bg-subtle"
-                        >
-                          + plan
-                        </button>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div>
+            {/* El conteo se queda, aunque las acciones se hayan ido arriba. Es la garantía de
+                esta pantalla hecha visible: este número y el de la tarjeta EN ANÁLISIS salen
+                del mismo arreglo, y verlos juntos es lo que permite notar de un vistazo si
+                alguna vez dejaran de coincidir. Una línea de texto no es una barra de
+                controles. */}
+            <p className="mb-2 text-11_5 text-faint">
+              {tarjetas.enAnalisis.n} activos · {rotuloDeOrden(ordenPersonalizado)}
+            </p>
+            <GrillaAnalisis
+              filas={filas}
+              rtoPorCriticidad={rtoPorCriticidad}
+              sinPlanCodigos={sinPlanCodigos}
+              hrefDeFila={hrefDeFilaConFiltros}
+              onRegistrarPlan={setActivoParaPlan}
+              onOrdenPersonalizado={setOrdenPersonalizado}
+              onFilasVisibles={setFilasVisibles}
+              criticidades={criticidadesParaLaGrilla}
+              onAcciones={setAcciones}
+            />
+            {tarjetas.enAnalisis.n === 0 && (
+              <p className="parrafo mt-4 text-12_5 text-muted">
+                Los filtros de la grilla no dejaron ninguna fila. Quita alguno con «Limpiar
+                filtros».
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -446,6 +351,22 @@ export default function PantallaAnalisisRiesgos({
   );
 }
 
+/// El rótulo dice el orden EFECTIVO.
+///
+/// EL SELECTOR «ORDEN» SE RETIRÓ el 22/09/2026 y no se perdió nada, que es lo que hay que
+/// saber antes de echarlo de menos. Tenía dos opciones y las dos siguen alcanzables desde la
+/// grilla: «peor residual» pulsando la cabecera de esa columna, y «criticidad (RTO)» pulsando
+/// la de Criticidad — esa columna **no ordena por el código sino por el RTO** (§11), con el
+/// mismo `compararPorCriticidad` que usaba el selector. Un control con nombre propio para algo
+/// que la cabecera ya hacía era interfaz duplicada.
+///
+/// Si el lector ordenó por una columna, seguir afirmando «orden por peor residual» sobre una
+/// grilla ordenada por proceso sería una mentira barata, del tipo que esta pantalla evita en
+/// todas partes.
+function rotuloDeOrden(personalizado: boolean): string {
+  return personalizado ? 'orden personalizado' : 'orden por peor residual';
+}
+
 /// El destino de una fila: el overlay de la tarea 3.2 sobre Amenazas, con los seis filtros de
 /// esta pantalla todavía en la URL — para que cerrar (`router.replace` quitando solo
 /// `activo`/`tab`) vuelva exactamente a la lista filtrada que se estaba mirando.
@@ -460,10 +381,18 @@ function Encabezado({
   umbral,
   totalEnAnalisis,
   totalVigentes,
+  acciones,
+  menuColumnas,
+  onAlternarMenu,
 }: {
   umbral: number;
   totalEnAnalisis: number;
   totalVigentes: number;
+  /// Las acciones de la grilla, que se muestran acá y no encima de la lista. `null` mientras
+  /// la grilla no haya cargado — entra por `next/dynamic`, así que hay un instante sin ellas.
+  acciones?: AccionesGrilla | null;
+  menuColumnas?: boolean;
+  onAlternarMenu?: () => void;
 }) {
   return (
     <header className="flex flex-col gap-1">
@@ -473,6 +402,13 @@ function Encabezado({
             completo y no del recorte que esta pantalla está mostrando, así que un botón
             primario acá prometería «informe de lo que estoy viendo», que no es lo que hace.
             El alcance se elige adentro. */}
+        {acciones != null && onAlternarMenu !== undefined && (
+          <BarraDeAcciones
+            acciones={acciones}
+            menuAbierto={menuColumnas === true}
+            onAlternarMenu={onAlternarMenu}
+          />
+        )}
         <Link
           href="/sgsi/informe-valoracion"
           className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 font-semibold text-primary hover:bg-surface-hover"
@@ -490,210 +426,106 @@ function Encabezado({
   );
 }
 
-/// Las tres dimensiones activas del modelo, en el orden de MAGERIT y del catálogo.
+/// Una cifra de las seis.
 ///
-/// El orden es D · I · C y no el que se pida en una conversación suelta: es el mismo de
-/// `ValoresDimension`, el de la ficha del activo y el del seed (`orden` 1, 2, 3). Cuatro
-/// pantallas que muestran las mismas tres letras en órdenes distintos se leen mal justo
-/// cuando hay que comparar dos activos.
+/// DEJÓ DE SER UN BOTÓN el 21/09/2026. Antes cada tarjeta aplicaba uno de los seis filtros
+/// propios de la pantalla; esos filtros se retiraron y ahora filtra la grilla, así que un
+/// botón que ya no filtra nada sería una promesa falsa. La tarjeta pasa a ser lo que en
+/// realidad es: un marcador de lo que la lista está mostrando.
 ///
-/// A y T están modeladas e inactivas en el catálogo; el día que se activen, esto deja de
-/// poder ser una constante y pasa a leerse de `Dimension` — igual que `valorMaximo` ya
-/// itera las activas en vez de tres constantes.
-const DIMENSIONES = [
-  { codigo: 'D', nombre: 'Disponibilidad' },
-  { codigo: 'I', nombre: 'Integridad' },
-  { codigo: 'C', nombre: 'Confidencialidad' },
-] as const;
-
-/// Las bandas cuyo residual pinta el renglón.
+/// Más angosta que antes —menos relleno, cifra algo menor— para que las seis quepan en una
+/// línea. La sexta bajaba sola a un segundo renglón y se leía como de otra categoría.
+/// Las acciones de la grilla, en la franja del encabezado.
 ///
-/// **Se nombran por su nombre y no por el orden del umbral** porque el catálogo es editable:
-/// `UmbralRiesgo` se parametriza y alguien puede insertar una banda intermedia. Un `orden <= 2`
-/// pintaría entonces la banda equivocada sin que nada falle.
-const BANDAS_ALARMANTES = ['Crítico', 'Alto'];
-
-/// Si el residual de un activo es de los que hay que ver sin leer la tabla.
+/// Vivían pegadas encima de la lista y subieron acá el 22/09/2026, junto con el retiro del
+/// título «Activos en análisis»: dos franjas de controles entre el encabezado y la primera
+/// fila hacían que la lista empezara con el ojo ya cansado.
 ///
-/// `null` —«sin calcular»— **no se pinta**, y la distinción importa: pintarlo diría que el
-/// riesgo es alto, y lo que pasa es que no se sabe. Es la misma doctrina que sostiene el
-/// informe de valoración: eficacia desconocida no es riesgo alto ni riesgo bajo, es un estado
-/// del modelo. La columna «Peor residual» ya lo dice con su propia palabra.
-function esResidualAlarmante(nivel: NivelRiesgo | null): boolean {
-  return nivel !== null && BANDAS_ALARMANTES.includes(nivel.banda);
-}
-
-function Tarjeta({
-  etiqueta,
-  valor,
-  nota,
-  activa,
-  deshabilitada = false,
-  onClick,
+/// El selector de columnas es propio y no el panel lateral de AG Grid, que es Enterprise. Hace
+/// falta porque dos columnas arrancan escondidas para que las trece quepan sin barra
+/// horizontal — y esconder algo que no se puede recuperar es borrarlo.
+function BarraDeAcciones({
+  acciones,
+  menuAbierto,
+  onAlternarMenu,
 }: {
-  etiqueta: string;
-  valor: string;
-  nota: string;
-  activa: boolean;
-  deshabilitada?: boolean;
-  onClick: () => void;
+  acciones: AccionesGrilla;
+  menuAbierto: boolean;
+  onAlternarMenu: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={deshabilitada}
-      aria-pressed={activa}
-      className="flex flex-col items-start gap-1 rounded-tarjeta border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-      style={{
-        borderColor: activa ? 'var(--hf-brand-nav)' : 'var(--hf-border-default)',
-        background: activa ? 'var(--hf-brand-100)' : 'var(--hf-bg-surface)',
-      }}
-    >
-      <span className="font-mono text-9_5 uppercase tracking-[0.07em] text-faint">{etiqueta}</span>
-      <span className="text-22 font-bold tabular-nums text-primary">{valor}</span>
-      <span className="text-11 text-muted">{nota}</span>
-    </button>
-  );
-}
-
-/// El nivel con el color de su banda — el MISMO con el que la matriz pinta la casilla donde
-/// ese activo cae. Desde la opción B una casilla ocupada se pinta con la banda de su peor
-/// contenido, así que el renglón y la casilla coinciden y las dos vistas se leen juntas.
-///
-/// El color nunca es el único portador: el renglón sigue diciendo la banda en palabras, para
-/// quien no pueda verlo.
-function CeldaBanda({ nivel }: { nivel: NivelRiesgo | null }) {
-  if (nivel === null) {
-    return <span className="text-11_5 text-faint">sin calcular</span>;
-  }
-  const c = colorDeNivel(nivel);
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-campo px-2 py-0.5 text-11_5 font-semibold"
-      style={c === null ? undefined : { background: c.bg, color: c.fg }}
-      title={`Cae en la casilla ${nivel.banda} de la matriz · ${nivel.figura}`}
-    >
-      <span className="font-mono tabular-nums">{nivel.nivel}</span> · {nivel.banda}
-    </span>
-  );
-}
-
-function CeldaPlan({ estado }: { estado: EstadoPlanActivo }) {
-  if (estado === 'no-requiere') return <span className="text-11_5 text-faint">—</span>;
-  if (estado === 'con-plan') {
-    return (
-      <Link
-        href="/sgsi/planes"
-        className="text-11_5 font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        onClick={acciones.exportarExcel}
+        // Se nombra «lo que estás viendo» a propósito: el informe formal sale del inventario
+        // completo por «Generar informe», no de este recorte.
+        title="Descarga lo que estás viendo, con los colores de banda. No es el informe de valoración."
+        className="rounded-campo border border-border-field bg-surface px-2 py-1 text-11 font-semibold text-secondary-soft hover:bg-subtle"
       >
-        ✓ plan
-      </Link>
-    );
-  }
-  if (estado === 'pendiente') {
-    return (
-      <span
-        className="rounded-[4px] px-1.5 py-0.5 text-11_5 font-semibold"
-        style={{ background: 'var(--hf-warn-bg, #fef3c7)', color: 'var(--hf-warn-text)' }}
+        Exportar a Excel
+      </button>
+      <button
+        onClick={acciones.exportarCsv}
+        title="El mismo recorte, en texto plano y sin formato."
+        className="text-11 font-semibold text-brand-nav hover:underline"
       >
-        pendiente
-      </span>
-    );
-  }
-  // 'sin-determinar' — REQ-SIG-20 Fase 4 (lib/sgsi/deuda-planes.ts) todavía no existe.
-  return (
-    <span className="text-11_5 text-faint" title="El estado del plan lo determina la Fase 4 de este cambio.">
-      Fase 4
-    </span>
-  );
-}
-
-function FilaDeFiltros({
-  criticidades,
-  filtros,
-  procesos,
-  propietarios,
-  personas,
-  hayFiltros,
-  onCambiar,
-  onLimpiar,
-}: {
-  filtros: FiltrosAnalisis;
-  procesos: string[];
-  propietarios: string[];
-  personas: { correo: string; nombre: string }[];
-  /// Los códigos `C1`..`C5`, en el orden del catálogo. Salen de `criticidadesRto`, que ya
-  /// viaja para ordenar por criticidad: una sola fuente, sin un segundo catálogo que se
-  /// pueda desacordar con aquel.
-  criticidades: readonly string[];
-  hayFiltros: boolean;
-  onCambiar: (f: (previos: FiltrosAnalisis) => FiltrosAnalisis) => void;
-  onLimpiar: () => void;
-}) {
-  return (
-    <div className="mt-4 flex flex-wrap items-center gap-2.5">
-      <Select
-        etiqueta="Proceso"
-        valor={filtros.proceso}
-        opciones={[TODOS_PROCESOS, ...procesos]}
-        onChange={(v) => onCambiar((f) => ({ ...f, proceso: v }))}
-      />
-      <Select
-        etiqueta="Propietario"
-        valor={filtros.propietario}
-        opciones={[TODOS_PROPIETARIOS_ANALISIS, ...propietarios, SIN_ASIGNAR]}
-        onChange={(v) => onCambiar((f) => ({ ...f, propietario: v }))}
-      />
-      <Select
-        etiqueta="Persona"
-        valor={filtros.persona}
-        opciones={[TODAS_PERSONAS_ANALISIS, ...personas.map((p) => p.correo), SIN_ASIGNAR]}
-        rotulos={Object.fromEntries(personas.map((p) => [p.correo, p.nombre]))}
-        onChange={(v) => onCambiar((f) => ({ ...f, persona: v }))}
-        titulo="Activo.personaId está poco poblado hoy: pocos resultados es lo esperado, no un defecto."
-      />
-      {/* REQ-SIG-20 §11 (P9) · la criticidad va junto a Valor y no al final: las dos
-          responden «cuánto importa este activo», y el orden del renglón agrupa primero
-          quién responde por él (proceso, propietario, persona) y después cuánto pesa. */}
-      <Select
-        etiqueta="Criticidad"
-        valor={filtros.criticidad}
-        opciones={[TODAS_CRITICIDADES, ...criticidades, SIN_ASIGNAR]}
-        rotulos={{ [SIN_ASIGNAR]: 'Sin clasificar' }}
-        onChange={(v) => onCambiar((f) => ({ ...f, criticidad: v }))}
-        titulo="La declara el negocio en FOR-SIG-12 columna 26; no se deriva del residual. Hoy casi todo el inventario está sin clasificar."
-      />
-      <Select
-        etiqueta="Valor"
-        valor={String(filtros.valor)}
-        opciones={['ambos', '4', '5']}
-        rotulos={{ ambos: '4 y 5', '4': '4', '5': '5' }}
-        onChange={(v) => onCambiar((f) => ({ ...f, valor: v === 'ambos' ? 'ambos' : (Number(v) as 4 | 5) }))}
-      />
-      <Select
-        etiqueta="Banda del residual"
-        valor={filtros.bandaResidual ?? 'Todos'}
-        opciones={['Todos', 'rojo', 'verde', 'blanco']}
-        onChange={(v) =>
-          onCambiar((f) => ({ ...f, bandaResidual: v === 'Todos' ? null : (v as 'rojo' | 'verde' | 'blanco') }))
-        }
-      />
-      <Select
-        etiqueta="Estado del plan"
-        valor={filtros.estadoPlan === 'requiere-plan' ? 'todos' : filtros.estadoPlan}
-        opciones={['todos', 'pendiente', 'con-plan', 'no-requiere']}
-        rotulos={{ todos: 'Todos', pendiente: 'Pendiente', 'con-plan': 'Con plan', 'no-requiere': 'No requiere' }}
-        onChange={(v) => onCambiar((f) => ({ ...f, estadoPlan: v as FiltrosAnalisis['estadoPlan'] }))}
-      />
-      {hayFiltros && (
-        <button onClick={onLimpiar} className="text-12 font-semibold text-brand-nav hover:underline">
-          Limpiar filtros
+        CSV
+      </button>
+      <button
+        onClick={acciones.limpiarFiltros}
+        className="text-11 font-semibold text-brand-nav hover:underline"
+      >
+        Limpiar filtros
+      </button>
+      <div className="relative">
+        <button
+          onClick={onAlternarMenu}
+          aria-expanded={menuAbierto}
+          className="text-11 font-semibold text-brand-nav hover:underline"
+        >
+          Columnas
         </button>
-      )}
+        {menuAbierto && (
+          <div
+            role="group"
+            aria-label="Columnas visibles"
+            className="absolute right-0 z-20 mt-1 max-h-[320px] w-[220px] overflow-auto rounded-campo border border-border-default bg-surface p-2 shadow-lg"
+          >
+            {acciones.columnas.map((c) => (
+              <label
+                key={c.colId}
+                className="flex cursor-pointer items-center gap-2 rounded-[4px] px-1.5 py-1 text-11_5 text-secondary hover:bg-subtle"
+              >
+                <input
+                  type="checkbox"
+                  checked={c.visible}
+                  onChange={(e) => acciones.alternarColumna(c.colId, e.target.checked)}
+                />
+                {c.nombre}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={acciones.restablecer}
+        className="text-11 font-semibold text-brand-nav hover:underline"
+      >
+        Restablecer columnas
+      </button>
     </div>
   );
 }
 
+function Tarjeta({ etiqueta, valor, nota }: { etiqueta: string; valor: string; nota: string }) {
+  return (
+    <div className="flex flex-col items-start gap-0.5 rounded-tarjeta border border-border-default bg-surface px-3 py-2.5">
+      <span className="font-mono text-9_5 uppercase tracking-[0.06em] text-faint">{etiqueta}</span>
+      <span className="text-19 font-bold tabular-nums text-primary">{valor}</span>
+      <span className="text-10_5 leading-tight text-muted">{nota}</span>
+    </div>
+  );
+}
 function Select({
   etiqueta,
   valor,

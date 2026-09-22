@@ -17,6 +17,7 @@
 // el informe de valoración— el acta saldría sin una sola línea de tabla.
 
 import type { FilaAlcance, FirmanteProceso } from './alcance-residual';
+import { RAMPA_RIESGO_HEX } from './riesgo-activo';
 
 export interface DatosActaResidual {
   codigo: string;
@@ -35,8 +36,10 @@ const SUAVE = '#5b6875';
 const LINEA = '#d7dde3';
 const CABECERA = '#f1f4f7';
 const TITULO = '#12263f';
-/// El mismo `--hf-risk-critico-bg` de `app/globals.css`. Literal, por lo de arriba.
-const CRITICO = '#a52016';
+/// `--hf-risk-critico-bg`. Estaba escrito literal acá porque Word no resuelve una `var()`;
+/// sigue haciendo falta el hex, pero ya no hace falta la copia: sale de `RAMPA_RIESGO_HEX`
+/// (`riesgo-activo.ts`), donde el hex vive en el mismo renglón que la variable.
+const CRITICO = RAMPA_RIESGO_HEX[0].bg;
 
 const S = {
   cuerpo: `font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:10.5pt;color:${TINTA};line-height:1.45`,

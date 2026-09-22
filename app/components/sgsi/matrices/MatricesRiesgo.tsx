@@ -79,6 +79,13 @@ interface Props {
   columnas: ColumnaFrecuencia[];
   bandas: BandaVista[];
   sinUbicar: number;
+  /// Cuántos activos VIGENTES hay en el inventario, sin filtrar.
+  ///
+  /// La matriz de activos cuenta los que entran al análisis —los que superan el umbral de
+  /// valoración—, y hoy eso son 30 de 378. La cifra no está mal calculada, pero un «30» solo,
+  /// bajo el rótulo «Activos», se lee como «el inventario son 30». Esto es su denominador, y
+  /// lo único que sobrevive del intento de presentar los 378 dentro de la rejilla.
+  activosVigentes: number;
 }
 
 type Matriz = 'inherente' | 'residual';
@@ -171,6 +178,7 @@ export default function MatricesRiesgo({
   columnas,
   bandas,
   sinUbicar,
+  activosVigentes,
 }: Props) {
   const [filtro, setFiltro] = useState(TODOS);
   const [unidad, setUnidad] = useState<Unidad>('amenazas');
@@ -335,6 +343,21 @@ export default function MatricesRiesgo({
               ? 'Cada activo aparece una sola vez, en la casilla de su peor riesgo. Haz clic en cualquier casilla para ver qué activos contiene y qué riesgo los puso ahí.'
               : 'Haz clic en cualquier casilla para navegar los riesgos que contiene.'}
           </p>
+          {/* EL DENOMINADOR DE LA CIFRA DE LAS TARJETAS.
+              «30» bajo el rótulo «Activos», en una pantalla cuyo inventario tiene 378, se lee
+              como «el inventario son 30». No está mal calculado: son exactamente los activos
+              que entran al análisis. Falta decir de cuántos.
+              No depende del filtro a propósito — es de cuántos hay, no de cuántos quedan —, y
+              por eso se cuenta sobre el catálogo entero y no sobre el recorte. */}
+          {porActivos && (
+            <p data-testid="alcance-analisis" className="parrafo mt-1.5 text-12 text-faint">
+              Esta matriz cuenta los <strong>{miles(activos.length)}</strong> activos que entran
+              al análisis de riesgos —los que superan el umbral de valoración—, de{' '}
+              {miles(activosVigentes)} activos vigentes en el inventario. Los demás no tienen
+              riesgos calculados, así que no tienen impacto ni frecuencia con los que ubicarlos
+              en esta rejilla.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -585,7 +608,10 @@ function Filtro({
   return (
     <label className="flex items-center gap-2 rounded-[7px] border border-border-field bg-surface py-1.5 pr-1.5 pl-3">
       <span className="etiqueta-campo text-9_5">{etiqueta}</span>
+      {/* El nombre va también en `aria-label`: el `<label>` envuelve al `<select>`, así que
+          su texto accesible arrastraría además todas las opciones. */}
       <select
+        aria-label={etiqueta}
         value={valor}
         onChange={(e) => onChange(Number(e.target.value))}
         disabled={opciones.length === 0}
@@ -692,7 +718,10 @@ function TarjetaMatriz({
   }, [reparto]);
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-tarjeta border border-border-default bg-surface px-[22px] pt-5 pb-[22px]">
+    <section
+      aria-label={titulo}
+      className="flex min-w-0 flex-col gap-4 rounded-tarjeta border border-border-default bg-surface px-[22px] pt-5 pb-[22px]"
+    >
       <div className="flex items-start justify-between gap-3.5">
         <div>
           <h2 className="text-15 font-bold text-primary">{titulo}</h2>
@@ -701,7 +730,9 @@ function TarjetaMatriz({
           </p>
         </div>
         <div className="flex flex-none flex-col items-end">
-          <span className="cifra text-20 text-primary">{miles(total)}</span>
+          <span data-testid="total-matriz" className="cifra text-20 text-primary">
+            {miles(total)}
+          </span>
           <span className="etiqueta-campo text-9">
             {unidad === 'activos' ? 'Activos' : 'Riesgos'}
           </span>
@@ -742,6 +773,7 @@ function TarjetaMatriz({
               return (
                 <button
                   key={c.nombre}
+                  data-testid={`casilla-${i}-${j}`}
                   onClick={() => onCelda(i, j, n)}
                   title={`${banda.nombre} · impacto ${b.nombre.toLowerCase()} · ${cifra(
                     c.vecesAno,
@@ -782,7 +814,11 @@ function TarjetaMatriz({
         {conteos.map((k, i) => {
           const color = colorBanda(i);
           return (
-            <div key={k.nombre} className="flex items-center gap-2.5">
+            <div
+              key={k.nombre}
+              data-testid={`banda-${k.nombre}`}
+              className="flex items-center gap-2.5"
+            >
               <span
                 className="h-[9px] w-[9px] flex-none rounded-swatch"
                 style={{ background: color.bg }}

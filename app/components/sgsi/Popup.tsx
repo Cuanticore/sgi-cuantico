@@ -20,13 +20,22 @@ interface Props {
   subtitulo?: string;
   /// Maximum width in px. The handoff sizes each popup to its content.
   ancho: number;
+  /// Tope del cuerpo antes de que aparezca el desplazamiento. Por defecto `61vh`, que es lo
+  /// que tenían los ocho popups antes de que esto fuera un parámetro: un popup que no pida
+  /// nada tiene que verse exactamente igual que ayer.
+  ///
+  /// El tope REAL es el menor entre esto y `calc(100vh - 216px)` —96px de margen del overlay
+  /// más ~120 de encabezado y pie—, para que la tarjeta no pueda desbordar la pantalla por
+  /// muy alto que se le pida. Un popup cuyo botón de guardar queda por debajo del borde no
+  /// es un popup alto: es un popup inusable.
+  alto?: string;
   onCerrar: () => void;
   /// Rendered at the bottom, separated by a hairline: Cancel, Save, Delete.
   pie?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export default function Popup({ titulo, subtitulo, ancho, onCerrar, pie, children }: Props) {
+export default function Popup({ titulo, subtitulo, ancho, alto, onCerrar, pie, children }: Props) {
   const tarjeta = useRef<HTMLDivElement>(null);
   const origen = useRef<Element | null>(null);
 
@@ -52,7 +61,9 @@ export default function Popup({ titulo, subtitulo, ancho, onCerrar, pie, childre
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center px-5 py-[78px]"
+      className={`fixed inset-0 z-[60] flex items-start justify-center px-5 ${
+        alto === undefined ? 'py-[78px]' : 'py-12'
+      }`}
       style={{ background: 'var(--hf-overlay)' }}
       role="dialog"
       aria-modal
@@ -83,7 +94,13 @@ export default function Popup({ titulo, subtitulo, ancho, onCerrar, pie, childre
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: '61vh' }}>
+        <div
+          data-popup="cuerpo"
+          className="overflow-y-auto px-5 py-4"
+          style={{
+            maxHeight: alto === undefined ? '61vh' : `min(${alto}, calc(100vh - 216px))`,
+          }}
+        >
           {children}
         </div>
 

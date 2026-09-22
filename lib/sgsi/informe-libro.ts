@@ -27,6 +27,7 @@ import ExcelJS from 'exceljs';
 import type { ProcesoDelInforme } from './informe-valoracion';
 import { FUERA_DEL_ANALISIS, SIN_CALCULAR, etiquetaDeBanda } from './informe-valoracion';
 import type { ColumnaFrecuencia, FilaImpacto } from './matriz-clasica';
+import { RAMPA_RIESGO_HEX } from './riesgo-activo';
 
 export interface DatosLibro {
   capitulos: readonly ProcesoDelInforme[];
@@ -43,10 +44,16 @@ export interface DatosLibro {
 const CABECERA = { argb: 'FFF1F4F7' };
 const TINTA_CABECERA = { argb: 'FF5B6875' };
 
-/// Los mismos hexadecimales de `--hf-risk-*`, en el formato ARGB que pide ExcelJS. Por
-/// posición de banda, como en el documento.
-const RAMPA_ARGB = ['FFA52016', 'FFC25A1E', 'FFE0B93C', 'FFDFE8E2'];
-const TINTA_RAMPA = ['FFFFFFFF', 'FFFFFFFF', 'FF3A2C05', 'FF3D5648'];
+/// La rampa de riesgo en el formato ARGB que pide ExcelJS. Por posición de banda, como en el
+/// documento — y DERIVADA de `RAMPA_RIESGO_HEX`, no copiada.
+///
+/// Acá estaban los ocho hexadecimales escritos a mano; eran una de las cinco copias de la
+/// paleta que había en `lib/sgsi/`, y ExcelJS no tiene cascada que resuelva un
+/// `var(--hf-risk-*)`, así que la copia parecía inevitable. Lo que faltaba era un dueño:
+/// `PALETA_RIESGO` en `riesgo-activo.ts` guarda la variable y su hex en el mismo renglón.
+const ARGB = (hex: string): string => `FF${hex.replace('#', '').toUpperCase()}`;
+const RAMPA_ARGB = RAMPA_RIESGO_HEX.map((c) => ARGB(c.bg));
+const TINTA_RAMPA = RAMPA_RIESGO_HEX.map((c) => ARGB(c.fg));
 
 function encabezar(hoja: ExcelJS.Worksheet, titulos: string[], anchos: number[]): void {
   hoja.addRow(titulos);

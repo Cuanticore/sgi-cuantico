@@ -33,8 +33,10 @@
 // personalizadas de CSS. Con clases de Tailwind el Word saldría sin una sola línea de tabla;
 // con `var(--hf-risk-*)`, la matriz saldría en blanco y negro.
 //
-// Los hexadecimales son los de `app/globals.css`. Si la rampa cambia allá, hay que cambiarla
-// acá — y la única defensa contra que se olvide es que estén escritos al lado, con su nombre.
+// Los hexadecimales de la rampa de riesgo ya NO están escritos acá: salen de
+// `RAMPA_RIESGO_HEX` (`riesgo-activo.ts`), que es el único sitio donde el hex vive junto a su
+// variable CSS. Lo que sigue literal en este archivo son los grises y azules de maquetación,
+// que no son paleta compartida con ninguna pantalla.
 
 import type { ProcesoDelInforme } from './informe-valoracion';
 import {
@@ -45,21 +47,24 @@ import {
   etiquetaDeBanda,
 } from './informe-valoracion';
 import type { ColumnaFrecuencia, FilaImpacto, MatrizClasica } from './matriz-clasica';
+import { RAMPA_RIESGO_HEX } from './riesgo-activo';
 
-/// Los mismos valores que `--hf-risk-*`. Indexados por POSICIÓN de la banda y no por su
-/// nombre: así renombrar «Crítico» a «Extremo» no vuelve la matriz gris de golpe.
-const RAMPA = [
-  { bg: '#a52016', fg: '#ffffff' }, // --hf-risk-critico-bg / -fg
-  { bg: '#c25a1e', fg: '#ffffff' }, // --hf-risk-alto-bg / -fg
-  { bg: '#e0b93c', fg: '#3a2c05' }, // --hf-risk-medio-bg / -fg
-  { bg: '#dfe8e2', fg: '#3d5648' }, // --hf-risk-bajo-bg / -fg
-];
+/// La rampa de riesgo, indexada por POSICIÓN de la banda y no por su nombre: así renombrar
+/// «Crítico» a «Extremo» no vuelve la matriz gris de golpe.
+///
+/// Los cuatro pares estaban copiados a mano de `app/globals.css` con el nombre de su variable
+/// al lado, y el comentario de arriba admitía que la única defensa era que estuvieran juntos.
+/// Ahora es un alias del dueño: `PALETA_RIESGO` en `riesgo-activo.ts`.
+const RAMPA = RAMPA_RIESGO_HEX;
 
 const TINTA = '#1f2a37';
 const SUAVE = '#5b6875';
 const LINEA = '#d7dde3';
 const CABECERA = '#f1f4f7';
 const TITULO = '#12263f';
+/// Lo que falta y no puede pasar inadvertido —una aceptación sin fecha de revisión— se dice
+/// con el rojo de la peor banda, no con un rojo suelto: es la misma paleta.
+const ALERTA = RAMPA[0].bg;
 /// El azul de marca, `--hf-brand-900`. Es el único color corporativo del documento y marca
 /// el nivel superior —las bandas del mapa de procesos— para que se distinga de un capítulo.
 const MARCA = '#0c2461';
@@ -304,7 +309,7 @@ export function documentoInforme(datos: DatosDocumento): string {
           `<td style="${S.td}">${esc(a.justificacion ?? '—')}</td>`,
           `<td style="${S.td};white-space:nowrap">${
             a.fechaRevision === null
-              ? '<strong style="color:#a52016">Sin fecha</strong>'
+              ? `<strong style="color:${ALERTA}">Sin fecha</strong>`
               : esc(a.fechaRevision)
           }</td></tr>`,
         );

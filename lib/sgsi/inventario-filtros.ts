@@ -16,8 +16,17 @@
 // `Activo.propietarioId`. Sin los dos nombres, un clic en una celda que cuenta 41 propietarios
 // abriría 63 filas y nada fallaría: el número simplemente sería mentira (§7.4).
 //
-// **`color` no se toca.** Es banda de riesgo, no valor del activo, por parecido que suene
-// (§12). No entra en este predicado: se aplica aparte, después de las cuentas de los chips.
+// **`color` ya no es un filtro de esta pantalla, y el parámetro se retiró el 2026-09-21.**
+//
+// Era la banda de riesgo del renglón, y REQ-SIG-20 §4/P5 lo quitó junto con la columna que
+// filtraba: esa lectura vive ahora en la pantalla de análisis. Pero el parámetro siguió
+// leyéndose acá y volviéndose a escribir en la URL **sin que nadie lo aplicara** — el «se
+// aplica aparte» que decía este comentario dejó de existir con el §4/P5 y el comentario
+// quedó mintiendo. `/sgsi/inventario?color=rojo` conservaba el parámetro y mostraba todo.
+//
+// Un filtro que miente es peor que ninguno, y acá más: los números de esta pantalla son los
+// que la de Valoración promete en sus celdas. Ahora, si el parámetro llega, **se avisa** que
+// ya no se aplica y no se propaga. Que es la doctrina del módulo: lo que se ignora se dice.
 
 import {
   CRITERIO_MAX,
@@ -35,15 +44,11 @@ export const TODOS_PROPIETARIOS = 'Todos los propietarios';
 export const TODAS_PERSONAS = 'Todas las personas';
 export const TODOS_VALORES = 'Todos';
 
-export type ColorFiltro = 'Todos' | 'rojo' | 'verde' | 'blanco';
-
 export interface Filtros {
   tipo: string;
   subtipo: string;
   /// Propietario **O** custodio. El de siempre, sin cambios.
   responsable: string;
-  /// Banda de riesgo del renglón. No es el valor del activo.
-  color: ColorFiltro;
   /// Contra qué se comparan `valor` y `valorMinimo`: `MAX` o el código de una dimensión
   /// activa. Ausente en la URL = `MAX`.
   dimension: string;
@@ -68,7 +73,6 @@ export const FILTROS_VACIOS: Filtros = {
   tipo: TODOS_TIPOS,
   subtipo: TODOS_SUBTIPOS,
   responsable: TODOS_RESPONSABLES,
-  color: 'Todos',
   dimension: CRITERIO_MAX,
   valor: null,
   valorMinimo: null,
@@ -164,14 +168,12 @@ export function filtrosDesdeUrl(
     valorMinimo = null;
   }
 
-  const colorCrudo = params.get('color');
-  let color: ColorFiltro = 'Todos';
-  if (colorCrudo !== null && colorCrudo !== '') {
-    if (colorCrudo === 'rojo' || colorCrudo === 'verde' || colorCrudo === 'blanco') {
-      color = colorCrudo;
-    } else {
-      avisos.push(`El parámetro «color» traía «${colorCrudo}», que no es una banda: se ignoró.`);
-    }
+  // Se lee sólo para poder avisar. Ver la cabecera: dejó de ser un filtro de esta pantalla
+  // con REQ-SIG-20 §4/P5, y durante un tiempo se siguió leyendo y reescribiendo sin aplicarse.
+  if ((params.get('color') ?? '') !== '') {
+    avisos.push(
+      'El parámetro «color» filtraba por banda de riesgo y esta pantalla ya no la muestra: se ignoró. Esa lectura está en Análisis de riesgos.',
+    );
   }
 
   const conPersonaCrudo = params.get('conPersona');
@@ -201,7 +203,6 @@ export function filtrosDesdeUrl(
         'responsable',
         avisos,
       ),
-      color,
       dimension,
       valor,
       valorMinimo,
@@ -234,7 +235,6 @@ export function parametrosDeFiltros(filtros: Filtros): Record<string, string> {
   if (filtros.tipo !== TODOS_TIPOS) p.tipo = filtros.tipo;
   if (filtros.subtipo !== TODOS_SUBTIPOS) p.subtipo = filtros.subtipo;
   if (filtros.responsable !== TODOS_RESPONSABLES) p.responsable = filtros.responsable;
-  if (filtros.color !== 'Todos') p.color = filtros.color;
   if (filtros.dimension !== CRITERIO_MAX) p.dimension = filtros.dimension;
   if (filtros.valor !== null) p.valor = String(filtros.valor);
   else if (filtros.valorMinimo !== null) p.valorMinimo = String(filtros.valorMinimo);
@@ -281,8 +281,8 @@ export interface ActivoFiltrable {
   valores: Readonly<Record<string, number | null>>;
 }
 
-/// Todo lo que decide si un activo entra, salvo el color del renglón — que depende de las
-/// bandas de riesgo y se aplica después, para que los chips puedan contar sobre este conjunto.
+/// Todo lo que decide si un activo entra. La banda de riesgo del renglón no está acá y no es
+/// un olvido: dejó de ser un filtro de esta pantalla (ver la cabecera).
 export function cumpleFiltros(
   activo: ActivoFiltrable,
   filtros: Filtros,

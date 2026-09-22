@@ -11,6 +11,7 @@
     "e2e": "playwright test",
     "verificar": "npx prisma generate && npx tsc --noEmit && npm run lint && npm test",
     "verificar:build": "npm run verificar && npm run build",
+    "verificar:fusion": "tsx --tsconfig tsconfig.scripts.json scripts/verificar-fusion.ts",
     "verificar:migraciones": "tsx scripts/verificar-migraciones.ts",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker-compose.dev.yml down"
@@ -18,6 +19,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
+    "ag-grid-community": "^36.2.0",
+    "ag-grid-react": "^36.2.0",
     "axios": "^1.16.0",
     "decimal.js": "10.6.0",
     "echarts": "^6.0.0",

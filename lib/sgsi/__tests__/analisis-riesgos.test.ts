@@ -12,6 +12,7 @@
 
 import {
   FILTROS_ANALISIS_VACIOS,
+  compararPorCriticidad,
   consultaDeFiltrosAnalisis,
   TODAS_CRITICIDADES,
   SIN_ASIGNAR,
@@ -20,7 +21,9 @@ import {
   ordenarPorCriticidad,
   parametrosDeFiltrosAnalisis,
   tarjetasAnalisis,
+  tarjetasDeFilas,
   type ActivoAnalizable,
+  type FilaAnalisis,
   type CatalogosFiltroAnalisis,
   type DatosAnalisis,
   type FiltrosAnalisis,
@@ -212,6 +215,157 @@ describe('§5.1 · las cinco tarjetas, desde la distribución (tarea 3.8)', () =
   });
 });
 
+// REQ-SIG-24 §7 · `altoSinPlan`: el riesgo QUE QUEDA, no la brecha del control.
+//
+// POR QUÉ ES UN CAMPO APARTE Y NO UNA LECTURA DE `estadoPlan`. `estadoPlan` contesta «¿el
+// control principal alcanza lo que se le exige?»; esto contesta «¿queda algún riesgo en banda
+// Alto o Crítico que ningún plan cubra?». Son preguntas distintas y se cruzan en las cuatro
+// combinaciones: un activo puede tener el control al día —`no-requiere`— y el residual alto,
+// que es justamente el caso que la pantalla no decía de ninguna forma y el que ISO/IEC 27001
+// 6.1.3 no deja pasar sin una decisión escrita.
+describe('§7 · altoSinPlan mira el residual que queda, no la brecha del control', () => {
+  /// Residual 15 cae en banda Alto (10 ≤ 15 < 20) y el principal al 90 % cubre la exigencia
+  /// por valor (70 %), así que el activo NO tiene brecha: `estadoPlan` es `no-requiere`.
+  const altoSinBrecha = () =>
+    activo({ riesgos: [conPrincipal(90, { potencial: '25', residual: '15' })] });
+
+  const soloFila = (a: ActivoAnalizable, resolver?: ResolverDeudaPlan) =>
+    filasAnalisis(datos([a]), FILTROS_ANALISIS_VACIOS, resolver)[0];
+
+  // LA PRUEBA DEL PEDIDO. Sin este campo, este activo salía sin ningún acento: su control
+  // está al día y su riesgo residual sigue en Alto sin plan que lo trate.
+  it('es cierto con un riesgo en Alto sin plan, aunque estadoPlan sea «no-requiere»', () => {
+    const fila = soloFila(altoSinBrecha(), () => false);
+    expect(fila.estadoPlan).toBe('no-requiere');
+    expect(fila.peorResidual?.banda).toBe('Alto');
+    expect(fila.altoSinPlan).toBe(true);
+  });
+
+  it('es falso cuando ese mismo Alto ya tiene un plan que lo cubre', () => {
+    const fila = soloFila(altoSinBrecha(), () => true);
+    expect(fila.peorResidual?.banda).toBe('Alto');
+    expect(fila.altoSinPlan).toBe(false);
+  });
+
+  // La misma doctrina que hace que `estadoPlan` sea `sin-determinar` y no `pendiente` cuando
+  // nadie provee el resolutor: «no miré» no es «falta». Marcar acá afirmaría que no hay plan
+  // sobre una pregunta que no se hizo.
+  it('es falso sin resolutor: «no miré» no es «falta»', () => {
+    expect(soloFila(altoSinBrecha()).altoSinPlan).toBe(false);
+  });
+
+  // `residual: null` es «sin calcular», no «alto». Es la misma distinción que la columna «Peor
+  // residual» sostiene con su propia palabra.
+  it('es falso con residual null: «sin calcular» no es «alto»', () => {
+    const sinCalcular = activo({ riesgos: [conPrincipal(90, { potencial: '25', residual: null })] });
+    const fila = soloFila(sinCalcular, () => false);
+    expect(fila.peorResidual).toBeNull();
+    expect(fila.altoSinPlan).toBe(false);
+  });
+
+  // La pregunta viaja con el control principal, EXACTAMENTE como en `estadoPlanDe`. Si las dos
+  // compuertas armaran la pregunta distinto, un plan cubriría una y no la otra y el mismo
+  // activo saldría rojo y ámbar según a quién se le preguntara.
+  it('la pregunta al resolutor lleva el mismo (activo, amenaza, principal) que la de brecha', () => {
+    const preguntas: unknown[] = [];
+    const resolver: ResolverDeudaPlan = (r) => {
+      preguntas.push(r);
+      return false;
+    };
+    soloFila(altoSinBrecha(), resolver);
+    expect(preguntas).toContainEqual({
+      activoCodigo: 'TEC-GEN-0001',
+      amenazaCodigo: 'A.24',
+      principalCodigo: 'A.8.14',
+    });
+  });
+
+  // Un riesgo obsoleto no es un riesgo vigente: ya no describe nada que haya que tratar.
+  it('un riesgo obsoleto en Alto no lo marca', () => {
+    const obsoleto = activo({
+      riesgos: [conPrincipal(90, { potencial: '25', residual: '15', obsoleto: true })],
+    });
+    expect(soloFila(obsoleto, () => false).altoSinPlan).toBe(false);
+  });
+});
+
+// ─── `tienePlanes` · «¿tiene planes?» no es «¿le falta algo?» (22/09/2026) ──────────────
+//
+// EL DEFECTO QUE LO TRAJO, reportado por quien usa la pantalla y medido contra la base:
+// `FIN-APP-0001` (Siigo) y `PRO-APP-0002` (Cuantico Verify) tienen OCHO planes cada uno sobre
+// sus controles principales, y la celda «Plan» les ofrecía CREAR uno — sin ninguna forma de
+// llegar a los ocho que ya existen.
+//
+// La causa: la celda leía `estadoPlan`, que contesta «¿le falta algo?». Cuando no hay ninguna
+// brecha, `estadoPlanDe` cae a `no-requiere` por muchos planes que haya, porque sólo mira los
+// riesgos CON DEUDA. Las dos preguntas sólo coinciden en el caso intermedio, y por eso el
+// defecto era invisible salvo en los extremos: cuanto mejor funciona el tratamiento —la brecha
+// cerrada— más se esconde la evidencia de que se trató.
+//
+// SE PREGUNTA AL MISMO RESOLUTOR que `estadoPlanDe` y `altoSinPlanDe`, con la pregunta armada
+// idéntica. Un tercer criterio para saber si hay plan separaría las tres respuestas, que es el
+// mismo defecto un nivel más arriba.
+describe('§7 · tienePlanes responde «¿tiene planes?», no «¿le falta algo?»', () => {
+  /// El principal al 90 % cubre la exigencia por valor (70 %), así que NO hay brecha y
+  /// `estadoPlan` es `no-requiere`. Es la forma exacta de FIN-APP-0001.
+  const sinBrecha = () => activo({ riesgos: [conPrincipal(90)] });
+
+  const soloFila = (a: ActivoAnalizable, resolver?: ResolverDeudaPlan) =>
+    filasAnalisis(datos([a]), FILTROS_ANALISIS_VACIOS, resolver)[0];
+
+  // LA PRUEBA DEL DEFECTO. Sin este campo, este activo —con su plan registrado— era
+  // indistinguible de uno que nunca tuvo ninguno.
+  it('es cierto con un plan que cubre un riesgo vigente, aunque no haya ninguna brecha', () => {
+    const fila = soloFila(sinBrecha(), () => true);
+    expect(fila.estadoPlan).toBe('no-requiere');
+    expect(fila.tienePlanes).toBe(true);
+  });
+
+  it('es falso cuando ningún plan cubre ninguno de sus riesgos', () => {
+    expect(soloFila(sinBrecha(), () => false).tienePlanes).toBe(false);
+  });
+
+  // La misma doctrina de las otras dos compuertas: «no miré» no es una respuesta.
+  it('es falso sin resolutor: «no miré» no es «no tiene»', () => {
+    expect(soloFila(sinBrecha()).tienePlanes).toBe(false);
+  });
+
+  // Recorre TODOS los riesgos vigentes, no sólo los que tienen deuda — que es exactamente lo
+  // que `estadoPlanDe` no puede hacer sin dejar de ser lo que es.
+  it('un activo puede tener planes Y una brecha pendiente a la vez', () => {
+    const dos = activo({
+      riesgos: [
+        conPrincipal(50, { amenazaCodigo: 'A.11' }),
+        conPrincipal(90, { amenazaCodigo: 'A.24' }),
+      ],
+    });
+    const fila = soloFila(dos, (r) => r.amenazaCodigo === 'A.24');
+    expect(fila.estadoPlan).toBe('pendiente');
+    expect(fila.tienePlanes).toBe(true);
+  });
+
+  it('la pregunta al resolutor lleva el mismo (activo, amenaza, principal) que las otras dos', () => {
+    const preguntas: unknown[] = [];
+    const resolver: ResolverDeudaPlan = (r) => {
+      preguntas.push(r);
+      return false;
+    };
+    soloFila(sinBrecha(), resolver);
+    expect(preguntas).toContainEqual({
+      activoCodigo: 'TEC-GEN-0001',
+      amenazaCodigo: 'A.24',
+      principalCodigo: 'A.8.14',
+    });
+  });
+
+  // Un riesgo obsoleto ya no describe nada que haya que tratar, así que un plan sobre él no
+  // es un plan vigente de este activo.
+  it('un plan sobre un riesgo obsoleto no lo vuelve cierto', () => {
+    const obsoleto = activo({ riesgos: [conPrincipal(90, { obsoleto: true })] });
+    expect(soloFila(obsoleto, () => true).tienePlanes).toBe(false);
+  });
+});
+
 describe('§5.2 · orden por peor residual descendente', () => {
   it('el peor residual va primero; sin residual calculado va al final', () => {
     const activos = [
@@ -367,6 +521,140 @@ describe('§11 · ordenarPorCriticidad sigue el RTO, no el código', () => {
     const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.codigo);
     expect(orden[0]).toBe('TEC-GEN-0001'); // C1, el más exigente
     expect(orden.slice(1)).toEqual(['TEC-GEN-0000', 'TEC-GEN-0005']); // orden estable por código
+  });
+});
+
+// Los dos criterios de orden, ahora como COMPARADORES de dos filas y no sólo como
+// ordenadores de un arreglo entero.
+//
+// El motivo es AG Grid: una grilla ordena llamando a un `comparator(a, b)` por columna, y no
+// reordenando la lista por su cuenta. Sin esta forma, la única manera de que la columna
+// «Criticidad» ordenara como manda §11 sería escribir un SEGUNDO comparador al lado del que
+// ya existe — y dos comparadores para el mismo criterio es exactamente como se separan.
+//
+// `ordenarPorCriticidad` no cambia de comportamiento: pasa a llamar a esta función. Las dos
+// pruebas de §11 de arriba son la red que lo demuestra, y por eso no se tocan.
+describe('los dos criterios de orden, expuestos como comparadores', () => {
+  const RTO = new Map<string, number | null>([
+    ['C1', 10],
+    ['C2', 240],
+    ['C3', 1440],
+    ['C5', null],
+  ]);
+
+  function fila(codigo: string, criticidad: string | null, residual: string | null) {
+    return filasAnalisis(
+      datos([
+        activo({
+          codigo,
+          criticidad,
+          riesgos: residual === null ? [] : [riesgo({ potencial: residual, residual })],
+        }),
+      ]),
+      FILTROS_ANALISIS_VACIOS,
+    )[0];
+  }
+
+  describe('compararPorCriticidad', () => {
+    it('ordena por RTO ascendente: el más exigente primero', () => {
+      const c1 = fila('TEC-GEN-0009', 'C1', '25');
+      const c3 = fila('TEC-GEN-0001', 'C3', '25');
+      expect(compararPorCriticidad(c1, c3, RTO)).toBeLessThan(0);
+      expect(compararPorCriticidad(c3, c1, RTO)).toBeGreaterThan(0);
+    });
+
+    it('sin SLA y sin criticidad van al final, y entre ellos desempata el código', () => {
+      const c5 = fila('TEC-GEN-0005', 'C5', '25');
+      const sinCriticidad = fila('TEC-GEN-0000', null, '25');
+      const c2 = fila('TEC-GEN-0002', 'C2', '25');
+      expect(compararPorCriticidad(c5, c2, RTO)).toBeGreaterThan(0);
+      expect(compararPorCriticidad(sinCriticidad, c2, RTO)).toBeGreaterThan(0);
+      expect(compararPorCriticidad(sinCriticidad, c5, RTO)).toBeLessThan(0);
+    });
+
+    it('da exactamente el mismo orden que `ordenarPorCriticidad` — es la misma decisión', () => {
+      const filas = [
+        fila('TEC-GEN-0003', 'C3', '25'),
+        fila('TEC-GEN-0001', 'C1', '25'),
+        fila('TEC-GEN-0005', 'C5', '25'),
+        fila('TEC-GEN-0000', null, '25'),
+        fila('TEC-GEN-0002', 'C2', '25'),
+      ];
+      const porElOrdenador = ordenarPorCriticidad(filas, RTO).map((f) => f.codigo);
+      const porElComparador = [...filas]
+        .sort((a, b) => compararPorCriticidad(a, b, RTO))
+        .map((f) => f.codigo);
+      expect(porElComparador).toEqual(porElOrdenador);
+    });
+  });
+
+});
+
+// Las cinco tarjetas contadas DESDE LAS FILAS, y no desde los filtros.
+//
+// POR QUÉ HIZO FALTA ESTA SEGUNDA FORMA (21/09/2026). La pantalla dejó de tener sus seis
+// filtros propios y pasó a filtrar con la grilla. `tarjetasAnalisis` cuenta a partir de un
+// `FiltrosAnalisis`, así que no sabe nada de lo que la grilla esconda: con ella sola, la
+// tarjeta diría 30 mientras la grilla muestra 12, y la pantalla tendría dos verdades sobre
+// cuántos activos hay. Es exactamente el defecto que la pantalla evita desde su primera línea.
+//
+// La salida es contar lo que se está mostrando. `tarjetasDeFilas` no puede desacordar con la
+// lista **por construcción**: recibe las mismas filas que la grilla tiene pintadas.
+//
+// Los dos caminos conviven a propósito. `tarjetasAnalisis` sigue siendo el que responde
+// «cuántos hay en total», que es una pregunta sobre el inventario y no sobre la vista.
+describe('las cinco tarjetas, contadas desde las filas visibles', () => {
+  const conEstado = (codigo: string, valor: 4 | 5, estadoPlan: FilaAnalisis['estadoPlan']) =>
+    ({ ...filasAnalisis(datos([activo({ codigo, valor })]), FILTROS_ANALISIS_VACIOS)[0], estadoPlan });
+
+  const FILAS = [
+    conEstado('TEC-GEN-0001', 5, 'pendiente'),
+    conEstado('TEC-GEN-0002', 5, 'con-plan'),
+    conEstado('TEC-GEN-0003', 4, 'no-requiere'),
+    conEstado('TEC-GEN-0004', 4, 'sin-determinar'),
+  ];
+
+  it('EN ANÁLISIS es cuántas filas hay, contra el total del inventario', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.enAnalisis).toEqual({ n: 4, deTotal: 378 });
+  });
+
+  it('MUY ALTOS y ALTOS separan por valor', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.muyAltos).toBe(2);
+    expect(t.altos).toBe(2);
+  });
+
+  // CON BRECHA cuenta los que tienen brecha MEDIDA, tengan plan o no. SIN PLAN es el
+  // subconjunto al que además le falta el plan. Sumarlas sería contar dos veces.
+  it('CON BRECHA incluye a los que ya tienen plan; SIN PLAN es sólo los que no', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.conBrecha).toBe(2);
+    expect(t.sinPlan).toBe(1);
+  });
+
+  // Va separada de CON BRECHA a propósito: sumarlas diría que hay brechas donde nadie miró.
+  it('SIN DETERMINAR no se mezcla con las brechas medidas', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.sinDeterminar).toBe(1);
+  });
+
+  // La afirmación que sostiene todo: esconder filas mueve las tarjetas con ellas.
+  it('si la grilla esconde filas, las tarjetas cuentan menos — nunca se contradicen', () => {
+    const visibles = FILAS.slice(0, 2);
+    const t = tarjetasDeFilas(visibles, 378);
+    expect(t.enAnalisis.n).toBe(visibles.length);
+    expect(t.muyAltos + t.altos).toBe(visibles.length);
+    expect(t.deTotalSinFiltrar).toBe(378);
+  });
+
+  it('sin filas, todas las tarjetas son cero y ninguna se cae', () => {
+    const t = tarjetasDeFilas([], 378);
+    expect(t.enAnalisis.n).toBe(0);
+    expect(t.muyAltos).toBe(0);
+    expect(t.conBrecha).toBe(0);
+    expect(t.sinPlan).toBe(0);
+    expect(t.sinDeterminar).toBe(0);
   });
 });
 

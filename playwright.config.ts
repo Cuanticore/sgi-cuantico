@@ -31,6 +31,14 @@ if (!process.env.DATABASE_URL) {
 
 export default defineConfig({
   testDir: './e2e',
+  // Sólo `*.spec.ts`. El `testMatch` por omisión de Playwright es
+  // `**/*.@(spec|test).?(c|m)[jt]s?(x)` y recoge también los `*.test.ts`: bajo `e2e/__tests__/`
+  // vive una prueba de Jest —la que comprueba que las clases `.ag-*` de los recorridos existan
+  // en el AG Grid instalado— y Playwright moría al cargarla, con `ReferenceError: describe is
+  // not defined`, **antes de ejecutar un solo recorrido**. Desde `0a01ede` (21/09/2026) y hasta
+  // hoy, `npm run e2e` no corrió nada; no se notó porque cada quien llamaba a su spec por ruta,
+  // y con ruta explícita Playwright no recoge el resto del directorio.
+  testMatch: '**/*.spec.ts',
   // `next dev` compila la ruta en la primera visita, y la del grafo trae cuatro consultas
   // sobre el inventario completo. Un timeout de diez segundos falla por la compilación y
   // señala a la pantalla.

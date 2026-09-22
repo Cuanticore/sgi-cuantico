@@ -107,6 +107,7 @@ import {
 import { rotuloClase, TONO_CLASE } from './clases-relevancia';
 import { formatearSla } from '@/lib/sgsi/criticidad-sla';
 import { cadenaDeNivel } from '@/lib/sig/niveles';
+import { opcionesDeNivel3, type EntradaCatalogo } from '@/lib/sig/catalogo-nivel-3';
 import type { Catalogo } from '@/lib/sgsi/catalogos';
 import PopupCatalogo from '@/app/components/sgsi/parametros/PopupCatalogo';
 import PopupControlesAmenaza from './PopupControlesAmenaza';
@@ -367,6 +368,13 @@ interface Edicion {
   /// E2 · el nivel 3 de la jerarquía. Los grados 1 y 2 NO se editan acá porque no se
   /// guardan: los selects de la cabecera solo sirven para llegar al 3.
   nivelId: number | null;
+  /// Un nombre del CATÁLOGO elegido para una rama que todavía no lo tiene. Vive en `Edicion`
+  /// —y no en el estado suelto del selector— porque **sí se guarda**: es lo que la acción
+  /// convierte en un nodo, dentro de la misma transacción que guarda el activo.
+  ///
+  /// Excluyentes por construcción: elegir uno limpia el otro. Un activo no puede apuntar a un
+  /// nodo y a la vez pedir que se cree otro.
+  nivelNuevo: { nivel2Id: number; nombre: string } | null;
   /// V21 · cuántas unidades representa el activo.
   cantidad: number;
   datosCliente: Ternario;
@@ -959,6 +967,10 @@ export default function FichaActivo({
       datos.criticidadId = edicion.criticidadId;
     }
     if (edicion.nivelId !== baseEdicion.nivelId) datos.nivelId = edicion.nivelId;
+    // `nivelNuevo` no se compara contra la base: la base nunca lo tiene. Si está puesto, es
+    // porque alguien acaba de elegirlo del catálogo, y va siempre. La acción lo resuelve —o lo
+    // crea— dentro de la transacción y entonces pisa a `nivelId`.
+    if (edicion.nivelNuevo !== null) datos.nivelNuevo = edicion.nivelNuevo;
     if (edicion.cantidad !== baseEdicion.cantidad) datos.cantidad = edicion.cantidad;
     if (edicion.custodioId !== baseEdicion.custodioId) datos.custodioId = edicion.custodioId;
     if (edicion.ubicacionId !== baseEdicion.ubicacionId) datos.ubicacionId = edicion.ubicacionId;
@@ -1384,6 +1396,7 @@ export default function FichaActivo({
         proveedorId: edicion.proveedorId,
         superiorId: edicion.superiorId,
         nivelId: edicion.nivelId,
+        nivelNuevo: edicion.nivelNuevo ?? undefined,
         cantidad: edicion.cantidad,
         datosCliente: edicion.datosCliente,
         datosPersonales: edicion.datosPersonales,
@@ -1559,8 +1572,11 @@ export default function FichaActivo({
 
           <JerarquiaActivo
             nivelId={edicion.nivelId}
+            nivelNuevo={edicion.nivelNuevo}
             niveles={catalogos.niveles}
+            catalogo={catalogos.catalogoNivel3}
             onElegir={(v) => editar('nivelId', v)}
+            onElegirDelCatalogo={(v) => editar('nivelNuevo', v)}
           />
 
           {/* PERSISTENCIA — la bitácora se lee de `bitacora` filtrando por tabla
@@ -1925,6 +1941,8 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
       superiorId: activo.superiorId,
       criticidadId: activo.criticidadId,
       nivelId: activo.nivelId,
+      // Nunca viene de la base: es una intención sin guardar, y al abrir la ficha no hay ninguna.
+      nivelNuevo: null,
       cantidad: activo.cantidad,
       datosCliente: activo.datosCliente,
       datosPersonales: activo.datosPersonales,
@@ -1950,6 +1968,7 @@ function inicial(activo: ActivoFicha | null, catalogos: Catalogos): Edicion {
     superiorId: null,
     criticidadId: null,
     nivelId: null,
+    nivelNuevo: null,
     cantidad: 1,
     datosCliente: 'POR_DEFINIR',
     datosPersonales: 'POR_DEFINIR',
@@ -2286,12 +2305,20 @@ function DatosGenerales({
 /// guardar y `nivelId` sigue en `null`.
 function JerarquiaActivo({
   nivelId,
+  nivelNuevo,
   niveles,
+  catalogo,
   onElegir,
+  onElegirDelCatalogo,
 }: {
   nivelId: number | null;
+  /// Lo elegido del catálogo y todavía sin crear. Vive en `Edicion` y no acá porque SÍ se
+  /// guarda: es lo que la acción convierte en un nodo al guardar.
+  nivelNuevo: { nivel2Id: number; nombre: string } | null;
   niveles: NivelJerarquia[];
+  catalogo: EntradaCatalogo[];
   onElegir: (v: number | null) => void;
+  onElegirDelCatalogo: (v: { nivel2Id: number; nombre: string } | null) => void;
 }) {
   // La rama a medio elegir. Vive en el cliente y no en `Edicion` justamente porque no es
   // un dato del activo: nadie la guarda ni la compara contra lo guardado.
@@ -2309,17 +2336,30 @@ function JerarquiaActivo({
   /// Si lo guardado no está entre las opciones —una rama rota, un nivel inactivado— se
   /// agrega igual. Un select que se dibuja vacío escondería el dato roto, que es
   /// exactamente lo que hay que ver.
-  const conElegido = (opciones: NivelJerarquia[], elegidoId: number | null) => {
+  const conElegido = (opciones: { id: number; nombre: string }[], elegidoId: number | null) => {
     if (elegidoId === null || opciones.some((o) => o.id === elegidoId)) return opciones;
     const suelto = niveles.find((n) => n.id === elegidoId);
-    return suelto === undefined ? opciones : [...opciones, suelto];
+    return suelto === undefined ? opciones : [...opciones, { id: suelto.id, nombre: suelto.nombre }];
   };
 
   // Bajar de grado invalida lo que colgaba abajo: quedarse con el nivel 3 de otra rama es
-  // justamente el árbol imposible que E1 existe para impedir.
+  // justamente el árbol imposible que E1 existe para impedir. Vale igual para lo elegido del
+  // catálogo: «CÓDIGO FUENTE bajo INC» deja de significar nada si ya no estamos en INC.
   const limpiarElegido = () => {
     if (nivelId !== null) onElegir(null);
+    if (nivelNuevo !== null) onElegirDelCatalogo(null);
   };
+
+  /// Lo que el selector de Nivel 3 ofrece: lo que ya cuelga de esta rama, y lo que el catálogo
+  /// de su clase permite y la rama todavía no tiene. La regla vive en `lib/sig/catalogo-nivel-3`
+  /// y se prueba sin montar este componente.
+  const opciones = opcionesDeNivel3(catalogo, niveles, n2);
+  const existentes = opciones.filter((o) => o.tipo === 'existente');
+  const delCatalogo = opciones.filter((o) => o.tipo === 'del-catalogo');
+
+  /// El valor del `<select>`. Un nombre del catálogo todavía no tiene id, así que se
+  /// identifica por su nombre con un prefijo que no puede chocar con un número.
+  const valorNivel3 = nivelNuevo !== null ? `nuevo:${nivelNuevo.nombre}` : nivelId === null ? '' : String(nivelId);
 
   return (
     <div className="flex min-w-0 flex-1 basis-[320px] flex-col gap-2 rounded-[9px] border border-border-default bg-subtle px-[18px] py-3.5">
@@ -2350,29 +2390,59 @@ function JerarquiaActivo({
               limpiarElegido();
             }}
             opciones={conElegido(hijos(2, n1), n2)}
-            vacio={n1 === null ? '— elegí el nivel 1 —' : '— sin ubicar —'}
+            vacio={n1 === null ? '— elige el nivel 1 —' : '— sin ubicar —'}
             titulo="Sólo se listan los niveles 2 que cuelgan del nivel 1 elegido."
           />
         </Campo>
 
         <Campo etiqueta="NIVEL 3">
-          <SelectCampo
-            valor={nivelId}
-            onChange={(v) => {
+          {/* Select propio y no `SelectCampo`: hay dos grupos y uno de ellos no tiene ids
+              todavía. Meter eso en el componente compartido obligaría a que los otros ocho
+              selects de la ficha cargaran con un caso que no les toca. */}
+          <select
+            value={valorNivel3}
+            title="El más específico, y el único que el activo guarda: los otros dos se derivan de él. Abajo aparece el vocabulario que esta rama todavía no tiene; elegir uno lo crea al guardar."
+            onChange={(e) => {
               setRama({ n1, n2 });
-              onElegir(v);
+              const v = e.target.value;
+              if (v === '') {
+                onElegir(null);
+                onElegirDelCatalogo(null);
+              } else if (v.startsWith('nuevo:') && n2 !== null) {
+                onElegir(null);
+                onElegirDelCatalogo({ nivel2Id: n2, nombre: v.slice('nuevo:'.length) });
+              } else if (!v.startsWith('nuevo:')) {
+                onElegirDelCatalogo(null);
+                onElegir(Number(v));
+              }
             }}
-            opciones={conElegido(hijos(3, n2), nivelId)}
-            vacio={n2 === null ? '— elegí el nivel 2 —' : '— sin ubicar —'}
-            titulo="El más específico, y el único que el activo guarda: los otros dos se derivan de él."
-          />
+            className="w-full rounded-campo border border-border-field bg-surface px-2 py-[7px] text-12_5 font-medium text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
+          >
+            <option value="">{n2 === null ? '— elige el nivel 2 —' : '— sin ubicar —'}</option>
+            {conElegido(existentes, nivelId).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nombre}
+              </option>
+            ))}
+            {delCatalogo.length > 0 && (
+              <optgroup label="Del catálogo — se crea al guardar">
+                {delCatalogo.map((o) => (
+                  <option key={`nuevo:${o.nombre}`} value={`nuevo:${o.nombre}`}>
+                    {o.nombre}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
         </Campo>
       </div>
 
       <p className="text-10_5 leading-relaxed text-label [text-wrap:pretty]">
-        {nivelId === null
-          ? 'El activo guarda el nivel 3; los otros dos se derivan. Sin nivel 3, queda sin ubicar.'
-          : cadena.map((n) => n.nombre).join(' · ')}
+        {nivelNuevo !== null
+          ? `Al guardar se crea «${nivelNuevo.nombre}» bajo ${niveles.find((n) => n.id === nivelNuevo.nivel2Id)?.nombre ?? 'el nivel 2'}, y el activo queda ahí. Si sales sin guardar, no se crea nada.`
+          : nivelId === null
+            ? 'El activo guarda el nivel 3; los otros dos se derivan. Sin nivel 3, queda sin ubicar.'
+            : cadena.map((n) => n.nombre).join(' · ')}
       </p>
     </div>
   );

@@ -23,7 +23,7 @@
 // Nothing here is ever physically deleted, and every baja carries a mandatory reason.
 
 import { revalidatePath } from 'next/cache';
-import type { EstadoAccion, TipoAccion, VerificacionEficacia } from '@prisma/client';
+import type { EstadoAccion, Prisma, TipoAccion, VerificacionEficacia } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta, registrarBaja, type Cambio } from '@/lib/sgsi/bitacora';
 import { elegirControlParaPlan, fechaObjetivoPlan, type ControlParaPlan } from '@/lib/sgsi/deuda-planes';
@@ -35,7 +35,7 @@ import {
 } from '@/lib/sgsi/origen-plan';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import { evaluarBrecha, type EstadoBrecha } from '@/lib/sgsi/exigencia';
-import { agruparAmenazasEnPlanes } from '@/lib/sgsi/planes-por-amenaza';
+import { agruparAmenazasEnPlanes, ordenarAmenazasPorResidual } from '@/lib/sgsi/planes-por-amenaza';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -141,42 +141,7 @@ export async function guardarAccion(
         fechaRevision !== undefined ? fechaRevision : accion.fechaRevisionAceptacion,
     };
 
-    if (final.accion === '') errores.push('La acción necesita una descripción.');
-    if (final.origen === '') {
-      errores.push('El origen necesita texto: es la justificación 6.1.3 de por qué existe la acción.');
-    }
-    if (!Number.isInteger(final.avance) || final.avance < 0 || final.avance > 100) {
-      errores.push('El avance va de 0 a 100.');
-    }
-
-    // ISO/IEC 27001:2022 6.1.3 — the conditional blocks. Each type of decision carries
-    // its own evidence, and the type without its evidence is not a decision.
-    if (final.tipo === 'MITIGAR' && final.controlId === null) {
-      errores.push('Una acción de mitigación necesita el control que mejora.');
-    }
-    if (final.tipo === 'ACEPTAR') {
-      if (final.justificacionAceptacion === null) {
-        errores.push('Aceptar un riesgo necesita la justificación de la aceptación.');
-      }
-      if (final.fechaRevisionAceptacion === null) {
-        errores.push(
-          'Aceptar un riesgo necesita fecha de revisión: una aceptación sin vencimiento es una que nadie vuelve a mirar.',
-        );
-      }
-    }
-    if (final.tipo === 'TRANSFERIR') {
-      if (final.instrumento === null) {
-        errores.push('Transferir necesita el instrumento (póliza, contrato o cláusula).');
-      }
-      if (final.riesgoRemanente === null) {
-        errores.push('Transferir necesita el riesgo remanente: transferir nunca mueve el riesgo completo.');
-      }
-    }
-    if (final.estado === 'CERRADA' && final.verificacion === 'PENDIENTE') {
-      errores.push(
-        'No se puede cerrar con la verificación de eficacia pendiente: registrá el resultado de la verificación, o «No aplica» si no corresponde.',
-      );
-    }
+    errores.push(...validarAccion(final));
 
     // Foreign keys are checked here so a bad id becomes a message and not a constraint
     // violation the user cannot read.
@@ -323,6 +288,227 @@ export async function guardarAccion(
   });
 }
 
+/// La fila COMPLETA de una acción, con todo lo que las reglas de 6.1.3 necesitan mirar. No es
+/// el parche que llegó del formulario: una regla comprobada sobre el fragmento diría que una
+/// acción es válida porque el campo que la invalida no venía en el envío.
+interface FilaAccion {
+  accion: string;
+  tipo: TipoAccion;
+  controlId: number | null;
+  origen: string;
+  avance: number;
+  estado: EstadoAccion;
+  verificacion: VerificacionEficacia;
+  instrumento: string | null;
+  riesgoRemanente: string | null;
+  justificacionAceptacion: string | null;
+  fechaRevisionAceptacion: Date | null;
+}
+
+/// LAS REGLAS, EN UN SOLO SITIO. Las invocan `guardarAccion` y `crearAccionLibre`.
+///
+/// No está extraída por elegancia. Dos piezas comprobando lo mismo desde orígenes distintos
+/// es la forma de defecto que este repositorio ya pagó tres veces, y está escrita en
+/// `HARNESS.md`: cada pieza hacía bien su trabajo y lo que fallaba era la composición. Con dos
+/// copias, el día que 6.1.3 cambie sólo se corrige una, la otra sigue dando verde, y el camino
+/// que quedó viejo se convierte en la puerta por donde entra lo que la regla prohíbe.
+///
+/// Devuelve los mensajes en vez de lanzar, porque una acción rechazada tiene que poder decir
+/// TODO lo que le falta de una vez: enterarse de un requisito por vez es cuatro viajes.
+function validarAccion(fila: FilaAccion): string[] {
+  const errores: string[] = [];
+
+  if (fila.accion === '') errores.push('La acción necesita una descripción.');
+  if (fila.origen === '') {
+    errores.push('El origen necesita texto: es la justificación 6.1.3 de por qué existe la acción.');
+  }
+  if (!Number.isInteger(fila.avance) || fila.avance < 0 || fila.avance > 100) {
+    errores.push('El avance va de 0 a 100.');
+  }
+
+  // ISO/IEC 27001:2022 6.1.3 — the conditional blocks. Each type of decision carries
+  // its own evidence, and the type without its evidence is not a decision.
+  if (fila.tipo === 'MITIGAR' && fila.controlId === null) {
+    errores.push('Una acción de mitigación necesita el control que mejora.');
+  }
+  if (fila.tipo === 'ACEPTAR') {
+    if (fila.justificacionAceptacion === null) {
+      errores.push('Aceptar un riesgo necesita la justificación de la aceptación.');
+    }
+    if (fila.fechaRevisionAceptacion === null) {
+      errores.push(
+        'Aceptar un riesgo necesita fecha de revisión: una aceptación sin vencimiento es una que nadie vuelve a mirar.',
+      );
+    }
+  }
+  if (fila.tipo === 'TRANSFERIR') {
+    if (fila.instrumento === null) {
+      errores.push('Transferir necesita el instrumento (póliza, contrato o cláusula).');
+    }
+    if (fila.riesgoRemanente === null) {
+      errores.push('Transferir necesita el riesgo remanente: transferir nunca mueve el riesgo completo.');
+    }
+  }
+  if (fila.estado === 'CERRADA' && fila.verificacion === 'PENDIENTE') {
+    errores.push(
+      'No se puede cerrar con la verificación de eficacia pendiente: registrá el resultado de la verificación, o «No aplica» si no corresponde.',
+    );
+  }
+
+  return errores;
+}
+
+/// El siguiente `PT-0NN`, contado DENTRO de la transacción y sin reutilizar los dados de baja.
+///
+/// La lectura no filtra por `activa` a propósito: un PT dado de baja sigue ocupando su número,
+/// porque su fila y su código se quedan en la base para la banda de deshacer y para el auditor.
+/// Reutilizarlo haría que dos acciones distintas compartieran identificador en la bitácora.
+async function siguienteCodigoPlan(tx: Pick<Prisma.TransactionClient, 'accionPlan'>): Promise<string> {
+  const codigos = await tx.accionPlan.findMany({ select: { codigo: true } });
+  const ultimo = codigos.reduce((mayor, a) => {
+    const n = /^PT-(\d+)$/.exec(a.codigo);
+    return n ? Math.max(mayor, Number(n[1])) : mayor;
+  }, 0);
+  return `PT-${String(ultimo + 1).padStart(3, '0')}`;
+}
+
+/// UNA ACCIÓN QUE NO NACE DE UN ACTIVO. «Adquirir póliza de ciberriesgo», por ejemplo.
+///
+/// Las otras tres vías nacen todas colgadas de algo —`crearAccionDesdeControl` de un control
+/// con brecha de madurez, `registrarPlanCritico` de un riesgo residual, `registrarPlanesActivo`
+/// de las amenazas de un activo—, y las tres escriben ellas mismas el `origen` con el prefijo
+/// verificable de `lib/sgsi/origen-plan.ts` para que la deuda de planes sepa después qué riesgo
+/// cubre cada una. Una póliza no cubre un par (activo, amenaza): cubre una decisión del comité
+/// sobre el riesgo agregado, y no hay ningún activo del que colgarla.
+///
+/// Así que acá el `origen` es lo que escriba la persona y va SIN prefijo — que es exactamente
+/// el caso que `parsearOrigen` documenta como normal al devolver `null`. No se relaja ninguna
+/// regla ni se agrega ninguna columna: `AccionPlan.controlId` ya era opcional en el esquema.
+export async function crearAccionLibre(
+  datos: DatosAccion,
+  motivo?: string,
+): Promise<ResultadoAccion> {
+  return ejecutar(async () => {
+    const autor = await autorConPermiso('sgsi:escribir');
+    idOpcional(datos.controlId, 'el control');
+    // Responsable y aprueba se EXIGEN, al contrario que en `guardarAccion`: ahí un campo
+    // ausente significa «no lo toqués», acá significaría una acción sin dueño ni aprobación.
+    exigirId(datos.responsableId, 'el responsable');
+    exigirId(datos.apruebaId, 'quien aprueba');
+    idOpcional(datos.madurezAlcanzadaId, 'la madurez alcanzada');
+
+    const errores: string[] = [];
+    const fechaObjetivo = comoFecha(datos.fechaObjetivo, 'La fecha objetivo', errores);
+    const fechaRevision = comoFecha(
+      datos.fechaRevisionAceptacion,
+      'La fecha de revisión de la aceptación',
+      errores,
+    );
+
+    // EL SEGUIMIENTO NO SE RECIBE, SE FIJA. El popup de creación no ofrece Estado, Avance ni
+    // Verificación, pero una acción de servidor es alcanzable por cualquiera que sepa formar la
+    // petición: una acción que naciera «Cerrada al 100 % y verificada» sin que nada hubiera
+    // ocurrido es precisamente lo que un botón ausente no alcanza a impedir.
+    const final = {
+      accion: normalizar(datos.accion) ?? '',
+      tipo: datos.tipo ?? 'MITIGAR',
+      controlId: datos.controlId ?? null,
+      origen: normalizar(datos.origen) ?? '',
+      responsableId: datos.responsableId as number,
+      apruebaId: datos.apruebaId as number,
+      fechaObjetivo: fechaObjetivo ?? null,
+      recursos: normalizar(datos.recursos),
+      estado: 'NO_INICIADA' as EstadoAccion,
+      avance: 0,
+      verificacion: 'PENDIENTE' as VerificacionEficacia,
+      observacion: normalizar(datos.observacion),
+      madurezAlcanzadaId: datos.madurezAlcanzadaId ?? null,
+      instrumento: normalizar(datos.instrumento),
+      riesgoRemanente: normalizar(datos.riesgoRemanente),
+      justificacionAceptacion: normalizar(datos.justificacionAceptacion),
+      fechaRevisionAceptacion: fechaRevision ?? null,
+    };
+
+    errores.push(...validarAccion(final));
+
+    // Las claves ajenas, acá y no en la restricción de la base: un id inexistente tiene que
+    // volver como una frase y no como el error crudo de Postgres.
+    const [control, responsable, aprueba, madurez] = await Promise.all([
+      final.controlId === null
+        ? Promise.resolve(null)
+        : prisma.control.findUnique({ where: { id: final.controlId } }),
+      prisma.cargoResponsable.findUnique({ where: { id: final.responsableId } }),
+      prisma.cargoResponsable.findUnique({ where: { id: final.apruebaId } }),
+      final.madurezAlcanzadaId === null
+        ? Promise.resolve(null)
+        : prisma.escalaMadurez.findUnique({ where: { id: final.madurezAlcanzadaId } }),
+    ]);
+
+    if (final.controlId !== null && !control) errores.push('El control asociado no existe.');
+    if (!responsable) errores.push('El responsable no está en la lista de cargos.');
+    if (!aprueba) errores.push('Quien aprueba no está en la lista de cargos.');
+    if (final.madurezAlcanzadaId !== null && !madurez) {
+      errores.push('El nivel de madurez alcanzado no está en la escala.');
+    }
+
+    if (errores.length > 0) return { ok: false, mensaje: errores.join(' ') };
+
+    const codigo = await prisma.$transaction(async (tx) => {
+      const nuevoCodigo = await siguienteCodigoPlan(tx);
+
+      await tx.accionPlan.create({
+        data: {
+          codigo: nuevoCodigo,
+          accion: final.accion,
+          tipo: final.tipo,
+          controlId: final.controlId,
+          origen: final.origen,
+          responsableId: final.responsableId,
+          apruebaId: final.apruebaId,
+          fechaObjetivo: final.fechaObjetivo,
+          recursos: final.recursos,
+          estado: final.estado,
+          avance: final.avance,
+          verificacion: final.verificacion,
+          observacion: final.observacion,
+          madurezAlcanzadaId: final.madurezAlcanzadaId,
+          instrumento: final.instrumento,
+          riesgoRemanente: final.riesgoRemanente,
+          justificacionAceptacion: final.justificacionAceptacion,
+          fechaRevisionAceptacion: final.fechaRevisionAceptacion,
+        },
+      });
+
+      // El alta más el asiento de `origen`, igual que hace `registrarPlanCritico`: el alta dice
+      // que la fila apareció, y el asiento deja el POR QUÉ en la bitácora además de en la fila.
+      await registrarAlta(tx, autor, 'accion_plan', nuevoCodigo);
+      await registrar(tx, autor, [
+        {
+          tabla: 'accion_plan',
+          registroId: nuevoCodigo,
+          campo: 'origen',
+          anterior: null,
+          nuevo: final.origen,
+          motivo:
+            normalizar(motivo) ??
+            'Registrada a mano en Planes de tratamiento: no nace de un activo ni de un control con brecha.',
+        },
+      ]);
+
+      return nuevoCodigo;
+    });
+
+    revalidarPlan();
+
+    return {
+      ok: true,
+      mensaje: `Se creó ${codigo}.`,
+      codigo,
+      cambios: 1,
+    };
+  });
+}
+
 /// The `+` button on Controles y madurez.
 ///
 /// One action per control: a second one on the same control would split the same
@@ -381,12 +567,7 @@ export async function crearAccionDesdeControl(codigoControl: string): Promise<Re
     const creado = await prisma.$transaction(async (tx) => {
       // The code is generated inside the transaction and never reused: PT numbers keep
       // counting past the actions that were given de baja.
-      const codigos = await tx.accionPlan.findMany({ select: { codigo: true } });
-      const ultimo = codigos.reduce((mayor, a) => {
-        const n = /^PT-(\d+)$/.exec(a.codigo);
-        return n ? Math.max(mayor, Number(n[1])) : mayor;
-      }, 0);
-      const codigo = `PT-${String(ultimo + 1).padStart(3, '0')}`;
+      const codigo = await siguienteCodigoPlan(tx);
 
       await tx.accionPlan.create({
         data: {
@@ -717,12 +898,7 @@ export async function registrarPlanCritico(
     const codigo = await prisma.$transaction(async (tx) => {
       // La misma generación de código que `crearAccionDesdeControl`: nunca se reutiliza un
       // PT dado de baja.
-      const codigos = await tx.accionPlan.findMany({ select: { codigo: true } });
-      const ultimo = codigos.reduce((mayor, a) => {
-        const n = /^PT-(\d+)$/.exec(a.codigo);
-        return n ? Math.max(mayor, Number(n[1])) : mayor;
-      }, 0);
-      const nuevoCodigo = `PT-${String(ultimo + 1).padStart(3, '0')}`;
+      const nuevoCodigo = await siguienteCodigoPlan(tx);
 
       await tx.accionPlan.create({
         data: {
@@ -1000,6 +1176,8 @@ export interface AmenazaDelActivo {
   estadoBrecha: EstadoBrecha['tipo'];
   /// El plan activo que ya la cubre, por origen o por control principal.
   planExistente: string | null;
+  /// El riesgo residual en puntos. Es lo que ORDENA la lista; la banda es su lectura.
+  residual: number | null;
   bandaResidual: string | null;
 }
 
@@ -1115,15 +1293,15 @@ export async function datosPrefillPlanesActivo(
         brecha: estado.tipo === 'brecha' ? estado.brecha : null,
         estadoBrecha: estado.tipo,
         planExistente: cubre?.codigo ?? null,
+        residual: r.riesgoResidual === null ? null : Number(r.riesgoResidual),
         bandaResidual:
           r.riesgoResidual === null ? null : clasificar(r.riesgoResidual.toString(), umbrales),
       };
     });
 
-    amenazas.sort(
-      (a, b) =>
-        (b.brecha ?? -1) - (a.brecha ?? -1) || a.amenazaCodigo.localeCompare(b.amenazaCodigo, 'es'),
-    );
+    // Por residual descendente, no por brecha: lo que se decide tratar primero es el riesgo que
+    // queda, no lo que le falta al control. La regla está aparte y probada.
+    const ordenadas = ordenarAmenazasPorResidual(amenazas);
 
     const apruebaSugerido =
       cargos.find((c) => c.nombre === criterio?.aprueba) ??
@@ -1137,7 +1315,7 @@ export async function datosPrefillPlanesActivo(
       datos: {
         activoCodigo,
         activoNombre: activo.nombre,
-        amenazas,
+        amenazas: ordenadas,
         responsable: activo.propietario
           ? { id: activo.propietario.id, nombre: activo.propietario.nombre }
           : null,

@@ -38,6 +38,40 @@ export interface AmenazaParaPlan {
   planExistente: string | null;
 }
 
+/// Lo mínimo para ordenar una fila de la lista «amenazas a tratar». Genérico a propósito: la
+/// fila del popup lleva media docena de campos más y ninguno interviene en el orden.
+export interface OrdenablePorResidual {
+  amenazaCodigo: string;
+  /// El riesgo residual, en puntos. `null` cuando todavía no se pudo calcular.
+  residual: number | null;
+  brecha: number | null;
+}
+
+/// Ordena las amenazas de un activo por lo que se decide tratar primero: el RESIDUAL más alto
+/// arriba.
+///
+/// El residual manda sobre la brecha porque son dos preguntas distintas: la brecha dice cuánto
+/// le falta al control, el residual cuánto riesgo queda después de lo que ya hay. Una brecha de
+/// 40 sobre un riesgo que ya quedó bajo no es lo primero que hay que atender.
+///
+/// El residual es el número, no la banda. Ordenar por banda dejaría el orden interno de cada
+/// banda a merced de cómo vino la consulta —dos amenazas «Medio» de 9.6 y 2.1 quedarían en
+/// cualquier orden—, y como las bandas son tramos contiguos del mismo número, ordenar por el
+/// número las agrupa igual.
+///
+/// Sin residual calculado va al final: «no se sabe» no es «alto». Empatados, la brecha mayor
+/// primero, y el código después, para que dos corridas den la misma lista.
+export function ordenarAmenazasPorResidual<T extends OrdenablePorResidual>(
+  amenazas: readonly T[],
+): T[] {
+  return [...amenazas].sort(
+    (a, b) =>
+      (b.residual ?? -1) - (a.residual ?? -1) ||
+      (b.brecha ?? -1) - (a.brecha ?? -1) ||
+      a.amenazaCodigo.localeCompare(b.amenazaCodigo, 'es'),
+  );
+}
+
 /// Por qué una amenaza elegida no produce plan.
 export type MotivoSinPlan = 'ya-cubierta' | 'sin-principal';
 

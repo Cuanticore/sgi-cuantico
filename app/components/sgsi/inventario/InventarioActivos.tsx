@@ -32,6 +32,7 @@ import {
   type NivelRiesgo,
 } from '@/lib/sgsi/riesgo-activo';
 import { valorActivo } from '@/lib/sgsi/formulas';
+import { codigosExportables, urlDeExportacion } from '@/lib/sgsi/exportar-activos-seleccion';
 import { CRITERIO_MAX, type DimensionActiva } from '@/lib/sgsi/valoracion-agregada';
 import FranjaSinPlan, { PuntoSinPlan, type FilaFranjaSinPlan } from '@/app/components/sgsi/planes/FranjaSinPlan';
 import {
@@ -333,10 +334,12 @@ export default function InventarioActivos({
   //
   // REQ-SIG-20 §4 (D-6, P5): the `color` filter — the row's risk band — is gone from this
   // screen. It filtered a column that no longer exists here; task 3.11 wires the same
-  // preserved logic into the risk analysis page. The grid ships without a band filter for
-  // the span between this phase and that one (see tasks.md Open Item 2) — the row
-  // background still reads the band for a quick visual scan, it is just not a filter here
-  // any more.
+  // preserved logic into the risk analysis page. The row background still reads the band for
+  // a quick visual scan, it is just not a filter here any more.
+  //
+  // El 2026-09-21 se retiró también EL PARÁMETRO. Se había quedado a medias: `filtrosDesdeUrl`
+  // lo leía y `parametrosDeFiltros` lo volvía a escribir en la URL, pero nadie lo aplicaba, así
+  // que `?color=rojo` conservaba el parámetro y mostraba todo. Ahora llega como aviso.
   const visibles = useMemo(
     () =>
       calculados.filter((c) =>
@@ -389,6 +392,11 @@ export default function InventarioActivos({
   // La columna de la persona aparece cuando el filtro esta puesto, igual que se marca la
   // dimension filtrada: para que se vea contra que se filtro (§7.5).
   const verPersona = filtros.persona !== TODAS_PERSONAS || filtros.conPersona;
+
+  // Si hay algo que exportar. Se calcula con la MISMA función que arma la URL, así que el
+  // botón no puede estar encendido sobre una selección que no se puede pedir — incluido el
+  // caso en que hay filas pero ninguna tiene código.
+  const hayQueExportar = codigosExportables(visibles.map((c) => c.activo)).length > 0;
 
   const sinValorar = calculados.filter((c) => !c.entra).length;
   const sinResidual = calculados.filter((c) => c.entra && c.residual === null).length;
@@ -468,9 +476,19 @@ export default function InventarioActivos({
             >
               Importar desde Excel
             </button>
+            {/* Apagado cuando no hay nada que exportar. No es cosmética: con cero filas, la
+                lista de códigos salía vacía, la URL perdía el parámetro y la ruta lo leía
+                como «exporta todo» — el FOR-SIG-12 bajaba con los 378 activos mientras la
+                pantalla decía «0 activos». La otra mitad del arreglo está en la ruta. */}
             <button
               onClick={() => exportarInventario(visibles, agrupar)}
-              className="rounded-campo border border-accent-border bg-accent-100 px-3.5 py-2 text-12_5 font-semibold text-accent-700 transition-colors hover:bg-accent-border"
+              disabled={!hayQueExportar}
+              title={
+                hayQueExportar
+                  ? undefined
+                  : 'No hay activos que exportar con los filtros puestos.'
+              }
+              className="rounded-campo border border-accent-border bg-accent-100 px-3.5 py-2 text-12_5 font-semibold text-accent-700 transition-colors hover:bg-accent-border disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-100"
             >
               Exportar a Excel
             </button>
@@ -1139,15 +1157,22 @@ async function exportarInventario(
   }[],
   agrupar: string,
 ): Promise<void> {
-  const codigos = filas
-    .map((f) => f.activo.codigo)
-    .filter((c) => c !== '(sin código)')
-    .join(',');
-  const url = `/api/sgsi/exportar-activos${codigos ? `?codigos=${encodeURIComponent(codigos)}` : ''}`;
+  // Qué significa esta lista —y qué significa que esté vacía— vive en
+  // `lib/sgsi/exportar-activos-seleccion.ts`, del que también depende la ruta. Antes la regla
+  // estaba escrita acá y allá por separado, y `[].join(',')` producía una URL sin parámetro
+  // que la ruta leía como «exporta todo»: filtrar a cero y exportar bajaba los 378.
+  const url = urlDeExportacion(codigosExportables(filas.map((f) => f.activo)));
+  if (url === null) {
+    // No debería llegar acá: el botón está apagado. Es la guarda por si alguien lo llama
+    // desde otro sitio.
+    alert('No hay activos que exportar con los filtros puestos.');
+    return;
+  }
 
   const respuesta = await fetch(url, { method: 'GET' });
   if (!respuesta.ok) {
-    alert('No se pudo exportar el inventario. Revisá la sesión e intentá de nuevo.');
+    // Sin voseo: el copy visible va en español de Colombia (HARNESS.md).
+    alert('No se pudo exportar el inventario. Revisa la sesión e intenta de nuevo.');
     return;
   }
 

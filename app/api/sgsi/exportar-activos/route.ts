@@ -13,6 +13,10 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
+import {
+  filtroDeActivos,
+  pedidoDesdeParametros,
+} from '@/lib/sgsi/exportar-activos-seleccion';
 import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import { nivelDeRiesgoDelActivo, type UmbralRiesgo } from '@/lib/sgsi/riesgo-activo';
 
@@ -26,17 +30,26 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 403 });
   }
 
-  // The filtered set the screen is showing travels in the query as codes; when absent the
-  // export covers everything active, which is the default "one click" behaviour.
+  // El conjunto que la pantalla muestra viaja en la consulta como códigos. Qué significa cada
+  // forma de ese parámetro vive en `lib/sgsi/exportar-activos-seleccion.ts`, del que también
+  // depende la pantalla: la regla estaba escrita dos veces y por eso se separaron.
+  //
+  // SIN el parámetro se exporta todo lo activo, que es el comportamiento de un clic y así
+  // estaba documentado. CON el parámetro vacío no se exporta nada — antes las dos cosas eran
+  // la misma, y filtrar a cero y darle a exportar bajaba el inventario entero.
   const url = new URL(request.url);
-  const codigos = (url.searchParams.get('codigos') ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const pedido = pedidoDesdeParametros(url.searchParams);
+
+  if (pedido.clase === 'ninguno') {
+    return NextResponse.json(
+      { mensaje: 'No hay activos seleccionados para exportar.' },
+      { status: 400 },
+    );
+  }
 
   const [activos, escala, umbrales, parametro, catalogos] = await Promise.all([
     prisma.activo.findMany({
-      where: { activo: true, ...(codigos.length > 0 ? { codigo: { in: codigos } } : {}) },
+      where: { activo: true, ...filtroDeActivos(pedido) },
       orderBy: { codigo: 'asc' },
       include: {
         area: { select: { nombre: true } },

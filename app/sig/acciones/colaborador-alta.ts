@@ -42,6 +42,7 @@ import { autorConPermiso, ejecutar, type Resultado } from '@/app/sgsi/acciones/s
 // prefijo— y el módulo duplicado se eliminó. Dos definiciones de la misma cadena es
 // exactamente cómo una se queda atrás.
 import { PREFIJO_OID_MANUAL } from '@/lib/sig/personas';
+import { dia } from '@/lib/sig/fechas';
 
 export interface ColaboradorNuevo {
   nombre: string;
@@ -73,6 +74,31 @@ export async function crearColaborador(datos: ColaboradorNuevo): Promise<Resulta
       return { ok: false, mensaje: `«${datos.correo}» no tiene forma de correo.` };
     }
 
+    // **Una fecha ILEGIBLE no es una fecha ausente**, y hasta el 22/09/2026 acá eran lo mismo:
+    // la línea decía `new Date(\`${datos.fechaIngreso}T00:00:00.000Z\`)` a secas, sin la guarda
+    // que sí tenía `personas-edicion.ts` para la misma conversión. Dos piezas haciendo lo
+    // mismo desde orígenes distintos; ahora las dos llaman a `dia`.
+    //
+    // No se alcanzaba por la pantalla —el `<input type="date">` acota lo que se teclea— pero
+    // este archivo es `'use server'` y **cada export es un punto de entrada invocable desde el
+    // navegador**, que es la propiedad que el encabezado de arriba ya documenta como cicatriz.
+    //
+    // El caso que más importa no es la cadena rota: es **`2062` por `2026`**, la cifra
+    // transpuesta. Es una fecha válida, se guardaba sin chistar, y desde `fechaIngreso` se
+    // propaga a `areaDesde` y `cargoDesde` en el cálculo de la edición. Nada reventaba y nadie
+    // se enteraba, que es la peor de las tres formas de fallar.
+    const declaroFecha = (datos.fechaIngreso ?? '').trim() !== '';
+    const fechaIngreso = dia(datos.fechaIngreso);
+    if (declaroFecha && fechaIngreso === null) {
+      return {
+        ok: false,
+        mensaje:
+          `«${datos.fechaIngreso}» no sirve como fecha de ingreso. Se espera un día real, ` +
+          'entre 1900 y unos pocos años hacia adelante: un año tecleado al revés —2062 por ' +
+          '2026— se guardaría sin avisar y después arrastra el área y el cargo.',
+      };
+    }
+
     // El correo es la llave por la que la sincronización va a reconocer a esta persona más
     // adelante. Si ya existe, no hay alta que hacer: hay una persona a la que ir a editar, y
     // decir cuál es más útil que decir que el correo está repetido.
@@ -101,7 +127,7 @@ export async function crearColaborador(datos: ColaboradorNuevo): Promise<Resulta
           cargoId: datos.cargoId ?? null,
           tipoContratoId: datos.tipoContratoId ?? null,
           tipoColaborador: datos.tipoColaborador ?? null,
-          fechaIngreso: datos.fechaIngreso ? new Date(`${datos.fechaIngreso}T00:00:00.000Z`) : null,
+          fechaIngreso,
         },
       });
       await registrarAlta(tx, autor, 'persona', correo);

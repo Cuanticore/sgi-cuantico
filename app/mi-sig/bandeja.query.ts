@@ -6,6 +6,7 @@
 
 import { prisma } from '@/lib/db';
 import { diasHasta, esVencida } from '@/lib/sig/cierre';
+import { avanceDelCurso, hayIntentoEnCurso, type ProgresoDeCurso } from '@/lib/sig/formacion';
 
 export type EstadoBandeja = 'PENDIENTE' | 'REALIZADA' | 'NO_APLICA' | 'ANULADA';
 
@@ -48,6 +49,20 @@ export interface TarjetaBandeja {
   /// que separa «Iniciar» de «Reanudar», y se pregunta acá —no en el cliente— porque la
   /// bandeja ya trae todo lo que la tarjeta necesita decir.
   cursoIniciado: boolean;
+  /// El avance del curso, ya redactado. `null` cuando no hay nada que decir: sin intentos, o
+  /// porque lo que se está mirando no es un curso de paquete y hablar de avance ahí sería
+  /// hablar de algo que nunca existió.
+  ///
+  /// **Por qué no basta `cursoIniciado`.** Hasta el 21/09/2026 la bandeja sólo llevaba ese
+  /// booleano, así que la persona que estaba haciendo el curso no tenía dónde ver cuánto
+  /// llevaba: el porcentaje existía en la base y lo veía **únicamente un administrador**, en
+  /// `/sig/colaboradores/[id]`. Se migró un paquete de SCORM 1.2 a 2004 justamente para
+  /// tener `cmi.progress_measure`, y quien lo recorría no iba a verlo.
+  ///
+  /// La frase viene hecha de `progresoDeCurso` y la pantalla la repite tal cual. Si la
+  /// pantalla la recompusiera a partir del porcentaje habría dos redacciones del mismo
+  /// hecho, y el día que una diga «45%» y la otra «empezado» nadie podría decir cuál miente.
+  progreso: ProgresoDeCurso | null;
   documentoVersion: string | null;
   documentoUrl: string | null;
   documentoNombre: string | null;
@@ -100,9 +115,20 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
         },
       },
       cerradaPorPersona: { select: { nombre: true } },
-      // `take: 1` porque la pregunta es binaria: si hay AL MENOS un intento empezado. No
-      // interesa cuál ni cuántos — eso lo cuenta el historial.
-      intentosScorm: { where: { estado: 'EN_CURSO' }, select: { id: true }, take: 1 },
+      // **Sin filtro por estado y sin `take`, y las dos cosas importan.**
+      //
+      // Antes era `{ where: { estado: 'EN_CURSO' }, select: { id: true }, take: 1 }`, porque
+      // la única pregunta era binaria. Ahora hay que redactar el avance, y eso necesita el
+      // intento VIGENTE —el de número más alto— que puede estar `SUSPENDIDO`: ése es
+      // justamente el caso de «Guardado en el 50% para seguir», el más útil de todos y el
+      // que el filtro de `EN_CURSO` dejaba fuera.
+      //
+      // `cursoIniciado` conserva su significado exacto y se calcula abajo sobre esta misma
+      // lista. Derivarlo de «hay algún intento» habría cambiado el verbo del botón para una
+      // asignación con un intento abandonado, que es otra cosa.
+      intentosScorm: {
+        select: { numero: true, estado: true, progressMeasure: true, ultimaActividadEn: true },
+      },
     },
   });
 
@@ -138,7 +164,23 @@ export async function leerBandeja(correo: string): Promise<Bandeja> {
       notaMinima: contenido?.notaMinima ? Number(contenido.notaMinima) : null,
       tienePaqueteScorm: (contenido?.paquetes.length ?? 0) > 0,
       claseCurso: contenido?.claseCurso ?? null,
-      cursoIniciado: f.intentosScorm.length > 0,
+      cursoIniciado: hayIntentoEnCurso(f.intentosScorm),
+      // `avanceDelCurso` decide también CUÁNDO callarse: sólo un CURSO_VIRTUAL de clase
+      // PAQUETE puede tener avance conocido, y para el resto devuelve `null` en vez de
+      // inventar una frase. Esa regla vive en `formacion.ts` y se reusa acá en lugar de
+      // repetirse, que es lo que hace que la pestaña Pendientes y la pestaña Formación no
+      // puedan redactar el mismo avance de dos maneras distintas.
+      progreso: avanceDelCurso(
+        contenido?.tipo ?? 'TAREA',
+        contenido?.claseCurso ?? null,
+        f.intentosScorm.map((i) => ({
+          numero: i.numero,
+          estado: i.estado,
+          // `Decimal` de Prisma. `null` es «el paquete no lo reportó», y NO es cero.
+          progressMeasure: i.progressMeasure === null ? null : Number(i.progressMeasure),
+          ultimaActividadEn: i.ultimaActividadEn,
+        })),
+      ).progreso,
       documentoVersion: contenido?.documentoVersion ?? null,
       documentoUrl: contenido?.documentoUrl ?? null,
       documentoNombre: contenido?.documentoNombre ?? null,

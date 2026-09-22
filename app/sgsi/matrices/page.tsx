@@ -39,7 +39,8 @@ function indice(catalogo: string[], mapa: Map<string, number>, valor: string | n
 }
 
 export default async function MatricesPage() {
-  const [riesgos, umbralesImpacto, umbralesRiesgo, frecuencias] = await Promise.all([
+  const [riesgos, umbralesImpacto, umbralesRiesgo, frecuencias, activosVigentes] =
+    await Promise.all([
     // One pass over the risks. Everything the matrices, the filters and the drill-down
     // need travels in this projection; nothing is queried again per cell.
     prisma.riesgo.findMany({
@@ -74,6 +75,11 @@ export default async function MatricesPage() {
     prisma.umbralImpacto.findMany({ orderBy: { orden: 'asc' } }),
     prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaFrecuencia.findMany({ orderBy: { vecesAno: 'asc' } }),
+    // El denominador de la matriz de activos. Un `count` y no el inventario entero: la
+    // pantalla no necesita esos activos —no tienen riesgos con los que ubicarlos—, sólo
+    // necesita decir de cuántos son los que sí cuenta. La misma condición que usa la
+    // pantalla de inventario, para que las dos no puedan discrepar sobre cuántos hay.
+    prisma.activo.count({ where: { activo: true } }),
   ]);
 
   // --- Axes -----------------------------------------------------------------------
@@ -215,6 +221,7 @@ export default async function MatricesPage() {
       columnas={columnas}
       bandas={bandas}
       sinUbicar={sinUbicar}
+      activosVigentes={activosVigentes}
     />
   );
 }

