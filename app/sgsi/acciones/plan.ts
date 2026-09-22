@@ -35,7 +35,7 @@ import {
 } from '@/lib/sgsi/origen-plan';
 import { clasificar } from '@/lib/sgsi/clasificar';
 import { evaluarBrecha, type EstadoBrecha } from '@/lib/sgsi/exigencia';
-import { agruparAmenazasEnPlanes } from '@/lib/sgsi/planes-por-amenaza';
+import { agruparAmenazasEnPlanes, ordenarAmenazasPorResidual } from '@/lib/sgsi/planes-por-amenaza';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// A `Resultado` that can also carry the code of the action involved, so the `+` button
@@ -1000,6 +1000,8 @@ export interface AmenazaDelActivo {
   estadoBrecha: EstadoBrecha['tipo'];
   /// El plan activo que ya la cubre, por origen o por control principal.
   planExistente: string | null;
+  /// El riesgo residual en puntos. Es lo que ORDENA la lista; la banda es su lectura.
+  residual: number | null;
   bandaResidual: string | null;
 }
 
@@ -1115,15 +1117,15 @@ export async function datosPrefillPlanesActivo(
         brecha: estado.tipo === 'brecha' ? estado.brecha : null,
         estadoBrecha: estado.tipo,
         planExistente: cubre?.codigo ?? null,
+        residual: r.riesgoResidual === null ? null : Number(r.riesgoResidual),
         bandaResidual:
           r.riesgoResidual === null ? null : clasificar(r.riesgoResidual.toString(), umbrales),
       };
     });
 
-    amenazas.sort(
-      (a, b) =>
-        (b.brecha ?? -1) - (a.brecha ?? -1) || a.amenazaCodigo.localeCompare(b.amenazaCodigo, 'es'),
-    );
+    // Por residual descendente, no por brecha: lo que se decide tratar primero es el riesgo que
+    // queda, no lo que le falta al control. La regla está aparte y probada.
+    const ordenadas = ordenarAmenazasPorResidual(amenazas);
 
     const apruebaSugerido =
       cargos.find((c) => c.nombre === criterio?.aprueba) ??
@@ -1137,7 +1139,7 @@ export async function datosPrefillPlanesActivo(
       datos: {
         activoCodigo,
         activoNombre: activo.nombre,
-        amenazas,
+        amenazas: ordenadas,
         responsable: activo.propietario
           ? { id: activo.propietario.id, nombre: activo.propietario.nombre }
           : null,
