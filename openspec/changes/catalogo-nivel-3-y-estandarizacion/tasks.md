@@ -23,11 +23,48 @@ catálogo de la 2.
 
 > El orden dentro de esta fase no es negociable: primero los datos, después la restricción.
 
-- [ ] **1.1** Levantar el túnel a producción y correr `npx tsx scripts/auditar-niveles.ts` contra
-      **15432**. Guardar la salida: es la foto previa.
-- [ ] **1.2** Correr `npx tsx scripts/estandarizar-niveles.ts` **sin `--aplicar`** contra 15432.
-      Comparar con el plan de 5432 (105 renombres, 4 fusiones, 0 conflictos). **Si el plan de
-      producción trae conflictos, parar**: hay una decisión de negocio esperando.
+- [x] **1.1** Levantar el túnel a producción y correr `npx tsx scripts/auditar-niveles.ts` contra
+      **15432**. Guardar la salida: es la foto previa. **HECHO el 2026-09-22:**
+
+```
+   id  nombre        clase       hijos  desc  activos  producto
+    4  CUANTICO      EMPRESA        12    69      263  —
+  131  Productos     —               1     2        1  —
+    1  EMPRESA       EMPRESA         0     0        0  —
+    2  PRODUCTOS     PRODUCTOS       8    44       65  MinTrace
+    3  PROYECTOS     PROYECTOS       5    25       45  —
+
+  nombres que cambian al pasar a mayúscula: 108  (g1: 1 · g2: 3 · g3: 104)
+  colisiones al normalizar:                   2
+  si además se ignoran las tildes:            2  (0 más)
+  niveles con padre inexistente:              0
+  niveles activos con padre apagado:          0
+  activos colgados de un grado que no es 3:   0
+  activos vigentes sin nivel:                 4
+```
+- [x] **1.2** Correr `npx tsx scripts/estandarizar-niveles.ts` **sin `--aplicar`** contra 15432.
+      **HECHO el 2026-09-22, y no comparado a ojo**: se regeneró el plan de 5432 y se pasó por
+      `diff` contra el de producción — **idénticos línea por línea**.
+
+```
+RENOMBRES: 105 · FUSIONES: 4 · CONFLICTOS: 0
+
+  grado 1 · PRODUCTOS              #2   absorbe #131 «Productos»
+  grado 2 · MONITOR                #13  absorbe #127 «Monitor»
+  grado 2 · MINTRACE               #6   absorbe #132 «Mintrace»
+  grado 3 · DOCUMENTACIÓN PRIVADA  #141 absorbe #133
+```
+
+      **Tres cosas que producción enseña y 5432 no:**
+
+      - **4 activos vigentes sin nivel**, no 3. Refuerza el filo de 5.1.b: el número de huecos
+        difiere entre las dos bases, así que una prueba que dependa de ellos puede pasar contra
+        una y fallar contra la otra sin que nadie rompa nada.
+      - **`EMPRESA` #1 está vacía** (0 hijos, 0 activos). `--apagar-empresa` existe para eso y
+        **no se usó**: apagar una raíz es decisión de negocio, fuera de este cambio.
+      - **`Productos` #131 tiene 1 activo en su rama.** La fusión lo muda a `PRODUCTOS` #2. Es un
+        activo real cambiando de rama en producción y tiene que nombrarse en el PR, no quedar
+        escondido dentro de «4 fusiones».
 - [ ] **1.3** Respaldo de la base, como manda el workflow de despliegue.
 - [ ] **1.4** `--aplicar`. **Guardar la salida completa**: es el único registro de qué se movió a
       dónde, y sin ella la fusión no se puede deshacer.
