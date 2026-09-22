@@ -380,7 +380,10 @@ interface ParametrosCelda {
   value?: unknown;
 }
 
-function construirRenderers(ctx: {
+/// Exportada para probar la celda «Plan» sin montar la grilla: AG Grid no rinde filas en
+/// jsdom, y esa celda SÍ decide algo —qué ofrece según lo que el activo tiene—. Ver
+/// `__tests__/GrillaAnalisis.test.tsx`. El resto de los renderizadores no deciden nada.
+export function construirRenderers(ctx: {
   sinPlanCodigos: Set<string>;
   hrefDeFila: (codigo: string) => string;
   onRegistrarPlan: (codigo: string) => void;
@@ -485,40 +488,55 @@ function construirRenderers(ctx: {
     // lo que aparece al posar el cursor. Los tres rótulos viven en `accesiblePlan`, probados.
     plan: (p) => {
       if (p.data === undefined) return null;
-      const { codigo, estadoPlan } = p.data;
+      const { codigo, estadoPlan, tienePlanes } = p.data;
 
-      if (estadoPlan === 'con-plan') {
-        return (
-          <Link
-            href="/sgsi/planes"
-            title={accesiblePlan(codigo, estadoPlan).titulo}
-            aria-label={accesiblePlan(codigo, estadoPlan).aria}
-            className="text-11_5 font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
-          >
-            {accesiblePlan(codigo, estadoPlan).texto}
-          </Link>
-        );
-      }
-
+      // LAS DOS PREGUNTAS, POR SEPARADO (22/09/2026). El enlace se ofrece si el activo TIENE
+      // planes; el botón, si le FALTA alguno. Son independientes, y un activo puede estar en
+      // las dos situaciones a la vez — entonces la celda dice las dos cosas, porque las dos
+      // son ciertas.
+      //
+      // Antes el enlace dependía de `estadoPlan === 'con-plan'`, que es «hay brecha y está
+      // cubierta»: un activo cuyos planes ya cerraron toda la brecha caía en `no-requiere` y
+      // PERDÍA el enlace a los planes que lo lograron. Medido contra la base: `FIN-APP-0001`
+      // (Siigo) y `PRO-APP-0002` (Cuantico Verify), ocho planes cada uno, ofrecían crear el
+      // primero.
+      const enlace = tienePlanes;
+      const boton = !tienePlanes || estadoPlan === 'pendiente';
+      const rotuloEnlace = accesiblePlan(codigo, estadoPlan, tienePlanes, 'enlace');
+      const rotuloBoton = accesiblePlan(codigo, estadoPlan, tienePlanes, 'boton');
       const obligatorio = estadoPlan === 'pendiente';
+
       return (
         <span className="inline-flex items-center gap-1.5">
-          <button
-            onClick={() => ctx.onRegistrarPlan(codigo)}
-            // El texto visible se repite en las treinta filas; sin esto, un lector de pantalla
-            // anuncia treinta botones indistinguibles.
-            aria-label={accesiblePlan(codigo, estadoPlan).aria}
-            title={accesiblePlan(codigo, estadoPlan).titulo}
-            className={
-              obligatorio
-                ? 'rounded-campo border border-danger-border bg-surface px-1.5 py-0.5 text-11 font-bold text-danger hover:bg-subtle'
-                : 'rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-medium text-faint hover:bg-subtle'
-            }
-          >
-            {accesiblePlan(codigo, estadoPlan).texto}
-          </button>
+          {enlace && (
+            <Link
+              href="/sgsi/planes"
+              title={rotuloEnlace.titulo}
+              aria-label={rotuloEnlace.aria}
+              className="text-11_5 font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
+            >
+              {rotuloEnlace.texto}
+            </Link>
+          )}
+          {boton && (
+            <button
+              onClick={() => ctx.onRegistrarPlan(codigo)}
+              // El texto visible se repite en las treinta filas; sin esto, un lector de pantalla
+              // anuncia treinta botones indistinguibles.
+              aria-label={rotuloBoton.aria}
+              title={rotuloBoton.titulo}
+              className={
+                obligatorio
+                  ? 'rounded-campo border border-danger-border bg-surface px-1.5 py-0.5 text-11 font-bold text-danger hover:bg-subtle'
+                  : 'rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-medium text-faint hover:bg-subtle'
+              }
+            >
+              {rotuloBoton.texto}
+            </button>
+          )}
           {/* «No se pudo evaluar» no es «no falta». Se dice, en vez de dejarlo pasar por
-              opcional: un activo cuya brecha nadie midió no es un activo sin brecha. */}
+              opcional: un activo cuya brecha nadie midió no es un activo sin brecha. Y se dice
+              tenga planes o no: lo que no se sabe es si alcanzan. */}
           {estadoPlan === 'sin-determinar' && (
             <span className="text-10_5 text-faint" title="Sin control principal designado (REQ-SIG-21)">
               sin evaluar

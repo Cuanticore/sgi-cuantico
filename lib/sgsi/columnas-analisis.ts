@@ -546,33 +546,75 @@ function textoDeRto(minutos: number): string {
 //
 // Vive acá y no en el componente por la razón de siempre: es una decisión sobre qué decir, y
 // las decisiones se prueban. Un rótulo dentro del JSX es un rótulo que nadie vuelve a mirar.
+//
+// SON CUATRO SITUACIONES, NO TRES (22/09/2026). Hasta hoy los rótulos se decidían sólo con
+// `estadoPlan`, que contesta «¿le falta algo?». Faltaba «¿tiene planes?», que es otra pregunta:
+// un activo con ocho planes y ninguna brecha caía en `no-requiere` —el mismo caso que uno que
+// nunca tuvo ninguno— y la celda le ofrecía crear el primero, escondiendo los ocho. De ahí
+// `tienePlanes` y `rol`: cuando las dos cosas son ciertas a la vez, la celda muestra dos
+// elementos y cada uno necesita su propio rótulo.
+
+/// Para CUÁL de los dos elementos de la celda se piden los rótulos. Son dos porque el activo
+/// puede estar en dos situaciones a la vez —ya tiene planes Y le falta uno—, y entonces la
+/// celda muestra el enlace a los que hay y el botón para crear el que falta.
+export type RolCeldaPlan = 'enlace' | 'boton';
+
 export function accesiblePlan(
   codigo: string,
   estadoPlan: EstadoPlanActivo,
+  /// `FilaAnalisis.tienePlanes` — «algún plan activo cubre alguno de sus riesgos vigentes».
+  /// NO se deduce de `estadoPlan`: ése contesta «¿le falta algo?», y un activo con ocho planes
+  /// y ninguna brecha cae en `no-requiere` igual que uno que nunca tuvo ninguno. Ese era el
+  /// defecto (22/09/2026).
+  ///
+  /// El valor por defecto es la única implicación que SÍ se sostiene en una sola dirección:
+  /// `con-plan` significa literalmente «hay una brecha y un plan la cubre», así que ese activo
+  /// tiene planes. Al revés no vale, y es justamente lo que no se puede deducir.
+  tienePlanes: boolean = estadoPlan === 'con-plan',
+  rol: RolCeldaPlan = tienePlanes && estadoPlan !== 'pendiente' ? 'enlace' : 'boton',
 ): { texto: string; aria: string; titulo: string } {
   const texto = 'Planes de T.';
+  // Cuando el botón aparece AL LADO del enlace, no repite el texto: dos «Planes de T.» pegados
+  // no se leen como dos acciones distintas. El nombre accesible sí lo dice entero — el «+» es
+  // lo visible, no lo que se anuncia.
+  const textoBoton = tienePlanes ? '+' : texto;
 
-  if (estadoPlan === 'con-plan') {
-    return {
-      texto,
-      aria: `Ver los planes de tratamiento de ${codigo}`,
-      titulo: `${codigo} ya tiene al menos un plan que cubre su brecha`,
-    };
+  if (rol === 'enlace') {
+    // El enlace sólo se ofrece cuando hay planes que ver; lo que cambia entre un caso y otro
+    // es QUÉ dice el título sobre lo que además falta, y ahí no se puede inventar una brecha
+    // que no existe ni dar por evaluada una que nadie midió.
+    const porQue =
+      estadoPlan === 'con-plan'
+        ? `${codigo} ya tiene al menos un plan que cubre su brecha`
+        : estadoPlan === 'pendiente'
+          ? `${codigo} ya tiene planes de tratamiento, y además una brecha que ninguno cubre`
+          : estadoPlan === 'sin-determinar'
+            ? `${codigo} ya tiene planes de tratamiento; su brecha todavía no se pudo evaluar`
+            : `${codigo} ya tiene planes de tratamiento; hoy sus controles alcanzan lo exigido`;
+    return { texto, aria: `Ver los planes de tratamiento de ${codigo}`, titulo: porQue };
   }
 
   if (estadoPlan === 'pendiente') {
-    return {
-      texto,
-      aria: `Crear un plan de tratamiento para ${codigo}`,
-      titulo: `${codigo} tiene una brecha sin plan que la cubra`,
-    };
+    // «Otro» cuando ya hay planes: el botón aparece junto al enlace, y dos rótulos que dijeran
+    // lo mismo no le servirían de nada a quien navega sin ver.
+    return tienePlanes
+      ? {
+          texto: textoBoton,
+          aria: `Crear otro plan de tratamiento para ${codigo}`,
+          titulo: `${codigo} tiene una brecha que ninguno de sus planes cubre`,
+        }
+      : {
+          texto,
+          aria: `Crear un plan de tratamiento para ${codigo}`,
+          titulo: `${codigo} tiene una brecha sin plan que la cubra`,
+        };
   }
 
   // `no-requiere` y `sin-determinar`. «No requiere» significa que sus controles alcanzan lo
   // exigido HOY, no que nadie pueda decidir mejorarlos: el botón sigue disponible y lo que
   // cambia es el énfasis, no el acceso.
   return {
-    texto,
+    texto: textoBoton,
     aria: `Crear un plan de tratamiento preventivo para ${codigo}`,
     titulo: `${codigo} no lo requiere hoy; crear un plan preventivo es una decisión válida`,
   };

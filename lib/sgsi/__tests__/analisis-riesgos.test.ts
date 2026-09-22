@@ -289,6 +289,83 @@ describe('§7 · altoSinPlan mira el residual que queda, no la brecha del contro
   });
 });
 
+// ─── `tienePlanes` · «¿tiene planes?» no es «¿le falta algo?» (22/09/2026) ──────────────
+//
+// EL DEFECTO QUE LO TRAJO, reportado por quien usa la pantalla y medido contra la base:
+// `FIN-APP-0001` (Siigo) y `PRO-APP-0002` (Cuantico Verify) tienen OCHO planes cada uno sobre
+// sus controles principales, y la celda «Plan» les ofrecía CREAR uno — sin ninguna forma de
+// llegar a los ocho que ya existen.
+//
+// La causa: la celda leía `estadoPlan`, que contesta «¿le falta algo?». Cuando no hay ninguna
+// brecha, `estadoPlanDe` cae a `no-requiere` por muchos planes que haya, porque sólo mira los
+// riesgos CON DEUDA. Las dos preguntas sólo coinciden en el caso intermedio, y por eso el
+// defecto era invisible salvo en los extremos: cuanto mejor funciona el tratamiento —la brecha
+// cerrada— más se esconde la evidencia de que se trató.
+//
+// SE PREGUNTA AL MISMO RESOLUTOR que `estadoPlanDe` y `altoSinPlanDe`, con la pregunta armada
+// idéntica. Un tercer criterio para saber si hay plan separaría las tres respuestas, que es el
+// mismo defecto un nivel más arriba.
+describe('§7 · tienePlanes responde «¿tiene planes?», no «¿le falta algo?»', () => {
+  /// El principal al 90 % cubre la exigencia por valor (70 %), así que NO hay brecha y
+  /// `estadoPlan` es `no-requiere`. Es la forma exacta de FIN-APP-0001.
+  const sinBrecha = () => activo({ riesgos: [conPrincipal(90)] });
+
+  const soloFila = (a: ActivoAnalizable, resolver?: ResolverDeudaPlan) =>
+    filasAnalisis(datos([a]), FILTROS_ANALISIS_VACIOS, resolver)[0];
+
+  // LA PRUEBA DEL DEFECTO. Sin este campo, este activo —con su plan registrado— era
+  // indistinguible de uno que nunca tuvo ninguno.
+  it('es cierto con un plan que cubre un riesgo vigente, aunque no haya ninguna brecha', () => {
+    const fila = soloFila(sinBrecha(), () => true);
+    expect(fila.estadoPlan).toBe('no-requiere');
+    expect(fila.tienePlanes).toBe(true);
+  });
+
+  it('es falso cuando ningún plan cubre ninguno de sus riesgos', () => {
+    expect(soloFila(sinBrecha(), () => false).tienePlanes).toBe(false);
+  });
+
+  // La misma doctrina de las otras dos compuertas: «no miré» no es una respuesta.
+  it('es falso sin resolutor: «no miré» no es «no tiene»', () => {
+    expect(soloFila(sinBrecha()).tienePlanes).toBe(false);
+  });
+
+  // Recorre TODOS los riesgos vigentes, no sólo los que tienen deuda — que es exactamente lo
+  // que `estadoPlanDe` no puede hacer sin dejar de ser lo que es.
+  it('un activo puede tener planes Y una brecha pendiente a la vez', () => {
+    const dos = activo({
+      riesgos: [
+        conPrincipal(50, { amenazaCodigo: 'A.11' }),
+        conPrincipal(90, { amenazaCodigo: 'A.24' }),
+      ],
+    });
+    const fila = soloFila(dos, (r) => r.amenazaCodigo === 'A.24');
+    expect(fila.estadoPlan).toBe('pendiente');
+    expect(fila.tienePlanes).toBe(true);
+  });
+
+  it('la pregunta al resolutor lleva el mismo (activo, amenaza, principal) que las otras dos', () => {
+    const preguntas: unknown[] = [];
+    const resolver: ResolverDeudaPlan = (r) => {
+      preguntas.push(r);
+      return false;
+    };
+    soloFila(sinBrecha(), resolver);
+    expect(preguntas).toContainEqual({
+      activoCodigo: 'TEC-GEN-0001',
+      amenazaCodigo: 'A.24',
+      principalCodigo: 'A.8.14',
+    });
+  });
+
+  // Un riesgo obsoleto ya no describe nada que haya que tratar, así que un plan sobre él no
+  // es un plan vigente de este activo.
+  it('un plan sobre un riesgo obsoleto no lo vuelve cierto', () => {
+    const obsoleto = activo({ riesgos: [conPrincipal(90, { obsoleto: true })] });
+    expect(soloFila(obsoleto, () => true).tienePlanes).toBe(false);
+  });
+});
+
 describe('§5.2 · orden por peor residual descendente', () => {
   it('el peor residual va primero; sin residual calculado va al final', () => {
     const activos = [

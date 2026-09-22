@@ -210,6 +210,19 @@ export interface FilaAnalisis {
   /// activo cubre. Es UNA PREGUNTA DISTINTA de `estadoPlan`: ésa mira la brecha del control,
   /// ésta el riesgo que queda. Un activo puede tener el control al día y el residual alto.
   altoSinPlan: boolean;
+  /// Algún plan activo cubre alguno de sus riesgos vigentes, HAYA O NO BRECHA.
+  ///
+  /// LA TERCERA PREGUNTA, y la que faltaba (22/09/2026). `estadoPlan` contesta «¿le falta
+  /// algo?» y `altoSinPlan` «¿queda riesgo alto sin tratar?»; ésta contesta «¿tiene planes?».
+  /// Las dos primeras sólo se pueden responder mirando lo que FALTA, así que ninguna puede
+  /// hacer de ésta: `estadoPlanDe` recorre únicamente los riesgos con deuda, y cuando no hay
+  /// ninguno cae a `no-requiere` por muchos planes que el activo tenga.
+  ///
+  /// Se midió contra la base: `FIN-APP-0001` y `PRO-APP-0002` tienen ocho planes cada uno y
+  /// salían indistinguibles de un activo sin ninguno. La celda «Plan» leía `estadoPlan` para
+  /// esto, así que un activo cuyo plan YA CERRÓ la brecha perdía el enlace a ese plan — cuanto
+  /// mejor funcionaba el tratamiento, más se escondía su evidencia.
+  tienePlanes: boolean;
 }
 
 export interface DatosAnalisis {
@@ -356,6 +369,30 @@ function altoSinPlanDe(
   });
 }
 
+/// ¿algún plan activo cubre alguno de sus riesgos VIGENTES? Sin mirar si hay brecha.
+///
+/// LE PREGUNTA AL MISMO RESOLUTOR que `estadoPlanDe` y `altoSinPlanDe`, y la pregunta se arma
+/// IDÉNTICA — `principalCodigo` incluido. El resolutor cubre hoy por prefijo de `origen` o por
+/// control principal, y va a cambiar; si acá hubiera un tercer criterio para saber si hay plan,
+/// las tres respuestas se separarían y sería el mismo defecto un nivel más arriba: el mismo
+/// activo tendría o no tendría plan según a quién se le preguntara.
+///
+/// Lo único que cambia respecto de las otras dos es POR DÓNDE se recorre: todos los riesgos no
+/// obsoletos, y no sólo los que tienen deuda o los que quedaron en banda alarmante.
+///
+/// Sin `resolver` es `false`, por la misma doctrina: «no miré» no es «no tiene».
+function tienePlanesDe(a: ActivoAnalizable, resolver: ResolverDeudaPlan | undefined): boolean {
+  if (resolver === undefined) return false;
+  return a.riesgos.some((r) => {
+    if (r.obsoleto) return false;
+    return resolver({
+      activoCodigo: a.codigo,
+      amenazaCodigo: r.amenazaCodigo,
+      principalCodigo: r.principal === undefined ? undefined : (r.principal?.codigo ?? null),
+    });
+  });
+}
+
 /// La peor brecha del activo, en puntos, para la columna «Brecha». `null` cuando ninguna
 /// amenaza tiene una brecha de NIVEL — puede haberla de verificación, que no tiene puntos.
 export function peorBrecha(
@@ -449,6 +486,9 @@ function filaDe(
     peorBrecha: peorBrecha(a, hayVerificacionVigente),
     estadoPlan: estadoPlanDe(a, resolver, hayVerificacionVigente),
     altoSinPlan: altoSinPlanDe(a, bandas, resolver),
+    // Las tres preguntas al mismo resolutor, una al lado de la otra: «¿le falta algo?»,
+    // «¿queda riesgo alto sin tratar?» y «¿tiene planes?».
+    tienePlanes: tienePlanesDe(a, resolver),
   };
 }
 

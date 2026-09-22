@@ -201,10 +201,17 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // CAMBIÓ EL 22/09/2026, Y POR SEMÁNTICA, NO POR CONVENIENCIA. Este paso afirmaba que la fila
   // roja ofrece el botón «Crear Plan», que era el portador textual cuando el rojo significaba
   // «requiere plan y no lo tiene». Ahora el rojo significa «queda residual Alto o Crítico sin
-  // plan», y el botón ya no es su portador: lo ofrecen TODAS las filas menos las que ya tienen
-  // plan, y una fila roja puede estar en `con-plan` —plan sobre la brecha de un riesgo, y otro
-  // riesgo en Alto sin cubrir—, así que afirmarlo sería un rojo que depende de con qué fila
-  // toque el `.first()`.
+  // plan», y el botón ya no es su portador: una fila roja puede estar en `con-plan` —plan sobre
+  // la brecha de un riesgo, y otro riesgo en Alto sin cubrir—, así que afirmarlo sería un rojo
+  // que depende de con qué fila toque el `.first()`.
+  //
+  // Y MENOS AÚN DESDE EL MISMO DÍA, unas horas después: la celda «Plan» dejó de decidirse con
+  // `estadoPlan` —que contesta «¿le falta algo?»— y pasó a mostrar el ENLACE cuando el activo
+  // tiene planes (`FilaAnalisis.tienePlanes`) y el BOTÓN cuando le falta alguno, los dos a la
+  // vez cuando las dos cosas son ciertas. Medido contra la base local ese día: los 30 activos
+  // en análisis tienen algún plan que cubre alguno de sus riesgos, así que la celda mostraría
+  // 30 enlaces y ningún botón. **NO EJECUTADO DESDE ESTA SESIÓN** —hace falta base real y
+  // túnel—; quien corra el recorrido primero, que lo diga en el PR.
   //
   // El portador textual del rojo nuevo es la columna «Peor residual», que dice la banda en
   // palabras. Y la implicación es exacta, no aproximada: si alguna amenaza está en Alto o

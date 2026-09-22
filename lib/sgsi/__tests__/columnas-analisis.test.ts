@@ -595,4 +595,41 @@ describe('accesiblePlan', () => {
     expect(accesiblePlan('X', 'pendiente').titulo).toMatch(/brecha/i);
     expect(accesiblePlan('X', 'no-requiere').titulo).toMatch(/no lo requiere|preventivo/i);
   });
+
+  // ── El cuarto estado (22/09/2026): TIENE PLANES, y eso no lo dice `estadoPlan` ──────────
+  //
+  // `estadoPlan` contesta «¿le falta algo?». Un activo con ocho planes y ninguna brecha cae en
+  // `no-requiere`, igual que uno que nunca tuvo ninguno, y la celda les ofrecía lo mismo. Por
+  // eso los rótulos necesitan además `tienePlanes`, y por eso hay un ROL: en el caso nuevo la
+  // celda muestra DOS elementos —el enlace a los planes que ya existen y el botón para crear
+  // otro— y cada uno tiene que decir lo suyo.
+  it('con planes y sin brecha ofrece VER, y el titulo no inventa una brecha que no existe', () => {
+    const r = accesiblePlan('FIN-APP-0001', 'no-requiere', true);
+    expect(r.aria).toMatch(/ver/i);
+    expect(r.aria).toContain('FIN-APP-0001');
+    expect(r.titulo).toMatch(/ya tiene planes/i);
+    expect(r.titulo).not.toMatch(/brecha/i);
+  });
+
+  it('con planes y brecha pendiente hay dos rotulos, y dicen cosas distintas', () => {
+    const enlace = accesiblePlan('TEC-EQU-0003', 'pendiente', true, 'enlace');
+    const boton = accesiblePlan('TEC-EQU-0003', 'pendiente', true, 'boton');
+    expect(enlace.aria).toMatch(/ver/i);
+    expect(boton.aria).toMatch(/crear|registrar/i);
+    expect(enlace.aria).not.toBe(boton.aria);
+    // Y tampoco repiten el texto visible: dos «Planes de T.» pegados no se leen como dos
+    // acciones distintas.
+    expect(boton.texto).not.toBe(enlace.texto);
+    // El enlace dice que ya hay planes; el botón, que aun así falta uno. Las dos cosas son
+    // ciertas a la vez, que es justo lo que la celda tiene que poder decir.
+    expect(enlace.titulo).toMatch(/ya tiene planes/i);
+    expect(boton.titulo).toMatch(/brecha/i);
+  });
+
+  // La otra dirección del mismo defecto: sin planes, «no requiere» sigue ofreciendo crear uno
+  // preventivo. Que exista el caso nuevo no puede haberse llevado por delante el viejo.
+  it('sin planes sigue ofreciendo CREAR, tambien cuando no lo requiere', () => {
+    expect(accesiblePlan('X', 'no-requiere', false).aria).toMatch(/crear/i);
+    expect(accesiblePlan('X', 'sin-determinar', false).aria).toMatch(/crear/i);
+  });
 });
