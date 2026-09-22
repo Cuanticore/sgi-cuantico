@@ -392,8 +392,49 @@
 .ag-row.fila-alarmante .ag-cell {
   background-color: var(--hf-danger-bg);
 }
-.ag-row.fila-alarmante {
-  box-shadow: inset 4px 0 0 0 var(--hf-danger-text);
+/* LA BARRA VA EN UN PSEUDO-ELEMENTO, NO EN `box-shadow: inset`, Y ESTO ESTÁ MEDIDO EN PÍXELES.
+
+   El 22/09/2026, leyendo el color RENDERIZADO del borde izquierdo de la fila y no el estilo
+   calculado:
+
+     .ag-row  box-shadow: inset 20px 0 0 0 rgb(255,0,0)  ->  ffffff   NO PINTA
+     .ag-row  border-left: 20px solid rgb(0,200,0)       ->  00c800   pinta
+     .ag-row  ::before absoluto con z-index              ->  0000ff   pinta
+
+   `getComputedStyle(fila).boxShadow` devolvía la sombra sin chistar —la regla ganaba la
+   cascada, la variable existía—, pero el navegador no la dibujaba sobre una fila de AG Grid.
+   Una prueba que lea el estilo calculado pasa en verde con la barra invisible; sólo el píxel
+   lo delata.
+
+   `border-left` también pinta, y se descartó: las celdas de AG Grid son `position: absolute`
+   contra la caja de relleno de la fila, así que un borde las correría 4 px a la derecha y
+   desalinearía las columnas fijadas de las del centro.
+
+   EL FALLO SE ESCONDIÓ DETRÁS DEL FONDO. La fila roja tiene además `--hf-danger-bg`, así que
+   se distinguía igual y parecía arreglada. La ámbar no tiene fondo a propósito —es el acento
+   menor—, y sin barra quedaba IDÉNTICA a una fila normal: el renglón que dice «a este activo
+   le falta madurez de control» no decía nada. */
+.ag-row.fila-alarmante::before,
+.ag-row.fila-brecha-pendiente::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  /* 3 ES EL MÍNIMO QUE PINTA, Y ESTÁ MEDIDO, NO ELEGIDO. Con el mismo pseudo-elemento sobre
+     filas reales, leyendo el píxel del borde izquierdo:
+
+       z-index: 1  -> ffffff    z-index: 2  -> ffffff    z-index: 3  -> 0000ff
+
+     Algo de AG Grid ocupa la capa 2 sobre el borde izquierdo de la fila. Si un día este número
+     deja de alcanzar, el síntoma será otra vez una barra invisible con el estilo calculado
+     correcto — por eso quien lo toque debe comprobarlo leyendo el píxel renderizado y no
+     `getComputedStyle`, que devuelve el valor igual cuando nada se dibuja. */
+  z-index: 3;
+}
+.ag-row.fila-alarmante::before {
+  background-color: var(--hf-danger-text);
 }
 
 /* La barra ámbar usa `--hf-warn-text` y no `--hf-warn-500`, y la razón está medida: sobre el
@@ -405,6 +446,6 @@
    vuelve a no comunicar nada, que es exactamente el defecto que la barra vino a arreglar
    cuando dos pasteles al 3 % de distancia no se distinguían. Y las dos barras entre sí pasan
    de 2.76 a un contraste holgado, así que también se separan la una de la otra. */
-.ag-row.fila-brecha-pendiente {
-  box-shadow: inset 4px 0 0 0 var(--hf-warn-text);
+.ag-row.fila-brecha-pendiente::before {
+  background-color: var(--hf-warn-text);
 }
