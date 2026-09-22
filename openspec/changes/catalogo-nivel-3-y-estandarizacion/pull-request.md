@@ -1,7 +1,39 @@
 # Catálogo de Nivel 3, y el árbol del inventario enderezado
 
-> Borrador del cuerpo del PR. **Mergear a `main` despliega a producción**, así que esto se lee
-> antes, no después.
+> **La rama se llama `scorm-2004-paquete-propio` y el nombre miente.** De los ~144 commits
+> clasificados, unos 10 son SCORM; el resto es SGSI y SIG. Si abriste esto buscando el paquete
+> SCORM, está aquí dentro, pero es una minoría.
+>
+> Esta sección cubre **una** de las líneas de trabajo de la rama: el catálogo de Nivel 3 y la
+> estandarización del árbol del inventario. **Mergear a `main` despliega a producción**, así que
+> esto se lee antes, no después.
+
+## Las 4 migraciones encadenadas, y por qué ese orden
+
+No es evidente leyendo los archivos por separado, y **es lo que hace que el despliegue funcione**:
+
+```
+20260916200000_identidad_de_nivel          se RE-APLICA (ver abajo)
+    CREATE UNIQUE INDEX IF NOT EXISTS ... (grado, nombre, padre_id)   -> NO-OP: ya existe
+    UPDATE plantilla_nivel SET nombre_nivel_3 = upper(btrim(...))     -> corre por fin
+
+20260922120000_catalogo_nivel_3
+    crea catalogo_nivel_3 y lo siembra DERIVÁNDOLO del árbol, más 12 filas fijas
+
+20260922120100_plantilla_subordinada_al_catalogo
+    corrige las tildes de los 4 nombres y DESPUÉS pone la llave foránea
+    (al revés, la llave rechaza las 16 filas de hoy y la migración se cae)
+
+20260922180000_identidad_de_nivel_normalizada
+    DROP del índice literal + CREATE del funcional y PARCIAL
+```
+
+**El eslabón que no se ve:** la plantilla llega en mayúscula al paso 3 porque el paso 1 la
+normalizó. Si `identidad_de_nivel` no se re-aplicara, los `UPDATE ... WHERE nombre_nivel_3 =
+'CODIGO FUENTE'` no casarían con `'Codigo Fuente'`, y la llave foránea del paso 3 rechazaría filas.
+El `IF NOT EXISTS` del paso 1 lo puso alguien **porque esa migración ya había fallado después de
+esa línea**: hoy es lo que impide que el segundo intento muera por una razón distinta y más
+confusa.
 
 ## Qué arregla
 
@@ -72,7 +104,22 @@ parcial.
 
 `npm run verificar` · `verificar:migraciones` · `verificar:fusion`, los tres en limpio.
 
-### Regla 3 — el recorrido, ejecutado
+### Regla 3 — dónde se cumplió y dónde NO
+
+**Se cumplió** para el recorrido que este trabajo toca: la ficha del activo y su selector de
+Nivel 3, ejecutado contra la aplicación corriendo y comprobado en la base (abajo).
+
+**NO se cumplió para el recorrido de carga de activos** —el botón «Importar desde Excel» del
+inventario—, que sigue sin spec de punta a punta. Es el flujo que produjo **tres de las cinco
+cicatrices que HARNESS.md documenta**, y la Regla 3 le aplica: tiene pantalla, tiene estado, y la
+persona decide cosas que el sistema obedece.
+
+Se planteó antes de abrir este PR y la decisión del usuario fue **«no es crítico, hagamos el PR a
+`main` para subir todo el trabajo»**. Es su llamado. Queda escrito sin adornos para que quien lea
+esto en seis meses sepa qué se probó y qué no, y no confunda «el PR estaba en verde» con «el flujo
+se recorrió».
+
+### El recorrido que sí se ejecutó
 
 ```
 Activo PRY-PER-0002 «Gestor de Programas y Proyectos», sin ubicar, en Gestión de Proyectos.
