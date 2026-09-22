@@ -56,6 +56,31 @@ async function encabezados(page: Page): Promise<string[]> {
 const filas = (page: Page) => page.locator('.ag-row');
 const primerCodigo = (page: Page) => page.locator('.ag-row[row-index="0"] a').first();
 
+/// El fondo y la barra que una clase de acento produce, medidos sobre una fila REAL de la
+/// grilla: se le pone la clase, se lee el estilo calculado, y se le quita — todo dentro del
+/// mismo `evaluate`, así que la pantalla no queda alterada y nada se escribe.
+///
+/// POR QUÉ SE INYECTA EN VEZ DE BUSCAR UNA FILA QUE YA LA TENGA. Este paso existe para vigilar
+/// que la regla no vuelva a perder la cascada dentro de `@layer` — pasó, y con las pruebas en
+/// verde. Afirmarlo sobre una fila alarmante real ata la comprobación a una condición del
+/// NEGOCIO —«hoy existe un riesgo Alto sin tratar»— que ninguna base garantiza: el 22/09/2026
+/// la base local tenía las once filas de banda Alto con plan, así que no había ni una fila roja
+/// y el paso falló sin que nada estuviera mal.
+///
+/// Saltarlo cuando no hay filas habría apagado, en silencio, justo el paso que vigila la
+/// cascada — y precisamente el día en que no hay con qué comprobarla. **La cascada es una
+/// propiedad del CSS, no de los datos**, así que se mide como tal.
+async function medirAcento(page: Page, clase: string): Promise<{ fondo: string; barra: string }> {
+  return page.locator('.ag-row').first().evaluate((n, c) => {
+    const yaLaTenia = n.classList.contains(c);
+    n.classList.add(c);
+    const estilo = getComputedStyle(n);
+    const medido = { fondo: estilo.backgroundColor, barra: estilo.boxShadow };
+    if (!yaLaTenia) n.classList.remove(c);
+    return medido;
+  }, clase);
+}
+
 test.beforeEach(async ({ context, baseURL }) => {
   await iniciarSesion(context, baseURL as string);
 });
@@ -184,14 +209,24 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // «tiene una brecha de control sin cubrir» (`estadoPlan === 'pendiente'`), y eso pasó al
   // acento ámbar del paso 6d. Sin este rojo la pantalla no dice de ninguna forma que queda
   // riesgo alto sin tratar, que es lo que ISO/IEC 27001 6.1.3 no deja pasar sin decisión.
+  // La cascada se mide por inyección y NO sobre una fila roja real: ver `medirAcento`. Que hoy
+  // haya o no un riesgo Alto sin tratar es una condición del negocio que cambia con cada plan
+  // que alguien registra, y este paso no vino a medir eso.
+  const rojo = await medirAcento(page, 'fila-alarmante');
+  // Blanco o transparente significan que la regla perdió la cascada, que es el fallo exacto.
+  expect(rojo.fondo).not.toBe('rgb(255, 255, 255)');
+  expect(rojo.fondo).not.toBe('rgba(0, 0, 0, 0)');
+  expect(rojo.barra).not.toBe('none');
+
+  // Y si hoy SÍ hay filas rojas, que pinten lo mismo que la regla promete. El conteo se anota
+  // en vez de afirmarse: es el estado del inventario de hoy, no una invariante del sistema.
   const alarmantes = page.locator('.ag-row.fila-alarmante');
   const cuantasAlarmantes = await alarmantes.count();
-  expect(cuantasAlarmantes).toBeGreaterThan(0);
-  const fondo = await alarmantes.first().evaluate((n) => getComputedStyle(n).backgroundColor);
-  // Blanco o transparente significan que la regla perdió la cascada, que es el fallo exacto.
-  expect(fondo).not.toBe('rgb(255, 255, 255)');
-  expect(fondo).not.toBe('rgba(0, 0, 0, 0)');
-  anotar('6b · el renglón rojo pinta', `${cuantasAlarmantes} filas, fondo ${fondo}`);
+  if (cuantasAlarmantes > 0) {
+    const real = await alarmantes.first().evaluate((n) => getComputedStyle(n).backgroundColor);
+    expect(real).toBe(rojo.fondo);
+  }
+  anotar('6b · el renglón rojo pinta', `fondo ${rojo.fondo}, barra ${rojo.barra}; ${cuantasAlarmantes} filas rojas hoy`);
 
   // ── 6c · Y la celda dice en palabras lo mismo que el color ──────────────────────────
   //
@@ -217,9 +252,16 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // palabras. Y la implicación es exacta, no aproximada: si alguna amenaza está en Alto o
   // Crítico, el PEOR residual del activo está en Alto o Crítico — es el máximo de los mismos
   // números. Una fila roja sin esa palabra sería el rojo mintiendo.
-  const textoAlarmante = (await alarmantes.first().textContent()) ?? '';
-  expect(textoAlarmante).toMatch(/Alto|Crítico/);
-  anotar('6c · el color no va solo', 'la fila roja dice su banda en palabras');
+  // Sólo se puede afirmar si hoy hay alguna fila roja; con todas las bandas Alto ya cubiertas
+  // por un plan no hay ninguna, y eso no es un defecto. Cuando no las hay, se anota — nunca se
+  // finge que la comprobación ocurrió.
+  if (cuantasAlarmantes > 0) {
+    const textoAlarmante = (await alarmantes.first().textContent()) ?? '';
+    expect(textoAlarmante).toMatch(/Alto|Crítico/);
+    anotar('6c · el color no va solo', 'la fila roja dice su banda en palabras');
+  } else {
+    anotar('6c · el color no va solo', 'sin filas rojas hoy: no comprobado');
+  }
 
   // ── 6d · El ámbar lleva SU BARRA, y es otra que la del rojo ─────────────────────────
   //
@@ -255,9 +297,19 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
     anotar('6d · sin acento, sin barra', `${cuantasSinAcento} filas, boxShadow ${barraNeutra}`);
   }
 
-  const barraRoja = await alarmantes.first().evaluate((n) => getComputedStyle(n).boxShadow);
+  // La barra roja sale de la misma medición por inyección del paso 6b, por la misma razón: no
+  // puede depender de que hoy exista una fila roja.
+  const barraRoja = rojo.barra;
   expect(barraRoja).not.toBe('');
   expect(barraRoja).not.toBe('none');
+
+  // Y la barra ámbar, también inyectada: tiene que existir, ser distinta de la roja, y NO traer
+  // fondo — el ámbar perdió su pastel a propósito, y si algún día lo recupera este paso lo dice.
+  const ambar = await medirAcento(page, 'fila-brecha-pendiente');
+  expect(ambar.barra).not.toBe('none');
+  expect(ambar.barra).not.toBe(barraRoja);
+  expect(ambar.fondo).not.toBe(rojo.fondo);
+  anotar('6d · las dos barras', `roja ${barraRoja} · ámbar ${ambar.barra}`);
 
   // Y cuando hay una fila ámbar, que lleve SU barra — distinta de la roja. El conteo NO se
   // afirma mayor que cero: depende de los datos del día (un activo con brecha pendiente y sin
