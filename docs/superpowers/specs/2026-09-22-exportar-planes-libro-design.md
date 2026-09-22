@@ -72,9 +72,14 @@ trataron*.
 **Y lo que la nota de la fila 2 NO puede decir.** La primera versión de este spec afirmaba que
 la escala «no permite llegar» a Crítico. **Es falso**, y lo prueba el propio repo:
 `lib/sgsi/__tests__/eficacia-agregada.test.ts:100-105` muestra que un control principal al 10 %
-deja el residual en **25.60 — Crítico**, y al 0 % en **28.80**. Lo que hoy lo impide es que los
-272 pares de `ControlAmenaza` siguen sin relevancia asignada, así que ninguna amenaza tiene
-principal designado y esa regla nunca dispara con datos reales.
+deja el residual en **25.60 — Crítico**, y al 0 % en **28.80**. Lo que hoy lo impide es que
+**ninguno de los 57 controles principales está en madurez baja**: están en escalones altos, y
+llegar a Crítico exigiría uno al 10 % o al 0 %.
+
+Ese dato viene de una medición ajena con `psql` que no se pudo verificar desde aquí. Y cuidado
+con la fuente que lo contradice: `lib/sgsi/analisis-riesgos.ts:113` afirma que los 272 pares
+siguen sin relevancia asignada, lo cual **ya no es cierto** — ese comentario obsoleto es el que
+produjo la versión anterior de este párrafo.
 
 La nota dice **lo que se puede verificar hoy** —«ninguno de los activos exportados tiene riesgos
 en banda Crítico»— y **nunca** que no pueda haberlos. Un archivo del SGSI que afirme una

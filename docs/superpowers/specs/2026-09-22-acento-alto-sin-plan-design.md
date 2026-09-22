@@ -70,10 +70,22 @@ llega:
 | 10 % | 25.60 | **Crítico** |
 | 0 % | 28.80 | **Crítico** |
 
-**Lo que hoy lo impide es que los 272 pares de `ControlAmenaza` siguen sin `relevanciaId`**, así
-que ninguna amenaza tiene principal designado y esa regla nunca dispara con datos reales. Es
-trabajo pendiente conocido, no una propiedad del modelo: el día que el líder del SIG asigne la
-primera relevancia Principal, aparecen los críticos.
+**Lo que hoy lo impide es que ninguno de los 57 controles principales está en madurez baja.**
+Están repartidos en escalones altos —30 «documentada y registrada», 19 «medido y revisado», 8
+«documentada y repetible»— y llegar a Crítico exigiría un principal al 10 % o al 0 %. Es un
+estado de los datos, no una propiedad del modelo: el día que se evalúe un principal flojo, o que
+un control decaiga, aparecen los críticos.
+
+**Dos avisos sobre este párrafo, porque ya se escribió mal dos veces.** La primera versión decía
+que la escala no permitía llegar a Crítico —falso—. La segunda atribuía la causa a que los 272
+pares de `ControlAmenaza` seguían sin `relevanciaId` —también falso: están todos asignados, 57
+como principal—. Esta tercera versión viene de una medición con `psql` de otra sesión que **no
+se pudo verificar desde aquí** (no hay `psql` en este entorno y Prisma 7 no instancia sin
+adaptador). Si alguien la usa para decidir algo, que la vuelva a medir.
+
+Y el dato que la desmiente sigue escrito en el código: `lib/sgsi/analisis-riesgos.ts:113` afirma
+que «los 272 pares siguen con `relevanciaId` en null». **Ese comentario está obsoleto** y es la
+fuente del error.
 
 Dos consecuencias para este spec:
 
