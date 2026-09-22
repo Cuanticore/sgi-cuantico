@@ -146,8 +146,16 @@ export async function construirLibroAnalisis(
       fila.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
     }
 
-    // El acento del renglón: el MISMO criterio que `claseDeFila` usa en pantalla —residual
-    // Crítico o Alto—, para que el archivo y la pantalla se lean juntos.
+    // El acento del renglón: residual Crítico o Alto, sin mirar si hay plan.
+    //
+    // NO ES EL MISMO CRITERIO QUE LA PANTALLA, y el comentario anterior afirmaba que sí. Desde
+    // el 22/09/2026 `claseDeFila` pinta rojo sólo cuando ese residual alto **no tiene plan que
+    // lo cubra**, y ámbar cuando lo que falta es madurez de control. Este libro tiñe todo lo
+    // alto, con plan o sin él, así que marca MÁS filas que la grilla.
+    //
+    // No es un defecto —un volcado que señale todo lo alto es defendible— pero que archivo y
+    // pantalla se lean juntos exigiría que `FilaAnalisisExport` trajera `altoSinPlan`, y eso es
+    // un cambio aparte con su propia prueba.
     if (esAlarmante(f.peorResidual)) {
       for (let c = 1; c <= COLUMNAS.length; c++) {
         fila.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILA_ALARMANTE } };

@@ -468,8 +468,10 @@ function construirRenderers(ctx: {
     peorResidual: (p) => <CeldaBanda nivel={p.data?.peorResidual ?? null} />,
 
     // LA CELDA PLAN, rehecha el 22/09/2026. Antes mostraba el estado —«pendiente» en ámbar,
-    // «—», «✓ plan»— y al lado un botón «+ plan». Ahora muestra LA ACCIÓN, y el estado lo dice
-    // el renglón: rojo cuando requiere plan y no lo tiene.
+    // «—», «✓ plan»— y al lado un botón «+ plan». Ahora muestra LA ACCIÓN, y el estado lo dicen
+    // los DOS acentos del renglón: rojo cuando queda un residual en banda Alto o Crítico que
+    // ningún plan cubre, ámbar cuando lo que falta es madurez de control. Ver `claseDeFila` en
+    // `lib/sgsi/columnas-analisis.ts`; son dos preguntas distintas y no siempre coinciden.
     //
     // La acción se ofrece en TODAS las filas, incluidas las que no requieren plan: «no
     // requiere» significa que sus controles alcanzan lo exigido HOY, no que nadie pueda
