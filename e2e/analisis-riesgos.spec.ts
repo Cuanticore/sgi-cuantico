@@ -56,24 +56,19 @@ async function encabezados(page: Page): Promise<string[]> {
 const filas = (page: Page) => page.locator('.ag-row');
 const primerCodigo = (page: Page) => page.locator('.ag-row[row-index="0"] a').first();
 
-/// El fondo y la barra que una clase de acento produce, medidos sobre una fila REAL de la
-/// grilla: se le pone la clase, se lee el estilo calculado, y se le quita — todo dentro del
-/// mismo `evaluate`, así que la pantalla no queda alterada y nada se escribe.
+/// La fila de referencia: una que no traiga acento propio, para que entre una medición y otra
+/// lo único que cambie sea la clase inyectada. Tomar `.ag-row` a secas podía caer en una fila
+/// que ya fuera roja, y entonces la «neutra» no habría sido neutra.
+function filaSinAcento(page: Page) {
+  return page.locator('.ag-row:not(.fila-alarmante):not(.fila-brecha-pendiente)').first();
+}
+
+/// Los dos recortes de pantalla que deja una clase de acento: el borde izquierdo, donde va la
+/// barra, y un punto dentro de la fila, donde va el relleno.
 ///
-/// POR QUÉ SE INYECTA EN VEZ DE BUSCAR UNA FILA QUE YA LA TENGA. Este paso existe para vigilar
-/// que la regla no vuelva a perder la cascada dentro de `@layer` — pasó, y con las pruebas en
-/// verde. Afirmarlo sobre una fila alarmante real ata la comprobación a una condición del
-/// NEGOCIO —«hoy existe un riesgo Alto sin tratar»— que ninguna base garantiza: el 22/09/2026
-/// la base local tenía las once filas de banda Alto con plan, así que no había ni una fila roja
-/// y el paso falló sin que nada estuviera mal.
-///
-/// Saltarlo cuando no hay filas habría apagado, en silencio, justo el paso que vigila la
-/// cascada — y precisamente el día en que no hay con qué comprobarla. **La cascada es una
-/// propiedad del CSS, no de los datos**, así que se mide como tal.
 /// **SE LEE EL PÍXEL PINTADO, NO EL ESTILO CALCULADO**, y la diferencia costó una noche.
-///
 /// `getComputedStyle(fila).boxShadow` devuelve la sombra **aunque el navegador no la dibuje**.
-/// Medido el 22/09/2026 leyendo el color renderizado del borde izquierdo:
+/// Medido el 22/09/2026 sobre el color renderizado del borde izquierdo:
 ///
 ///     .ag-row  box-shadow: inset 20px 0 0 0 rgb(255,0,0)  ->  ffffff   NO PINTA
 ///     .ag-row  border-left: 20px solid rgb(0,200,0)       ->  00c800   pinta
@@ -85,20 +80,20 @@ const primerCodigo = (page: Page) => page.locator('.ag-row[row-index="0"] a').fi
 /// pantalla muda** — el mismo «verde vacío» que este archivo existe para impedir, esta vez
 /// dentro del propio arnés.
 ///
-/// Devuelve dos recortes: el borde izquierdo (donde va la barra) y un punto dentro de la fila
-/// (donde va el relleno). No hace falta decodificar el PNG: comparar el recorte de una fila con
-/// acento contra el de una fila neutra basta, y **trae su caso de control incorporado** — si
-/// los dos fueran iguales, no se estaría midiendo nada.
+/// No hace falta decodificar el PNG: comparar el recorte de una fila con acento contra el de
+/// la misma fila sin él **trae su caso de control incorporado** — si los dos fueran iguales,
+/// no se estaría midiendo nada.
 ///
-/// La clase se pone, se fotografía y se quita. No escribe nada: es la misma regla de «sólo lee»
+/// POR QUÉ SE INYECTA LA CLASE EN VEZ DE BUSCAR UNA FILA QUE YA LA TENGA. Afirmarlo sobre una
+/// fila roja real ata la comprobación a una condición del NEGOCIO —«hoy existe un riesgo Alto
+/// sin tratar»— que ninguna base garantiza: el 22/09/2026 las once filas en banda Alto tenían
+/// plan, así que no había ni una roja y el paso falló sin que nada estuviera mal. Saltarlo en
+/// ese caso habría apagado en silencio, y precisamente el día en que no hay con qué
+/// comprobarla, el paso que vigila la cascada. **La cascada es una propiedad del CSS, no de los
+/// datos**, así que se mide como tal.
+///
+/// La clase se pone, se fotografía y se quita: no escribe nada, que es la regla de «sólo lee»
 /// que hace tolerable correr este archivo contra producción.
-/// Siempre sobre LA MISMA fila y una que no traiga acento propio: así lo único que cambia
-/// entre una medición y otra es la clase inyectada. Tomar `.ag-row` a secas podía caer en una
-/// fila que ya fuera roja, y entonces la «neutra» no habría sido neutra.
-function filaSinAcento(page: Page) {
-  return page.locator('.ag-row:not(.fila-alarmante):not(.fila-brecha-pendiente)').first();
-}
-
 async function recortes(page: Page, clase: string | null): Promise<{ barra: Buffer; relleno: Buffer }> {
   // SE FIJA LA FILA POR SU ÍNDICE ANTES DE MARCARLA, Y NO ES UN RODEO.
   //
