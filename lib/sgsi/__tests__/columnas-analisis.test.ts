@@ -31,6 +31,8 @@ import {
   esResidualAlarmante,
   textoDeNivel,
   type IdColumnaAnalisis,
+  tooltipDeCriticidad,
+  accesiblePlan,
 } from '../columnas-analisis';
 import {
   FILTROS_ANALISIS_VACIOS,
@@ -507,5 +509,90 @@ describe('la fila dice su banda y su estado de plan sin depender del color', () 
     const ESTADOS = ['pendiente', 'no-requiere', 'con-plan', 'sin-determinar'] as const;
     expect(ESTADOS.filter((e) => clase(e).includes(CLASE_FILA_BRECHA))).toEqual(['pendiente']);
     expect(ESTADOS.filter((e) => clase(e).includes(CLASE_FILA_ALARMANTE))).toEqual([]);
+  });
+});
+
+// ── El tooltip de Criticidad ────────────────────────────────────────────────────────────
+//
+// La celda mostraba sólo el nombre y, al pasar el cursor, la descripción del catálogo. Eso
+// contesta «qué es C3» y no contesta lo que la columna significa de verdad en esta pantalla:
+// CUÁNTO EXIGE. La criticidad gobierna la Disponibilidad, así que su consecuencia visible es
+// el nivel que le pide al control principal de las amenazas que degradan D — y ese número
+// vive en `EXIGENCIA_POR_CRITICIDAD`, no en el catálogo.
+//
+// Se prueba acá y no renderizando porque es una decisión sobre qué decir, no sobre cómo
+// pintarlo: la misma razón por la que el resto de este módulo es puro.
+describe('tooltipDeCriticidad', () => {
+  const cat = (nombre: string, descripcion: string | null) => ({ nombre, descripcion });
+
+  it('dice el nombre, el codigo y el nivel que exige sobre Disponibilidad', () => {
+    const t = tooltipDeCriticidad('C3', cat('Importante', 'Respaldo restaurable.'), 1440);
+    expect(t).toContain('Importante');
+    expect(t).toContain('C3');
+    expect(t).toContain('80');
+    expect(t).toContain('Disponibilidad');
+  });
+
+  it('C1 anade que ademas exige verificacion vigente, que es lo que la distingue de C2', () => {
+    const c1 = tooltipDeCriticidad('C1', cat('Crítica continua', null), 10);
+    const c2 = tooltipDeCriticidad('C2', cat('Crítica', null), 240);
+    expect(c1).toContain('90');
+    expect(c2).toContain('90');
+    expect(c1).toContain('verificación');
+    expect(c2).not.toContain('verificación');
+  });
+
+  it('C5 no exige por esta via, y lo dice en vez de callarse', () => {
+    const t = tooltipDeCriticidad('C5', cat('Sin compromiso', null), null);
+    expect(t.toLowerCase()).toContain('no exige');
+    expect(t).not.toMatch(/\d+\s*%/);
+  });
+
+  it('sin criticidad clasificada no inventa una exigencia', () => {
+    const t = tooltipDeCriticidad(null, undefined, null);
+    expect(t.toLowerCase()).toContain('sin clasificar');
+    expect(t).not.toMatch(/\d+\s*%/);
+  });
+
+  it('incluye el RTO cuando el catalogo lo trae, porque es el compromiso que la define', () => {
+    expect(tooltipDeCriticidad('C1', cat('Crítica continua', null), 10)).toContain('10');
+    expect(tooltipDeCriticidad('C3', cat('Importante', null), null)).not.toContain('RTO');
+  });
+});
+
+// ── La celda «Plan» ─────────────────────────────────────────────────────────────────────
+//
+// El texto visible pasó a ser «Planes de T.» en los dos estados (22/09/2026, a pedido de
+// quien usa la pantalla). Eso quita el portador textual que distinguía «ya hay plan» de «no
+// hay ninguno»: antes la celda decía «Ver Plan» o «Crear Plan» y se leía sin depender del
+// color.
+//
+// Esta prueba existe para que esa distinción no desaparezca del todo. El texto es el mismo;
+// el NOMBRE ACCESIBLE y el título siguen siendo distintos, que es lo que un lector de pantalla
+// anuncia y lo que aparece al posar el cursor. Sin esto, el día que alguien «simplifique» los
+// dos rótulos a uno solo, la celda dejaría de decir nada en ningún canal y nada fallaría.
+describe('accesiblePlan', () => {
+  it('el texto visible es el mismo en los tres estados', () => {
+    expect(accesiblePlan('TEC-GEN-0004', 'con-plan').texto).toBe('Planes de T.');
+    expect(accesiblePlan('TEC-GEN-0004', 'pendiente').texto).toBe('Planes de T.');
+    expect(accesiblePlan('TEC-GEN-0004', 'no-requiere').texto).toBe('Planes de T.');
+  });
+
+  it('pero el nombre accesible SI distingue si ya hay plan', () => {
+    const con = accesiblePlan('TEC-GEN-0004', 'con-plan');
+    const sin = accesiblePlan('TEC-GEN-0004', 'pendiente');
+    expect(con.aria).not.toBe(sin.aria);
+    expect(con.aria).toMatch(/ver/i);
+    expect(sin.aria).toMatch(/crear|registrar/i);
+  });
+
+  it('el nombre accesible nombra el activo: treinta filas con el mismo texto son treinta botones indistinguibles', () => {
+    expect(accesiblePlan('TEC-GEN-0004', 'pendiente').aria).toContain('TEC-GEN-0004');
+    expect(accesiblePlan('COM-APP-0001', 'con-plan').aria).toContain('COM-APP-0001');
+  });
+
+  it('el titulo dice por que es obligatorio o por que es opcional', () => {
+    expect(accesiblePlan('X', 'pendiente').titulo).toMatch(/brecha/i);
+    expect(accesiblePlan('X', 'no-requiere').titulo).toMatch(/no lo requiere|preventivo/i);
   });
 });

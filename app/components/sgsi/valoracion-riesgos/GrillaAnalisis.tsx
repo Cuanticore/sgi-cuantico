@@ -42,6 +42,7 @@ import {
   ordenDeFabrica,
   type DisposicionGuardada,
   type IdColumnaAnalisis,
+  accesiblePlan,
 } from '@/lib/sgsi/columnas-analisis';
 import type { EstadoPlanActivo, FilaAnalisis, MapaRtoPorCriticidad } from '@/lib/sgsi/analisis-riesgos';
 import { colorDeNivel, type NivelRiesgo } from '@/lib/sgsi/riesgo-activo';
@@ -478,8 +479,10 @@ function construirRenderers(ctx: {
     // decidir mejorarlos. Lo que cambia entre unas y otras es el ÉNFASIS, no la disponibilidad
     // — que es la distinción que se pidió: obligatorio en unas, opcional en otras.
     //
-    // Y el texto es el que hace que el color no sea el único portador: «Crear Plan» donde el
-    // renglón está rojo, «Ver Plan» donde ya hay uno. Quien no distinga el rojo lo lee igual.
+    // El texto visible es «Planes de T.» en los tres estados (22/09/2026, a pedido de quien
+    // usa la pantalla). La distinción entre «ya hay plan» y «no hay ninguno» no desaparece:
+    // se muda al nombre accesible y al título, que es lo que un lector de pantalla anuncia y
+    // lo que aparece al posar el cursor. Los tres rótulos viven en `accesiblePlan`, probados.
     plan: (p) => {
       if (p.data === undefined) return null;
       const { codigo, estadoPlan } = p.data;
@@ -488,10 +491,11 @@ function construirRenderers(ctx: {
         return (
           <Link
             href="/sgsi/planes"
-            title={`Ver los planes de tratamiento de ${codigo}`}
+            title={accesiblePlan(codigo, estadoPlan).titulo}
+            aria-label={accesiblePlan(codigo, estadoPlan).aria}
             className="text-11_5 font-semibold text-brand-nav underline decoration-from-font underline-offset-2"
           >
-            Ver Plan
+            {accesiblePlan(codigo, estadoPlan).texto}
           </Link>
         );
       }
@@ -503,19 +507,15 @@ function construirRenderers(ctx: {
             onClick={() => ctx.onRegistrarPlan(codigo)}
             // El texto visible se repite en las treinta filas; sin esto, un lector de pantalla
             // anuncia treinta botones indistinguibles.
-            aria-label={`Crear plan de tratamiento para ${codigo}`}
-            title={
-              obligatorio
-                ? `${codigo} tiene una brecha sin plan que la cubra`
-                : `${codigo} no lo requiere hoy; crear un plan preventivo es una decisión válida`
-            }
+            aria-label={accesiblePlan(codigo, estadoPlan).aria}
+            title={accesiblePlan(codigo, estadoPlan).titulo}
             className={
               obligatorio
                 ? 'rounded-campo border border-danger-border bg-surface px-1.5 py-0.5 text-11 font-bold text-danger hover:bg-subtle'
                 : 'rounded-campo border border-border-field px-1.5 py-0.5 text-11 font-medium text-faint hover:bg-subtle'
             }
           >
-            Crear Plan
+            {accesiblePlan(codigo, estadoPlan).texto}
           </button>
           {/* «No se pudo evaluar» no es «no falta». Se dice, en vez de dejarlo pasar por
               opcional: un activo cuya brecha nadie midió no es un activo sin brecha. */}

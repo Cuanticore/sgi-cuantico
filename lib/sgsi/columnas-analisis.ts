@@ -31,6 +31,7 @@ import {
   type FilaAnalisis,
   type MapaRtoPorCriticidad,
 } from './analisis-riesgos';
+import { EXIGENCIA_POR_CRITICIDAD, REQUIERE_VERIFICACION } from './exigencia';
 import type { NivelRiesgo } from './riesgo-activo';
 
 /// Cada columna por su nombre. Es la clave con la que el componente engancha su renderizador
@@ -466,4 +467,113 @@ export function columnasAnalisis(
       cellRenderer: r('peorResidual'),
     },
   ];
+}
+
+// ── El tooltip de la columna «Criticidad» ───────────────────────────────────────────────
+//
+// La celda mostraba el nombre del catálogo y, al pasar el cursor, su descripción. Eso contesta
+// «qué es C3» y deja sin contestar lo que la columna significa en ESTA pantalla: **cuánto
+// exige**.
+//
+// La criticidad es un compromiso de TIEMPO —RTO y RPO— así que gobierna la DISPONIBILIDAD
+// (REQ-SIG-23 §3.1), y su consecuencia visible es el nivel que le pide al control PRINCIPAL de
+// las amenazas que degradan D. Ese número no está en el catálogo de criticidades: vive en
+// `EXIGENCIA_POR_CRITICIDAD`, en `lib/sgsi/exigencia.ts`. Sin él, quien mira la columna ve una
+// etiqueta y no ve por qué ese activo tiene brecha y el de al lado no.
+//
+// **No se duplica la tabla acá.** Se lee de su único dueño, por la misma razón por la que
+// `BANDAS_ALARMANTES` dejó de estar dos veces: dos copias que se separan es cómo dos pantallas
+// terminan diciendo cosas distintas del mismo activo.
+//
+// C1 merece frase propia. No pide un número mayor que C2 —los dos piden 90— sino **el mismo
+// verificado**, y esa es justamente la distinción que un tooltip que sólo dijera «90 %» haría
+// invisible.
+export function tooltipDeCriticidad(
+  codigo: string | null,
+  catalogo: { nombre: string; descripcion: string | null } | undefined,
+  rtoMinutos: number | null,
+): string {
+  if (codigo === null) {
+    return 'Sin clasificar: el negocio no ha declarado el compromiso de servicio de este activo, así que no exige nada por esta vía. Su valoración de Disponibilidad puede seguir exigiendo por la suya.';
+  }
+
+  const nombre = catalogo?.nombre ?? codigo;
+  const partes: string[] = [`${nombre} (${codigo})`];
+
+  if (rtoMinutos !== null) partes.push(`RTO ${textoDeRto(rtoMinutos)}`);
+
+  const exige = EXIGENCIA_POR_CRITICIDAD[codigo] ?? null;
+  if (exige === null) {
+    partes.push(
+      'no exige un nivel mínimo por criticidad; la valoración de Disponibilidad puede seguir exigiendo por la suya',
+    );
+  } else {
+    // Se dice el NIVEL EXIGIDO, que es el número que la columna está señalando cuando el
+    // renglón se pinta: la brecha es exactamente lo que le falta al control principal para
+    // llegar aquí. No es una meta a la que se aspira — es el minimo que esta criticidad pide.
+    partes.push(
+      `los controles principales de las amenazas que degradan Disponibilidad deben estar en ${exige} % de eficacia`,
+    );
+    if (REQUIERE_VERIFICACION.includes(codigo)) {
+      // C1 no pide un número mayor que C2: pide el mismo VERIFICADO (REQ-SIG-23 §6.1). Un
+      // tooltip que dijera sólo «90 %» haría invisible justamente lo que las distingue.
+      partes.push('y además debe tener una verificación de eficacia vigente');
+    }
+  }
+
+  if (catalogo?.descripcion) partes.push(catalogo.descripcion);
+  return partes.join(' · ');
+}
+
+/// Minutos a una unidad que una persona lea sin dividir. El RTO es un compromiso que se dice
+/// en voz alta —«diez minutos», «cuatro horas»—, no un número de minutos que alguien convierta.
+function textoDeRto(minutos: number): string {
+  if (minutos < 60) return `${minutos} min`;
+  if (minutos < 1440) return `${Math.round(minutos / 60)} h`;
+  return `${Math.round(minutos / 1440)} d`;
+}
+
+// ── Los rótulos de la celda «Plan» ──────────────────────────────────────────────────────
+//
+// El texto visible es «Planes de T.» en los tres estados (22/09/2026, a pedido de quien usa
+// la pantalla). Antes decía «Crear Plan» o «Ver Plan», y esa diferencia era el portador
+// textual que permitía leer la celda sin depender del color.
+//
+// **Al unificar el texto, la distinción se muda al nombre accesible y al título.** No
+// desaparece: cambia de canal. Un lector de pantalla anuncia el `aria-label`, no el texto
+// visible, así que quien navega sin ver sigue oyendo si ese activo ya tiene planes o no. Y al
+// posar el cursor, el título dice además POR QUÉ es obligatorio u opcional.
+//
+// Vive acá y no en el componente por la razón de siempre: es una decisión sobre qué decir, y
+// las decisiones se prueban. Un rótulo dentro del JSX es un rótulo que nadie vuelve a mirar.
+export function accesiblePlan(
+  codigo: string,
+  estadoPlan: EstadoPlanActivo,
+): { texto: string; aria: string; titulo: string } {
+  const texto = 'Planes de T.';
+
+  if (estadoPlan === 'con-plan') {
+    return {
+      texto,
+      aria: `Ver los planes de tratamiento de ${codigo}`,
+      titulo: `${codigo} ya tiene al menos un plan que cubre su brecha`,
+    };
+  }
+
+  if (estadoPlan === 'pendiente') {
+    return {
+      texto,
+      aria: `Crear un plan de tratamiento para ${codigo}`,
+      titulo: `${codigo} tiene una brecha sin plan que la cubra`,
+    };
+  }
+
+  // `no-requiere` y `sin-determinar`. «No requiere» significa que sus controles alcanzan lo
+  // exigido HOY, no que nadie pueda decidir mejorarlos: el botón sigue disponible y lo que
+  // cambia es el énfasis, no el acceso.
+  return {
+    texto,
+    aria: `Crear un plan de tratamiento preventivo para ${codigo}`,
+    titulo: `${codigo} no lo requiere hoy; crear un plan preventivo es una decisión válida`,
+  };
 }
