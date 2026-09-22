@@ -78,23 +78,44 @@ catálogo de la 2.
 
 ## Fase 4 · Verificación (HARNESS.md)
 
-- [ ] **4.1** `npm run verificar:build` en limpio. **No pipear a `tail`**: el código de salida del
+- [x] **4.1** `npm run verificar:build` en limpio. **No pipear a `tail`**: el código de salida del
       pipe es el del último comando y reporta 0 con la suite en rojo.
-- [ ] **4.2** `npm run verificar:migraciones` en limpio.
-- [ ] **4.3** **Regla 3 — aplica.** Hay pantalla, hay estado y hay una decisión de la persona. El
+- [x] **4.2** `npm run verificar:migraciones` en limpio.
+- [x] **4.3** **Regla 3 — aplica.** Hay pantalla, hay estado y hay una decisión de la persona. El
       recorrido, paso a paso, en el PR:
 
 ```
-Recorrido ejecutado (activo de INC, base local 5432):
-  1. Abrir la ficha del activo          -> Nivel 1 PROYECTOS, Nivel 2 INC, Nivel 3 «— sin ubicar —»
-  2. Abrir el selector de Nivel 3       -> 2 existentes + el catálogo de PROYECTOS, separados
-  3. Elegir «CÓDIGO FUENTE» y NO guardar-> salir; /tecnologia/grafo sigue con 2 hijos bajo INC
-  4. Volver, elegir «CÓDIGO FUENTE»     -> Guardar
-  5. Reabrir la ficha                   -> PROYECTOS · INC · CÓDIGO FUENTE
-  6. Abrir /tecnologia/grafo            -> INC con 3 hijos, el nuevo con 1 activo
-  7. Repetir el paso 4 con otro activo  -> reutiliza el nodo, no crea un segundo
-```
+Recorrido EJECUTADO el 2026-09-22 · activo PRY-PER-0002 «Gestor de Programas y
+Proyectos», uno de los 3 vigentes sin ubicar · Chromium contra el next dev de
+localhost:3000 · base 5432
 
+  1. Abrir la ficha             -> Nivel 3 dice «— elige el nivel 2 —»
+  2. CUANTICO / GESTIÓN DE PROY -> existentes: Documentación, Aplicaciones de negocio
+                                   (ninguno es PERSONAS, que es donde va un [P])
+  3. Abrir el Nivel 3           -> grupo «Del catálogo — se crea al guardar», 24 nombres;
+                                   PERSONAS está
+  4. Elegir PERSONAS            -> «Al guardar se crea «PERSONAS» bajo GESTIÓN DE
+                                   PROYECTOS… Si sales sin guardar, no se crea nada.»
+  5. Guardar («Guardar 1 cambio») -> confirmado en pantalla
+  6. Reabrir la ficha           -> ids 4/11/146 · «CUANTICO · GESTIÓN DE PROYECTOS · PERSONAS»
+
+  Errores de JavaScript en el recorrido: ninguno.
+
+Comprobado en la base, no deducido de la pantalla:
+
+  nivel_activo #146   PERSONAS · grado 3 · padre 11 · orden 3 · activo
+  activo #538         PRY-PER-0002 · nivel_id 146   (antes NULL)
+  bitácora            2 renglones: alta de nivel_activo 146, y activo.nivelId (vacío) -> 146
+  activos sin nivel   3 -> 2
+
+Comprobado en el árbol que dibuja /tecnologia/grafo (`armarArbol`):
+
+  n146 «PERSONAS» · padre n11 GESTIÓN DE PROYECTOS · profundidad 2 · meta «1 activo(s)»
+  debajo: PRY-PER-0002 · 592 nodos en total
+
+Deshacer, si hiciera falta: `activo.nivel_id` de #538 a NULL y `nivel_activo` #146 a
+`activo = false`.
+```
 - [ ] **4.4** El PR describe también el resultado de la Fase 1 contra producción: cuántos renombres,
       cuántas fusiones, y la salida guardada de 1.4.
 
@@ -103,6 +124,19 @@ Recorrido ejecutado (activo de INC, base local 5432):
 - [ ] **5.1** `e2e/` no cubre el recorrido de carga y clasificación de activos — el que motivó tres
       de las cinco cicatrices de HARNESS.md. Este cambio agrega un recorrido más que se prueba a
       mano. Candidato natural a `e2e/jerarquia.spec.ts`, **que sólo lee**.
+- [ ] **5.1.b** **`e2e/grafo.spec.ts:149` depende de que el inventario tenga huecos.** El paso 11
+      hace `selectOption({ label: 'Sin nivel' })`. Hoy quedan **2** activos vigentes sin nivel —eran
+      3 y este recorrido ubicó uno—. El día que se ubiquen los tres, esa opción puede desaparecer y
+      el paso se cae con un error que habla de un `selectOption`, no de que se acabaron los activos
+      sin ubicar. **Y este cambio existe para que ubicarlos sea fácil**, así que es el efecto
+      secundario natural de que funcione. Ese paso necesita un caso armado, no un accidente de los
+      datos. *(Filo detectado por indicadores-40 al revisar el spec antes del recorrido; los pasos
+      8 y 11 los verificó: el 8 deriva sus dos números de la pantalla y sobrevive.)*
+- [ ] **5.1.c** Los tres selects de la jerarquía **no se pueden direccionar por etiqueta**: su
+      nombre accesible concatena la etiqueta con el texto de la opción elegida
+      (`NIVEL 3— elige el nivel 2 —`), así que ni `getByLabel` por subcadena ni exacto sirven. El
+      recorrido tuvo que ir por `title`. Es un olor de accesibilidad y hace frágil cualquier
+      recorrido futuro: un lector de pantalla anuncia lo mismo que ve Playwright.
 - [ ] **5.2** La asimetría de D2: `CÓDIGO  FUENTE` con dos espacios internos entraría al índice.
       Ningún escritor lo produce. Anotado, no arreglado.
 - [ ] **5.3.b** Voseo preexistente en `FichaActivo.tsx:2556` («elegí una cuenta del dominio»),
