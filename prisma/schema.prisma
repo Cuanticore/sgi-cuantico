@@ -3682,8 +3682,46 @@ model NivelActivo {
 /// No lo cambies por un `@@unique` «para que quede prolijo»: se veria igual y no protegeria
 /// nada. El nombre se escribe normalizado (`lib/sig/nombre-nivel.ts`).
 
+/// El VOCABULARIO de nombres de grado 3, por clase. Una decision, no un residuo.
+///
+/// Sin esto, los nombres de grado 3 eran lo que cada rama hubiera acumulado, y la unica lista
+/// que existia —`plantilla_nivel`— divergia de los cuatro nombres que de verdad se usan. El
+/// selector de la ficha no tenia entonces nada que ofrecer salvo los hijos que la rama ya
+/// tuviera, y clasificar un activo obligaba a salir a `/tecnologia/niveles` y volver.
+///
+/// **Es por CLASE y no global.** `AMBIENTE DE PRUEBAS` no significa nada en un area de la
+/// empresa, y `PUESTO DE TRABAJO` no significa nada en un producto. Un catalogo global
+/// obligaria a cada selector a ofrecer las dos mitades del vocabulario que no le sirven.
+///
+/// **Es el mismo nombre para clases distintas, no una fila compartida.** `DOCUMENTACION` vive
+/// en las tres, y la unicidad es (clase, nombre): retirarla de PRODUCTOS no puede retirarla de
+/// EMPRESA, porque son dos decisiones.
+///
+/// `plantilla_nivel.nombre_nivel_3` lo referencia. Esa llave es lo que impide que la plantilla
+/// vuelva a inventar `CODIGO FUENTE` sin tilde: la divergencia se cierra en la raiz, no se
+/// corrige cada vez que aparece.
+model CatalogoNivel3 {
+  id     Int        @id @default(autoincrement())
+  clase  ClaseNivel
+  /// Normalizado con `normalizarNombreNivel`: mayuscula, sin espacios en los bordes y con los
+  /// internos colapsados. Conserva las tildes, igual que `nivel_activo.nombre`.
+  nombre String
+  orden  Int        @default(0)
+  activo Boolean    @default(true)
+
+  plantillas PlantillaNivel[]
+
+  @@unique([clase, nombre])
+  @@map("catalogo_nivel_3")
+}
+
 /// E8 · la configuracion minima de un producto o proyecto. **No bloquea: señala lo que
 /// falta.**
+///
+/// **Es un SUBCONJUNTO del catalogo, no el catalogo.** Responde otra pregunta —con que arranca
+/// un producto nuevo— y por eso tiene cuatro nombres por clase y no veintisiete: si tuviera el
+/// vocabulario entero, cada producto naceria con veintisiete ramas vacias y la plantilla
+/// pasaria de señalar lo que falta a rellenar, que es lo que su propio codigo dice que no hace.
 ///
 /// Es lo que convierte el inventario en algo verificable. La ficha del producto puede decir
 /// «le faltan el ambiente de staging y la documentacion publica», que es exactamente el
@@ -3695,6 +3733,8 @@ model PlantillaNivel {
   activoEsperado String     @map("activo_esperado")
   obligatorio    Boolean    @default(true)
   orden          Int        @default(0)
+
+  catalogo CatalogoNivel3 @relation(fields: [claseNivel, nombreNivel3], references: [clase, nombre])
 
   @@unique([claseNivel, nombreNivel3, activoEsperado])
   @@map("plantilla_nivel")

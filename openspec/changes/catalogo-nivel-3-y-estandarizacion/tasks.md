@@ -13,7 +13,7 @@ catálogo de la 2.
 
 - [ ] **0.1** Presentar los 27 nombres del vocabulario y su reparto propuesto por clase. **Decide el
       SIG.** Incluye `EMPRESA`, que hoy no tiene ninguna fila en `plantilla_nivel`.
-- [ ] **0.2** Decidir qué queda en la plantilla mínima de cada clase, ahora que `AMBIENTES` tiene
+- [x] **0.2** Decidir qué queda en la plantilla mínima de cada clase, ahora que `AMBIENTES` tiene
       que resolverse contra los tres ambientes reales (`DE DESARROLLO`, `DE PRUEBAS`,
       `DE PRODUCCIÓN`).
 - [ ] **0.3** Confirmar que `CUANTICO` #4 y los pares `ILC`/`UNAD`/`SIG` bajo padres distintos
@@ -46,23 +46,23 @@ catálogo de la 2.
 
 ## Fase 2 · El catálogo
 
-- [ ] **2.1** 🔴 Prueba en rojo: `aplicarPlantilla` no puede crear un nivel cuyo nombre no esté en
+- [x] **2.1** 🔴 Prueba en rojo: `aplicarPlantilla` no puede crear un nivel cuyo nombre no esté en
       el catálogo. Falla porque hoy no hay catálogo.
-- [ ] **2.2** Modelo `CatalogoNivel3` en `prisma/schema.prisma`, único sobre `(clase, nombre)`.
-- [ ] **2.3** Migración que crea `catalogo_nivel_3` y la siembra con lo decidido en 0.1. Nombres
+- [x] **2.2** Modelo `CatalogoNivel3` en `prisma/schema.prisma`, único sobre `(clase, nombre)`.
+- [x] **2.3** Migración que crea `catalogo_nivel_3` y la siembra con lo decidido en 0.1. Nombres
       pasados por `normalizarNombreNivel`.
-- [ ] **2.4** Migración que corrige los cuatro nombres de `plantilla_nivel` (0.2) y **después**
+- [x] **2.4** Migración que corrige los cuatro nombres de `plantilla_nivel` (0.2) y **después**
       agrega la FK a `catalogo_nivel_3`. En ese orden: la FK rechaza las filas de hoy.
-- [ ] **2.5** `aplicarPlantilla` y `crearNivel` validan contra el catálogo cuando el grado es 3.
-- [ ] **2.6** `npm run verificar:migraciones` en limpio. Son dos migraciones más y la 2.4 tiene un
+- [x] **2.5** `aplicarPlantilla` y `crearNivel` validan contra el catálogo cuando el grado es 3.
+- [x] **2.6** `npm run verificar:migraciones` en limpio. Son dos migraciones más y la 2.4 tiene un
       orden interno que sólo se ejerce corriéndola.
 
 ## Fase 3 · El selector
 
-- [ ] **3.1** 🔴 Prueba en rojo en `lib/sig/__tests__/catalogo-nivel-3.test.ts`: un nombre que
+- [x] **3.1** 🔴 Prueba en rojo en `lib/sig/__tests__/catalogo-nivel-3.test.ts`: un nombre que
       existe bajo otra rama se ofrece como **del catálogo** bajo la rama actual. Es el caso del
       screenshot y falla porque el módulo no existe.
-- [ ] **3.2** `lib/sig/catalogo-nivel-3.ts` — módulo puro, sin Prisma. Cubrir: sin Nivel 2 elegido;
+- [x] **3.2** `lib/sig/catalogo-nivel-3.ts` — módulo puro, sin Prisma. Cubrir: sin Nivel 2 elegido;
       rama huérfana (`claseDeNivel` → `null`) devuelve sólo existentes; orden estable.
 - [ ] **3.3** 🔴 Prueba en rojo sobre `guardarDatosGenerales` con `{ tipo: 'nuevo' }`: crea el nodo
       bajo el Nivel 2, es idempotente si ya existe, rechaza un nombre fuera del catálogo, rechaza un
