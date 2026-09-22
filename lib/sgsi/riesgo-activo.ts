@@ -135,19 +135,70 @@ export function textoDeRenglon(
 // EL COLOR DE UNA BANDA
 // ============================================================================
 
+/// LA PALETA DE RIESGO, EN UN SOLO SITIO: el nombre de la variable CSS y el HEX que hay
+/// detrás, en el MISMO renglón.
+///
 /// Rampa de severidad, la peor primero. Se indexa por la POSICIÓN de la banda y no por su
 /// nombre, así que renombrar una banda nunca la vuelve gris en silencio.
 ///
-/// Vive acá y no en cada pantalla porque `FichaActivo` y la lista de Análisis la mostraban
-/// cada una con su copia, y dos copias de una escala de color es como la segunda queda con
-/// un token que ya no existe. Son nombres de variables CSS: este módulo ya decide
-/// presentación en `colorDeRenglon`, así que no es una frontera nueva.
-export const RAMPA_RIESGO = [
-  { bg: 'var(--hf-risk-critico-bg)', fg: 'var(--hf-risk-critico-fg)' },
-  { bg: 'var(--hf-risk-alto-bg)', fg: 'var(--hf-risk-alto-fg)' },
-  { bg: 'var(--hf-risk-medio-bg)', fg: 'var(--hf-risk-medio-fg)' },
-  { bg: 'var(--hf-risk-bajo-bg)', fg: 'var(--hf-risk-bajo-fg)' },
-];
+/// POR QUÉ CADA COLOR ESTÁ DOS VECES. La pantalla necesita la VARIABLE: es lo que hace que la
+/// insignia siga el tema y que cambiar la paleta en `app/globals.css` se vea sin tocar
+/// TypeScript. Los exportadores necesitan el HEX: ExcelJS y el importador de HTML de Word **no
+/// tienen cascada** —no hay hoja de estilos que consultar— así que un `var(--hf-risk-alto-bg)`
+/// les llega como texto que no saben resolver, y lo que sale es una celda sin pintar.
+///
+/// Y ESTÁN EN EL MISMO RENGLÓN POR UNA CICATRIZ. El HEX estuvo copiado a mano en cuatro
+/// exportadores (`planes-libro`, `informe-libro`, `informe-documento`,
+/// `acta-residual-documento`) y el quinto —`analisis-libro`— ni siquiera sabía resolver la
+/// variable: sus columnas «Peor inherente» y «Peor residual» salían en texto plano mientras la
+/// cabecera del archivo afirmaba usar los mismos colores que la pantalla. Cambiar un color es
+/// ahora este renglón más el de `app/globals.css`, y esa segunda copia es la única inevitable
+/// —el navegador lee el CSS, Node lee esto—: `riesgo-activo.test.ts` la vigila leyendo el CSS.
+const PALETA_RIESGO = [
+  { bg: 'var(--hf-risk-critico-bg)', bgHex: '#a52016', fg: 'var(--hf-risk-critico-fg)', fgHex: '#ffffff' },
+  { bg: 'var(--hf-risk-alto-bg)', bgHex: '#c25a1e', fg: 'var(--hf-risk-alto-fg)', fgHex: '#ffffff' },
+  { bg: 'var(--hf-risk-medio-bg)', bgHex: '#e0b93c', fg: 'var(--hf-risk-medio-fg)', fgHex: '#3a2c05' },
+  { bg: 'var(--hf-risk-bajo-bg)', bgHex: '#dfe8e2', fg: 'var(--hf-risk-bajo-fg)', fgHex: '#3d5648' },
+] as const;
+
+/// La rampa para la PANTALLA: nombres de variables CSS. Es el contrato de `colorDeNivel` y no
+/// cambia — hay consumidores que ponen esto directo en un `style`, y el navegador resuelve.
+export const RAMPA_RIESGO: { bg: string; fg: string }[] = PALETA_RIESGO.map(({ bg, fg }) => ({
+  bg,
+  fg,
+}));
+
+/// La MISMA rampa para los EXPORTADORES: `#rrggbb`, por la misma posición de banda. Excel y
+/// Word reciben de acá lo que la pantalla recibe de `RAMPA_RIESGO`.
+export const RAMPA_RIESGO_HEX: { bg: string; fg: string }[] = PALETA_RIESGO.map(
+  ({ bgHex, fgHex }) => ({ bg: bgHex, fg: fgHex }),
+);
+
+/// El HEX detrás de cada variable, para traducir lo que `colorDeNivel` devuelve.
+export const HEX_DE_VARIABLE_RIESGO: Record<string, string> = Object.fromEntries(
+  PALETA_RIESGO.flatMap((c) => [
+    [nombreDeVariable(c.bg), c.bgHex],
+    [nombreDeVariable(c.fg), c.fgHex],
+  ]),
+);
+
+/// `var(--x)` → `--x`. Devuelve el texto tal cual cuando no es una `var()`, para que quien
+/// traduzca pueda seguir aceptando un hex literal sin preguntar primero.
+export function nombreDeVariable(css: string): string {
+  const m = /^var\((--[\w-]+)\)$/.exec(css.trim());
+  return m ? m[1] : css.trim();
+}
+
+/// Traduce un color de esta paleta —`var(--hf-risk-*)` o un hex literal— al `#rrggbb` que
+/// necesita un exportador. `null` cuando no se puede traducir: quien llama decide qué
+/// significa «no sé de qué color va», y ninguno de los dos puede inventarse un color.
+///
+/// Existe para que ningún exportador vuelva a tener su propio diccionario: era el defecto.
+export function hexDeColorDeRiesgo(css: string): string | null {
+  const clave = nombreDeVariable(css);
+  if (clave.startsWith('#')) return clave.toLowerCase();
+  return HEX_DE_VARIABLE_RIESGO[clave] ?? null;
+}
 
 /// El color de un nivel de riesgo de activo.
 ///
