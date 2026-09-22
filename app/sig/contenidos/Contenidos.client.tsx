@@ -311,6 +311,18 @@ function Ficha({ contenido }: { contenido: ContenidoFila }) {
       ...(tipo === 'CAPACITACION' && {
         modalidad: modalidad.trim() || undefined,
         duracionHoras: duracion.trim() === '' ? undefined : Number(duracion),
+      }),
+      // **El criterio viaja para los DOS tipos que pueden evaluar**, y va aparte de modalidad
+      // y horas —que sí son sólo de la capacitación— a propósito.
+      //
+      // Estaba dentro del spread de CAPACITACION, así que al dibujar el campo en el curso
+      // virtual se habría mostrado uno editable que descarta en silencio lo que se escribe. Un
+      // campo que acepta y no guarda es peor que uno ausente: el ausente manda a preguntar, el
+      // que miente deja a alguien creyendo que declaró un criterio que no existe.
+      //
+      // Los dos tipos alimentan la MISMA función: `veredictoDelIntento` lee `exigeEvaluacion`
+      // y `notaMinima` del contenido sin mirar el tipo.
+      ...((tipo === 'CAPACITACION' || tipo === 'CURSO_VIRTUAL') && {
         exigeEvaluacion,
         notaMinima: notaMinima.trim() === '' ? undefined : Number(notaMinima),
       }),
@@ -1156,6 +1168,18 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
       ...(tipo === 'CAPACITACION' && {
         modalidad: modalidad.trim() || undefined,
         duracionHoras: duracion.trim() === '' ? undefined : Number(duracion),
+      }),
+      // **El criterio viaja para los DOS tipos que pueden evaluar**, y va aparte de modalidad
+      // y horas —que sí son sólo de la capacitación— a propósito.
+      //
+      // Estaba dentro del spread de CAPACITACION, así que al dibujar el campo en el curso
+      // virtual se habría mostrado uno editable que descarta en silencio lo que se escribe. Un
+      // campo que acepta y no guarda es peor que uno ausente: el ausente manda a preguntar, el
+      // que miente deja a alguien creyendo que declaró un criterio que no existe.
+      //
+      // Los dos tipos alimentan la MISMA función: `veredictoDelIntento` lee `exigeEvaluacion`
+      // y `notaMinima` del contenido sin mirar el tipo.
+      ...((tipo === 'CAPACITACION' || tipo === 'CURSO_VIRTUAL') && {
         exigeEvaluacion,
         notaMinima: notaMinima.trim() === '' ? undefined : Number(notaMinima),
       }),
@@ -1333,27 +1357,28 @@ function NuevoContenido({ onCerrar }: { onCerrar: () => void }) {
               className="entrada-campo font-mono"
             />
           </Campo>
-          <Campo etiqueta="Evaluación">
-            <label className="flex items-center gap-2 pt-1.5 text-12 text-secondary">
-              <input
-                type="checkbox"
-                checked={exigeEvaluacion}
-                onChange={(e) => setExigeEvaluacion(e.target.checked)}
-              />
-              La exige
-            </label>
-          </Campo>
-          <Campo etiqueta="Criterio de aprobación">
-            <input
-              value={notaMinima}
-              onChange={(e) => setNotaMinima(e.target.value)}
-              inputMode="decimal"
-              disabled={!exigeEvaluacion}
-              placeholder="80"
-              aria-label="Criterio de aprobación · nota mínima"
-              className="entrada-campo font-mono disabled:opacity-50"
-            />
-          </Campo>
+          <CriterioAlCrear
+            exigeEvaluacion={exigeEvaluacion}
+            setExigeEvaluacion={setExigeEvaluacion}
+            notaMinima={notaMinima}
+            setNotaMinima={setNotaMinima}
+          />
+        </div>
+      )}
+
+      {/* **El criterio también al crear un curso virtual.** Todo el bloque de arriba —incluido
+          el criterio— colgaba de `tipo === 'CAPACITACION'`, así que un curso nacía sin forma de
+          declarar qué se exige para aprobarlo y había que ir a editarlo después. Modalidad y
+          horas SÍ se quedan allá: son de la capacitación presencial, y un curso en línea no
+          las tiene. */}
+      {tipo === 'CURSO_VIRTUAL' && (
+        <div className="grid grid-cols-2 gap-3">
+          <CriterioAlCrear
+            exigeEvaluacion={exigeEvaluacion}
+            setExigeEvaluacion={setExigeEvaluacion}
+            notaMinima={notaMinima}
+            setNotaMinima={setNotaMinima}
+          />
         </div>
       )}
 
@@ -1605,31 +1630,12 @@ function Extra({
           />
         </Campo>
         <div className="col-span-2">
-          {/* El lienzo lo llama «Criterio de aprobación» y lo muestra como «≥ 80 %». Es el
-              mismo dato que la app pedía como «Nota mínima»: se alinea el rótulo y se
-              conserva el campo, porque acá el criterio se decide, no sólo se lee. */}
-          <Campo etiqueta="Criterio de aprobación">
-            <span className="flex items-center gap-2.5">
-              <label className="flex items-center gap-2 text-12 text-secondary">
-                <input
-                  type="checkbox"
-                  checked={exigeEvaluacion}
-                  onChange={(e) => setExigeEvaluacion(e.target.checked)}
-                />
-                Exige evaluación
-              </label>
-              <span className="font-mono text-12 text-muted">≥</span>
-              <input
-                value={notaMinima}
-                onChange={(e) => setNotaMinima(e.target.value)}
-                inputMode="decimal"
-                disabled={!exigeEvaluacion}
-                aria-label="Criterio de aprobación · nota mínima"
-                className="entrada-campo w-20 font-mono disabled:opacity-50"
-              />
-              <span className="font-mono text-12 text-muted">%</span>
-            </span>
-          </Campo>
+          <CriterioDeAprobacion
+            exigeEvaluacion={exigeEvaluacion}
+            setExigeEvaluacion={setExigeEvaluacion}
+            notaMinima={notaMinima}
+            setNotaMinima={setNotaMinima}
+          />
         </div>
 
         {/* «Aplica a» del lienzo. Es el mismo alcance que la rama de LECTURA ya deriva de
@@ -1696,6 +1702,22 @@ function Extra({
               : contenido.usos.map((u) => u.alcance).join(' · ')}
           </span>
         </Campo>
+        {/* **El criterio también acá, desde el 22/09/2026.** Se dibujaba sólo en la rama de
+            CAPACITACION, y cuando REQ-SIG-24/26 separó CURSO_VIRTUAL como tipo propio el tipo
+            nuevo heredó el reproductor y el veredicto **pero no el campo que los alimenta**:
+            `veredictoDelIntento` lee `exigeEvaluacion` y `notaMinima` del contenido, y no
+            había pantalla desde la cual ponerlos en un curso.
+            Lo que producía no era que todo cerrara —el veredicto cae a lo que el SCO reporte
+            en `success_status`, así que un curso que se declara reprobado no cierra— sino que
+            **el criterio lo decidiera el paquete y no la organización**, contra P15. */}
+        <div className="col-span-2">
+          <CriterioDeAprobacion
+            exigeEvaluacion={exigeEvaluacion}
+            setExigeEvaluacion={setExigeEvaluacion}
+            notaMinima={notaMinima}
+            setNotaMinima={setNotaMinima}
+          />
+        </div>
       </div>
     );
   }
@@ -1706,5 +1728,100 @@ function Extra({
     <Campo etiqueta="Evidencia">
       <span className="entrada-campo">Nota y anexo · opcional</span>
     </Campo>
+  );
+}
+
+/// El criterio de aprobación, compartido por la capacitación y el curso virtual.
+///
+/// El lienzo lo llama «Criterio de aprobación» y lo muestra como «≥ 80 %». Es el mismo dato
+/// que la app pedía como «Nota mínima»: se alinea el rótulo y se conserva el campo, porque
+/// acá el criterio se decide, no sólo se lee.
+///
+/// **Es un componente y no dos bloques iguales a propósito.** Los dos tipos que pueden exigir
+/// evaluación alimentan la MISMA función —`veredictoDelIntento` lee `exigeEvaluacion` y
+/// `notaMinima` del contenido, sin mirar el tipo—, así que dos copias de este formulario
+/// serían dos formas de declarar una sola regla. Es la lección que este repositorio ya pagó
+/// con `diaDe` copiada en cinco módulos.
+///
+/// La nota se deshabilita mientras no se exija evaluación: un mínimo sin evaluación exigida es
+/// un número que no rige, y dejarlo escribible invita a creer que sí.
+function CriterioDeAprobacion({
+  exigeEvaluacion,
+  setExigeEvaluacion,
+  notaMinima,
+  setNotaMinima,
+}: {
+  exigeEvaluacion: boolean;
+  setExigeEvaluacion: (v: boolean) => void;
+  notaMinima: string;
+  setNotaMinima: (v: string) => void;
+}) {
+  return (
+    <Campo etiqueta="Criterio de aprobación">
+      <span className="flex items-center gap-2.5">
+        <label className="flex items-center gap-2 text-12 text-secondary">
+          <input
+            type="checkbox"
+            checked={exigeEvaluacion}
+            onChange={(e) => setExigeEvaluacion(e.target.checked)}
+          />
+          Exige evaluación
+        </label>
+        <span className="font-mono text-12 text-muted">≥</span>
+        <input
+          value={notaMinima}
+          onChange={(e) => setNotaMinima(e.target.value)}
+          inputMode="decimal"
+          disabled={!exigeEvaluacion}
+          aria-label="Criterio de aprobación · nota mínima"
+          className="entrada-campo w-20 font-mono disabled:opacity-50"
+        />
+        <span className="font-mono text-12 text-muted">%</span>
+      </span>
+    </Campo>
+  );
+}
+
+/// El criterio de aprobación en el formulario de ALTA. Mismo dato que `CriterioDeAprobacion`,
+/// otra disposición: acá son dos celdas de una rejilla y allá una fila dentro de la ficha.
+///
+/// Se comparte entre la capacitación y el curso virtual por la misma razón que el otro: los
+/// dos alimentan `veredictoDelIntento`, que lee `exigeEvaluacion` y `notaMinima` del contenido
+/// sin mirar el tipo. Dos copias serían dos formas de declarar una sola regla.
+function CriterioAlCrear({
+  exigeEvaluacion,
+  setExigeEvaluacion,
+  notaMinima,
+  setNotaMinima,
+}: {
+  exigeEvaluacion: boolean;
+  setExigeEvaluacion: (v: boolean) => void;
+  notaMinima: string;
+  setNotaMinima: (v: string) => void;
+}) {
+  return (
+    <>
+      <Campo etiqueta="Evaluación">
+        <label className="flex items-center gap-2 pt-1.5 text-12 text-secondary">
+          <input
+            type="checkbox"
+            checked={exigeEvaluacion}
+            onChange={(e) => setExigeEvaluacion(e.target.checked)}
+          />
+          La exige
+        </label>
+      </Campo>
+      <Campo etiqueta="Criterio de aprobación">
+        <input
+          value={notaMinima}
+          onChange={(e) => setNotaMinima(e.target.value)}
+          inputMode="decimal"
+          disabled={!exigeEvaluacion}
+          placeholder="80"
+          aria-label="Criterio de aprobación · nota mínima"
+          className="entrada-campo font-mono disabled:opacity-50"
+        />
+      </Campo>
+    </>
   );
 }
