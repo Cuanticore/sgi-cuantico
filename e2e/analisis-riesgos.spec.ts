@@ -70,15 +70,44 @@ const primerCodigo = (page: Page) => page.locator('.ag-row[row-index="0"] a').fi
 /// Saltarlo cuando no hay filas habría apagado, en silencio, justo el paso que vigila la
 /// cascada — y precisamente el día en que no hay con qué comprobarla. **La cascada es una
 /// propiedad del CSS, no de los datos**, así que se mide como tal.
-async function medirAcento(page: Page, clase: string): Promise<{ fondo: string; barra: string }> {
-  return page.locator('.ag-row').first().evaluate((n, c) => {
-    const yaLaTenia = n.classList.contains(c);
-    n.classList.add(c);
-    const estilo = getComputedStyle(n);
-    const medido = { fondo: estilo.backgroundColor, barra: estilo.boxShadow };
-    if (!yaLaTenia) n.classList.remove(c);
-    return medido;
-  }, clase);
+/// **SE LEE EL PÍXEL PINTADO, NO EL ESTILO CALCULADO**, y la diferencia costó una noche.
+///
+/// `getComputedStyle(fila).boxShadow` devuelve la sombra **aunque el navegador no la dibuje**.
+/// Medido el 22/09/2026 leyendo el color renderizado del borde izquierdo:
+///
+///     .ag-row  box-shadow: inset 20px 0 0 0 rgb(255,0,0)  ->  ffffff   NO PINTA
+///     .ag-row  border-left: 20px solid rgb(0,200,0)       ->  00c800   pinta
+///
+/// Durante unas horas las dos barras estuvieron declaradas y ninguna se dibujaba: la regla
+/// ganaba la cascada, la variable existía, el valor llegaba, y no había barra. La roja se
+/// disimuló detrás de su relleno; la ámbar, que no tiene relleno a propósito, quedaba idéntica
+/// a una fila normal. **Una aserción sobre `getComputedStyle` habría pasado en verde con la
+/// pantalla muda** — el mismo «verde vacío» que este archivo existe para impedir, esta vez
+/// dentro del propio arnés.
+///
+/// Devuelve dos recortes: el borde izquierdo (donde va la barra) y un punto dentro de la fila
+/// (donde va el relleno). No hace falta decodificar el PNG: comparar el recorte de una fila con
+/// acento contra el de una fila neutra basta, y **trae su caso de control incorporado** — si
+/// los dos fueran iguales, no se estaría midiendo nada.
+///
+/// La clase se pone, se fotografía y se quita. No escribe nada: es la misma regla de «sólo lee»
+/// que hace tolerable correr este archivo contra producción.
+/// Siempre sobre LA MISMA fila y una que no traiga acento propio: así lo único que cambia
+/// entre una medición y otra es la clase inyectada. Tomar `.ag-row` a secas podía caer en una
+/// fila que ya fuera roja, y entonces la «neutra» no habría sido neutra.
+function filaSinAcento(page: Page) {
+  return page.locator('.ag-row:not(.fila-alarmante):not(.fila-brecha-pendiente)').first();
+}
+
+async function recortes(page: Page, clase: string | null): Promise<{ barra: Buffer; relleno: Buffer }> {
+  const fila = filaSinAcento(page);
+  if (clase !== null) await fila.evaluate((n, c) => n.classList.add(c), clase);
+  const caja = await fila.boundingBox();
+  if (caja === null) throw new Error('La primera fila de la grilla no tiene caja: ¿se pintó?');
+  const barra = await page.screenshot({ clip: { x: caja.x + 1, y: caja.y + 6, width: 2, height: 6 } });
+  const relleno = await page.screenshot({ clip: { x: caja.x + 60, y: caja.y + 6, width: 4, height: 6 } });
+  if (clase !== null) await fila.evaluate((n, c) => n.classList.remove(c), clase);
+  return { barra, relleno };
 }
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -212,21 +241,18 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // La cascada se mide por inyección y NO sobre una fila roja real: ver `medirAcento`. Que hoy
   // haya o no un riesgo Alto sin tratar es una condición del negocio que cambia con cada plan
   // que alguien registra, y este paso no vino a medir eso.
-  const rojo = await medirAcento(page, 'fila-alarmante');
-  // Blanco o transparente significan que la regla perdió la cascada, que es el fallo exacto.
-  expect(rojo.fondo).not.toBe('rgb(255, 255, 255)');
-  expect(rojo.fondo).not.toBe('rgba(0, 0, 0, 0)');
-  expect(rojo.barra).not.toBe('none');
+  const neutra = await recortes(page, null);
+  const rojo = await recortes(page, 'fila-alarmante');
 
-  // Y si hoy SÍ hay filas rojas, que pinten lo mismo que la regla promete. El conteo se anota
-  // en vez de afirmarse: es el estado del inventario de hoy, no una invariante del sistema.
+  // Las dos señales del rojo, cada una leída donde se dibuja. Si alguna coincide con la fila
+  // neutra, esa señal NO se está pintando — que es el fallo exacto, y el que el estilo
+  // calculado no sabe detectar.
+  expect(rojo.barra.equals(neutra.barra)).toBe(false);
+  expect(rojo.relleno.equals(neutra.relleno)).toBe(false);
+
   const alarmantes = page.locator('.ag-row.fila-alarmante');
   const cuantasAlarmantes = await alarmantes.count();
-  if (cuantasAlarmantes > 0) {
-    const real = await alarmantes.first().evaluate((n) => getComputedStyle(n).backgroundColor);
-    expect(real).toBe(rojo.fondo);
-  }
-  anotar('6b · el renglón rojo pinta', `fondo ${rojo.fondo}, barra ${rojo.barra}; ${cuantasAlarmantes} filas rojas hoy`);
+  anotar('6b · el renglón rojo pinta', `barra y relleno distintos de la fila neutra; ${cuantasAlarmantes} filas rojas hoy`);
 
   // ── 6c · Y la celda dice en palabras lo mismo que el color ──────────────────────────
   //
@@ -291,41 +317,34 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // nombres de clase de AG Grid, y esto es semántica de Playwright.
   const sinAcento = page.locator('.ag-row:not(.fila-alarmante):not(.fila-brecha-pendiente)');
   const cuantasSinAcento = await sinAcento.count();
-  if (cuantasSinAcento > 0) {
-    const barraNeutra = await sinAcento.first().evaluate((n) => getComputedStyle(n).boxShadow);
-    expect(barraNeutra).toBe('none');
-    anotar('6d · sin acento, sin barra', `${cuantasSinAcento} filas, boxShadow ${barraNeutra}`);
-  }
+  // Tiene que haber al menos una: es la fila sobre la que se inyectan las clases para medir, y
+  // sin ella las mediciones de 6b no significarían nada.
+  expect(cuantasSinAcento).toBeGreaterThan(0);
+  anotar('6d · hay fila neutra de referencia', `${cuantasSinAcento} filas sin acento`);
 
-  // La barra roja sale de la misma medición por inyección del paso 6b, por la misma razón: no
-  // puede depender de que hoy exista una fila roja.
-  const barraRoja = rojo.barra;
-  expect(barraRoja).not.toBe('');
-  expect(barraRoja).not.toBe('none');
+  const ambar = await recortes(page, 'fila-brecha-pendiente');
 
-  // Y la barra ámbar, también inyectada: tiene que existir, ser distinta de la roja, y NO traer
-  // fondo — el ámbar perdió su pastel a propósito, y si algún día lo recupera este paso lo dice.
-  const ambar = await medirAcento(page, 'fila-brecha-pendiente');
-  expect(ambar.barra).not.toBe('none');
-  expect(ambar.barra).not.toBe(barraRoja);
-  expect(ambar.fondo).not.toBe(rojo.fondo);
-  anotar('6d · las dos barras', `roja ${barraRoja} · ámbar ${ambar.barra}`);
+  // Su barra se pinta, y es otra que la roja.
+  expect(ambar.barra.equals(neutra.barra)).toBe(false);
+  expect(ambar.barra.equals(rojo.barra)).toBe(false);
+
+  // Y NO trae relleno: el ámbar perdió su pastel a propósito cuando los dos fondos al 3 % de
+  // distancia resultaron indistinguibles en pantalla. Si algún día lo recupera, este renglón lo
+  // dice — y con él se perdería el discriminante real entre las dos señales, que es el relleno
+  // y no el tono de la barra.
+  expect(ambar.relleno.equals(neutra.relleno)).toBe(true);
+  anotar('6d · las dos barras', 'ámbar con barra propia y sin relleno; roja con las dos');
 
   // Y cuando hay una fila ámbar, que lleve SU barra — distinta de la roja. El conteo NO se
   // afirma mayor que cero: depende de los datos del día (un activo con brecha pendiente y sin
   // ningún alto suelto), y un rojo que aparece según qué planes se hayan registrado esta semana
   // enseña a desconfiar del arnés. Lo que sí queda asentado es cuántas hubo.
+  // El conteo real se anota y NO se afirma: cuántas filas ámbar hay depende de qué planes se
+  // registraron esta semana, y un rojo que aparece según eso enseña a desconfiar del arnés. Que
+  // el ámbar se pinte ya quedó comprobado arriba, sobre el píxel y sin depender de los datos.
   const conBrecha = page.locator('.ag-row.fila-brecha-pendiente');
   const cuantasBrecha = await conBrecha.count();
-  if (cuantasBrecha > 0) {
-    const barraAmbar = await conBrecha.first().evaluate((n) => getComputedStyle(n).boxShadow);
-    expect(barraAmbar).not.toBe('');
-    expect(barraAmbar).not.toBe('none');
-    expect(barraAmbar).not.toBe(barraRoja);
-    anotar('6d · el renglón ámbar lleva su barra', `${cuantasBrecha} filas, boxShadow ${barraAmbar} ≠ ${barraRoja}`);
-  } else {
-    anotar('6d · el renglón ámbar', 'ninguna fila ámbar en estos datos; barras distintas por CSS');
-  }
+  anotar('6d · filas ámbar hoy', `${cuantasBrecha}`);
 
   // Y ninguna fila lleva los dos acentos: sería un renglón de dos colores, ilegible. Lo
   // garantiza el `else` de `claseDeFila`, y acá se comprueba sobre el DOM real.
