@@ -431,22 +431,25 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
           </div>
         )}
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          <Campo etiqueta="Recursos o presupuesto">
-            <input
-              value={d.recursos ?? ''}
-              onChange={(e) => set('recursos', e.target.value || null)}
-              className={entrada}
-            />
-          </Campo>
-          <Campo etiqueta="Observaciones">
-            <input
-              value={d.observacion ?? ''}
-              onChange={(e) => set('observacion', e.target.value || null)}
-              className={entrada}
-            />
-          </Campo>
-        </div>
+        <Campo etiqueta="Recursos o presupuesto">
+          <input
+            value={d.recursos ?? ''}
+            onChange={(e) => set('recursos', e.target.value || null)}
+            className={entrada}
+          />
+        </Campo>
+
+        {/* Observaciones es donde se escribe el seguimiento de una acción que dura meses.
+            Un `<input>` descarta los saltos de línea, así que tres reuniones quedaban en un
+            párrafo corrido. */}
+        <Campo etiqueta="Observaciones">
+          <textarea
+            value={d.observacion ?? ''}
+            onChange={(e) => set('observacion', e.target.value || null)}
+            rows={10}
+            className={entrada}
+          />
+        </Campo>
       </div>
     </Popup>
   );
