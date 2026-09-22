@@ -194,6 +194,7 @@ Tres cosas, y dos de ellas son defectos preexistentes que este paquete destapa:
 | **B** | `correct_responses.n.pattern` y `objectives.n.id` en el modelo 2004 | Sin esto la migración **pierde** datos que el paquete sí manda (§2.3) |
 | **C** | `Range` en el servidor de archivos | Sin esto el video no se puede adelantar y Safari no lo reproduce (§2.4) |
 | **D** | `dominiosDe` distingue hipervínculo de carga de recurso | Sin esto el paquete se clasifica DESPACHO y la bitácora afirma algo falso (§2.5) |
+| **E** | El techo de subida vuelve a ser un número que rige | Sin esto **el paquete no se puede subir**: 3 MB contra un límite de 1 MB que nadie sabía que existía (§4.E). Encontrado ejecutando, no leyendo |
 
 ---
 
@@ -483,6 +484,64 @@ Alternativa descartada: quitarle el enlace al paquete. Resuelve este caso y deja
 para el siguiente curso que enlace a una norma, a un manual o a la intranet — que es lo normal en
 un curso del SGSI.
 
+### 4.E · El techo de subida vuelve a ser un número que rige
+
+**Agregado el 2026-09-22, y encontrado ejecutando la aplicación, no leyéndola.** Al subir el
+paquete migrado:
+
+```
+Runtime Error · Server
+Body exceeded 1 MB limit.
+```
+
+Subir un curso va por una **Server Action**, y Next las limita a 1 MB por omisión.
+`next.config.js` no configuraba `serverActions`, así que ése era el techo real — mientras `.env`
+declaraba `SCORM_TAMANO_MAX_MB=200` y `app/sig/acciones/scorm.ts` validaba contra 200.
+
+**La validación de la acción era código muerto por encima de un megabyte.** La petición moría en
+el borde de la plataforma, así que su mensaje —«el paquete pesa N MB y el techo es 200 MB»— no se
+podía emitir jamás para el caso que lo justifica. La aplicación anunciaba 200 MB y aceptaba 1.
+
+Es la forma de las cicatrices que `HARNESS.md` documenta, y conviene decirlo con todas las letras:
+**nadie escribió mal una pieza.** `scorm.ts` valida bien, `.env` declara bien, Next limita bien. El
+defecto vivía **entre las tres**, y los cinco checks daban verde porque **ninguno ejecuta una
+subida real por HTTP**.
+
+Y el 200 tampoco se podía poner tal cual. `limiteDescomprimido` es **cuatro veces** el techo y
+`extraer` acumula todo en memoria antes de escribir:
+
+```
+200 MB   el zip, en el cuerpo que Next almacena
+200 MB   la copia de `await archivo.arrayBuffer()`
+800 MB   el techo descomprimido que `extraer` acumula
+─────
+~1,2 GB  por subida concurrente
+```
+
+El límite de 1 MB era, **por accidente, lo único que lo impedía**. La documentación de Next 16.3.2
+lo dice sin rodeos: el límite existe *«to prevent the consumption of excessive server resources in
+parsing large amounts of data, as well as potential DDoS attacks»*.
+
+**El techo baja a 25 MB** (→ 100 MB descomprimidos), que sobra para un curso con video — el de
+`gestionar-leads` pesa 3 MB con un `.mp4` de 2,2. `bodySizeLimit` queda en `'26mb'`: el megabyte de
+holgura no es un margen por las dudas, la doc avisa que el límite se aplica al cuerpo HTTP **crudo**,
+*«including the bytes that multipart/form-data adds for boundaries, part headers, and field
+metadata»*.
+
+`SCORM_TAMANO_MAX_MB` pasa a poder **bajar** el techo y nunca subirlo: el límite del cuerpo se fija
+al construir la imagen y la variable se lee al arrancarla, así que un valor mayor sólo lograría que
+la acción prometiera algo que la plataforma ya cortó — el mismo defecto con otra cara.
+
+**Los dos números viven en archivos que no se pueden compartir** —uno es CommonJS leído al
+construir, el otro TypeScript de tiempo de ejecución—, así que lo que impide que se separen es
+`lib/sig/__tests__/limite-paquete.test.ts`, que lee los dos y falla si dejan de decir lo mismo. Es
+la misma medicina que `despliegue-verificado.test.ts` usa con los comandos de verificación.
+Verificado por mutación en las dos direcciones: con el límite por debajo del techo se pone rojo, y
+sin la clave `experimental` —el estado original— también.
+
+**El cambio no surte efecto hasta reiniciar el servidor:** `next.config.js` es configuración de
+arranque.
+
 ---
 
 ## 5. Lo que no cambia
@@ -547,6 +606,70 @@ Recorrido (gestionar-leads 2004, 15 archivos, 3,1 MB):
 
 El paso **9** es el que justifica §4.B, y el **2** el que justifica §4.D. Ninguno de los dos se ve
 mirando la pantalla; hay que ir a buscarlos.
+
+### Lo ejecutado hasta ahora · 2026-09-22
+
+Cuatro de los diez pasos están cubiertos con evidencia, contra el paquete real subido a `CUR-003`
+en la base local (5432) y el `next dev` de `localhost:3000`. Los seis restantes necesitan un
+navegador y una persona, y quedan pendientes.
+
+**Paso 1 · subir el .zip migrado — ✅**
+
+```
+CUR-003 · Gestión de Leads
+  v1 · 2004 4th Edition · AUTOCONTENIDO · 13 archivos · 2.96 MB
+     entrada=index.html   dominios=[]   cursoExterno=null
+```
+
+Y esa subida prueba de paso §4.E: **2,96 MB entraron por una Server Action que antes cortaba en
+1 MB.**
+
+**Paso 2 · la bitácora no afirma una transferencia que no ocurre — ✅**
+
+```
+2026-09-22T02:55:41  paquete_scorm.alta
+   CUR-003 v1 · AUTOCONTENIDO · 2004 4th Edition
+```
+
+**Sin entrada `datos_a_tercero`**, con el `<a href>` a Dynamics todavía en `index.html:45`. El
+contraste está en la misma tabla: `CUR-002` es un despacho de verdad y declara
+`["https://my.coursebox.ai"]`. Es la verificación de §4.D sobre datos reales.
+
+**Paso 4 · el video se puede adelantar — ✅ en la capa HTTP**
+
+`curl` contra `127.0.0.1:3000`, paquete 2, `video/01-gestionar-leads.mp4` (2 252 992 bytes):
+
+```
+sin Range          200 · accept-ranges: bytes · content-length: 2252992 · CSP · ETag · nosniff
+bytes=100-199      206 · content-range: bytes 100-199/2252992 · content-length: 100 · CSP
+bytes=9999999-…    416 · content-range: bytes */2252992 · cache-control: no-store
+                       · content-type: text/plain · CSP
+```
+
+El `no-store` y el `text/plain` del 416 son los dos arreglos de §4.C confirmados en vivo.
+
+Y la comprobación que importa, porque el fallo de un rango mal leído **no lanza excepción** —
+sirve otros bytes—, byte a byte contra el archivo original:
+
+```
+bytes=100-199    sha 56932c96…  ==  local 56932c96…    IDÉNTICOS
+bytes=0-0        IDÉNTICOS (1 byte)
+bytes=-500       content-range: bytes 2252492-2252991/2252992   IDÉNTICOS (500 bytes)
+archivo entero   sha 9f5fef72…  ==  local 9f5fef72…    IDÉNTICOS (2 252 992 bytes)
+ETag             "9f5fef72…"  =  el sha256 del contenido real
+```
+
+El sufijo es el que vale: leerlo al revés sirve **el principio** del archivo cuando el reproductor
+pidió el final, que es donde un MP4 con el `moov` al final guarda su índice.
+
+**Pendientes, y por qué** — 3, 5, 6, 7, 8, 9 y 10 necesitan navegador: reproducir, desplazarse,
+responder y reabrir. El 9 se consulta en la base después del 8.
+
+> **Antes de correrlos hay que ajustar el contenido.** `CUR-003` quedó con
+> `exigeEvaluacion=false` y `notaMinima` vacía. Con eso la asignación cierra con la sola
+> completitud y `aprobado` queda en `null`: quien saque 20 sobre 100 termina igual de «realizado»
+> que quien saque 100, y el paso 8 no probaría lo que dice probar. Hay que marcar **exige
+> evaluación** y poner **nota mínima 80**, igual que el `MINIMO` del cuestionario.
 
 ---
 
