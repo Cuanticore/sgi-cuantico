@@ -17,6 +17,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { planDeEstandarizacion, type NivelCrudo } from '../lib/sig/fusion-niveles';
+import { aplicarPlan } from '../lib/sig/aplicar-fusion';
 import { planDeApagadoDeRaiz } from '../lib/sig/apagar-raiz';
 
 const connectionString = process.env.DATABASE_URL;
@@ -102,34 +103,19 @@ async function main(): Promise<void> {
     return;
   }
 
+  // **La escritura vive en `lib/sig/aplicar-fusion.ts`, no acá.** Estaba en este archivo hasta
+  // el 22/09/2026, y por eso producción era el único sitio donde este SQL se ejecutaba de
+  // verdad: un ejecutor enterrado en un script no se puede ejercer sin correr el script.
+  // `scripts/verificar-fusion.ts` corre EXACTAMENTE esta función contra una base efímera con la
+  // forma real del árbol. Si se copiara la lógica en vez de importarla, las dos se separarían y
+  // la que se queda corta seguiría dando verde.
   await prisma.$transaction(async (tx) => {
-    // Las fusiones primero, y en el orden del plan (grado 1 → 3): un hijo tiene que mudarse
-    // a un padre que ya sobrevivió, no a uno que está por absorberse.
-    for (const f of plan.fusiones) {
-      for (const absorbido of f.absorbe) {
-        await tx.nivelActivo.updateMany({
-          where: { padreId: absorbido },
-          data: { padreId: f.sobrevive },
-        });
-        await tx.activo.updateMany({
-          where: { nivelId: absorbido },
-          data: { nivelId: f.sobrevive },
-        });
-        // `producto.nivel_id` es @unique. El plan ya garantiza que no hay dos Producto en el
-        // grupo, así que este movimiento no puede chocar.
-        await tx.producto.updateMany({
-          where: { nivelId: absorbido },
-          data: { nivelId: f.sobrevive },
-        });
-        await tx.nivelActivo.update({ where: { id: absorbido }, data: { activo: false } });
-      }
-    }
-
-    // Los renombres al final: antes de fundir, dos nombres distintos son lo único que
-    // distingue a los dos nodos en los mensajes de arriba.
-    for (const r of plan.renombres) {
-      await tx.nivelActivo.update({ where: { id: r.id }, data: { nombre: r.a } });
-    }
+    await aplicarPlan(
+      tx,
+      plan,
+      async (padreId) =>
+        (await tx.nivelActivo.findMany({ where: { padreId }, select: { id: true } })).map((h) => h.id),
+    );
 
     if (apagado?.apagar !== null && apagado?.apagar !== undefined) {
       await tx.nivelActivo.update({ where: { id: apagado.apagar }, data: { activo: false } });
