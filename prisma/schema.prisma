@@ -3671,16 +3671,31 @@ model NivelActivo {
   @@map("nivel_activo")
 }
 
-/// **La identidad de un nivel vive en un indice que este esquema NO declara.**
+/// **La identidad de un nivel vive en un indice que este esquema NO PUEDE declarar.**
 ///
-/// `20260916200000_identidad_de_nivel` crea `nivel_activo_identidad` sobre
-/// (grado, nombre, padre_id) con `NULLS NOT DISTINCT`, y esa clausula es lo unico que hace
-/// que sirva: en Postgres los NULL son distintos entre si dentro de un indice unico, y las
-/// raices tienen `padre_id NULL`. Un `@@unique([grado, nombre, padreId])` de Prisma dejaria
-/// pasar dos raices con el mismo nombre, que es el caso que origino toda la correccion.
+/// `20260922180000_identidad_de_nivel_normalizada` crea `nivel_activo_identidad` sobre
+/// **(grado, upper(btrim(nombre)), padre_id)**, con `NULLS NOT DISTINCT` y **`WHERE activo`**.
+/// Prisma no sabe expresar ninguna de las tres cosas, asi que no hay `@@unique` equivalente:
+/// es un indice funcional, parcial, y con una clausula de NULL que el esquema no modela.
 ///
-/// No lo cambies por un `@@unique` «para que quede prolijo»: se veria igual y no protegeria
-/// nada. El nombre se escribe normalizado (`lib/sig/nombre-nivel.ts`).
+/// Las tres importan, y cada una por una cicatriz:
+///
+/// - **Funcional.** La version anterior indexaba el nombre LITERAL, y con ella convivieron
+///   `MONITOR` #13 y `Monitor` #127 bajo el mismo padre en produccion. Enderezar los nombres
+///   sin esto es un barrido: manana entra otro.
+/// - **`NULLS NOT DISTINCT`.** En Postgres los NULL son distintos entre si dentro de un indice
+///   unico, y las raices tienen `padre_id NULL`. Sin la clausula pasan dos raices con el mismo
+///   nombre, que es el caso `PRODUCTOS` / `Productos` que origino toda la correccion.
+/// - **`WHERE activo`.** Una fusion no borra: el nodo absorbido queda `activo = false`
+///   CONSERVANDO su nombre, que es lo unico que permite deshacerla. Sin el filtro, esas lapidas
+///   chocarian contra sus propios supervivientes y el indice no se podria aplicar nunca sin
+///   borrar la historia que la fusion guardo a proposito. **Una lapida no ocupa identidad.**
+///
+/// Las tildes SIGUEN distinguiendo: `CODIGO` y `CÓDIGO` son dos identidades. Unirlas obliga a
+/// elegir que ortografia sobrevive, y eso es una decision con dueno.
+///
+/// El nombre se escribe normalizado (`lib/sig/nombre-nivel.ts`); el indice es la red por si
+/// alguien escribe por otro camino.
 
 /// El VOCABULARIO de nombres de grado 3, por clase. Una decision, no un residuo.
 ///

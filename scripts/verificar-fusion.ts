@@ -114,6 +114,13 @@ async function main(): Promise<void> {
         );
       }
 
+      // La copia trae los ids explícitos, así que la secuencia se queda atrás y el primer
+      // INSERT sin id choca contra la clave primaria. Es un artefacto del montaje, no del
+      // código que se está probando: sin esto, el rojo acusaría al índice de algo que no hizo.
+      await destino.$executeRawUnsafe(
+        `SELECT setval(pg_get_serial_sequence('nivel_activo','id'), (SELECT MAX(id) FROM "nivel_activo"))`,
+      );
+
       const crudos: NivelCrudo[] = arbol.map((n) => ({
         id: n.id, grado: n.grado, nombre: n.nombre, padreId: n.padreId,
         clase: n.clase as NivelCrudo['clase'], activo: n.activo,
@@ -176,6 +183,39 @@ async function main(): Promise<void> {
 
       if (choques.length > 0 || sinNormalizar.length > 0) {
         fallo = 'la fusión terminó pero dejó el árbol sin estandarizar';
+      }
+
+      // ── LA RESTRICCIÓN QUE IMPIDE QUE VUELVA A ENSUCIARSE ──────────────────────────────
+      //
+      // Va acá y no en un script aparte porque necesita exactamente lo mismo: una base
+      // efímera con las migraciones puestas. Duplicar ese montaje sería duplicar la parte
+      // cara, y dos montajes parecidos se separan con el tiempo.
+      //
+      // Enderezar los 105 nombres es un barrido si nada impide que entre el 106. Hasta hoy
+      // `nivel_activo_identidad` indexaba el nombre LITERAL, y por eso `MONITOR` #13 y
+      // `Monitor` #127 convivieron bajo el mismo padre en producción sin que nada protestara.
+      const padre = despues.find((n) => n.grado === 2 && n.activo);
+      if (padre !== undefined) {
+        const meter = (nombre: string) =>
+          destino.$executeRawUnsafe(
+            'INSERT INTO "nivel_activo" (grado, nombre, padre_id, orden, activo) VALUES (3,$1,$2,99,true)',
+            nombre,
+            padre.id,
+          );
+        await meter('PRUEBA DE IDENTIDAD');
+        let rechazado = false;
+        try {
+          // Sólo cambia la caja. Si el índice mira el nombre literal, esto ENTRA.
+          await meter('Prueba De Identidad');
+        } catch {
+          rechazado = true;
+        }
+        console.log(`  Dos hermanos que sólo difieren en la caja: ${rechazado ? 'RECHAZADOS' : 'ACEPTADOS'}`);
+        if (!rechazado && fallo === null) {
+          fallo =
+            'el índice de identidad acepta dos hermanos que sólo difieren en la caja. ' +
+            'Con eso, enderezar los nombres es un barrido: mañana entra otro «Monitor».';
+        }
       }
     } finally {
       await destino.$disconnect();

@@ -104,15 +104,15 @@ intento 3  Aplicado: 4 fusión(es), 105 renombre(s), EMPRESA apagada.   EXIT 0
 - [ ] **5.4** `auditar-niveles.ts` §2 y §3 no distinguen activos de inactivos, así que después de
       una fusión exitosa el informe se lee como si quedara trabajo. Quien lo mire mañana sin este
       contexto va a creer que la fusión quedó a medias.
-- [ ] **1.6** 🔴 Prueba en rojo: un caso en `lib/sig/__tests__/` que exija que dos hermanos que sólo
+- [x] **1.6** 🔴 Prueba en rojo: un caso en `lib/sig/__tests__/` que exija que dos hermanos que sólo
       difieren en la caja sean rechazados. Falla porque hoy el índice es sobre el nombre literal.
-- [ ] **1.7** Migración que reemplaza `nivel_activo_identidad` por el índice funcional sobre
+- [x] **1.7** Migración que reemplaza `nivel_activo_identidad` por el índice funcional sobre
       `(grado, upper(btrim(nombre)), padre_id) NULLS NOT DISTINCT`. Comentario de cabecera que
       explique por qué `NULLS NOT DISTINCT`, por qué `upper(btrim(...))` y no la regla entera, y que
       **`verificar:migraciones` no puede detectar el fallo** porque corre sobre base vacía.
-- [ ] **1.8** Actualizar la nota de identidad de `prisma/schema.prisma` (~línea 3674), que hoy
+- [x] **1.8** Actualizar la nota de identidad de `prisma/schema.prisma` (~línea 3674), que hoy
       describe el índice anterior.
-- [ ] **1.9** `npm run verificar:migraciones` en limpio.
+- [x] **1.9** `npm run verificar:migraciones` en limpio.
 - [ ] **1.10** Correr `e2e/grafo.spec.ts` antes y después. Si cambia, es porque `MINTRACE` y
       `Mintrace` dejaron de ser dos. Anotar el cambio en el PR.
 
