@@ -64,10 +64,10 @@ catálogo de la 2.
       screenshot y falla porque el módulo no existe.
 - [x] **3.2** `lib/sig/catalogo-nivel-3.ts` — módulo puro, sin Prisma. Cubrir: sin Nivel 2 elegido;
       rama huérfana (`claseDeNivel` → `null`) devuelve sólo existentes; orden estable.
-- [ ] **3.3** 🔴 Prueba en rojo sobre `guardarDatosGenerales` con `{ tipo: 'nuevo' }`: crea el nodo
+- [x] **3.3** 🔴 Prueba en rojo sobre `guardarDatosGenerales` con `{ tipo: 'nuevo' }`: crea el nodo
       bajo el Nivel 2, es idempotente si ya existe, rechaza un nombre fuera del catálogo, rechaza un
       `nivel2Id` que no es de grado 2, y **no crea nada si la escritura del activo falla**.
-- [ ] **3.4** `guardarDatosGenerales` acepta la forma discriminada y resuelve-o-crea en la
+- [x] **3.4** `guardarDatosGenerales` acepta la forma discriminada y resuelve-o-crea en la
       transacción, con bitácora del alta y del cambio de `nivelId`. Manejo de P2002 → re-resolver.
 - [ ] **3.5** `JerarquiaActivo` en `FichaActivo.tsx` (~2287-2379): dos grupos en el selector,
       `Edicion` lleva la forma nueva. Conservar `conElegido`.

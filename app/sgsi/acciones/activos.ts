@@ -26,6 +26,7 @@ import {
   cargarCatalogos,
   type DatosOverlayActivo,
 } from '@/app/components/sgsi/activos/ficha.query';
+import { resolverNivel3 } from '@/lib/sig/catalogo-nivel-3';
 import { autorConPermiso, ejecutar, exigirId, idOpcional, type Resultado } from './sesion';
 
 /// Emite el siguiente código libre de la serie `PREFIJO-ABREV-NNNN` y deja el contador
@@ -199,6 +200,12 @@ export interface DatosGenerales {
   /// se derivan subiendo por `padreId`. Que acá solo entre un grado 3 es lo que impide que
   /// un activo quede colgado de media rama.
   nivelId?: number | null;
+  /// Un nombre del CATÁLOGO que la rama todavía no tiene. Se resuelve o se crea dentro de la
+  /// misma transacción que guarda el activo, y entonces pisa a `nivelId`.
+  ///
+  /// **No es un campo del activo y nunca llega a Prisma**: se desestructura antes de armar el
+  /// `update`, que recibe el objeto entero. Un campo de más ahí es una columna que no existe.
+  nivelNuevo?: { nivel2Id: number; nombre: string };
   datosCliente?: 'SI' | 'NO' | 'POR_DEFINIR';
   datosPersonales?: 'SI' | 'NO' | 'POR_DEFINIR';
   expuestoInternet?: 'SI' | 'NO' | 'POR_DEFINIR';
@@ -211,11 +218,16 @@ export interface DatosGenerales {
 /// transaction. The number left behind is retired and never reassigned.
 export async function guardarDatosGenerales(
   codigoActivo: string,
-  datos: DatosGenerales,
+  entrada: DatosGenerales,
   motivo?: string,
 ): Promise<Resultado & { codigoNuevo?: string }> {
   return ejecutar(async () => {
     const autor = await autorConPermiso('activo:valorar');
+
+    // `nivelNuevo` sale del objeto ACÁ y no más abajo: el `update` de Prisma recibe `datos`
+    // entero, así que cualquier campo que no sea columna lo tumba. Lo que queda en `datos` es,
+    // por construcción, lo que se puede escribir.
+    const { nivelNuevo, ...datos } = entrada;
     idOpcional(datos.areaId, 'el proceso o área');
     idOpcional(datos.tipoId, 'el tipo');
     idOpcional(datos.subtipoId, 'el subtipo');
@@ -241,6 +253,48 @@ export async function guardarDatosGenerales(
         const subtipo = await tx.subtipoMagerit.findUnique({ where: { id: subtipoFinal } });
         if (!subtipo || subtipo.tipoId !== tipoFinal) {
           throw new Error('El subtipo elegido no pertenece al tipo MAGERIT seleccionado.');
+        }
+      }
+
+      // INSTANCIAR UN NOMBRE DEL CATÁLOGO BAJO ESTA RAMA.
+      //
+      // Se resuelve acá dentro y no al elegir en la pantalla: la ficha tiene búfer de edición, y
+      // crear el nodo al abrir el selector dejaría un huérfano en el árbol —que el mapa y el
+      // grafo dibujan— cada vez que alguien mira y se arrepiente. Dentro de la transacción vale
+      // la propiedad que importa: **o el activo queda ubicado, o no pasó nada.** Un nodo cuyo
+      // activo no se guardó es basura que nadie va a limpiar.
+      //
+      // La decisión vive en `lib/sig/catalogo-nivel-3.ts` y acá sólo se ejecuta. El rechazo por
+      // nombre fuera del catálogo es lo que sostiene que esto corra con `activo:valorar`: se
+      // instancia vocabulario ya decidido, no se inventa taxonomía.
+      if (nivelNuevo !== undefined) {
+        const [niveles, catalogo] = await Promise.all([
+          tx.nivelActivo.findMany({
+            select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true },
+          }),
+          tx.catalogoNivel3.findMany({ select: { clase: true, nombre: true, orden: true } }),
+        ]);
+
+        const r = resolverNivel3(catalogo, niveles, nivelNuevo.nivel2Id, nivelNuevo.nombre);
+        if (r.accion === 'rechazar') throw new Error(r.motivo);
+
+        if (r.accion === 'usar') {
+          datos.nivelId = r.id;
+        } else {
+          // Si otro creó este mismo nombre entre el `findMany` de arriba y esta línea, el índice
+          // `nivel_activo_identidad` lo rechaza y la transacción entera se cae — el activo
+          // tampoco se guarda, que es justo lo que queremos. `ejecutar` devuelve el mensaje y
+          // volver a guardar resuelve: la segunda vez el nodo ya existe y se usa.
+          const creado = await tx.nivelActivo.create({
+            data: {
+              grado: 3,
+              nombre: r.nombre,
+              padreId: nivelNuevo.nivel2Id,
+              orden: niveles.filter((n) => n.padreId === nivelNuevo.nivel2Id).length + 1,
+            },
+          });
+          await registrarAlta(tx, autor, 'nivel_activo', String(creado.id));
+          datos.nivelId = creado.id;
         }
       }
 
@@ -295,7 +349,9 @@ export async function guardarDatosGenerales(
         }
       }
 
-      const campos: (keyof DatosGenerales)[] = [
+      // `keyof typeof datos` y no `keyof DatosGenerales`: `nivelNuevo` ya salió del objeto y no
+      // es una columna. Que el tipo lo diga evita que alguien lo agregue a esta lista.
+      const campos: (keyof typeof datos)[] = [
         'nombre',
         'descripcion',
         'areaId',

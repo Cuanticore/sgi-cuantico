@@ -15,7 +15,7 @@
 // guardan clase justamente para que un hijo no pueda contradecir a su padre, y esa regla no se
 // puede eludir acá sin reintroducir el problema en otro sitio.
 
-import { opcionesDeNivel3 } from '../catalogo-nivel-3';
+import { opcionesDeNivel3, resolverNivel3 } from '../catalogo-nivel-3';
 import type { Nivel } from '../niveles';
 
 const nivel = (
@@ -165,5 +165,91 @@ describe('opcionesDeNivel3', () => {
     const opciones = opcionesDeNivel3(CATALOGO, conAjeno, 135);
 
     expect(opciones).toContainEqual({ tipo: 'existente', id: 400, nombre: 'NOMBRE RETIRADO' });
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────────────────
+// La decisión que toma el servidor cuando alguien guardó eligiendo un nombre del catálogo.
+//
+// Va acá y no dentro de la server action a propósito, y es la misma separación que hay entre
+// `fusion-niveles.ts` y `scripts/estandarizar-niveles.ts`: **lo que se decide se prueba con
+// objetos literales; lo que se escribe se escribe en un solo sitio.** Metida en
+// `guardarDatosGenerales`, esta regla sólo sería comprobable mockeando media docena de tablas,
+// y el rechazo —que es la mitad que importa para el permiso— quedaría enterrado.
+// ───────────────────────────────────────────────────────────────────────────────────────────
+
+describe('resolverNivel3', () => {
+  it('usa el nodo que ya existe en la rama en vez de crear otro', () => {
+    // Idempotencia. Dos personas clasificando hacia INC / DOCUMENTACIÓN PRIVADA el mismo minuto
+    // es uso normal, no una carrera que haya que denunciar.
+    expect(resolverNivel3(CATALOGO, ARBOL, 135, 'DOCUMENTACIÓN PRIVADA')).toEqual({
+      accion: 'usar',
+      id: 136,
+    });
+  });
+
+  it('crea cuando el nombre está en el catálogo y la rama no lo tiene', () => {
+    // El caso del screenshot.
+    expect(resolverNivel3(CATALOGO, ARBOL, 135, 'CÓDIGO FUENTE')).toEqual({
+      accion: 'crear',
+      nombre: 'CÓDIGO FUENTE',
+    });
+  });
+
+  it('normaliza el nombre antes de decidir', () => {
+    // Lo que llega al servidor no lo acota la pantalla: cada export de un archivo `'use server'`
+    // es un punto de entrada invocable con la carga que sea.
+    expect(resolverNivel3(CATALOGO, ARBOL, 135, '  código   fuente  ')).toEqual({
+      accion: 'crear',
+      nombre: 'CÓDIGO FUENTE',
+    });
+  });
+
+  it('RECHAZA un nombre que no está en el catálogo de esa clase', () => {
+    // Es la línea entre instanciar e inventar, y es lo que sostiene que esto se pueda hacer con
+    // `activo:valorar`. Sin este rechazo, la ficha se convierte en una puerta trasera para
+    // ampliar el vocabulario sin `tecnologia:administrar`.
+    const r = resolverNivel3(CATALOGO, ARBOL, 135, 'LO QUE SE ME OCURRA');
+
+    expect(r.accion).toBe('rechazar');
+    expect(r).toMatchObject({ motivo: expect.stringContaining('/tecnologia/niveles') });
+  });
+
+  it('RECHAZA un nombre del catálogo de OTRA clase', () => {
+    // PERSONAS es vocabulario de EMPRESA. Bajo un proyecto no significa nada, y aceptarlo por
+    // estar «en el catálogo» a secas volvería el catálogo global de hecho.
+    expect(resolverNivel3(CATALOGO, ARBOL, 135, 'PERSONAS').accion).toBe('rechazar');
+  });
+
+  it('RECHAZA un Nivel 2 que no es de grado 2', () => {
+    // E1 · la llave foránea no sabe de grados, así que lo dice el servidor.
+    expect(resolverNivel3(CATALOGO, ARBOL, 3, 'CÓDIGO FUENTE').accion).toBe('rechazar');
+    expect(resolverNivel3(CATALOGO, ARBOL, 136, 'CÓDIGO FUENTE').accion).toBe('rechazar');
+  });
+
+  it('RECHAZA un Nivel 2 inexistente o inactivo', () => {
+    const conInactivo = [...ARBOL, nivel(800, 2, 'APAGADO', 3, { activo: false })];
+
+    expect(resolverNivel3(CATALOGO, ARBOL, 9999, 'CÓDIGO FUENTE').accion).toBe('rechazar');
+    expect(resolverNivel3(CATALOGO, conInactivo, 800, 'CÓDIGO FUENTE').accion).toBe('rechazar');
+  });
+
+  it('RECHAZA una rama sin clase alcanzable', () => {
+    // Sin raíz con clase no hay catálogo contra el cual comprobar, y dejar pasar el nombre sería
+    // decidir sin haber verificado. La rama rota se arregla en `/tecnologia/niveles`.
+    const roto = [...ARBOL, nivel(900, 2, 'HUÉRFANO', 999)];
+
+    expect(resolverNivel3(CATALOGO, roto, 900, 'CÓDIGO FUENTE').accion).toBe('rechazar');
+  });
+
+  it('un homónimo INACTIVO en la rama no se reutiliza: se crea de nuevo', () => {
+    // Reutilizarlo devolvería un id que `guardarDatosGenerales` rechaza dos líneas después por
+    // inactivo, con un mensaje que no habla de esto.
+    const conInactivo = [...ARBOL, nivel(300, 3, 'CÓDIGO FUENTE', 135, { activo: false })];
+
+    expect(resolverNivel3(CATALOGO, conInactivo, 135, 'CÓDIGO FUENTE')).toEqual({
+      accion: 'crear',
+      nombre: 'CÓDIGO FUENTE',
+    });
   });
 });

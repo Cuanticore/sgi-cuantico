@@ -121,12 +121,23 @@ Elegir en el selector MUST NOT escribir nada.
 - THEN tampoco queda el nodo creado
 - AND un nodo cuyo activo no se guardó es basura que nadie va a limpiar
 
-#### Scenario: Otro lo creó en el intermedio
+#### Scenario: Otro lo creó antes de que yo guardara
 
-- GIVEN dos personas clasificando activos hacia `INC / CÓDIGO FUENTE` al mismo tiempo
-- WHEN la segunda guarda y el `create` choca contra `nivel_activo_identidad`
-- THEN la acción vuelve a resolver el nodo y usa el que ganó
-- AND las dos personas terminan con su activo ubicado, sin ver ningún error
+- GIVEN que `INC / CÓDIGO FUENTE` ya existe cuando se guarda el segundo activo
+- WHEN la acción resuelve
+- THEN **usa el nodo que está** y no crea un segundo
+- AND es el caso corriente: dos activos de la misma rama se clasifican uno detrás del otro
+
+#### Scenario: Otro lo creó en el mismo instante
+
+- GIVEN dos guardados que resuelven `crear` sobre el mismo nombre y la misma rama a la vez
+- WHEN el segundo `create` choca contra `nivel_activo_identidad`
+- THEN la transacción entera se revierte: **ni el nivel ni el activo quedan guardados**
+- AND la persona ve el mensaje y volver a guardar resuelve, porque la segunda vez el nodo ya
+  existe y se usa
+- AND **la acción NO reintenta sola**: el guardado puede haber reemitido el código del activo, y
+  repetir la transacción quemaría un consecutivo y duplicaría renglones de bitácora. La
+  atomicidad se conserva; el reintento es de la persona, con un mensaje que lo dice.
 
 #### Scenario: El nombre se normaliza antes de resolver
 

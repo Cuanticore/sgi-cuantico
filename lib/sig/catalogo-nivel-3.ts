@@ -75,3 +75,74 @@ export function opcionesDeNivel3(
 
   return [...existentes, ...nuevos];
 }
+
+/// Lo que el servidor tiene que HACER cuando alguien guardó eligiendo un nombre del catálogo.
+export type ResolucionNivel3 =
+  /// Ya existe en la rama. No se crea nada.
+  | { accion: 'usar'; id: number }
+  /// Hay que crearlo bajo el Nivel 2, con este nombre ya normalizado.
+  | { accion: 'crear'; nombre: string }
+  /// No se puede, y el motivo se le muestra a la persona.
+  | { accion: 'rechazar'; motivo: string };
+
+/// **Decide, no escribe.** Misma separación que hay entre `fusion-niveles.ts` y
+/// `scripts/estandarizar-niveles.ts`: lo que se decide se prueba con objetos literales, y lo que
+/// se escribe se escribe en un solo sitio y dentro de la transacción que guarda el activo.
+///
+/// **El rechazo es la mitad que importa.** Esta resolución corre con `activo:valorar`, que es el
+/// permiso de la ficha, y no con `tecnologia:administrar`. Lo que la hace aceptable es que sólo
+/// puede INSTANCIAR vocabulario ya decidido: decir que INC también tiene código fuente no inventa
+/// nada, porque la organización ya decidió que `CÓDIGO FUENTE` existe. Sin el rechazo, la ficha
+/// sería una puerta trasera para ampliar la taxonomía sin el permiso que la protege.
+export function resolverNivel3(
+  catalogo: readonly EntradaCatalogo[],
+  niveles: readonly Nivel[],
+  nivel2Id: number,
+  nombreCrudo: string,
+): ResolucionNivel3 {
+  const nivel2 = niveles.find((n) => n.id === nivel2Id);
+  if (nivel2 === undefined) return { accion: 'rechazar', motivo: 'El nivel 2 elegido no existe.' };
+  // E1 · la llave foránea no sabe de grados, así que lo dice el servidor. Aceptar un grado 1 o 3
+  // acá colgaría un grado 3 de donde no va y dejaría la jerarquía diciendo dos cosas.
+  if (nivel2.grado !== 2) {
+    return {
+      accion: 'rechazar',
+      motivo: `El nivel 3 cuelga de un nivel 2. «${nivel2.nombre}» es de grado ${nivel2.grado}.`,
+    };
+  }
+  if (!nivel2.activo) return { accion: 'rechazar', motivo: `«${nivel2.nombre}» está inactivo.` };
+
+  const clase = claseDeNivel(nivel2Id, niveles);
+  if (clase === null) {
+    // Sin raíz con clase no hay catálogo contra el cual comprobar, y dejar pasar el nombre sería
+    // decidir sin haber verificado. La rama rota se arregla donde se arreglan las ramas.
+    return {
+      accion: 'rechazar',
+      motivo: `«${nivel2.nombre}» no cuelga de ninguna raíz con clase: la rama está rota y hay que repararla en /tecnologia/niveles.`,
+    };
+  }
+
+  const nombre = normalizarNombreNivel(nombreCrudo);
+  const enCatalogo = catalogo.find(
+    (c) => c.clase === clase && normalizarNombreNivel(c.nombre) === nombre,
+  );
+  if (enCatalogo === undefined) {
+    return {
+      accion: 'rechazar',
+      motivo: `«${nombre}» no está en el vocabulario de ${clase}. Agregarlo es una decisión de la taxonomía y se hace en /tecnologia/niveles.`,
+    };
+  }
+
+  // Un homónimo INACTIVO no se reutiliza: devolver su id daría un nivel que el guardado rechaza
+  // dos pasos después por inactivo, con un mensaje que no habla de esto.
+  const yaEsta = niveles.find(
+    (n) =>
+      n.grado === 3 &&
+      n.padreId === nivel2Id &&
+      n.activo &&
+      normalizarNombreNivel(n.nombre) === nombre,
+  );
+  if (yaEsta !== undefined) return { accion: 'usar', id: yaEsta.id };
+
+  return { accion: 'crear', nombre };
+}
