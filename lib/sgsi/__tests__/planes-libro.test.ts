@@ -174,6 +174,14 @@ describe('construirLibroPlanes · hoja «Riesgos altos»', () => {
         'producir. Este filtro NO depende del filtro de la pantalla.',
     );
   });
+
+  // Sin este test la palabra para «no declarada» quedaba fijada sólo leyendo el código —
+  // exactamente lo que la Regla 1 no acepta. `RIESGO_SIN_PLAN` ya trae `criticidad: null`.
+  it('un criticidad null sale como «sin clasificar»', async () => {
+    const wb = await construirLibroPlanes([RIESGO_SIN_PLAN], [], CTX);
+    const hoja = wb.getWorksheet('Riesgos altos')!;
+    expect(hoja.getCell(4, 9).value).toBe('sin clasificar');
+  });
 });
 
 describe('construirLibroPlanes · hoja «Planes de tratamiento»', () => {
@@ -205,6 +213,19 @@ describe('construirLibroPlanes · hoja «Planes de tratamiento»', () => {
     expect(hoja.getCell(4, 5).value).toBe(1);
     expect(hoja.getCell(4, 6).value).toBe(3);
     expect(hoja.getCell(4, 7).value).toBe(2);
+  });
+
+  // Igual doctrina que las tres columnas de madurez del plan sin control: una `madurezAlcanzada`
+  // en cero afirmaría que la verificación midió cero, y lo que pasa es que todavía no hay
+  // verificación que reportar. La aserción negativa es la que de verdad prueba algo — sin ella,
+  // un `0` habría pasado la positiva igual de bien si sólo se comprobara con `==`.
+  it('una madurezAlcanzada null deja la celda vacía, no en cero', async () => {
+    const wb = await construirLibroPlanes([], [PLAN_SIN_CONTROL], CTX);
+    const hoja = wb.getWorksheet('Planes de tratamiento')!;
+    const celda = hoja.getCell(4, 14);
+    expect(celda.value == null).toBe(true);
+    expect(celda.value).not.toBe(0);
+    expect(celda.value).not.toBe('—');
   });
 
   it('los null de texto salen como «—»', async () => {
