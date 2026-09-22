@@ -28,6 +28,7 @@ import {
   type PrefillPlanesActivo,
 } from '@/app/sgsi/acciones/plan';
 import { agruparAmenazasEnPlanes } from '@/lib/sgsi/planes-por-amenaza';
+import { esAmenazaAlarmanteSinPlan } from '@/lib/sgsi/alto-sin-plan';
 import type { TipoAccion } from '@prisma/client';
 
 interface Props {
@@ -273,8 +274,17 @@ export default function PopupPlanesActivo({ activoCodigo, onCerrar, onRegistrado
               <tbody>
                 {prefill.amenazas.map((a) => {
                   const bloqueada = a.planExistente !== null;
+                  const alarmante = esAmenazaAlarmanteSinPlan({
+                    banda: a.bandaResidual,
+                    tienePlan: a.planExistente !== null,
+                  });
                   return (
-                    <tr key={a.amenazaCodigo} className="border-b border-hairline-faint">
+                    <tr
+                      key={a.amenazaCodigo}
+                      className="border-b border-hairline-faint"
+                      style={alarmante ? { backgroundColor: 'var(--hf-danger-bg)' } : undefined}
+                      title={alarmante ? `Residual ${a.bandaResidual} y sin plan registrado` : undefined}
+                    >
                       <td className="py-1.5 text-center">
                         <input
                           type="checkbox"
@@ -312,7 +322,12 @@ export default function PopupPlanesActivo({ activoCodigo, onCerrar, onRegistrado
                           <span className="font-semibold text-warn-text">{a.brecha}</span>
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-secondary">{a.bandaResidual ?? '—'}</td>
+                      <td
+                        className={`px-2 py-1.5 ${alarmante ? 'font-semibold' : 'text-secondary'}`}
+                        style={alarmante ? { color: 'var(--hf-danger-text)' } : undefined}
+                      >
+                        {a.bandaResidual ?? '—'}
+                      </td>
                       <td className="px-2 py-1.5">
                         {a.planExistente === null ? (
                           <span className="text-faint">—</span>
