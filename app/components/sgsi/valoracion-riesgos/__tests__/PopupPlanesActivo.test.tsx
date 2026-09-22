@@ -6,7 +6,7 @@
 // `app/components/sgsi/activos/__tests__/PopupPlanCritico.test.tsx`, que resuelve el mismo
 // problema (el popup importa `next/cache` a través de la server action).
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import PopupPlanesActivo from '../PopupPlanesActivo';
 import { datosPrefillPlanesActivo, registrarPlanesActivo } from '@/app/sgsi/acciones/plan';
 
@@ -63,5 +63,17 @@ describe('PopupPlanesActivo — acento de alto sin plan', () => {
 
     expect(filaSinPlan).toHaveAttribute('title', 'Residual Alto y sin plan registrado');
     expect(filaConPlan).not.toHaveAttribute('title');
+  });
+
+  it('la fila marcada expone el aviso como texto —no sólo como title ni como color—; la que tiene plan no', async () => {
+    render(<PopupPlanesActivo activoCodigo="TEC-GEN-0004" onCerrar={() => {}} />);
+
+    await waitFor(() => expect(screen.getByText('A.10')).toBeInTheDocument());
+
+    const filaSinPlan = screen.getByText('A.10').closest('tr') as HTMLElement;
+    const filaConPlan = screen.getByText('A.20').closest('tr') as HTMLElement;
+
+    expect(within(filaSinPlan).getByText('sin plan registrado', { exact: false })).toBeInTheDocument();
+    expect(within(filaConPlan).queryByText('sin plan registrado', { exact: false })).not.toBeInTheDocument();
   });
 });

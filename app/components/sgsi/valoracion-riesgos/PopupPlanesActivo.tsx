@@ -276,7 +276,7 @@ export default function PopupPlanesActivo({ activoCodigo, onCerrar, onRegistrado
                   const bloqueada = a.planExistente !== null;
                   const alarmante = esAmenazaAlarmanteSinPlan({
                     banda: a.bandaResidual,
-                    tienePlan: a.planExistente !== null,
+                    tienePlan: bloqueada,
                   });
                   return (
                     <tr
@@ -327,6 +327,7 @@ export default function PopupPlanesActivo({ activoCodigo, onCerrar, onRegistrado
                         style={alarmante ? { color: 'var(--hf-danger-text)' } : undefined}
                       >
                         {a.bandaResidual ?? '—'}
+                        {alarmante && <span className="sr-only"> · sin plan registrado</span>}
                       </td>
                       <td className="px-2 py-1.5">
                         {a.planExistente === null ? (
