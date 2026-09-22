@@ -113,8 +113,11 @@ intento 3  Aplicado: 4 fusión(es), 105 renombre(s), EMPRESA apagada.   EXIT 0
 - [x] **1.8** Actualizar la nota de identidad de `prisma/schema.prisma` (~línea 3674), que hoy
       describe el índice anterior.
 - [x] **1.9** `npm run verificar:migraciones` en limpio.
-- [ ] **1.10** Correr `e2e/grafo.spec.ts` antes y después. Si cambia, es porque `MINTRACE` y
-      `Mintrace` dejaron de ser dos. Anotar el cambio en el PR.
+- [x] **1.10** Correr `e2e/grafo.spec.ts` antes y después. **HECHO: `1 passed (20,0 s)`. NO se
+      movió.** El paso 8 deriva sus dos números de la pantalla y el 11 sólo anota el texto, así
+      que la fusión no los toca. *(Revisado por indicadores-40 antes de aplicar, y confirmado
+      después.)* El filo de 5.1.b sigue en pie para el futuro: quedan 4 activos sin nivel en
+      producción y 2 en local, y ese paso depende de que existan.
 
 ## Fase 2 · El catálogo
 
