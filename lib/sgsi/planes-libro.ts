@@ -16,12 +16,22 @@
 // base: hoy hay CERO riesgos en banda Crítico. Pero OJO — no es que la escala lo impida.
 // `lib/sgsi/__tests__/eficacia-agregada.test.ts:100-105` calcula un residual de 25.60 y de
 // 28.80 con la MISMA escala, y ambos caen en Crítico: la banda existe y el modelo la puede
-// producir. Lo que hoy no hay son PARES `ControlAmenaza` con `relevanciaId` asignado —los 272
-// del catálogo siguen sin ninguno—, así que ninguna amenaza tiene declarado un control
-// principal y esa cuenta nunca dispara con datos reales. Es trabajo pendiente conocido, no una
-// ley de la escala. El día que el líder del SIG asigne la primera relevancia puede aparecer un
-// Crítico, y esta hoja tiene que poder decirlo sin haber prometido lo contrario — por eso la
-// nota de la fila 2 dice sólo «ninguno tiene» y no «no puede haber».
+// producir. Lo que hoy no hay es un control PRINCIPAL en madurez baja: el más flojo de los 57
+// designados está en 50 %, que deja el residual en 12.80 —Alto—, y llegar a Crítico exigiría
+// uno al 10 % o al 0 %. Es un estado de los datos, no una ley de la escala: el día que se
+// evalúe un principal flojo —o que uno decaiga— puede aparecer un Crítico, y esta hoja tiene
+// que poder decirlo sin haber prometido lo contrario. Por eso la nota de la fila 2 dice sólo
+// «ninguno tiene» y no «no puede haber».
+//
+// ESTA EXPLICACIÓN VA POR SU TERCERA VERSIÓN, Y LAS DOS ANTERIORES ERAN FALSAS. La primera
+// decía que la escala no permitía llegar a Crítico. La segunda culpaba a los 272 pares de
+// `ControlAmenaza` por no tener `relevanciaId`: los tienen todos, 57 como principal, y esa
+// afirmación salía de un comentario obsoleto de `lib/sgsi/analisis-riesgos.ts`.
+//
+// El reparto de madurez de los 57, medido con psql el 2026-09-22: 8 en 50 %, 30 en 70 %, 19 en
+// 90 %. **Es un conteo vivo y por eso lleva fecha.** Un conteo sin fecha dentro de un comentario
+// se pudre sin que nadie lo toque, y las dos versiones falsas de arriba nacieron exactamente
+// así. Si vas a decidir algo con esta cifra, vuelve a medirla.
 
 import ExcelJS from 'exceljs';
 import { colorDeNivel, type NivelRiesgo } from './riesgo-activo';

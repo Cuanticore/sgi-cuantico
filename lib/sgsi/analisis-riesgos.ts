@@ -110,8 +110,7 @@ export interface RiesgoAnalizable {
   /// amenazas que degradan D, y una que sólo degrada C no recibe exigencia de ella.
   degradacion: { D: number; I: number; C: number };
   /// El control PRINCIPAL de la amenaza. `undefined` = la amenaza no tiene principal
-  /// designado — hoy, las 57, porque los 272 pares de `ControlAmenaza` siguen con
-  /// `relevanciaId` en null. `nivel: null` = lo tiene y nadie lo evaluó.
+  /// designado. `nivel: null` = lo tiene y nadie lo evaluó.
   ///
   /// Que sea opcional y no un `| null` es deliberado: `undefined` y `null` significan cosas
   /// distintas y `evaluarBrecha` las distingue. Colapsarlas produciría el «tablero que
