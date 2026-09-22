@@ -25,6 +25,7 @@ import {
   repartirPorBanda,
   ubicarRiesgo,
   type ColumnaFrecuencia,
+  type ColumnaSinAnalizar,
   type FilaImpacto,
 } from '@/lib/sgsi/matriz-clasica';
 
@@ -41,6 +42,10 @@ export interface ActivoVista {
   proceso: number;
   responsable: number;
   categoria: number;
+  /// El valor propio del activo — el máximo de sus dimensiones, escala 0-5. Es lo que lo
+  /// ubica en la columna «sin analizar» cuando no tiene ningún riesgo: no hay frecuencia,
+  /// pero sí banda de impacto. `null` cuando el activo no está valorado.
+  valor: number | null;
 }
 
 export interface AmenazaVista {
@@ -79,6 +84,10 @@ interface Props {
   columnas: ColumnaFrecuencia[];
   bandas: BandaVista[];
   sinUbicar: number;
+  /// El valor a partir del cual un activo entra al análisis de riesgos (`entraAlAnalisis`).
+  /// Es la razón por la que la mayoría del inventario no tiene riesgos, y la pantalla la
+  /// dice con su número en vez de mandar a buscarlo. `null` si el parámetro no existe.
+  umbralValoracion: number | null;
 }
 
 type Matriz = 'inherente' | 'residual';
@@ -91,6 +100,12 @@ type Matriz = 'inherente' | 'residual';
 /// comité. La regla de agregación —el peor, no el promedio— es la misma del inventario y de
 /// la página de análisis, para que un activo no aparezca en Alto en una pantalla y en Medio
 /// en la otra.
+///
+/// En «activos» el universo es el INVENTARIO del filtro —378 activos—, no los 30 que superan
+/// el umbral de valoración y por eso tienen riesgos. Contar sólo los 30 contesta «cuántos
+/// activos analizamos» con la etiqueta «cuántos activos hay». Los otros 348 no caben en la
+/// rejilla —sin amenaza evaluada no hay frecuencia—, pero sí tienen valor propio, y con él
+/// se dibujan en la columna «Sin analizar».
 type Unidad = 'amenazas' | 'activos';
 
 interface Celda {
@@ -99,13 +114,31 @@ interface Celda {
   j: number;
 }
 
+/// La columna «sin analizar», como valor de `j`.
+///
+/// Un centinela y no un campo más en `Celda`: la selección viaja como (matriz, i, j) por
+/// toda la pantalla, y agregar un booleano obligaría a revisar cada comparación —incluida la
+/// de «¿es la misma casilla que ya estaba abierta?»—. −1 no puede colisionar con una columna
+/// de frecuencia, que siempre es un índice válido del eje.
+const SIN_ANALIZAR = -1;
+
 /// Lo que `TarjetaMatriz` necesita para dibujar, sea de amenazas o de activos.
 interface Rejilla {
   conteos: number[][];
   bandas: (string | null)[][];
   bandasZona: (string | null)[][];
+  /// Lo que la tarjeta PRESENTA. En activos es el inventario del filtro entero; en amenazas,
+  /// los riesgos que la rejilla ubica, que ahí es lo mismo.
   total: number;
+  /// Lo que la rejilla DIBUJA. En activos puede ser menor que `total`.
+  ubicados: number;
   reparto: { nombre: string; n: number }[];
+  /// Sólo en activos: los del filtro sin ningún riesgo valorado. Se cuentan en `total` y se
+  /// declaran en el pie, pero no caen en ninguna casilla de la rejilla.
+  sinRiesgo: number;
+  /// Sólo en activos: la columna aparte, con los que la rejilla no ubica puestos en la fila
+  /// de su propio valor. `null` en amenazas, donde no hay valor propio que ubique nada.
+  sinAnalizar: ColumnaSinAnalizar | null;
 }
 
 /// Severity ramp, most severe first. Indexed by the band's position in umbral_riesgo
@@ -171,6 +204,7 @@ export default function MatricesRiesgo({
   columnas,
   bandas,
   sinUbicar,
+  umbralValoracion,
 }: Props) {
   const [filtro, setFiltro] = useState(TODOS);
   const [unidad, setUnidad] = useState<Unidad>('amenazas');
@@ -217,6 +251,37 @@ export default function MatricesRiesgo({
     return salida;
   }, [filas, activos, filtro]);
 
+  // El inventario del filtro: TODOS los activos que pasan los mismos tres cortes, tengan
+  // riesgo valorado o no. Es el universo de la matriz de activos.
+  //
+  // El responsable se mira acá sólo en el activo. A nivel de riesgo existe un override, y
+  // un activo cuyo riesgo lo tenga puesto entra por la puerta del riesgo aunque su propio
+  // responsable sea otro: `matrizDeActivos` cuenta a los dos y por eso no se pierde ninguno.
+  const activosFiltrados = useMemo(() => {
+    const salida: ActivoVista[] = [];
+    for (const a of activos) {
+      if (filtro.proceso >= 0 && a.proceso !== filtro.proceso) continue;
+      if (filtro.responsable >= 0 && a.responsable !== filtro.responsable) continue;
+      if (filtro.categoria >= 0 && a.categoria !== filtro.categoria) continue;
+      salida.push(a);
+    }
+    return salida;
+  }, [activos, filtro]);
+
+  // Lo que `matrizDeActivos` necesita de cada uno: su código y su valor propio.
+  const presentados = useMemo(
+    () => activosFiltrados.map((a) => ({ codigo: a.codigo, valor: a.valor })),
+    [activosFiltrados],
+  );
+
+  // Del código al activo, para que el detalle de la columna pueda mostrar nombre, proceso y
+  // responsable sin recorrer el catálogo por cada fila.
+  const porCodigo = useMemo(() => {
+    const mapa = new Map<string, ActivoVista>();
+    for (const a of activos) if (!mapa.has(a.codigo)) mapa.set(a.codigo, a);
+    return mapa;
+  }, [activos]);
+
   // --- Buckets ------------------------------------------------------------------------
   //
   // Las dos rejillas las cuenta `contarMatriz`, la misma función que imprime el informe de
@@ -234,29 +299,56 @@ export default function MatricesRiesgo({
   // mismas dependencias en vez de invalidarlos al cambiar de unidad.
   const deAmenazas = useMemo(
     () =>
-      (['inherente', 'residual'] as const).map((cara) => ({
-        ...contarMatriz(filtradas, cara, filasImpacto, columnas, bandas),
-        reparto: repartirPorBanda(filtradas, cara, bandas),
-        // Las amenazas no colocan códigos de activo en la casilla: el detalle sale del
-        // recorrido por coordenadas, más abajo.
-        indices: null,
-      })),
+      (['inherente', 'residual'] as const).map((cara) => {
+        const m = contarMatriz(filtradas, cara, filasImpacto, columnas, bandas);
+        return {
+          ...m,
+          // Un riesgo que entra al filtro siempre tiene sus dos cifras, así que acá el
+          // universo y lo dibujado son lo mismo y no hay nadie que declarar aparte.
+          ubicados: m.total,
+          sinRiesgo: 0,
+          // Una amenaza no tiene valor propio que la ubique fuera de la rejilla: la columna
+          // aparte es de activos y acá no existe.
+          sinAnalizar: null,
+          reparto: repartirPorBanda(filtradas, cara, bandas),
+          // Las amenazas no colocan códigos de activo en la casilla: el detalle sale del
+          // recorrido por coordenadas, más abajo.
+          indices: null,
+        };
+      }),
     [filtradas, filasImpacto, columnas, bandas],
   );
   const deActivos = useMemo(
     () =>
       (['inherente', 'residual'] as const).map((cara) => {
-        const m = matrizDeActivos(filtradas, cara, filasImpacto, columnas, bandas);
-        return { ...m, sinResidual: cara === 'residual' ? m.sinUbicar : 0 };
+        const m = matrizDeActivos(
+          filtradas,
+          cara,
+          filasImpacto,
+          columnas,
+          bandas,
+          presentados,
+        );
+        // `sinUbicar` se reparte en las dos causas que lo producen, con los mismos nombres
+        // que ya usa `contarMatriz`: así las dos rejillas tienen la misma forma y el aviso
+        // del pie no necesita saber cuál de las dos está mirando.
+        return {
+          ...m,
+          sinImpacto: cara === 'inherente' ? m.sinUbicar : 0,
+          sinResidual: cara === 'residual' ? m.sinUbicar : 0,
+        };
       }),
-    [filtradas, filasImpacto, columnas, bandas],
+    [filtradas, filasImpacto, columnas, bandas, presentados],
   );
 
   const rejillas = unidad === 'amenazas' ? deAmenazas : deActivos;
   const matrizInherente = rejillas[0];
   const matrizResidual = rejillas[1];
 
-  const conResidual = matrizResidual.total;
+  // Si la residual se dibuja o no lo decide lo que la rejilla UBICA, no lo que la tarjeta
+  // presenta: con 348 activos sin riesgo valorado, un total mayor que cero no significa que
+  // haya una sola casilla que dibujar.
+  const conResidual = matrizResidual.ubicados;
 
   // --- Drill-down ----------------------------------------------------------------------
   //
@@ -266,7 +358,7 @@ export default function MatricesRiesgo({
   // la resuelve `matrizDeActivos`; recalcular acá el máximo por activo sería una segunda
   // cuenta sobre el mismo dato, y esa segunda cuenta es la que termina discrepando.
   const filasCelda = useMemo(() => {
-    if (celda === null) return [];
+    if (celda === null || celda.j === SIN_ANALIZAR) return [];
     const m = celda.matriz === 'inherente' ? rejillas[0] : rejillas[1];
     if (m.indices !== null) {
       return (m.indices[celda.i]?.[celda.j] ?? []).map((p) => indicesFiltrados[p]);
@@ -277,6 +369,16 @@ export default function MatricesRiesgo({
       return (celda.matriz === 'inherente' ? c.inherente : c.residual) === celda.j;
     });
   }, [celda, rejillas, indicesFiltrados, coordenadas]);
+
+  // Los activos de una casilla de la columna aparte. Salen de `matrizDeActivos`, que es
+  // quien decidió la fila de cada uno; volver a clasificar acá el valor sería una segunda
+  // cuenta sobre el mismo dato, y esa segunda cuenta es la que termina discrepando.
+  const activosCelda = useMemo(() => {
+    if (celda === null || celda.j !== SIN_ANALIZAR) return [];
+    const m = celda.matriz === 'inherente' ? rejillas[0] : rejillas[1];
+    const codigos = m.sinAnalizar?.codigos[celda.i] ?? [];
+    return codigos.map((c) => porCodigo.get(c)).filter((a): a is ActivoVista => a !== undefined);
+  }, [celda, rejillas, porCodigo]);
 
   // --- Ten threats with the most high and critical risks ---------------------------------
   //
@@ -310,6 +412,64 @@ export default function MatricesRiesgo({
   const hayFiltro =
     filtro.proceso >= 0 || filtro.responsable >= 0 || filtro.categoria >= 0;
 
+  /// Quién queda fuera de la rejilla y por qué, en una frase por causa.
+  ///
+  /// Son dos causas distintas y se corrigen distinto: al activo SIN RIESGO le falta que
+  /// alguien le evalúe una amenaza; al activo SIN RESIDUAL le falta la madurez de un control
+  /// de una amenaza que ya tiene. Juntarlas en «N activos quedan fuera» obligaría a quien
+  /// lee a adivinar cuál de los dos trabajos pendientes es el suyo.
+  const avisoDe = (m: {
+    sinRiesgo: number;
+    sinImpacto: number;
+    sinResidual: number;
+    sinAnalizar: ColumnaSinAnalizar | null;
+  }): string | undefined => {
+    const partes: string[] = [];
+    if (porActivos && m.sinRiesgo > 0) {
+      const uno = m.sinRiesgo === 1;
+      // Cuántos de ellos son GRAVES por su propio valor. Es lo que un comité busca en esta
+      // columna, y decir sólo «348 quedan fuera» lo esconde: la cifra que importa no es
+      // cuántos son, es cuántos de ellos pesan. Sale de las dos peores bandas del eje de
+      // impacto, sin nombrarlas a mano, para que reparametrizar la escala no la tuerza.
+      const graves =
+        m.sinAnalizar === null
+          ? 0
+          : m.sinAnalizar.conteos.slice(0, 2).reduce((a, b) => a + b, 0);
+      const nombresGraves = filasImpacto
+        .slice(0, 2)
+        .map((f) => f.nombre.toLowerCase())
+        .join(' o ');
+      partes.push(
+        `${miles(m.sinRiesgo)} ${uno ? 'activo' : 'activos'} del filtro no ${
+          uno ? 'alcanza' : 'alcanzan'
+        } el umbral de valoración${
+          umbralValoracion === null ? '' : ` (${cifra(umbralValoracion)})`
+        }, así que el motor no ${uno ? 'le' : 'les'} generó riesgos y no ${
+          uno ? 'tiene' : 'tienen'
+        } frecuencia. ${uno ? 'Va' : 'Van'} en la columna «Sin analizar», en la fila de su propio valor${
+          graves > 0
+            ? `: ${miles(graves)} ${graves === 1 ? 'es' : 'son'} de impacto ${nombresGraves}`
+            : ''
+        }.`,
+      );
+    }
+    if (porActivos && m.sinImpacto > 0) {
+      partes.push(
+        `${miles(m.sinImpacto)} activos del filtro tienen riesgos, pero ninguno con el impacto calculado.`,
+      );
+    }
+    if (m.sinResidual > 0) {
+      partes.push(
+        porActivos
+          ? `${miles(m.sinResidual)} activos del filtro tienen riesgos, pero ninguno con el residual calculado.`
+          : `${miles(m.sinResidual)} de ${miles(
+              indicesFiltrados.length,
+            )} riesgos del filtro quedan fuera de esta matriz: su eficacia todavía es desconocida.`,
+      );
+    }
+    return partes.length === 0 ? undefined : partes.join(' ');
+  };
+
   const seleccionar = (matriz: Matriz, i: number, j: number, n: number) => {
     if (n === 0) {
       setCelda(null);
@@ -332,7 +492,7 @@ export default function MatricesRiesgo({
             esperada. Cada casilla se cuenta al abrir la pantalla desde los riesgos
             vigentes; no hay ninguna matriz almacenada.{' '}
             {porActivos
-              ? 'Cada activo aparece una sola vez, en la casilla de su peor riesgo. Haz clic en cualquier casilla para ver qué activos contiene y qué riesgo los puso ahí.'
+              ? 'Cada activo aparece una sola vez, en la casilla de su peor riesgo. El total es el inventario del filtro entero. Los activos que no alcanzan el umbral de valoración no tienen riesgos generados ni, por tanto, frecuencia: van en la columna «Sin analizar», ubicados por su propio valor. Haz clic en cualquier casilla para ver qué activos contiene.'
               : 'Haz clic en cualquier casilla para navegar los riesgos que contiene.'}
           </p>
         </div>
@@ -388,16 +548,34 @@ export default function MatricesRiesgo({
             }}
           />
 
+          {/* La cifra del encabezado cuenta lo mismo que las tarjetas. Contando siempre
+              riesgos, la pantalla decía «584 riesgos en el filtro» junto a dos tarjetas que
+              dicen «378 activos»: dos cifras que no se pueden sumar ni comparar. */}
           <div className="ml-auto flex items-baseline gap-2">
-            <span className="cifra text-17 text-primary">{miles(indicesFiltrados.length)}</span>
+            <span className="cifra text-17 text-primary">
+              {miles(porActivos ? activosFiltrados.length : indicesFiltrados.length)}
+            </span>
             <span className="text-12 text-muted">
-              riesgos en el filtro, de {miles(filas.length)}
+              {porActivos
+                ? `activos en el filtro, de ${miles(activos.length)}`
+                : `riesgos en el filtro, de ${miles(filas.length)}`}
             </span>
           </div>
         </div>
       </header>
 
-      {celda !== null && (
+      {celda !== null && celda.j === SIN_ANALIZAR && (
+        <DetalleSinAnalizar
+          activos={activosCelda}
+          filaImpacto={filasImpacto[celda.i]}
+          procesos={procesos}
+          responsables={responsables}
+          categorias={categorias}
+          onCerrar={() => setCelda(null)}
+        />
+      )}
+
+      {celda !== null && celda.j !== SIN_ANALIZAR && (
         <DetalleCelda
           celda={celda}
           indices={filasCelda}
@@ -433,6 +611,7 @@ export default function MatricesRiesgo({
           bandas={bandas}
           seleccion={celda?.matriz === 'inherente' ? celda : null}
           onCelda={(i, j, n) => seleccionar('inherente', i, j, n)}
+          aviso={avisoDe(matrizInherente)}
         />
 
         {conResidual === 0 ? (
@@ -448,15 +627,7 @@ export default function MatricesRiesgo({
             bandas={bandas}
             seleccion={celda?.matriz === 'residual' ? celda : null}
             onCelda={(i, j, n) => seleccionar('residual', i, j, n)}
-            aviso={
-              matrizResidual.sinResidual > 0
-                ? porActivos
-                  ? `${miles(matrizResidual.sinResidual)} activos del filtro quedan fuera de esta matriz: ninguno de sus riesgos tiene el residual calculado.`
-                  : `${miles(matrizResidual.sinResidual)} de ${miles(
-                      indicesFiltrados.length,
-                    )} riesgos del filtro quedan fuera de esta matriz: su eficacia todavía es desconocida.`
-                : undefined
-            }
+            aviso={avisoDe(matrizResidual)}
           />
         )}
       </div>
@@ -554,6 +725,8 @@ export default function MatricesRiesgo({
         la zona dejaba riesgos altos dibujados como medios. El detalle de cada casilla
         siempre lleva el nivel calculado con el valor propio de cada riesgo.
         {sinUbicar > 0 && ` ${miles(sinUbicar)} riesgos no tienen impacto calculado y quedan fuera de las dos matrices.`}
+        {porActivos &&
+          ' En «activos» el total de cada tarjeta es el inventario del filtro entero. La columna «Sin analizar» no es una columna de frecuencia y por eso va separada del eje y sin color de riesgo: quien está ahí no tiene frecuencia, así que su riesgo es desconocido y no bajo. Lo que sí tiene es su propio valor, que es el impacto que alcanzaría si una amenaza lo degradara por completo, y eso es lo que le da la fila. Un activo sin valorar no tiene ni siquiera eso: se cuenta aparte, porque meterlo en la banda más baja diría que es despreciable cuando lo que pasa es que nadie lo ha valorado.'}
       </p>
     </main>
   );
@@ -585,7 +758,10 @@ function Filtro({
   return (
     <label className="flex items-center gap-2 rounded-[7px] border border-border-field bg-surface py-1.5 pr-1.5 pl-3">
       <span className="etiqueta-campo text-9_5">{etiqueta}</span>
+      {/* El nombre va también en `aria-label`: el `<label>` envuelve al `<select>`, así que
+          su texto accesible arrastraría además todas las opciones. */}
       <select
+        aria-label={etiqueta}
         value={valor}
         onChange={(e) => onChange(Number(e.target.value))}
         disabled={opciones.length === 0}
@@ -621,7 +797,7 @@ function ConmutadorUnidad({
       clave: 'activos',
       texto: 'Activos',
       ayuda:
-        'Cada casilla cuenta activos, una sola vez cada uno y en la casilla de su peor riesgo: de quién es el riesgo.',
+        'Cada casilla cuenta activos, una sola vez cada uno y en la casilla de su peor riesgo: de quién es el riesgo. El total es el inventario del filtro, y los que no alcanzan el umbral de valoración van en la columna «Sin analizar».',
     },
   ];
   return (
@@ -681,18 +857,35 @@ function TarjetaMatriz({
   const reparto = matriz.reparto;
   const cosa = unidad === 'activos' ? 'activos' : 'riesgos';
 
+  // La columna aparte se dibuja siempre que haya alguien en ella. Sin nadie no se dibuja:
+  // una columna vacía permanente sólo le quita ancho a la rejilla.
+  const columnaAparte = matriz.sinAnalizar;
+  const enLaColumna = columnaAparte?.conteos.reduce((a, b) => a + b, 0) ?? 0;
+  const hayColumna = columnaAparte !== null && enLaColumna > 0;
+  const sinValorar = columnaAparte?.sinValor ?? 0;
+
   // El reparto por nivel cuenta cada riesgo por SU valor, no por el color de la casilla que
   // lo contiene. Se acumulaba por casilla, y desde que una casilla ocupada se pinta con su
   // peor riesgo esa cuenta convertiría en altos a todos los medios que comparten casilla con
   // uno alto. La suma sigue siendo exactamente el total de la matriz — `repartirPorBanda` lo
   // garantiza y su prueba lo fija—, así que la lista no puede descuadrar contra la rejilla.
-  const conteos = useMemo(() => {
-    const suma = reparto.reduce((a, b) => a + b.n, 0) || 1;
-    return reparto.map((b) => ({ ...b, pct: Math.round((b.n / suma) * 100) }));
-  }, [reparto]);
+  //
+  // El denominador es el TOTAL de la tarjeta, no la suma del reparto: con 348 activos fuera
+  // de la rejilla, medir las barras contra los 30 ubicados haría que «30 críticos» dibujara
+  // una barra llena en una pantalla que acaba de decir 378. La diferencia entre las dos
+  // cifras son los dos renglones de abajo.
+  const denominador = total || 1;
+  const conteos = useMemo(
+    () => reparto.map((b) => ({ ...b, pct: Math.round((b.n / denominador) * 100) })),
+    [reparto, denominador],
+  );
+  const pct = (n: number) => Math.round((n / denominador) * 100);
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-tarjeta border border-border-default bg-surface px-[22px] pt-5 pb-[22px]">
+    <section
+      aria-label={titulo}
+      className="flex min-w-0 flex-col gap-4 rounded-tarjeta border border-border-default bg-surface px-[22px] pt-5 pb-[22px]"
+    >
       <div className="flex items-start justify-between gap-3.5">
         <div>
           <h2 className="text-15 font-bold text-primary">{titulo}</h2>
@@ -701,22 +894,45 @@ function TarjetaMatriz({
           </p>
         </div>
         <div className="flex flex-none flex-col items-end">
-          <span className="cifra text-20 text-primary">{miles(total)}</span>
+          <span data-testid="total-matriz" className="cifra text-20 text-primary">
+            {miles(total)}
+          </span>
           <span className="etiqueta-campo text-9">
             {unidad === 'activos' ? 'Activos' : 'Riesgos'}
           </span>
         </div>
       </div>
 
+      {/* La columna aparte va PRIMERO y separada por un hueco mayor: no pertenece al eje de
+          frecuencia. Ponerla al final, pegada a «Muy alta», la leería como la frecuencia más
+          alta de todas — exactamente lo contrario de lo que dice. */}
       <div
         className="grid gap-[3px]"
-        style={{ gridTemplateColumns: `90px repeat(${columnas.length}, minmax(52px, 1fr))` }}
+        style={{
+          gridTemplateColumns: hayColumna
+            ? `90px 58px 14px repeat(${columnas.length}, minmax(52px, 1fr))`
+            : `90px repeat(${columnas.length}, minmax(52px, 1fr))`,
+        }}
       >
         <div className="flex items-end justify-end pr-2 pb-1 text-right font-mono text-8_5 leading-tight text-placeholder">
           IMPACTO ↓
           <br />
           FREC. →
         </div>
+        {hayColumna && (
+          <>
+            <div
+              data-testid="cabecera-sin-analizar"
+              title="Sin analizar — el activo no alcanza el umbral de valoración, así que el motor no le generó riesgos. Se ubica por su propio valor; no tiene frecuencia."
+              className="pb-[3px] text-center font-mono text-9 leading-tight tracking-[0.04em] text-faint"
+            >
+              {/* Que envuelva solo, sin un <br/>: partirlo a mano dejaría el texto accesible
+                  como «Sinanalizar», sin el espacio. */}
+              Sin analizar
+            </div>
+            <div aria-hidden />
+          </>
+        )}
         {columnas.map((c) => (
           <div
             key={c.nombre}
@@ -732,6 +948,18 @@ function TarjetaMatriz({
             <div className="flex items-center justify-end pr-2 text-right text-11 text-secondary-soft">
               {b.nombre}
             </div>
+            {hayColumna && (
+              <>
+                <CasillaSinAnalizar
+                  n={columnaAparte.conteos[i]}
+                  banda={b.nombre}
+                  activa={seleccion !== null && seleccion.i === i && seleccion.j === SIN_ANALIZAR}
+                  onClic={() => onCelda(i, SIN_ANALIZAR, columnaAparte.conteos[i])}
+                  testId={`sinanalizar-${i}`}
+                />
+                <div aria-hidden />
+              </>
+            )}
             {columnas.map((c, j) => {
               const n = matriz.conteos[i][j];
               const banda = bandaDe(matriz.bandas[i][j], bandas);
@@ -742,6 +970,7 @@ function TarjetaMatriz({
               return (
                 <button
                   key={c.nombre}
+                  data-testid={`casilla-${i}-${j}`}
                   onClick={() => onCelda(i, j, n)}
                   title={`${banda.nombre} · impacto ${b.nombre.toLowerCase()} · ${cifra(
                     c.vecesAno,
@@ -782,7 +1011,11 @@ function TarjetaMatriz({
         {conteos.map((k, i) => {
           const color = colorBanda(i);
           return (
-            <div key={k.nombre} className="flex items-center gap-2.5">
+            <div
+              key={k.nombre}
+              data-testid={`banda-${k.nombre}`}
+              className="flex items-center gap-2.5"
+            >
               <span
                 className="h-[9px] w-[9px] flex-none rounded-swatch"
                 style={{ background: color.bg }}
@@ -800,8 +1033,115 @@ function TarjetaMatriz({
             </div>
           );
         })}
+
+        {/* Ninguno de estos dos es una banda de riesgo: son la ausencia de una. Van separados
+            por un filete, con el punto hueco y sin color de la rampa — pintarlos del color más
+            leve diría que esos activos son de riesgo bajo, que es justamente lo que nadie ha
+            determinado. Y van separados ENTRE SÍ porque tienen causas distintas: al de arriba
+            le falta que alcance el umbral de valoración; al de abajo, que alguien lo valore. */}
+        {(enLaColumna > 0 || sinValorar > 0) && (
+          <div className="mt-1 flex flex-col gap-1.5 border-t border-dashed border-hairline pt-2">
+            {enLaColumna > 0 && (
+              <RenglonSinRiesgo
+                testId="banda-sin-analizar"
+                etiqueta="Sin analizar"
+                n={enLaColumna}
+                pct={pct(enLaColumna)}
+              />
+            )}
+            {sinValorar > 0 && (
+              <RenglonSinRiesgo
+                testId="sin-valorar"
+                etiqueta="Sin valorar"
+                n={sinValorar}
+                pct={pct(sinValorar)}
+              />
+            )}
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+/// Una casilla de la columna aparte.
+///
+/// NO LLEVA COLOR DE RIESGO, y ésa es toda la razón de que sea un componente propio en vez
+/// de una variante de la casilla normal. Riesgo es impacto por frecuencia; acá la frecuencia
+/// es desconocida, así que el riesgo también lo es. Pintarla con la banda más leve diría
+/// «riesgo bajo» sobre algo que nadie ha calculado, que es la mentira que esta pantalla lleva
+/// tres cicatrices evitando.
+///
+/// Lo que sí dice es la fila: el valor propio del activo, que es su impacto si una amenaza lo
+/// degradara por completo. Por eso el segundo renglón repite la banda de impacto y no una de
+/// riesgo — es lo único que se sabe.
+function CasillaSinAnalizar({
+  n,
+  banda,
+  activa,
+  onClic,
+  testId,
+}: {
+  n: number;
+  banda: string;
+  activa: boolean;
+  onClic: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      data-testid={testId}
+      onClick={onClic}
+      disabled={n === 0}
+      title={
+        n === 0
+          ? `Sin analizar · impacto ${banda.toLowerCase()} · ningún activo`
+          : `Sin analizar · ${miles(n)} ${n === 1 ? 'activo' : 'activos'} de valor propio ${banda.toLowerCase()}, sin riesgos generados. No tienen frecuencia, así que no entran a la rejilla.`
+      }
+      className="flex flex-col items-center justify-center gap-px rounded-campo border border-dashed border-border-field bg-app transition-shadow enabled:hover:shadow-[0_0_0_2px_var(--hf-text-primary)]"
+      style={{
+        aspectRatio: '1.6 / 1',
+        color: n === 0 ? 'var(--hf-text-placeholder-soft)' : 'var(--hf-text-secondary)',
+        outline: activa ? '2px solid var(--hf-text-primary)' : '2px solid transparent',
+        outlineOffset: '1px',
+      }}
+    >
+      {/* Sólo la cifra. Las casillas de la rejilla llevan debajo su banda de riesgo porque el
+          color no puede ser el único portador; acá no hay color que decodificar, y la banda
+          que le correspondería —la de IMPACTO— ya está escrita en el rótulo de la fila. La
+          repetición además salía ambigua: `abreviar` recorta «Muy alto» y «Muy bajo» al mismo
+          «MUY». */}
+      <span className="cifra text-17">{n === 0 ? '—' : miles(n)}</span>
+    </button>
+  );
+}
+
+/// Un renglón del pie que no es una banda de riesgo.
+function RenglonSinRiesgo({
+  testId,
+  etiqueta,
+  n,
+  pct,
+}: {
+  testId: string;
+  etiqueta: string;
+  n: number;
+  pct: number;
+}) {
+  return (
+    <div data-testid={testId} className="flex items-center gap-2.5">
+      <span className="h-[9px] w-[9px] flex-none rounded-swatch border border-border-field" />
+      <span className="w-[62px] text-12 text-muted">{etiqueta}</span>
+      <span className="h-[7px] flex-1 overflow-hidden rounded-badge bg-hairline">
+        <span
+          className="block h-full rounded-badge border border-border-field"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="w-[42px] text-right font-mono text-12_5 font-semibold tabular-nums text-muted">
+        {miles(n)}
+      </span>
+    </div>
   );
 }
 
@@ -1020,6 +1360,120 @@ function DetalleCelda({
             {unidad === 'activos' &&
               'Una fila por activo: el riesgo que se muestra es el peor del activo, que es el que lo ubica en esta casilla. '}
             Clic en una fila abre la ficha del activo en la amenaza correspondiente.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const COLUMNAS_SIN_ANALIZAR = '138px minmax(220px, 1fr) 200px 220px 120px 90px';
+const MIN_SIN_ANALIZAR = 1020;
+
+/// El detalle de una casilla de la columna aparte.
+///
+/// Es una tabla distinta de la de la rejilla y no una variante suya, porque las preguntas no
+/// se parecen: allá la fila es un RIESGO —amenaza, veces al año, nivel— y acá no hay ninguno.
+/// Reutilizar la tabla obligaría a dejar cuatro columnas en guion, y una fila llena de
+/// guiones se lee como «faltan datos» cuando lo que pasa es que la pregunta es otra.
+///
+/// Lo que sí hay que poder hacer desde acá es lo mismo: abrir la ficha del activo. Por eso
+/// cada fila es un enlace, aunque no tenga amenaza a la que apuntar.
+function DetalleSinAnalizar({
+  activos,
+  filaImpacto,
+  procesos,
+  responsables,
+  categorias,
+  onCerrar,
+}: {
+  activos: ActivoVista[];
+  filaImpacto: FilaImpacto;
+  procesos: string[];
+  responsables: string[];
+  categorias: string[];
+  onCerrar: () => void;
+}) {
+  const visibles = activos.slice(0, MAXIMO_FILAS);
+
+  return (
+    <section
+      aria-label={`Sin analizar · impacto ${filaImpacto.nombre.toLowerCase()}`}
+      className="mb-5 overflow-hidden rounded-tarjeta border border-border-default bg-surface"
+    >
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-border-default bg-subtle px-[18px] py-3.5">
+        <span className="rounded-[5px] border border-dashed border-border-field px-2.5 py-1 text-12 font-bold text-secondary-soft">
+          Sin analizar
+        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-13_5 font-bold text-primary">
+            Valor propio {filaImpacto.nombre.toLowerCase()} · sin riesgos generados
+          </span>
+          <span className="text-11_5 text-muted">
+            {miles(activos.length)} {activos.length === 1 ? 'activo' : 'activos'} · valor de{' '}
+            {cifra(filaImpacto.desde)} a {cifra(filaImpacto.hasta)} · no alcanzan el umbral de
+            valoración, así que el motor no les generó riesgos y no tienen frecuencia que los
+            ubique en la rejilla
+          </span>
+        </div>
+        <button
+          onClick={onCerrar}
+          className="ml-auto flex-none rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 font-semibold text-secondary-soft hover:bg-app"
+        >
+          Cerrar detalle
+        </button>
+      </div>
+
+      <div className="tabla-ancha">
+        <div style={{ minWidth: MIN_SIN_ANALIZAR }}>
+          <div
+            className="etiqueta-campo grid gap-0 border-b border-border-default px-4 py-2.5"
+            style={{ gridTemplateColumns: COLUMNAS_SIN_ANALIZAR }}
+          >
+            <div>Código</div>
+            <div>Activo</div>
+            <div>Proceso</div>
+            <div>Responsable</div>
+            <div>Tipo</div>
+            <div className="text-right">Valor</div>
+          </div>
+
+          {visibles.map((a) => {
+            const categoria = a.categoria >= 0 ? categorias[a.categoria] : '';
+            return (
+              <Link
+                key={a.codigo}
+                href={`/sgsi/inventario/${encodeURIComponent(a.codigo)}`}
+                className="grid items-center gap-0 border-b border-hairline-faint px-4 py-2 text-12_5 hover:bg-accent-50"
+                style={{ gridTemplateColumns: COLUMNAS_SIN_ANALIZAR }}
+              >
+                <div className="font-mono text-11_5 font-semibold text-accent-500">
+                  {a.codigo}
+                </div>
+                <div className="min-w-0 truncate pr-3.5 font-medium text-primary" title={a.nombre}>
+                  {a.nombre}
+                </div>
+                <div className="min-w-0 truncate pr-3 text-muted">
+                  {a.proceso >= 0 ? procesos[a.proceso] : '—'}
+                </div>
+                <div className="min-w-0 truncate pr-3 text-muted">
+                  {a.responsable >= 0 ? responsables[a.responsable] : '—'}
+                </div>
+                <div className="min-w-0 truncate pr-2.5 text-11 text-faint" title={categoria}>
+                  {categoria === '' ? '—' : categoria}
+                </div>
+                <div className="text-right font-mono text-12_5 font-bold text-primary">
+                  {a.valor === null ? '—' : cifra(a.valor)}
+                </div>
+              </Link>
+            );
+          })}
+
+          <p className="px-4 py-2.5 text-11 text-label">
+            {activos.length > MAXIMO_FILAS &&
+              `Se muestran ${MAXIMO_FILAS} de ${miles(activos.length)} activos de la casilla. `}
+            El valor es el máximo de las dimensiones del activo, en la misma escala que el
+            impacto. Clic en una fila abre la ficha del activo.
           </p>
         </div>
       </div>

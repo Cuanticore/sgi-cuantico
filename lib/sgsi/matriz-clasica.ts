@@ -251,6 +251,35 @@ export function repartirPorBanda(
 // agregación que ya usan el inventario y la página de análisis: el nivel de riesgo de un
 // activo es el de su riesgo más alto. Cualquier otra —la media, un percentil— escondería un
 // riesgo crítico detrás de una masa de riesgos bajos.
+//
+// ── EL UNIVERSO ES EL INVENTARIO, NO LOS RIESGOS ────────────────────────────────────────
+//
+// La matriz nació contando los activos que aparecían en las ubicaciones, que son los que
+// tienen al menos un riesgo valorado. Hoy son 30 de 378: la tarjeta decía «30 ACTIVOS» en
+// una pantalla cuyo inventario tiene 378, y la cifra no estaba mal calculada — estaba
+// contestando otra pregunta. Quien la lee entiende «el inventario son 30».
+//
+// Los otros 348 no tienen riesgos porque NO ALCANZAN EL UMBRAL DE VALORACIÓN —4 hoy—, que
+// es la puerta de `entraAlAnalisis`. No es que estén pendientes: el motor los dejó fuera a
+// propósito. Sin amenaza evaluada no tienen frecuencia, así que no hay casilla de la rejilla
+// a la que puedan caer.
+//
+// ── PERO CONTARLOS NO ES VERLOS ─────────────────────────────────────────────────────────
+//
+// Declararlos al pie —«348 sin riesgo valorado»— deja invisible lo único que de ellos
+// importa: CUÁLES son graves. Medido el 22/09/2026, 330 de esos 348 valen 3, y 3 en la
+// escala de impacto es la banda ALTO. Trescientos treinta activos de impacto alto que la
+// pantalla no dibujaba en ninguna parte.
+//
+// Frecuencia no tienen. Fila SÍ: el valor propio del activo —el máximo de sus dimensiones—
+// está en la misma escala 0-5 que el impacto, y de hecho ES su impacto si una amenaza lo
+// degradara por completo (`impactoAcumulado` con degradación 1). Así que van a una COLUMNA
+// APARTE, cada uno en la fila de su propio valor: `sinAnalizar`.
+//
+// Esa columna no es una columna de frecuencia y no se pinta con una banda de riesgo. Riesgo
+// es impacto × frecuencia, y acá la frecuencia es desconocida: pintarla del color más leve
+// diría «riesgo bajo» sobre algo que nadie ha calculado. Lleva el conteo y la fila, que es
+// exactamente lo que se sabe.
 
 export interface MatrizActivos {
   cara: CaraMatriz;
@@ -268,11 +297,47 @@ export interface MatrizActivos {
   indices: number[][][];
   bandas: (string | null)[][];
   bandasZona: (string | null)[][];
+  /// Cuántos activos PRESENTA la matriz: el inventario del filtro entero, estén ubicados o
+  /// no. Es la cifra grande de la tarjeta, y se cumple
+  /// `total = ubicados + sinUbicar + sinRiesgo`.
   total: number;
-  /// Cuántos ACTIVOS en cada banda, por el valor de su peor riesgo. Suma `total`.
+  /// Cuántos quedaron dibujados en alguna casilla. Es la suma de `conteos` y la suma de
+  /// `reparto`: lo que la rejilla realmente muestra.
+  ubicados: number;
+  /// Cuántos ACTIVOS en cada banda, por el valor de su peor riesgo. Suma `ubicados`.
   reparto: { nombre: string; n: number }[];
-  /// Activos que no se pudieron ubicar en esta cara: sin impacto, o sin residual calculado.
+  /// Activos que TIENEN riesgo pero no se pudieron ubicar en esta cara: sin impacto, o sin
+  /// residual calculado.
   sinUbicar: number;
+  /// Activos del inventario del filtro sin ningún riesgo valorado. Distinto de `sinUbicar`:
+  /// allá falta una cifra de un riesgo que existe, acá no hay ningún riesgo todavía, y la
+  /// pantalla lo explica distinto porque se corrige distinto.
+  sinRiesgo: number;
+  /// La columna aparte: todo activo presentado que la rejilla NO ubica, puesto en la fila de
+  /// su propio valor. Una sola regla —«lo que la rejilla no ubica, a la columna»— en vez de
+  /// dos listas que alguien tendría que mantener iguales.
+  sinAnalizar: ColumnaSinAnalizar;
+}
+
+/// Un activo tal como lo presenta la matriz, con lo que hace falta para ubicarlo cuando no
+/// tiene riesgo: su valor propio.
+export interface ActivoPresentado {
+  codigo: string;
+  /// El máximo de las dimensiones del activo, en la misma escala 0-5 que el impacto. `null`
+  /// cuando el activo no está valorado — y entonces no hay fila que le corresponda, que es
+  /// distinto de la fila más baja.
+  valor: number | null;
+}
+
+export interface ColumnaSinAnalizar {
+  /// `conteos[i]` — cuántos activos en la fila de impacto `i`.
+  conteos: number[];
+  /// `codigos[i]` — cuáles, ordenados, por la misma razón que en la rejilla: la columna se
+  /// lee con los nombres a la vista.
+  codigos: string[][];
+  /// Los que no tienen valoración: sin valor no hay fila, y meterlos en la más baja diría
+  /// que son despreciables cuando lo que pasa es que nadie los ha valorado.
+  sinValor: number;
 }
 
 export function matrizDeActivos(
@@ -281,6 +346,10 @@ export function matrizDeActivos(
   filas: readonly FilaImpacto[],
   columnas: readonly ColumnaFrecuencia[],
   bandasRiesgo: readonly Umbral[],
+  /// TODOS los activos que la matriz presenta — el inventario del filtro, no sólo los que
+  /// aparecen en `ubicaciones`. Omitirlo deja el universo en los activos que traen las
+  /// ubicaciones, que es lo que hacía esta función antes de existir el parámetro.
+  activosPresentados?: readonly ActivoPresentado[],
 ): MatrizActivos {
   // Primero el peor riesgo de cada activo en esta cara.
   const peorDelActivo = new Map<
@@ -338,6 +407,37 @@ export function matrizDeActivos(
     ),
   );
 
+  // El universo se deduplica: un código repetido en el inventario es un activo, no dos, y
+  // la matriz tiene que cuadrar contra el inventario aunque la lista que le llegue no venga
+  // limpia. Se queda la primera aparición.
+  const inventario = new Map<string, ActivoPresentado>();
+  for (const a of activosPresentados ?? []) {
+    if (!inventario.has(a.codigo)) inventario.set(a.codigo, a);
+  }
+
+  const ubicados = peorDelActivo.size;
+  const sinUbicar = vistos.size - ubicados;
+  // Los `vistos` son activos con riesgo, así que se descuentan del inventario aunque la
+  // lista no los traiga — restar a ciegas `inventario.size - vistos.size` dejaría negativo
+  // un total al que le faltara un activo, y un conteo negativo no avisa de nada.
+  const sinRiesgo = [...inventario.keys()].filter((c) => !vistos.has(c)).length;
+
+  // La columna aparte. Entra todo lo presentado que la rejilla no ubicó: el que no tiene
+  // riesgo y el que lo tiene pero esta cara no puede colocar. Una sola regla.
+  const columna: string[][] = filas.map(() => []);
+  let sinValor = 0;
+  for (const a of inventario.values()) {
+    if (peorDelActivo.has(a.codigo)) continue;
+    const banda = a.valor === null ? null : clasificar(a.valor, filas);
+    const i = banda === null ? -1 : filas.findIndex((f) => f.nombre === banda);
+    if (i < 0) {
+      sinValor++;
+      continue;
+    }
+    columna[i].push(a.codigo);
+  }
+  for (const celda of columna) celda.sort((a, b) => a.localeCompare(b, 'es'));
+
   return {
     cara,
     conteos,
@@ -345,9 +445,16 @@ export function matrizDeActivos(
     indices,
     bandas,
     bandasZona,
-    total: peorDelActivo.size,
+    total: ubicados + sinUbicar + sinRiesgo,
+    ubicados,
     reparto,
-    sinUbicar: vistos.size - peorDelActivo.size,
+    sinUbicar,
+    sinRiesgo,
+    sinAnalizar: {
+      conteos: columna.map((c) => c.length),
+      codigos: columna,
+      sinValor,
+    },
   };
 }
 
