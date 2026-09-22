@@ -126,7 +126,8 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
     <Popup
       titulo={`Editar ${accion.codigo}`}
       subtitulo="Una fila por acción sobre un control, no por riesgo."
-      ancho={820}
+      ancho={1040}
+      alto="80vh"
       onCerrar={onCerrar}
       pie={
         <>
@@ -224,7 +225,7 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
           />
         </Campo>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
           <Campo etiqueta="Tipo de tratamiento">
             <select
               value={d.tipo}
@@ -261,6 +262,20 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
               {controles.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.codigo} · {c.nombre}
+                </option>
+              ))}
+            </select>
+          </Campo>
+
+          <Campo etiqueta="Estado">
+            <select
+              value={d.estado}
+              onChange={(e) => set('estado', e.target.value as EstadoAccion)}
+              className={entrada}
+            >
+              {ESTADOS.map((s) => (
+                <option key={s.valor} value={s.valor}>
+                  {s.etiqueta}
                 </option>
               ))}
             </select>
@@ -312,21 +327,11 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
           </Campo>
         </div>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-          <Campo etiqueta="Estado">
-            <select
-              value={d.estado}
-              onChange={(e) => set('estado', e.target.value as EstadoAccion)}
-              className={entrada}
-            >
-              {ESTADOS.map((s) => (
-                <option key={s.valor} value={s.valor}>
-                  {s.etiqueta}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
+        {/* Cinco campos cortos en un renglón: es lo que 1040 px de ancho permiten y lo que
+            libera los dos renglones que Observaciones necesita. Cinco columnas sólo a partir
+            de `xl`; por debajo se apilan de a tres y de a dos, porque el popup nunca mide más
+            que la ventana. */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Campo etiqueta="Fecha objetivo">
             <input
               type="date"
@@ -346,9 +351,7 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
               className={entrada}
             />
           </Campo>
-        </div>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
           <Campo etiqueta="Verificación de eficacia">
             <select
               value={d.verificacion}
@@ -378,6 +381,14 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
                 </option>
               ))}
             </select>
+          </Campo>
+
+          <Campo etiqueta="Recursos o presupuesto">
+            <input
+              value={d.recursos ?? ''}
+              onChange={(e) => set('recursos', e.target.value || null)}
+              className={entrada}
+            />
           </Campo>
         </div>
 
@@ -431,17 +442,13 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
           </div>
         )}
 
-        <Campo etiqueta="Recursos o presupuesto">
-          <input
-            value={d.recursos ?? ''}
-            onChange={(e) => set('recursos', e.target.value || null)}
-            className={entrada}
-          />
-        </Campo>
-
         {/* Observaciones es donde se escribe el seguimiento de una acción que dura meses.
             Un `<input>` descarta los saltos de línea, así que tres reuniones quedaban en un
-            párrafo corrido. */}
+            párrafo corrido.
+
+            Diez filas y no las dos o tres de los demás campos: éste recibe varias entradas
+            fechadas, y con menos habría que desplazarse dentro del campo para releer lo que
+            uno mismo acaba de escribir. */}
         <Campo etiqueta="Observaciones">
           <textarea
             value={d.observacion ?? ''}

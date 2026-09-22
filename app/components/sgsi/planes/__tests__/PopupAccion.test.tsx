@@ -107,3 +107,28 @@ describe('Observaciones', () => {
     );
   });
 });
+
+describe('el orden de los campos', () => {
+  // «Estado» y «Avance» son lo que más se toca al administrar un plan, y Estado estaba en el
+  // quinto renglón: había que bajar para la operación más frecuente. Se afirma el orden del
+  // documento y no una posición en píxeles, que jsdom no mide.
+  //
+  // `Campo` renderiza el `pie` DENTRO del `<label>`, así que el nombre accesible de un campo
+  // con pie lleva el texto de ayuda pegado: «Origen y justificaciónPor qué existe esta
+  // acción…». Por eso la expresión regular anclada y no la cadena exacta.
+  it('Estado va antes que Origen y justificación', () => {
+    montar();
+    const estado = screen.getByLabelText('Estado');
+    const origen = screen.getByLabelText(/^Origen y justificación/);
+    const posicion = estado.compareDocumentPosition(origen);
+    expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('Observaciones es el último campo del formulario', () => {
+    montar();
+    const observaciones = screen.getByLabelText('Observaciones');
+    const recursos = screen.getByLabelText('Recursos o presupuesto');
+    const posicion = recursos.compareDocumentPosition(observaciones);
+    expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
