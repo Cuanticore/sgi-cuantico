@@ -69,11 +69,11 @@ catálogo de la 2.
       `nivel2Id` que no es de grado 2, y **no crea nada si la escritura del activo falla**.
 - [x] **3.4** `guardarDatosGenerales` acepta la forma discriminada y resuelve-o-crea en la
       transacción, con bitácora del alta y del cambio de `nivelId`. Manejo de P2002 → re-resolver.
-- [ ] **3.5** `JerarquiaActivo` en `FichaActivo.tsx` (~2287-2379): dos grupos en el selector,
+- [x] **3.5** `JerarquiaActivo` en `FichaActivo.tsx` (~2287-2379): dos grupos en el selector,
       `Edicion` lleva la forma nueva. Conservar `conElegido`.
-- [ ] **3.6** Prueba de componente en `app/components/sgsi/activos/__tests__/`: elegir del catálogo
+- [x] **3.6** Prueba de componente en `app/components/sgsi/activos/__tests__/`: elegir del catálogo
       y **no guardar** no dispara ninguna acción.
-- [ ] **3.7** Copy en español de Colombia: `tú` o impersonal, imperativo sin tilde aguda, sin voseo.
+- [x] **3.7** Copy en español de Colombia: `tú` o impersonal, imperativo sin tilde aguda, sin voseo.
       Revisar también los `titulo=` de los tres selectores, que hoy describen el filtrado viejo.
 
 ## Fase 4 · Verificación (HARNESS.md)
@@ -105,5 +105,9 @@ Recorrido ejecutado (activo de INC, base local 5432):
       mano. Candidato natural a `e2e/jerarquia.spec.ts`, **que sólo lee**.
 - [ ] **5.2** La asimetría de D2: `CÓDIGO  FUENTE` con dos espacios internos entraría al índice.
       Ningún escritor lo produce. Anotado, no arreglado.
+- [ ] **5.3.b** Voseo preexistente en `FichaActivo.tsx:2556` («elegí una cuenta del dominio»),
+      en `CuentasDelActivo`. HARNESS.md lo prohíbe. Está fuera de lo que este cambio toca, así que
+      queda anotado y no arreglado: los dos de la jerarquía sí se corrigieron porque eran copy de
+      esta pantalla.
 - [ ] **5.3** Las tildes siguen distinguiendo identidades. `auditar-niveles.ts` §4 ya mide lo que
       costaría unificarlas. Decisión con dueño, sin fecha.

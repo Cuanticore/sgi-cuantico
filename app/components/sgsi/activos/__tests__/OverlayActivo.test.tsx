@@ -67,6 +67,7 @@ jest.mock('@/app/sgsi/acciones/riesgos', () => ({
 const mockAbrirOverlayActivo = abrirOverlayActivo as jest.Mock;
 
 const CATALOGOS: Catalogos = {
+  catalogoNivel3: [],
   areas: [{ id: 1, nombre: 'Gestión Tecnológica', prefijo: 'TEC' }],
   tipos: [{ id: 1, codigo: 'GEN', nombre: 'General', abreviatura: 'GEN' }],
   subtipos: [{ id: 1, tipoId: 1, codigo: 'GEN.1', nombre: 'General' }],

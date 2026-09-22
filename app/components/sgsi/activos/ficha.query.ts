@@ -26,6 +26,8 @@ import 'server-only';
 
 import { prisma } from '@/lib/db';
 import { parsearOrigen } from '@/lib/sgsi/origen-plan';
+import type { EntradaCatalogo } from '@/lib/sig/catalogo-nivel-3';
+import type { ClaseNivel } from '@/lib/sig/niveles';
 
 /// D, I and C. The other two dimensions of MAGERIT — Autenticidad and Trazabilidad —
 /// exist in `dimension` with `activa = false`; the model in force values three.
@@ -91,6 +93,15 @@ export interface NivelJerarquia {
   nombre: string;
   /// Nulo solo en grado 1.
   padreId: number | null;
+  /// Sólo en grado 1. Un grado 2 o 3 la HEREDA de su raíz subiendo por `padreId`, y por eso
+  /// aquí llega nula en casi todas las filas. Viaja porque el selector de Nivel 3 necesita
+  /// saber qué vocabulario ofrecer, y el vocabulario es por clase.
+  clase: ClaseNivel | null;
+  /// Siempre `true` en lo que esta consulta devuelve —filtra por `activo`—, y viaja igual para
+  /// que estas filas sirvan tal cual a `lib/sig/catalogo-nivel-3.ts`, que sí recibe el árbol
+  /// entero cuando corre en el servidor. Un tipo que miente en un lado para ahorrarse un campo
+  /// en el otro es cómo dos listas parecidas se separan.
+  activo: boolean;
 }
 
 export interface NivelDegradacion {
@@ -319,6 +330,9 @@ export interface Catalogos {
   /// filtra el 3— y hacerlo con un viaje al servidor por cada paso sería pedirle a la red
   /// lo que ya cabe en memoria: son decenas de filas, no miles.
   niveles: NivelJerarquia[];
+  /// El VOCABULARIO de Nivel 3 por clase. Es lo que el selector ofrece además de lo que la rama
+  /// ya tiene, y es lo que convierte clasificar un activo en una sola pantalla.
+  catalogoNivel3: EntradaCatalogo[];
   escalaValor: NivelValor[];
   escalaDegradacion: NivelDegradacion[];
   escalaFrecuencia: NivelFrecuencia[];
@@ -362,6 +376,7 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     criticidades,
     personas,
     niveles,
+    catalogoNivel3,
     escalaValor,
     escalaDegradacion,
     escalaFrecuencia,
@@ -392,7 +407,15 @@ export async function cargarCatalogos(): Promise<Catalogos> {
     prisma.nivelActivo.findMany({
       where: { activo: true },
       orderBy: [{ grado: 'asc' }, { orden: 'asc' }, { nombre: 'asc' }],
-      select: { id: true, grado: true, nombre: true, padreId: true },
+      select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true },
+    }),
+    // El vocabulario de Nivel 3, entero. Viaja completo por la misma razón que la jerarquía:
+    // son decenas de filas y el selector las cruza en el cliente, así que pedirlas de a una
+    // por clase sería un viaje al servidor para algo que ya cabe en memoria.
+    prisma.catalogoNivel3.findMany({
+      where: { activo: true },
+      orderBy: [{ clase: 'asc' }, { orden: 'asc' }, { nombre: 'asc' }],
+      select: { clase: true, nombre: true, orden: true },
     }),
     prisma.escalaValor.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaDegradacion.findMany({ orderBy: { orden: 'asc' } }),
@@ -462,6 +485,13 @@ export async function cargarCatalogos(): Promise<Catalogos> {
       grado: n.grado,
       nombre: n.nombre,
       padreId: n.padreId,
+      clase: n.clase,
+      activo: n.activo,
+    })),
+    catalogoNivel3: catalogoNivel3.map((c) => ({
+      clase: c.clase,
+      nombre: c.nombre,
+      orden: c.orden,
     })),
     escalaValor: escalaValor.map((e) => ({ id: e.id, valor: e.valor, etiqueta: e.etiqueta })),
     escalaDegradacion: escalaDegradacion.map((d) => ({

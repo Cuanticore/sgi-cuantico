@@ -595,6 +595,12 @@ export interface ActivoNuevo {
   nivelId?: number | null;
   /// V21 · cuántas unidades representa el activo. 1 cuando no se declara.
   cantidad?: number;
+  /// Un nombre del CATÁLOGO para una rama que todavía no lo tiene. Mismo trato que en la
+  /// edición: se resuelve o se crea dentro de la transacción del alta, y entonces pisa a
+  /// `nivelId`. Está acá y no sólo en la edición porque el selector de la jerarquía es el
+  /// mismo componente en las dos pantallas: ofrecer diez opciones en una y dos en la otra,
+  /// para el mismo campo, es la clase de diferencia que nadie entiende desde afuera.
+  nivelNuevo?: { nivel2Id: number; nombre: string };
   /// E9 · el custodio PERSONA — quién tiene el activo en la mano. Distinto de `custodioId`,
   /// que es el CARGO que responde por él en el organigrama.
   personaId?: number | null;
@@ -679,6 +685,35 @@ export async function crearActivo(
     const dimensiones = await prisma.dimension.findMany();
 
     const creado = await prisma.$transaction(async (tx) => {
+      // Instanciar un nombre del catálogo bajo la rama, igual que en la edición. Dentro de la
+      // transacción: o nace el activo ubicado, o no nace nada — un nodo cuyo activo no se creó
+      // es basura que nadie va a limpiar.
+      let nivelFinal = datos.nivelNuevo === undefined ? (datos.nivelId ?? null) : null;
+      if (datos.nivelNuevo !== undefined) {
+        const [niveles, catalogo] = await Promise.all([
+          tx.nivelActivo.findMany({
+            select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true },
+          }),
+          tx.catalogoNivel3.findMany({ select: { clase: true, nombre: true, orden: true } }),
+        ]);
+        const r = resolverNivel3(catalogo, niveles, datos.nivelNuevo.nivel2Id, datos.nivelNuevo.nombre);
+        if (r.accion === 'rechazar') throw new Error(r.motivo);
+        if (r.accion === 'usar') {
+          nivelFinal = r.id;
+        } else {
+          const nodo = await tx.nivelActivo.create({
+            data: {
+              grado: 3,
+              nombre: r.nombre,
+              padreId: datos.nivelNuevo.nivel2Id,
+              orden: niveles.filter((n) => n.padreId === datos.nivelNuevo!.nivel2Id).length + 1,
+            },
+          });
+          await registrarAlta(tx, autor, 'nivel_activo', String(nodo.id));
+          nivelFinal = nodo.id;
+        }
+      }
+
       const codigo = await emitirCodigo(tx, area.id, tipo.id, {
         prefijoArea: area.prefijo!,
         abreviaturaTipo: tipo.abreviatura,
@@ -698,7 +733,7 @@ export async function crearActivo(
           entornoId: datos.entornoId ?? null,
           proveedorId: datos.proveedorId ?? null,
           superiorId: datos.superiorId ?? null,
-          nivelId: datos.nivelId ?? null,
+          nivelId: nivelFinal,
           cantidad: datos.cantidad !== undefined && datos.cantidad >= 1 ? Math.floor(datos.cantidad) : 1,
           personaId: datos.personaId ?? null,
           datosCliente: datos.datosCliente ?? 'POR_DEFINIR',
