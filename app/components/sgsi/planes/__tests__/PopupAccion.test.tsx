@@ -143,3 +143,38 @@ describe('el orden de los campos', () => {
     expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe('el tamaño que hace que el formulario quepa', () => {
+  // Esto no es decoración: 1040 px es lo que permite el renglón de cinco campos, y 80vh
+  // es lo que hace que los trece entren sin desplazamiento. Sin estas tres aserciones,
+  // revertir cualquiera de los tres valores deja la suite entera en verde y el defecto
+  // sólo se ve abriendo la pantalla.
+  //
+  // El alto contra el que se mide: el contenido del formulario suma ~589 px y el tope en
+  // una ventana de 940 px —lo que deja una pantalla de 1080— es min(752, 724) = 724 px.
+
+  function tarjeta(): HTMLElement {
+    const cuerpo = screen.getByRole('dialog').querySelector('[data-popup="cuerpo"]');
+    if (cuerpo === null) throw new Error('El popup no marca su cuerpo con data-popup="cuerpo".');
+    return cuerpo.parentElement as HTMLElement;
+  }
+
+  it('la tarjeta mide 1040 px', () => {
+    montar();
+    expect(tarjeta().style.maxWidth).toBe('1040px');
+  });
+
+  it('el cuerpo pide 80vh, topado para que la tarjeta no desborde', () => {
+    montar();
+    const cuerpo = screen.getByRole('dialog').querySelector('[data-popup="cuerpo"]') as HTMLElement;
+    expect(cuerpo.style.maxHeight).toBe('min(80vh, calc(100vh - 216px))');
+  });
+
+  it('los cinco campos cortos pasan a un renglón cuando la tarjeta deja de crecer', () => {
+    // 1080 px y no `xl`: ahí es donde la tarjeta llega a su ancho máximo. Ver el comentario
+    // del bloque en PopupAccion.tsx.
+    montar();
+    const renglon = screen.getByLabelText('Fecha objetivo').closest('div.grid');
+    expect(renglon?.className).toContain('min-[1080px]:grid-cols-5');
+  });
+});
