@@ -6,6 +6,28 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   output: 'standalone',
 
+  // EL TECHO REAL DE UNA SUBIDA DE PAQUETE SCORM, Y POR QUÉ VIVE ACÁ.
+  //
+  // Subir un curso va por una Server Action, y Next las limita a **1 MB por omisión**. Hasta
+  // el 21/09/2026 esta clave no existía, así que ése era el techo que regía — mientras `.env`
+  // declaraba `SCORM_TAMANO_MAX_MB=200` y `app/sig/acciones/scorm.ts` validaba contra 200. La
+  // validación de la acción era código muerto para cualquier cosa sobre un megabyte: **la
+  // petición nunca llegaba**. Se descubrió subiendo un curso de 3,3 MB; ninguno de los cuatro
+  // checks lo atrapa, porque ninguno ejecuta una subida.
+  //
+  // El `+ 1` no es margen por las dudas: la documentación de Next 16.3.2 avisa que el límite
+  // se aplica al cuerpo HTTP CRUDO, «including the bytes that multipart/form-data adds for
+  // boundaries, part headers, and field metadata», y recomienda dejar 10–20 KB de sobra.
+  //
+  // **El número vive en `lib/sig/limite-paquete.ts`**, que es TypeScript y este archivo es
+  // CommonJS: no se pueden compartir sin inventar un puente. Lo que impide que se separen es
+  // `lib/sig/__tests__/limite-paquete.test.ts`, que lee los dos y falla si dejan de decir lo
+  // mismo — la misma medicina que `despliegue-verificado.test.ts` usa con los comandos de
+  // verificación. **Si cambiás este número, cambiá el otro.**
+  experimental: {
+    serverActions: { bodySizeLimit: '26mb' },
+  },
+
   // SÓLO DESARROLLO. El player SCORM sirve el contenido desde un origen distinto al de la
   // aplicación (P3): en local eso es `127.0.0.1:3000` mientras la app vive en `localhost:3000`
   // —el mismo servidor de Next, dos orígenes para el navegador—. Next 16 bloquea con 403 las
