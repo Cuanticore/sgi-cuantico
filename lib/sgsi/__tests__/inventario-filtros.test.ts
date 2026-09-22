@@ -68,9 +68,9 @@ describe('§7.1 · la URL se hidrata', () => {
     expect(leer('')).toEqual({ filtros: FILTROS_VACIOS, avisos: [] });
   });
 
-  it('lee los nueve parámetros del contrato del §8', () => {
+  it('lee los ocho parámetros del contrato del §8', () => {
     const { filtros, avisos } = leer(
-      'tipo=%5BSW%5D+Aplicaciones&subtipo=SW.1+Estándar&responsable=CEO&color=rojo' +
+      'tipo=%5BSW%5D+Aplicaciones&subtipo=SW.1+Estándar&responsable=CEO' +
         '&dimension=C&valor=4&propietario=Líder+del+SIG&persona=jruiz%40cuantico.co&conPersona=1',
     );
     expect(avisos).toEqual([]);
@@ -78,13 +78,39 @@ describe('§7.1 · la URL se hidrata', () => {
       tipo: '[SW] Aplicaciones',
       subtipo: 'SW.1 Estándar',
       responsable: 'CEO',
-      color: 'rojo',
       dimension: 'C',
       valor: 4,
       valorMinimo: null,
       propietario: 'Líder del SIG',
       persona: 'jruiz@cuantico.co',
       conPersona: true,
+    });
+  });
+
+  // `color` —la banda de riesgo del renglón— fue un filtro de esta pantalla y REQ-SIG-20
+  // §4/P5 lo retiró junto con la columna que filtraba. Pero el parámetro siguió leyéndose y
+  // volviéndose a escribir en la URL sin que nadie lo aplicara: `/sgsi/inventario?color=rojo`
+  // conservaba el parámetro y mostraba todo. Un filtro que miente es peor que ninguno, y en
+  // esta pantalla lo es más: los números de aquí sostienen los de Valoración.
+  //
+  // No se «arregla» volviéndolo a aplicar —eso reabriría una decisión ya tomada—, sino
+  // diciendo que ya no existe. Y se dice en voz alta, que es la doctrina del módulo: lo que
+  // se ignora se avisa, nunca se descarta en silencio.
+  describe('§7.1 · `color` ya no es un filtro de esta pantalla', () => {
+    it('avisa que el parámetro ya no se aplica, en vez de fingir que lo honra', () => {
+      const { avisos } = leer('color=rojo');
+      expect(avisos).toHaveLength(1);
+      expect(avisos[0]).toContain('color');
+    });
+
+    it('no vuelve a la URL: un parámetro que no hace nada no se propaga', () => {
+      const { filtros } = leer('color=rojo');
+      expect(consultaDeFiltros(filtros)).not.toContain('color');
+    });
+
+    it('y no deja rastro en los filtros', () => {
+      const { filtros } = leer('color=rojo');
+      expect(filtros).toEqual(FILTROS_VACIOS);
     });
   });
 
@@ -147,8 +173,10 @@ describe('§7.1 · los filtros se reflejan de vuelta en la URL', () => {
   });
 
   it('lo que se lee de la URL se vuelve a escribir igual', () => {
-    const original =
-      'color=rojo&conPersona=1&dimension=C&persona=jruiz%40cuantico.co&propietario=CEO&valor=4';
+    // Sin `color`: dejó de ser parte del contrato de la URL (ver «`color` ya no es un filtro
+    // de esta pantalla»). Que un parámetro retirado NO vuelva a escribirse es justo lo que se
+    // quiere de este viaje de ida y vuelta.
+    const original = 'conPersona=1&dimension=C&persona=jruiz%40cuantico.co&propietario=CEO&valor=4';
     const { filtros } = filtrosDesdeUrl(new URLSearchParams(original), CATALOGOS);
     const vuelta = new URLSearchParams(parametrosDeFiltros(filtros));
     vuelta.sort();
@@ -303,9 +331,9 @@ describe('los filtros que ya existían siguen igual', () => {
     expect(pasa(a, FILTROS_VACIOS, 'inexistente')).toBe(false);
   });
 
-  it('el color no entra en este predicado: es banda de riesgo, no valor', () => {
-    expect(pasa(activo(), { ...FILTROS_VACIOS, color: 'rojo' })).toBe(true);
-  });
+  // El caso «el color no entra en este predicado» vivía acá y se retiró: `color` ya no es un
+  // filtro de esta pantalla, así que no hay nada que afirmar sobre su efecto en el predicado.
+  // Lo que queda de él está en «§7.1 · `color` ya no es un filtro de esta pantalla».
 
   it('persona y propietario en «todos» no filtran nada', () => {
     expect(
