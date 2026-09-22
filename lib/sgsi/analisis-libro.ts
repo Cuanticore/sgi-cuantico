@@ -9,15 +9,23 @@
 // POR QUÉ NO ES EL EXPORT DE AG GRID. Exportar a Excel con formato es una función de AG Grid
 // Enterprise (999 USD por desarrollador). No hizo falta: `exceljs` ya es dependencia de este
 // proyecto y ya genera los otros cinco libros del SGSI, así que el formato se escribe acá y
-// queda además bajo nuestro control — los colores de banda son LOS MISMOS que pinta la
-// pantalla, cosa que el export de la librería no podría saber.
+// queda además bajo nuestro control — los colores de banda salen de la MISMA paleta que pinta
+// la pantalla (`PALETA_RIESGO` en `riesgo-activo.ts`), cosa que el export de la librería no
+// podría saber.
+//
+// ESA AFIRMACIÓN FUE FALSA HASTA EL 22/09/2026, y conviene que quede escrito. `argb()` sólo
+// entendía hex de 6 u 8 caracteres, y lo que `colorDeNivel` devuelve es `var(--hf-risk-*)`:
+// devolvía `''`, `pintarBanda` se salía antes del relleno y antes de la fuente, y las columnas
+// «Peor inherente» y «Peor residual» salían en TEXTO PLANO mientras esta cabecera prometía lo
+// contrario. Sobrevivió porque ninguna prueba leía el archivo generado, sólo la clase en
+// pantalla; `__tests__/analisis-libro.test.ts` lee ahora el relleno de la celda.
 //
 // LO QUE ESTE ARCHIVO NO ES: el informe de valoración. Ése sale de `/sgsi/informe-valoracion`
 // sobre el inventario completo. Éste es un volcado de lo que quien exporta está viendo, y la
 // hoja lo dice en su primera línea para que no se confundan seis meses después.
 
 import ExcelJS from 'exceljs';
-import { colorDeNivel, type NivelRiesgo } from './riesgo-activo';
+import { colorDeNivel, hexDeColorDeRiesgo, type NivelRiesgo } from './riesgo-activo';
 import { colorDeNivelValor } from './valoracion-figura';
 import { textoDeEstadoPlan } from './columnas-analisis';
 import type { EstadoPlanActivo } from './analisis-riesgos';
@@ -69,8 +77,12 @@ const COLUMNAS: { encabezado: string; ancho: number }[] = [
 ];
 
 /// Sin `#`, y en ARGB: ExcelJS no acepta el `#rrggbb` de CSS.
+///
+/// La `var(--hf-risk-*)` la resuelve `hexDeColorDeRiesgo` contra `PALETA_RIESGO`, el único
+/// dueño del hex. Este archivo NO tiene su propio diccionario de colores a propósito: tenerlo
+/// —o no tenerlo, que fue el caso— es de donde vino el defecto de las dos columnas en blanco.
 function argb(css: string): string {
-  const hex = css.replace('#', '').trim();
+  const hex = (hexDeColorDeRiesgo(css) ?? '').replace('#', '').trim();
   if (hex.length === 6) return `FF${hex.toUpperCase()}`;
   if (hex.length === 8) return hex.toUpperCase();
   // Un color que no se pueda traducir no puede tumbar el archivo: se deja sin relleno, que

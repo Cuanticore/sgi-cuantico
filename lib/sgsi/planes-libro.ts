@@ -34,7 +34,7 @@
 // así. Si vas a decidir algo con esta cifra, vuelve a medirla.
 
 import ExcelJS from 'exceljs';
-import { colorDeNivel, type NivelRiesgo } from './riesgo-activo';
+import { colorDeNivel, hexDeColorDeRiesgo, type NivelRiesgo } from './riesgo-activo';
 
 export interface FilaRiesgoAlto {
   codigo: string;
@@ -113,39 +113,21 @@ const GRIS_NOTA = 'FF6B7570';
 /// El mismo rosa apagado que marca «sin plan» en el resto del SGSI.
 const FILA_SIN_PLAN = 'FFFDECEB';
 
+/// Traduce un color CSS —literal o `var(--hf-risk-*)`— al ARGB que pide ExcelJS. Un color que
+/// no se pueda traducir no puede tumbar el archivo: se deja sin relleno, que es exactamente lo
+/// que «no sé de qué color va» significa.
+///
 /// `colorDeNivel` (lib/sgsi/riesgo-activo.ts) devuelve `var(--hf-risk-*)`: es el contrato que
 /// necesita la pantalla, donde el navegador resuelve la cascada de CSS. ExcelJS no tiene
-/// cascada — no hay hoja de estilos que consultar — así que necesita el HEX de verdad detrás
-/// de cada variable. Este diccionario es el mismo mirror literal que ya usan
-/// `informe-documento.ts` y `acta-residual-documento.ts` para el mismo problema.
+/// cascada —no hay hoja de estilos que consultar— así que necesita el HEX de verdad detrás de
+/// cada variable, y ese HEX lo da `hexDeColorDeRiesgo` desde el único sitio donde vive.
 ///
-/// SON DOS COPIAS A MANO, Y ESO ES TODO LO QUE SON. Ni éste ni ningún test del repo lee
-/// `app/globals.css`: si alguien cambia un color ahí y olvida tocar este diccionario, tanto
-/// este archivo como el literal `'FFC25A1E'` de `planes-libro.test.ts` siguen en verde
-/// mientras la aplicación pinta otro color — no hay guardián que lo note. La única protección
-/// real es que las dos copias viven en archivos DISTINTOS (éste y `app/globals.css`), así que
-/// desincronizarlas sin que nadie lo vea exige editar los dos a la vez y no darse cuenta en
-/// ninguno. La solución de fondo no es un comentario: es que `riesgo-activo.ts` exponga estos
-/// mismos HEX como constante exportada, para que este archivo la importe en vez de copiarla.
-const HEX_DE_VARIABLE: Record<string, string> = {
-  '--hf-risk-critico-bg': 'A52016',
-  '--hf-risk-critico-fg': 'FFFFFF',
-  '--hf-risk-alto-bg': 'C25A1E',
-  '--hf-risk-alto-fg': 'FFFFFF',
-  '--hf-risk-medio-bg': 'E0B93C',
-  '--hf-risk-medio-fg': '3A2C05',
-  '--hf-risk-bajo-bg': 'DFE8E2',
-  '--hf-risk-bajo-fg': '3D5648',
-};
-
-/// Traduce un color CSS —literal o `var(--x)`— al ARGB que pide ExcelJS. Un color que no se
-/// pueda traducir no puede tumbar el archivo: se deja sin relleno, que es exactamente lo que
-/// «no sé de qué color va» significa.
+/// ACÁ VIVÍA UNA COPIA A MANO de las ocho variables, igual que en `informe-libro.ts`,
+/// `informe-documento.ts` y `acta-residual-documento.ts`. Este mismo comentario decía que la
+/// solución de fondo era que `riesgo-activo.ts` expusiera los HEX y que este archivo los
+/// importara; es lo que pasó el 22/09/2026.
 function argb(css: string): string {
-  const variable = /^var\((--[\w-]+)\)$/.exec(css.trim());
-  const crudo = variable ? HEX_DE_VARIABLE[variable[1]] : css;
-  if (crudo === undefined) return '';
-  const hex = crudo.replace('#', '').trim();
+  const hex = (hexDeColorDeRiesgo(css) ?? '').replace('#', '').trim();
   if (hex.length === 6) return `FF${hex.toUpperCase()}`;
   if (hex.length === 8) return hex.toUpperCase();
   return '';
