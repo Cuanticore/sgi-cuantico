@@ -60,6 +60,17 @@ orden de unas decenas, que es lo que se lee en una reunión.
 alcanzan el umbral de valoración, que es otro conjunto (ver §3.3). El número real de esta hoja
 hay que contarlo contra la base antes de mergear, y decirlo en el PR.
 
+**Y el nombre de la hoja promete algo que no existe.** Medido contra las 34.914 filas de
+`riesgo_calculo` el 2026-09-21: la banda Crítico empieza en 25.0 y **el residual máximo real es
+13.0**, así que hay **cero** riesgos en Crítico. El reparto es Alto 191 · Medio 6.957 · Bajo
+27.766 · Crítico 0.
+
+La hoja se llama **«Riesgos altos»**, no «Riesgos altos o críticos». El filtro sigue incluyendo
+Crítico —el día que la escala cambie tiene que funcionar— pero un libro que se archiva y se lleva
+a un comité no puede titular una hoja con una banda que hoy no tiene ni una fila: quien la abra
+concluirá que no hay riesgos críticos *porque se trataron*, y la verdad es que la escala no
+permite llegar ahí. La nota de la fila 2 lo dice con todas sus letras.
+
 **Lo que se pierde, y hay que decirlo:** la hoja no dice *qué amenaza* pone al activo en rojo. Para
 eso está la pantalla, y la hoja lleva la cuenta —«3 de sus 14 amenazas en Alto o Crítico»— para
 que se sepa cuántas hay que ir a mirar.

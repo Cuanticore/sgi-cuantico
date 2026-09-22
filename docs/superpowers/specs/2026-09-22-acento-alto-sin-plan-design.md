@@ -46,6 +46,41 @@ una decisión escrita.
 El tercero es el que obliga a decidir: si el rojo pasa a significar sólo lo nuevo, **se pierde**
 un aviso que hoy existe.
 
+### 2.1 · «Crítico» no existe en los datos, y el residual ya se probó como compuerta
+
+Añadido el 2026-09-22, sobre una medición ajena verificada contra el código.
+
+Medido contra las 34.914 filas de `riesgo_calculo` en la base local del 2026-09-21:
+
+```
+banda Crítico empieza en   25.0000     (umbral_riesgo)
+máximo residual real       13.0000
+reparto   Alto 191 · Medio 6.957 · Bajo 27.766 · Crítico 0
+```
+
+**Ningún riesgo puede alcanzar Crítico** con la eficacia declarada: el residual queda en el
+5-10 % del inherente, y llegar a 25 exigiría un inherente de 250 cuando el máximo del modelo es
+50. Dos consecuencias para este spec:
+
+1. **Decir «Alto o Crítico» es decir «Alto».** El predicado sigue incluyendo Crítico —el día que
+   cambie la escala tiene que funcionar— pero **el spec no puede venderse como si cubriera dos
+   bandas**, y ningún ejemplo, prueba o texto de pantalla debe sugerir que hoy hay riesgos
+   críticos.
+2. **El residual ya se descartó una vez como compuerta, y por esto mismo.** `estadoPlanDe` se
+   cambió de residual a brecha en REQ-SIG-24 §7 —el comentario está en
+   `analisis-riesgos.ts:294`— justamente porque una compuerta sobre una banda que nadie alcanza
+   no dispara nunca.
+
+**Esto no invalida el diseño, pero cambia su tamaño.** Un acento rojo por residual Alto sin plan
+sí dispara: hay 191 riesgos en Alto. Lo que no se puede es presentarlo como la compuerta que
+reemplaza a la de brecha — sería repetir el movimiento que ya se deshizo. Por eso la decisión de
+§3 (dos acentos, conservando el de brecha) no sólo es la más prudente: es la única que no
+contradice REQ-SIG-24 §7.
+
+**Y hay una pregunta abierta que este spec no resuelve:** si el umbral de Crítico está en 25 y el
+modelo no puede pasar de 13, el umbral está mal calibrado o la eficacia declarada es demasiado
+optimista. Eso es una decisión del SGSI, no de esta pantalla.
+
 ---
 
 ## 3. Decisión: dos acentos, no uno
