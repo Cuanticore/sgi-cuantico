@@ -18,6 +18,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
+    "ag-grid-community": "^36.2.0",
+    "ag-grid-react": "^36.2.0",
     "axios": "^1.16.0",
     "decimal.js": "10.6.0",
     "echarts": "^6.0.0",
