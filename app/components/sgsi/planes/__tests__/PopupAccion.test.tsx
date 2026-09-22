@@ -68,10 +68,10 @@ const CARGOS = [
 ];
 const MADUREZ = [{ id: 30, nivel: 90, nombre: 'Definido' }];
 
-function montar() {
+function montar(extra: Partial<AccionVista> = {}) {
   render(
     <PopupAccion
-      accion={ACCION}
+      accion={{ ...ACCION, ...extra }}
       controles={CONTROLES}
       cargos={CARGOS}
       madurez={MADUREZ}
@@ -124,11 +124,22 @@ describe('el orden de los campos', () => {
     expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('Observaciones es el último campo del formulario', () => {
+  it('Observaciones va después de Recursos', () => {
     montar();
     const observaciones = screen.getByLabelText('Observaciones');
     const recursos = screen.getByLabelText('Recursos o presupuesto');
     const posicion = recursos.compareDocumentPosition(observaciones);
+    expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('Observaciones sigue siendo el último campo cuando el tipo abre los campos condicionales', () => {
+    // Con MITIGAR los bloques de Transferir y Aceptar no se renderizan, así que compararla
+    // sólo contra Recursos no dice nada sobre ellos: la prueba pasaría igual si alguien los
+    // moviera detrás de Observaciones. Con ACEPTAR sí salen.
+    montar({ tipo: 'ACEPTAR' });
+    const observaciones = screen.getByLabelText('Observaciones');
+    const fechaRevision = screen.getByLabelText(/^Fecha de revisión/);
+    const posicion = fechaRevision.compareDocumentPosition(observaciones);
     expect(posicion & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

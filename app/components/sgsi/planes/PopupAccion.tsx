@@ -328,10 +328,14 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
         </div>
 
         {/* Cinco campos cortos en un renglón: es lo que 1040 px de ancho permiten y lo que
-            libera los dos renglones que Observaciones necesita. Cinco columnas sólo a partir
-            de `xl`; por debajo se apilan de a tres y de a dos, porque el popup nunca mide más
-            que la ventana. */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            libera los dos renglones que Observaciones necesita.
+
+            El corte de las cinco columnas es 1080 px y no uno de los de Tailwind, porque ahí
+            es donde la tarjeta DEJA DE CRECER: mide `min(1040, ventana − 40)` por el relleno
+            lateral del overlay, así que a 1080 ya está en su ancho máximo y las cinco columnas
+            caben a ~195 px. Esperar a `xl` (1280) dejaba un renglón de 3+2 con un hueco a la
+            derecha en todo el rango intermedio, sin ninguna razón de espacio que lo explicara. */}
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 min-[1080px]:grid-cols-5">
           <Campo etiqueta="Fecha objetivo">
             <input
               type="date"
