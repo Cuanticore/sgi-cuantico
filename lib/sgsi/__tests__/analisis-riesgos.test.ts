@@ -215,6 +215,80 @@ describe('§5.1 · las cinco tarjetas, desde la distribución (tarea 3.8)', () =
   });
 });
 
+// REQ-SIG-24 §7 · `altoSinPlan`: el riesgo QUE QUEDA, no la brecha del control.
+//
+// POR QUÉ ES UN CAMPO APARTE Y NO UNA LECTURA DE `estadoPlan`. `estadoPlan` contesta «¿el
+// control principal alcanza lo que se le exige?»; esto contesta «¿queda algún riesgo en banda
+// Alto o Crítico que ningún plan cubra?». Son preguntas distintas y se cruzan en las cuatro
+// combinaciones: un activo puede tener el control al día —`no-requiere`— y el residual alto,
+// que es justamente el caso que la pantalla no decía de ninguna forma y el que ISO/IEC 27001
+// 6.1.3 no deja pasar sin una decisión escrita.
+describe('§7 · altoSinPlan mira el residual que queda, no la brecha del control', () => {
+  /// Residual 15 cae en banda Alto (10 ≤ 15 < 20) y el principal al 90 % cubre la exigencia
+  /// por valor (70 %), así que el activo NO tiene brecha: `estadoPlan` es `no-requiere`.
+  const altoSinBrecha = () =>
+    activo({ riesgos: [conPrincipal(90, { potencial: '25', residual: '15' })] });
+
+  const soloFila = (a: ActivoAnalizable, resolver?: ResolverDeudaPlan) =>
+    filasAnalisis(datos([a]), FILTROS_ANALISIS_VACIOS, resolver)[0];
+
+  // LA PRUEBA DEL PEDIDO. Sin este campo, este activo salía sin ningún acento: su control
+  // está al día y su riesgo residual sigue en Alto sin plan que lo trate.
+  it('es cierto con un riesgo en Alto sin plan, aunque estadoPlan sea «no-requiere»', () => {
+    const fila = soloFila(altoSinBrecha(), () => false);
+    expect(fila.estadoPlan).toBe('no-requiere');
+    expect(fila.peorResidual?.banda).toBe('Alto');
+    expect(fila.altoSinPlan).toBe(true);
+  });
+
+  it('es falso cuando ese mismo Alto ya tiene un plan que lo cubre', () => {
+    const fila = soloFila(altoSinBrecha(), () => true);
+    expect(fila.peorResidual?.banda).toBe('Alto');
+    expect(fila.altoSinPlan).toBe(false);
+  });
+
+  // La misma doctrina que hace que `estadoPlan` sea `sin-determinar` y no `pendiente` cuando
+  // nadie provee el resolutor: «no miré» no es «falta». Marcar acá afirmaría que no hay plan
+  // sobre una pregunta que no se hizo.
+  it('es falso sin resolutor: «no miré» no es «falta»', () => {
+    expect(soloFila(altoSinBrecha()).altoSinPlan).toBe(false);
+  });
+
+  // `residual: null` es «sin calcular», no «alto». Es la misma distinción que la columna «Peor
+  // residual» sostiene con su propia palabra.
+  it('es falso con residual null: «sin calcular» no es «alto»', () => {
+    const sinCalcular = activo({ riesgos: [conPrincipal(90, { potencial: '25', residual: null })] });
+    const fila = soloFila(sinCalcular, () => false);
+    expect(fila.peorResidual).toBeNull();
+    expect(fila.altoSinPlan).toBe(false);
+  });
+
+  // La pregunta viaja con el control principal, EXACTAMENTE como en `estadoPlanDe`. Si las dos
+  // compuertas armaran la pregunta distinto, un plan cubriría una y no la otra y el mismo
+  // activo saldría rojo y ámbar según a quién se le preguntara.
+  it('la pregunta al resolutor lleva el mismo (activo, amenaza, principal) que la de brecha', () => {
+    const preguntas: unknown[] = [];
+    const resolver: ResolverDeudaPlan = (r) => {
+      preguntas.push(r);
+      return false;
+    };
+    soloFila(altoSinBrecha(), resolver);
+    expect(preguntas).toContainEqual({
+      activoCodigo: 'TEC-GEN-0001',
+      amenazaCodigo: 'A.24',
+      principalCodigo: 'A.8.14',
+    });
+  });
+
+  // Un riesgo obsoleto no es un riesgo vigente: ya no describe nada que haya que tratar.
+  it('un riesgo obsoleto en Alto no lo marca', () => {
+    const obsoleto = activo({
+      riesgos: [conPrincipal(90, { potencial: '25', residual: '15', obsoleto: true })],
+    });
+    expect(soloFila(obsoleto, () => false).altoSinPlan).toBe(false);
+  });
+});
+
 describe('§5.2 · orden por peor residual descendente', () => {
   it('el peor residual va primero; sin residual calculado va al final', () => {
     const activos = [

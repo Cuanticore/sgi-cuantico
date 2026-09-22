@@ -18,6 +18,7 @@
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
 import {
   CLASE_FILA_ALARMANTE,
+  CLASE_FILA_BRECHA,
   CLAVE_ESTADO_COLUMNAS,
   COL_DEF_POR_DEFECTO,
   ID_GRUPO_DIMENSIONES,
@@ -395,39 +396,77 @@ describe('ordenar por las columnas que no son escalares', () => {
 // clases y estilos. Así que el contrato pasa a clase — que se inspecciona igual de bien desde
 // el navegador y aquí se prueba pura.
 describe('la fila dice su banda y su estado de plan sin depender del color', () => {
-  // EL ACENTO DEL RENGLÓN CAMBIÓ DE SIGNIFICADO EL 22/09/2026, y conviene leer el porqué antes
-  // de volver a moverlo.
+  // DOS ACENTOS DESDE EL 22/09/2026, Y NUNCA LOS DOS A LA VEZ. Conviene leer la historia
+  // completa antes de volver a moverlos, porque el significado de `fila-alarmante` ya cambió
+  // dos veces en el mismo día.
   //
-  // Antes marcaba la BANDA del residual (Crítico o Alto). Ahora marca que el activo REQUIERE
-  // PLAN y no lo tiene — `estadoPlan === 'pendiente'`—, que es lo que se pidió al retirar la
-  // etiqueta ámbar «pendiente».
+  //   1. Nació marcando la BANDA del residual (Crítico o Alto).
+  //   2. Pasó a marcar que el activo REQUIERE PLAN y no lo tiene (`estadoPlan === 'pendiente'`),
+  //      al retirarse la etiqueta ámbar «pendiente».
+  //   3. Ahora marca que queda RIESGO RESIDUAL ALTO O CRÍTICO SIN PLAN (`altoSinPlan`), y la
+  //      deuda de madurez —lo que el paso 2 pintaba— se va al ámbar `fila-brecha-pendiente`.
   //
-  // Por qué uno y no los dos: con dos criterios pintando el mismo renglón, un activo de banda
-  // Alta sin plan pendiente se vería igual que uno pendiente, y el acento dejaría de querer
-  // decir algo. Hoy 9 de los 11 pendientes son de banda Alta y 2 no, así que la ambigüedad se
-  // vería de inmediato.
+  // El paso 3 es el que este bloque de pruebas persigue. La razón es que `estadoPlan` y
+  // `altoSinPlan` contestan preguntas distintas: la brecha del control y el riesgo que queda.
+  // Un activo con el control al día y el residual en Alto no se marcaba de ninguna forma, que
+  // es el vacío que REQ-SIG-24 §7 señala.
+  //
+  // Sigue siendo un acento por renglón. Cuando las dos condiciones se cumplen gana el rojo: es
+  // el problema más grave y el que manda la acción. Un renglón con dos colores no es más
+  // informativo, es ilegible.
   //
   // La banda NO se queda sin señal: la columna «Peor residual» sigue llevando su color y su
   // palabra, que es donde esa pregunta se responde. Cada señal en su sitio.
-  it('el renglón se acentúa cuando el activo requiere plan y no lo tiene', () => {
-    const pendiente = { ...fila(), estadoPlan: 'pendiente' as const };
-    expect(claseDeFila(pendiente)).toContain(CLASE_FILA_ALARMANTE);
+  it('el renglón se acentúa en rojo cuando queda riesgo alto sin plan', () => {
+    const altoSuelto = { ...fila(), altoSinPlan: true };
+    expect(claseDeFila(altoSuelto)).toContain(CLASE_FILA_ALARMANTE);
+    expect(claseDeFila(altoSuelto)).not.toContain(CLASE_FILA_BRECHA);
+  });
+
+  // CAMBIÓ EL 22/09/2026, y es un cambio decidido, no una prueba relajada.
+  //
+  // Antes afirmaba `claseDeFila({ estadoPlan: 'pendiente' })` → `CLASE_FILA_ALARMANTE`, porque
+  // el rojo significaba «requiere plan y no lo tiene» por brecha de control. Ese significado se
+  // mudó al ámbar: el rojo pasó a ser del residual alto sin tratar. La afirmación de fondo —que
+  // una brecha pendiente se ve— no se perdió, cambió de color.
+  it('el renglón se acentúa en ámbar cuando hay brecha pendiente y ningún alto suelto', () => {
+    const pendiente = { ...fila(), estadoPlan: 'pendiente' as const, altoSinPlan: false };
+    expect(claseDeFila(pendiente)).toContain(CLASE_FILA_BRECHA);
+    expect(claseDeFila(pendiente)).not.toContain(CLASE_FILA_ALARMANTE);
     expect(claseDeFila(pendiente)).toContain('fila-plan--pendiente');
   });
 
+  // LA PRUEBA QUE IMPIDE EL RENGLÓN DE DOS COLORES. Las dos condiciones son independientes y
+  // se cumplen juntas a menudo —una brecha de control sin cubrir es una de las formas de que
+  // quede un residual alto—, así que sin este `else` el caso más común sería el ilegible.
+  it('con las dos condiciones gana el rojo, y el ámbar no sale', () => {
+    const ambas = { ...fila(), estadoPlan: 'pendiente' as const, altoSinPlan: true };
+    expect(claseDeFila(ambas)).toContain(CLASE_FILA_ALARMANTE);
+    expect(claseDeFila(ambas)).not.toContain(CLASE_FILA_BRECHA);
+  });
+
+  // CAMBIÓ EL 22/09/2026. Antes sólo afirmaba que un `con-plan` no lleva el rojo; ahora tiene
+  // que afirmar que no lleva NINGUNO de los dos acentos, porque con dos clases en juego «no se
+  // acentúa» dejó de poder comprobarse mirando una sola.
   it('un activo que ya tiene plan NO se acentúa, aunque su residual sea Crítico', () => {
     const critico = fila({ riesgos: [riesgo({ potencial: '25', residual: '25' })] });
-    const conPlan = { ...critico, estadoPlan: 'con-plan' as const };
+    const conPlan = { ...critico, estadoPlan: 'con-plan' as const, altoSinPlan: false };
     expect(conPlan.peorResidual?.banda).toBe('Crítico');
     expect(claseDeFila(conPlan)).not.toContain(CLASE_FILA_ALARMANTE);
+    expect(claseDeFila(conPlan)).not.toContain(CLASE_FILA_BRECHA);
     // La banda sigue diciéndose: pierde el acento del renglón, no la información.
     expect(claseDeFila(conPlan)).toContain('fila-banda--Critico');
   });
 
-  it('ni uno que no requiere plan, tenga la banda que tenga', () => {
+  // CAMBIÓ EL 22/09/2026. Antes la banda era irrelevante para el acento —de ahí el «tenga la
+  // banda que tenga»— y bastaba `no-requiere` para descartar el rojo. Ahora la banda vuelve a
+  // importar, así que el caso hay que fijarlo: `no-requiere` **y** `altoSinPlan` en falso, que
+  // es un activo cuyo residual alto ya está cubierto por un plan.
+  it('ni uno que no requiere plan y no tiene ningún alto suelto', () => {
     const alto = fila({ riesgos: [riesgo({ potencial: '12', residual: '12' })] });
-    const noRequiere = { ...alto, estadoPlan: 'no-requiere' as const };
+    const noRequiere = { ...alto, estadoPlan: 'no-requiere' as const, altoSinPlan: false };
     expect(claseDeFila(noRequiere)).not.toContain(CLASE_FILA_ALARMANTE);
+    expect(claseDeFila(noRequiere)).not.toContain(CLASE_FILA_BRECHA);
     expect(claseDeFila(noRequiere)).toContain('fila-banda--Alto');
   });
 
@@ -436,6 +475,7 @@ describe('la fila dice su banda y su estado de plan sin depender del color', () 
   it('«sin determinar» no se acentúa: no miré no es no falta', () => {
     const sinDeterminar = { ...fila(), estadoPlan: 'sin-determinar' as const };
     expect(claseDeFila(sinDeterminar)).not.toContain(CLASE_FILA_ALARMANTE);
+    expect(claseDeFila(sinDeterminar)).not.toContain(CLASE_FILA_BRECHA);
     expect(claseDeFila(sinDeterminar)).toContain('fila-plan--sin-determinar');
   });
 
@@ -458,10 +498,14 @@ describe('la fila dice su banda y su estado de plan sin depender del color', () 
     expect(clase('no-requiere')).toContain('fila-plan--no-requiere');
     expect(clase('con-plan')).toContain('fila-plan--con-plan');
     expect(clase('sin-determinar')).toContain('fila-plan--sin-determinar');
-    // Y de los cuatro, sólo uno acentúa el renglón.
-    const acentuados = (['pendiente', 'no-requiere', 'con-plan', 'sin-determinar'] as const).filter(
-      (e) => clase(e).includes(CLASE_FILA_ALARMANTE),
-    );
-    expect(acentuados).toEqual(['pendiente']);
+
+    // CAMBIÓ EL 22/09/2026. Antes afirmaba `acentuados === ['pendiente']` sobre
+    // `CLASE_FILA_ALARMANTE`: el rojo era del estado de plan. Ahora el estado de plan sólo
+    // gobierna el ÁMBAR —el rojo depende de `altoSinPlan`, que acá es falso en las cuatro
+    // filas—, así que la misma afirmación se hace sobre `CLASE_FILA_BRECHA` y el rojo tiene que
+    // estar ausente de los cuatro.
+    const ESTADOS = ['pendiente', 'no-requiere', 'con-plan', 'sin-determinar'] as const;
+    expect(ESTADOS.filter((e) => clase(e).includes(CLASE_FILA_BRECHA))).toEqual(['pendiente']);
+    expect(ESTADOS.filter((e) => clase(e).includes(CLASE_FILA_ALARMANTE))).toEqual([]);
   });
 });

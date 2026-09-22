@@ -24,6 +24,7 @@
 // mitad que hace que encender el filtro sea seguro.
 
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
+import { esBandaAlarmante } from './alto-sin-plan';
 import {
   compararPorCriticidad,
   type EstadoPlanActivo,
@@ -118,22 +119,25 @@ export const DIMENSIONES = [
   { codigo: 'C', nombre: 'Confidencialidad' },
 ] as const;
 
-/// Las bandas cuyo residual acentúa el renglón.
+/// El acento ROJO del renglón: **queda riesgo residual en banda Alto o Crítico que ningún plan
+/// cubre** (`FilaAnalisis.altoSinPlan`).
 ///
-/// **Se nombran por su nombre y no por el orden del umbral** porque el catálogo es editable:
-/// `UmbralRiesgo` se parametriza y alguien puede insertar una banda intermedia. Un `orden <= 2`
-/// pintaría entonces la banda equivocada sin que nada falle.
-const BANDAS_ALARMANTES = ['Crítico', 'Alto'];
-
-/// El acento del renglón. **Marca que el activo REQUIERE PLAN y no lo tiene**, no su banda.
+/// CONSERVA EL NOMBRE Y ESTRECHA EL SIGNIFICADO, y en el mismo día cambió dos veces:
 ///
-/// Cambió de significado el 22/09/2026, al retirarse la etiqueta ámbar «pendiente». Con dos
-/// criterios pintando el mismo renglón —banda y plan— un activo de banda Alta sin plan
-/// pendiente se vería igual que uno pendiente, y el acento dejaría de querer decir algo.
+///   1. Nació marcando la BANDA del residual, sin mirar planes.
+///   2. Pasó a marcar la BRECHA DE CONTROL sin cubrir (`estadoPlan === 'pendiente'`), al
+///      retirarse la etiqueta ámbar «pendiente».
+///   3. Ahora marca el RIESGO QUE QUEDA sin tratar, y lo del paso 2 se va a `CLASE_FILA_BRECHA`.
+///
+/// El paso 3 existe porque el paso 2 no decía nada de un activo con el control al día y el
+/// residual en Alto — el caso que ISO/IEC 27001 6.1.3 no deja pasar sin una decisión escrita.
 ///
 /// La banda no se queda sin señal: su columna sigue llevando color y palabra. Cada una en su
 /// sitio.
 export const CLASE_FILA_ALARMANTE = 'fila-alarmante';
+
+/// El acento ámbar: deuda de MADUREZ. Es lo que `fila-alarmante` significaba hasta hoy.
+export const CLASE_FILA_BRECHA = 'fila-brecha-pendiente';
 
 /// Si el residual de un activo es de los que hay que ver sin leer la tabla.
 ///
@@ -141,8 +145,14 @@ export const CLASE_FILA_ALARMANTE = 'fila-alarmante';
 /// riesgo es alto, y lo que pasa es que no se sabe. Es la misma doctrina que sostiene el
 /// informe de valoración: eficacia desconocida no es riesgo alto ni riesgo bajo, es un estado
 /// del modelo. La columna «Peor residual» ya lo dice con su propia palabra.
+///
+/// LA LISTA DE BANDAS YA NO VIVE ACÁ. Este archivo declaraba su propia `BANDAS_ALARMANTES`
+/// mientras `alto-sin-plan.ts` declaraba otra igual, y dos listas que se separan es cómo la
+/// grilla y el popup de planes terminan diciendo cosas distintas sobre la misma amenaza. Se
+/// delega en `esBandaAlarmante`, que es la única dueña del criterio; acá queda sólo la
+/// adaptación de `NivelRiesgo` —que es un tipo de la grilla— a su `banda`.
 export function esResidualAlarmante(nivel: NivelRiesgo | null): boolean {
-  return nivel !== null && BANDAS_ALARMANTES.includes(nivel.banda);
+  return esBandaAlarmante(nivel === null ? null : nivel.banda);
 }
 
 /// Las clases de una fila: su banda residual, su estado de plan y el acento.
@@ -156,10 +166,25 @@ export function esResidualAlarmante(nivel: NivelRiesgo | null): boolean {
 /// El nombre de la banda va sin tildes ni espacios en la clase (`Crítico` → `fila-banda--Critico`):
 /// una clase con tilde es válida en CSS moderno pero se escapa distinto en cada herramienta, y
 /// esta clase existe justamente para ser escrita a mano en un selector.
+///
+/// DOS ACENTOS, Y NUNCA LOS DOS A LA VEZ:
+///
+///   · ROJO (`fila-alarmante`)         queda riesgo residual Alto o Crítico SIN PLAN que lo cubra
+///   · ÁMBAR (`fila-brecha-pendiente`) hay brecha de control sin cubrir, y ningún alto suelto
+///
+/// Son dos preguntas distintas —el riesgo que queda y la madurez del control— y se cruzan: una
+/// brecha sin cubrir es una de las formas de que quede un residual alto, así que lo habitual es
+/// que las dos se cumplan juntas.
+///
+/// EL `else` NO ES UN DETALLE DE ESTILO. Cuando las dos se cumplen gana el rojo, porque es el
+/// problema más grave y el que manda la acción. Pintar los dos no informa más: da un renglón de
+/// dos colores que no se puede leer, y en el caso más común. Sin el `else` ése sería el
+/// comportamiento por defecto.
 export function claseDeFila(fila: FilaAnalisis): string[] {
   const banda = fila.peorResidual === null ? 'sin-calcular' : sinTildes(fila.peorResidual.banda);
   const clases = [`fila-banda--${banda}`, `fila-plan--${fila.estadoPlan}`];
-  if (fila.estadoPlan === 'pendiente') clases.push(CLASE_FILA_ALARMANTE);
+  if (fila.altoSinPlan) clases.push(CLASE_FILA_ALARMANTE);
+  else if (fila.estadoPlan === 'pendiente') clases.push(CLASE_FILA_BRECHA);
   return clases;
 }
 

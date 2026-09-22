@@ -177,8 +177,13 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // estaba definida, la prueba de clases seguía verde — y las filas renderizaban blancas.
   //
   // Por eso acá se afirma el COLOR CALCULADO. Una prueba sobre la clase seguiría verde con la
-  // pantalla en blanco, y desde que se retiró la etiqueta «pendiente» ese rojo es la señal de
-  // que un activo requiere plan: sin él la pantalla no lo dice de ninguna forma.
+  // pantalla en blanco.
+  //
+  // QUÉ SIGNIFICA EL ROJO, DESDE EL 22/09/2026: que al activo le queda un riesgo residual en
+  // banda Alto o Crítico que ningún plan cubre (`FilaAnalisis.altoSinPlan`). Antes significaba
+  // «tiene una brecha de control sin cubrir» (`estadoPlan === 'pendiente'`), y eso pasó al
+  // acento ámbar del paso 6d. Sin este rojo la pantalla no dice de ninguna forma que queda
+  // riesgo alto sin tratar, que es lo que ISO/IEC 27001 6.1.3 no deja pasar sin decisión.
   const alarmantes = page.locator('.ag-row.fila-alarmante');
   const cuantasAlarmantes = await alarmantes.count();
   expect(cuantasAlarmantes).toBeGreaterThan(0);
@@ -191,10 +196,70 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // ── 6c · Y la celda dice en palabras lo mismo que el color ──────────────────────────
   //
   // El color no puede ser el único portador — es doctrina de este código, escrita en
-  // `CeldaBanda` y en la pantalla de matrices. Al retirarse la etiqueta «pendiente», el
-  // portador textual pasó a ser el propio enlace de la celda.
-  await expect(alarmantes.first().getByRole('button', { name: /Crear plan/i })).toBeVisible();
-  anotar('6c · el color no va solo', 'la fila roja ofrece «Crear Plan» en palabras');
+  // `CeldaBanda` y en la pantalla de matrices.
+  //
+  // CAMBIÓ EL 22/09/2026, Y POR SEMÁNTICA, NO POR CONVENIENCIA. Este paso afirmaba que la fila
+  // roja ofrece el botón «Crear Plan», que era el portador textual cuando el rojo significaba
+  // «requiere plan y no lo tiene». Ahora el rojo significa «queda residual Alto o Crítico sin
+  // plan», y el botón ya no es su portador: lo ofrecen TODAS las filas menos las que ya tienen
+  // plan, y una fila roja puede estar en `con-plan` —plan sobre la brecha de un riesgo, y otro
+  // riesgo en Alto sin cubrir—, así que afirmarlo sería un rojo que depende de con qué fila
+  // toque el `.first()`.
+  //
+  // El portador textual del rojo nuevo es la columna «Peor residual», que dice la banda en
+  // palabras. Y la implicación es exacta, no aproximada: si alguna amenaza está en Alto o
+  // Crítico, el PEOR residual del activo está en Alto o Crítico — es el máximo de los mismos
+  // números. Una fila roja sin esa palabra sería el rojo mintiendo.
+  const textoAlarmante = (await alarmantes.first().textContent()) ?? '';
+  expect(textoAlarmante).toMatch(/Alto|Crítico/);
+  anotar('6c · el color no va solo', 'la fila roja dice su banda en palabras');
+
+  // ── 6d · El ámbar pinta, y es OTRO color que el rojo ────────────────────────────────
+  //
+  // PASO NUEVO EL 22/09/2026, y **NO SE PUDO EJECUTAR EN LA SESIÓN QUE LO ESCRIBIÓ**: este
+  // archivo necesita una base con datos reales, que hoy es producción por el túnel SSM. Lo que
+  // sigue está razonado contra el CSS y contra `claseDeFila`, no visto en pantalla. Quien lo
+  // corra primero, que lo diga en el PR.
+  //
+  // El ámbar es la deuda de MADUREZ: brecha de control sin cubrir y ningún residual alarmante
+  // suelto. Es lo que el rojo significaba hasta hoy, así que sin este paso el cambio se habría
+  // llevado por delante un aviso que la pantalla ya daba.
+  //
+  // LOS DOS TOKENS TIENEN QUE SER DISTINTOS, y eso se afirma sobre las variables y no sobre una
+  // fila: `--hf-warn-100` y `--hf-danger-bg` son los dos fondos claros de la paleta y el día que
+  // alguien los acerque, los dos acentos dirían lo mismo. Preguntárselo al documento no depende
+  // de que los datos del día traigan una fila de cada clase.
+  const tokens = await page.evaluate(() => {
+    const s = getComputedStyle(document.documentElement);
+    return {
+      rojo: s.getPropertyValue('--hf-danger-bg').trim(),
+      ambar: s.getPropertyValue('--hf-warn-100').trim(),
+    };
+  });
+  expect(tokens.rojo).not.toBe('');
+  expect(tokens.ambar).not.toBe('');
+  expect(tokens.ambar).not.toBe(tokens.rojo);
+
+  // Y cuando hay una fila ámbar, que PINTE — el fallo de la cascada es por regla, no por clase,
+  // así que la regla nueva puede perderla sola. El conteo NO se afirma mayor que cero: depende
+  // de los datos del día (un activo con brecha pendiente y sin ningún alto suelto), y un rojo
+  // que aparece según qué planes se hayan registrado esta semana enseña a desconfiar del arnés.
+  // Lo que sí queda asentado es cuántas hubo.
+  const conBrecha = page.locator('.ag-row.fila-brecha-pendiente');
+  const cuantasBrecha = await conBrecha.count();
+  if (cuantasBrecha > 0) {
+    const fondoAmbar = await conBrecha.first().evaluate((n) => getComputedStyle(n).backgroundColor);
+    expect(fondoAmbar).not.toBe('rgb(255, 255, 255)');
+    expect(fondoAmbar).not.toBe('rgba(0, 0, 0, 0)');
+    expect(fondoAmbar).not.toBe(fondo);
+    anotar('6d · el renglón ámbar pinta', `${cuantasBrecha} filas, fondo ${fondoAmbar} ≠ ${fondo}`);
+  } else {
+    anotar('6d · el renglón ámbar', 'ninguna fila ámbar en estos datos; tokens distintos');
+  }
+
+  // Y ninguna fila lleva los dos acentos: sería un renglón de dos colores, ilegible. Lo
+  // garantiza el `else` de `claseDeFila`, y acá se comprueba sobre el DOM real.
+  expect(await page.locator('.ag-row.fila-alarmante.fila-brecha-pendiente').count()).toBe(0);
 
   // ── 7 · Ordenar por una columna reordena, y el rótulo lo dice ───────────────────────
   const primeroAntes = await primerCodigo(page).textContent();

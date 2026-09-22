@@ -351,10 +351,28 @@
    La lección quedó en el arnés: `e2e/analisis-riesgos.spec.ts` afirma el COLOR CALCULADO y no
    la clase. Una prueba sobre la clase seguía verde con la pantalla en blanco.
 
-   Sólo `fila-alarmante` pinta —marca que el activo requiere plan y no lo tiene—. `fila-banda--*`
-   y `fila-plan--*` no llevan estilo: existen para poder señalar una fila desde fuera sin
-   agregar ruido a una grilla que ya usa color en cuatro columnas. */
+   DOS CLASES PINTAN, Y NUNCA LAS DOS EN EL MISMO RENGLÓN (22/09/2026):
+
+     · `fila-alarmante`        rojo   · queda riesgo residual Alto o Crítico SIN PLAN que lo cubra
+     · `fila-brecha-pendiente` ámbar  · hay brecha de control sin cubrir, y ningún alto suelto
+
+   Son dos preguntas distintas —el riesgo que queda y la madurez del control—, y cuando las dos
+   se cumplen gana el rojo. Que sólo llegue una clase por fila lo garantiza `claseDeFila` con un
+   `else`, no el CSS: acá no hay orden de reglas que desempate, y un renglón con los dos fondos
+   se leería del color de la última regla escrita, que es una forma de decidirlo por accidente.
+
+   `fila-banda--*` y `fila-plan--*` no llevan estilo: existen para poder señalar una fila desde
+   fuera sin agregar ruido a una grilla que ya usa color en cuatro columnas.
+
+   LA REGLA ÁMBAR VA ACÁ, PEGADA A LA ROJA Y FUERA DE `@layer`, por lo que dice el párrafo de
+   arriba. Escribirla dentro de `@layer components` —donde parece que corresponde— es repetir
+   exactamente el fallo del 21 al 22 de septiembre: no pintaría, y nada daría rojo. */
 .ag-row.fila-alarmante,
 .ag-row.fila-alarmante .ag-cell {
   background-color: var(--hf-danger-bg);
+}
+
+.ag-row.fila-brecha-pendiente,
+.ag-row.fila-brecha-pendiente .ag-cell {
+  background-color: var(--hf-warn-100);
 }

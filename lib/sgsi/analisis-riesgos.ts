@@ -38,6 +38,7 @@
 // van al final, aunque signifiquen cosas distintas — uno es trabajo pendiente, el otro una
 // decisión — porque para efectos de ORDEN los dos son «sin urgencia de recuperación».
 
+import { esBandaAlarmante } from './alto-sin-plan';
 import { clasificar } from './clasificar';
 import {
   evaluarBrecha,
@@ -205,6 +206,10 @@ export interface FilaAnalisis {
   /// `estadoPlan`, que sí distingue los tres casos.
   peorBrecha: number | null;
   estadoPlan: EstadoPlanActivo;
+  /// REQ-SIG-24 §7 · hay al menos un riesgo vigente en banda Alto o Crítico que ningún plan
+  /// activo cubre. Es UNA PREGUNTA DISTINTA de `estadoPlan`: ésa mira la brecha del control,
+  /// ésta el riesgo que queda. Un activo puede tener el control al día y el residual alto.
+  altoSinPlan: boolean;
 }
 
 export interface DatosAnalisis {
@@ -325,6 +330,32 @@ function estadoPlanDe(
   return indeterminadas ? 'sin-determinar' : 'no-requiere';
 }
 
+/// REQ-SIG-24 §7 · ¿queda algún riesgo en banda alarmante que ningún plan cubra?
+///
+/// Sin `resolver` es `false`, por la misma doctrina que hace que `estadoPlan` sea
+/// `sin-determinar` y no `pendiente`: «no miré» no es «falta». Y un residual `null` tampoco
+/// cuenta — «sin calcular» no es «alto».
+///
+/// La forma de `principalCodigo` es IDÉNTICA a la de `estadoPlanDe`, y es deliberado: las dos
+/// compuertas le preguntan al mismo resolutor, y si armaran la pregunta distinto un plan
+/// cubriría una y no la otra — el mismo activo saldría rojo y ámbar según a quién se preguntara.
+function altoSinPlanDe(
+  a: ActivoAnalizable,
+  bandas: readonly UmbralRiesgo[],
+  resolver: ResolverDeudaPlan | undefined,
+): boolean {
+  if (resolver === undefined) return false;
+  return a.riesgos.some((r) => {
+    if (r.obsoleto || r.residual === null) return false;
+    if (!esBandaAlarmante(clasificar(r.residual, bandas))) return false;
+    return !resolver({
+      activoCodigo: a.codigo,
+      amenazaCodigo: r.amenazaCodigo,
+      principalCodigo: r.principal === undefined ? undefined : (r.principal?.codigo ?? null),
+    });
+  });
+}
+
 /// La peor brecha del activo, en puntos, para la columna «Brecha». `null` cuando ninguna
 /// amenaza tiene una brecha de NIVEL — puede haberla de verificación, que no tiene puntos.
 export function peorBrecha(
@@ -417,6 +448,7 @@ function filaDe(
     peorResidual: peorResidual(a, bandas),
     peorBrecha: peorBrecha(a, hayVerificacionVigente),
     estadoPlan: estadoPlanDe(a, resolver, hayVerificacionVigente),
+    altoSinPlan: altoSinPlanDe(a, bandas, resolver),
   };
 }
 

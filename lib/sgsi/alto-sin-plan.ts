@@ -3,14 +3,12 @@
 // Qué amenaza, dentro de un popup de planes, no se puede dejar pasar: banda residual alta
 // (o crítica) y sin plan registrado todavía.
 //
-// ── DUPLICACIÓN TEMPORAL Y DELIBERADA ───────────────────────────────────────────────────
+// ── ESTE MÓDULO ES EL ÚNICO DUEÑO DEL CRITERIO ──────────────────────────────────────────
 //
-// `lib/sgsi/columnas-analisis.ts` ya trae su propia `BANDAS_ALARMANTES` privada, para pintar
-// la fila alarmante de la grilla. Esta lista debería ser una sola: dos listas que se separan
-// es cómo la grilla y este popup terminan diciendo cosas distintas sobre la misma amenaza.
-// No se toca ese archivo acá porque está tomado por otra sesión, migrándolo a AG Grid en
-// paralelo. Cuando se libere, `columnas-analisis.ts` tiene que importar `BANDAS_ALARMANTES`
-// de este módulo y borrar la suya — no al revés, y no las dos.
+// `lib/sgsi/columnas-analisis.ts` traía su propia `BANDAS_ALARMANTES` privada mientras este
+// archivo declaraba otra igual. La duplicación se cerró el 22/09/2026, en la dirección que ya
+// estaba escrita acá: ese archivo importa de éste y borró la suya. Dos listas que se separan es
+// cómo la grilla y este popup terminan diciendo cosas distintas sobre la misma amenaza.
 //
 // ── POR QUÉ `Crítico` SIGUE EN LA LISTA AUNQUE HOY NO TENGA NINGUNA FILA ────────────────
 //
@@ -21,13 +19,17 @@
 //
 // ── ESTE CRITERIO ES RESIDUAL, NO BRECHA — Y ES A PROPÓSITO ─────────────────────────────
 //
-// Este módulo marca por BANDA RESIDUAL. `columnas-analisis.ts` pinta su fila roja de la
-// grilla por BRECHA DE CONTROL (`estadoPlan === 'pendiente'`), que es una pregunta distinta.
-// Mientras eso siga así, un mismo activo puede salir rojo en la grilla y no traer ninguna
-// amenaza marcada acá, o al revés — no es un defecto, es que cada rojo contesta una pregunta
-// distinta. La reconciliación entre las dos está especificada en
-// `docs/superpowers/specs/2026-09-22-acento-alto-sin-plan-design.md`; quien lea sólo este
-// archivo y el de la grilla no tiene forma de saberlo si no queda escrito acá.
+// Este módulo marca por BANDA RESIDUAL, y desde el 22/09/2026 el rojo de la grilla también:
+// `claseDeFila` pinta `fila-alarmante` con `FilaAnalisis.altoSinPlan`, que es esta misma
+// pregunta agregada al activo. La BRECHA DE CONTROL (`estadoPlan === 'pendiente'`) —que es la
+// otra pregunta, la de madurez— se mudó al acento ámbar `fila-brecha-pendiente`.
+//
+// Los dos rojos contestan lo mismo, pero a distinta escala: acá una amenaza, allá el activo
+// entero. Un activo rojo en la grilla trae al menos una amenaza marcada en este popup, y ésa es
+// la garantía que la reconciliación buscaba. El ámbar NO viaja acá: es una afirmación sobre el
+// activo —su control no alcanza lo exigido— y este popup no conoce ese estado.
+//
+// La decisión completa está en `docs/superpowers/specs/2026-09-22-acento-alto-sin-plan-design.md`.
 
 /// Las bandas que no se pueden dejar sin plan.
 export const BANDAS_ALARMANTES: readonly string[] = ['Crítico', 'Alto'];
