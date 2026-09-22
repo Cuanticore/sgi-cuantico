@@ -100,7 +100,19 @@ function filaSinAcento(page: Page) {
 }
 
 async function recortes(page: Page, clase: string | null): Promise<{ barra: Buffer; relleno: Buffer }> {
-  const fila = filaSinAcento(page);
+  // SE FIJA LA FILA POR SU ÍNDICE ANTES DE MARCARLA, Y NO ES UN RODEO.
+  //
+  // `filaSinAcento` es un LOCALIZADOR, y Playwright lo vuelve a resolver en cada uso. Su
+  // selector lleva `:not(.fila-alarmante)`, así que en el instante en que se le añade la clase
+  // **deja de casar** y el mismo localizador pasa a apuntar a la fila siguiente. Medido el
+  // 22/09/2026: `row-index` 0 antes de marcar, 1 después; la caja se movía de y=468 a y=502.
+  //
+  // El efecto era doble y los dos silenciosos: los recortes salían de una fila SIN acento
+  // —idénticos a los de la referencia, así que la comparación fallaba diciendo «no pinta»
+  // cuando sí pintaba— y el `remove` de abajo se aplicaba a la fila equivocada, dejando la
+  // primera marcada para el resto del recorrido.
+  const indice = await filaSinAcento(page).getAttribute('row-index');
+  const fila = page.locator(`.ag-row[row-index="${indice}"]`).first();
   if (clase !== null) await fila.evaluate((n, c) => n.classList.add(c), clase);
   const caja = await fila.boundingBox();
   if (caja === null) throw new Error('La primera fila de la grilla no tiene caja: ¿se pintó?');
