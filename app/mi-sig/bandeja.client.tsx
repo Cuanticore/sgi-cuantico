@@ -315,6 +315,15 @@ function Tarjeta({
           {tarjeta.codigo}
           {tarjeta.procedimientoOrigen ? ` · ${tarjeta.procedimientoOrigen}` : ''}
         </p>
+        {/* El avance, para quien está haciendo el curso. La frase viene REDACTADA de
+            `progresoDeCurso` y acá sólo se repite: recomponerla a partir del porcentaje
+            crearía una segunda redacción del mismo hecho, y `progreso.porcentaje` es `null`
+            —que no es cero— cuando el paquete no lo reporta. */}
+        {tarjeta.progreso !== null && (
+          <p className="truncate text-10_5" style={{ color: 'var(--hf-text-secondary-soft)' }}>
+            {tarjeta.progreso.etiqueta}
+          </p>
+        )}
       </div>
       <span
         className="flex-none text-12 font-semibold"

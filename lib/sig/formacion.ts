@@ -35,6 +35,23 @@ export function esFormacion(tipo: string): boolean {
   return (TIPOS_DE_FORMACION as readonly string[]).includes(tipo);
 }
 
+/// ¿Hay un intento del curso EN MARCHA? Es lo único que separa «Iniciar» de «Reanudar».
+///
+/// **Es una función y no un `.some()` suelto en la consulta por una razón concreta.** Hasta
+/// el 21/09/2026 lo resolvía un filtro de Prisma —`where: { estado: 'EN_CURSO' }`— y ese
+/// filtro tuvo que irse: redactar el avance necesita también los intentos SUSPENDIDOS, que
+/// son justamente el caso de «Guardado en el 50% para seguir». Al quedar como una expresión
+/// suelta junto a una lista sin filtrar, «simplificarla» a `intentos.length > 0` se ve
+/// inocente y cambia el verbo del botón para una asignación cuyo único intento está
+/// abandonado o completado.
+///
+/// SUSPENDIDO tampoco cuenta, y es deliberado: un curso guardado para seguir se reanuda,
+/// pero lo que la tarjeta necesita saber es si hay una sesión viva. Esa distinción la
+/// redacta `progresoDeCurso` con su propia frase.
+export function hayIntentoEnCurso(intentos: readonly { estado: string }[]): boolean {
+  return intentos.some((i) => i.estado === 'EN_CURSO');
+}
+
 /// Lo que este módulo necesita de un intento. Deliberadamente menos que `IntentoScorm`: el
 /// `cmi` completo, el tiempo y la ip no deciden nada de lo que se redacta acá.
 export interface IntentoParaProgreso {

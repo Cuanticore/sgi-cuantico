@@ -9,8 +9,10 @@ import {
   avanceDelCurso,
   esFormacion,
   fraseSinProgreso,
+  hayIntentoEnCurso,
   progresoDeCurso,
   TIPOS_DE_FORMACION,
+  type IntentoParaProgreso,
 } from '../formacion';
 
 const intento = (
@@ -175,5 +177,43 @@ describe('avanceDelCurso', () => {
     const r = avanceDelCurso('LECTURA', null, []);
     expect(r.progreso).toBeNull();
     expect(r.sinProgresoPorque).toBeNull();
+  });
+});
+
+// El booleano que separa «Iniciar» de «Reanudar» en la bandeja.
+//
+// Vive acá y no como un `.some()` suelto en la consulta por una razón concreta: hasta el
+// 21/09/2026 lo resolvía un filtro de Prisma —`where: { estado: 'EN_CURSO' }`— y ese filtro
+// tuvo que irse para poder redactar el avance, que necesita también los intentos
+// SUSPENDIDOS. Al quedar como una expresión suelta, «simplificarla» a `intentos.length > 0`
+// se ve inocente y cambia el verbo del botón para una asignación cuyo único intento está
+// abandonado o completado. Con esta prueba, esa simplificación se pone roja.
+describe('hayIntentoEnCurso', () => {
+  // Se llama distinto del `intento` del módulo a propósito: acá el único dato que importa
+  // es el estado, y sombrear el otro haría dudar de cuál se está usando.
+  const conEstado = (estado: string): IntentoParaProgreso => ({
+    numero: 1,
+    estado,
+    progressMeasure: null,
+    ultimaActividadEn: new Date('2026-09-21'),
+  });
+
+  it('sin intentos, no', () => {
+    expect(hayIntentoEnCurso([])).toBe(false);
+  });
+
+  it('con un intento en curso, sí', () => {
+    expect(hayIntentoEnCurso([conEstado('EN_CURSO')])).toBe(true);
+  });
+
+  // Los tres que NO cuentan, y es lo que la prueba existe para fijar.
+  it('un intento suspendido, completado o abandonado NO es un curso en marcha', () => {
+    expect(hayIntentoEnCurso([conEstado('SUSPENDIDO')])).toBe(false);
+    expect(hayIntentoEnCurso([conEstado('COMPLETADO')])).toBe(false);
+    expect(hayIntentoEnCurso([conEstado('ABANDONADO')])).toBe(false);
+  });
+
+  it('basta uno en curso entre varios', () => {
+    expect(hayIntentoEnCurso([conEstado('ABANDONADO'), conEstado('EN_CURSO')])).toBe(true);
   });
 });
