@@ -214,47 +214,52 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   expect(textoAlarmante).toMatch(/Alto|Crítico/);
   anotar('6c · el color no va solo', 'la fila roja dice su banda en palabras');
 
-  // ── 6d · El ámbar pinta, y es OTRO color que el rojo ────────────────────────────────
+  // ── 6d · El ámbar lleva SU BARRA, y es otra que la del rojo ─────────────────────────
   //
-  // PASO NUEVO EL 22/09/2026, y **NO SE PUDO EJECUTAR EN LA SESIÓN QUE LO ESCRIBIÓ**: este
-  // archivo necesita una base con datos reales, que hoy es producción por el túnel SSM. Lo que
-  // sigue está razonado contra el CSS y contra `claseDeFila`, no visto en pantalla. Quien lo
-  // corra primero, que lo diga en el PR.
+  // REESCRITO EL 22/09/2026, y **TAMPOCO SE PUDO EJECUTAR DESDE ESTA SESIÓN**: este archivo
+  // necesita una base con datos reales, que hoy es producción por el túnel SSM. Lo que sigue
+  // está razonado contra el CSS y contra `claseDeFila`, no visto en pantalla. Quien lo corra
+  // primero, que lo diga en el PR.
   //
-  // El ámbar es la deuda de MADUREZ: brecha de control sin cubrir y ningún residual alarmante
-  // suelto. Es lo que el rojo significaba hasta hoy, así que sin este paso el cambio se habría
-  // llevado por delante un aviso que la pantalla ya daba.
+  // POR QUÉ CAMBIÓ LA ASERCIÓN: los dos fondos pastel (`--hf-danger-bg` y `--hf-warn-100`)
+  // medían distinto para `getComputedStyle` —una diferencia de canal del 3 %— y este paso
+  // pasaba, pero en pantalla el rosa y el crema se leían como el mismo fondo alternando con el
+  // blanco de las filas sin acento. La forma ganó donde el tono no alcanzaba: el rojo conserva
+  // su fondo y suma una barra vertical saturada (`box-shadow` inset); el ámbar pierde el fondo
+  // y se queda solo con su propia barra. Afirmar el fondo ámbar ya no tiene sentido —va a ser
+  // blanco a propósito— así que este paso ahora afirma la barra: el `boxShadow` calculado.
   //
-  // LOS DOS TOKENS TIENEN QUE SER DISTINTOS, y eso se afirma sobre las variables y no sobre una
-  // fila: `--hf-warn-100` y `--hf-danger-bg` son los dos fondos claros de la paleta y el día que
-  // alguien los acerque, los dos acentos dirían lo mismo. Preguntárselo al documento no depende
-  // de que los datos del día traigan una fila de cada clase.
-  const tokens = await page.evaluate(() => {
-    const s = getComputedStyle(document.documentElement);
-    return {
-      rojo: s.getPropertyValue('--hf-danger-bg').trim(),
-      ambar: s.getPropertyValue('--hf-warn-100').trim(),
-    };
+  // El ámbar sigue siendo la deuda de MADUREZ: brecha de control sin cubrir y ningún residual
+  // alarmante suelto. Es lo que el rojo significaba hasta hoy, así que sin este paso el cambio
+  // se habría llevado por delante un aviso que la pantalla ya daba.
+  const sinAcento = page.locator('.ag-row').filter({
+    hasNot: page.locator('.fila-alarmante, .fila-brecha-pendiente'),
   });
-  expect(tokens.rojo).not.toBe('');
-  expect(tokens.ambar).not.toBe('');
-  expect(tokens.ambar).not.toBe(tokens.rojo);
+  const cuantasSinAcento = await sinAcento.count();
+  if (cuantasSinAcento > 0) {
+    const barraNeutra = await sinAcento.first().evaluate((n) => getComputedStyle(n).boxShadow);
+    expect(barraNeutra).toBe('none');
+    anotar('6d · sin acento, sin barra', `${cuantasSinAcento} filas, boxShadow ${barraNeutra}`);
+  }
 
-  // Y cuando hay una fila ámbar, que PINTE — el fallo de la cascada es por regla, no por clase,
-  // así que la regla nueva puede perderla sola. El conteo NO se afirma mayor que cero: depende
-  // de los datos del día (un activo con brecha pendiente y sin ningún alto suelto), y un rojo
-  // que aparece según qué planes se hayan registrado esta semana enseña a desconfiar del arnés.
-  // Lo que sí queda asentado es cuántas hubo.
+  const barraRoja = await alarmantes.first().evaluate((n) => getComputedStyle(n).boxShadow);
+  expect(barraRoja).not.toBe('');
+  expect(barraRoja).not.toBe('none');
+
+  // Y cuando hay una fila ámbar, que lleve SU barra — distinta de la roja. El conteo NO se
+  // afirma mayor que cero: depende de los datos del día (un activo con brecha pendiente y sin
+  // ningún alto suelto), y un rojo que aparece según qué planes se hayan registrado esta semana
+  // enseña a desconfiar del arnés. Lo que sí queda asentado es cuántas hubo.
   const conBrecha = page.locator('.ag-row.fila-brecha-pendiente');
   const cuantasBrecha = await conBrecha.count();
   if (cuantasBrecha > 0) {
-    const fondoAmbar = await conBrecha.first().evaluate((n) => getComputedStyle(n).backgroundColor);
-    expect(fondoAmbar).not.toBe('rgb(255, 255, 255)');
-    expect(fondoAmbar).not.toBe('rgba(0, 0, 0, 0)');
-    expect(fondoAmbar).not.toBe(fondo);
-    anotar('6d · el renglón ámbar pinta', `${cuantasBrecha} filas, fondo ${fondoAmbar} ≠ ${fondo}`);
+    const barraAmbar = await conBrecha.first().evaluate((n) => getComputedStyle(n).boxShadow);
+    expect(barraAmbar).not.toBe('');
+    expect(barraAmbar).not.toBe('none');
+    expect(barraAmbar).not.toBe(barraRoja);
+    anotar('6d · el renglón ámbar lleva su barra', `${cuantasBrecha} filas, boxShadow ${barraAmbar} ≠ ${barraRoja}`);
   } else {
-    anotar('6d · el renglón ámbar', 'ninguna fila ámbar en estos datos; tokens distintos');
+    anotar('6d · el renglón ámbar', 'ninguna fila ámbar en estos datos; barras distintas por CSS');
   }
 
   // Y ninguna fila lleva los dos acentos: sería un renglón de dos colores, ilegible. Lo

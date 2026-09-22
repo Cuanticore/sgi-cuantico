@@ -364,15 +364,38 @@
    `fila-banda--*` y `fila-plan--*` no llevan estilo: existen para poder señalar una fila desde
    fuera sin agregar ruido a una grilla que ya usa color en cuatro columnas.
 
+   DOS FONDOS NO SE DISTINGUEN, Y ESTO YA SE MIDIÓ (22/09/2026). El primer diseño pintaba las
+   dos clases con un fondo pastel: `--hf-danger-bg` (#fdeceb) contra `--hf-warn-100` (#fff3e6).
+   Los números son distintos —los canales difieren apenas un 3 %— y el e2e los medía bien:
+   `getComputedStyle(...).backgroundColor` daba dos strings distintos y la prueba quedaba
+   verde. Y en pantalla, con las filas alternando entre esos dos pasteles y el blanco de una
+   fila sin acento, el rosa y el crema se leen como el mismo fondo. Clases aplicadas, valores
+   correctos, prueba en verde, pantalla muda — la misma forma que la cicatriz del `@layer` de
+   arriba: el defecto no vivía en ninguna pieza suelta, vivía en que dos tonos casi iguales
+   dependen de una discriminación de color que la pantalla, la impresión o el ojo de quien mira
+   no garantizan.
+
+   LA SOLUCIÓN ES DE FORMA, NO DE TONO. El rojo conserva su fondo y GANA una barra vertical
+   saturada en el borde izquierdo (`--hf-danger-text`); el ámbar PIERDE el fondo y se queda
+   sólo con esa barra, en su propio tono saturado (`--hf-warn-500`). Posición y grosor de una
+   barra no son un juicio de color: se distinguen aunque dos pasteles no, y siguen
+   distinguiéndose para quien no discrimine rojo de ámbar. Va con `box-shadow: inset` y no con
+   `border-left` porque un borde real cambia el ancho de la caja de la fila y pelea con el
+   layout que AG Grid calcula por columna; una sombra interior no ocupa espacio, así que no
+   mueve nada.
+
    LA REGLA ÁMBAR VA ACÁ, PEGADA A LA ROJA Y FUERA DE `@layer`, por lo que dice el párrafo de
-   arriba. Escribirla dentro de `@layer components` —donde parece que corresponde— es repetir
-   exactamente el fallo del 21 al 22 de septiembre: no pintaría, y nada daría rojo. */
+   la cascada más arriba. Escribirla dentro de `@layer components` —donde parece que
+   corresponde— es repetir exactamente el fallo del 21 al 22 de septiembre: no pintaría, y
+   nada daría rojo. */
 .ag-row.fila-alarmante,
 .ag-row.fila-alarmante .ag-cell {
   background-color: var(--hf-danger-bg);
 }
+.ag-row.fila-alarmante {
+  box-shadow: inset 4px 0 0 0 var(--hf-danger-text);
+}
 
-.ag-row.fila-brecha-pendiente,
-.ag-row.fila-brecha-pendiente .ag-cell {
-  background-color: var(--hf-warn-100);
+.ag-row.fila-brecha-pendiente {
+  box-shadow: inset 4px 0 0 0 var(--hf-warn-500);
 }
