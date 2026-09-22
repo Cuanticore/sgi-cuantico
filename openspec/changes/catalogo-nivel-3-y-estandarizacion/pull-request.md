@@ -1,8 +1,15 @@
 # Catálogo de Nivel 3, y el árbol del inventario enderezado
 
-> **La rama se llama `scorm-2004-paquete-propio` y el nombre miente.** De los ~144 commits
-> clasificados, unos 10 son SCORM; el resto es SGSI y SIG. Si abriste esto buscando el paquete
-> SCORM, está aquí dentro, pero es una minoría.
+> **La rama se llama `scorm-2004-paquete-propio` y el nombre miente.** Si abriste esto buscando el
+> paquete SCORM, está aquí dentro, pero es una minoría.
+>
+> Medido el 2026-09-22 contra `origin/main`, ya mergeado: **181 commits**, de los cuales **25
+> mencionan SCORM en el asunto y sólo 9 llevan el prefijo `(scorm)`**. El resto es SGSI y SIG.
+>
+> *(La primera versión de esta nota decía «~144 commits, unos 10 SCORM». Esa cifra salía de comparar
+> contra el `main` **local**, que estaba 181 commits atrás. El número era falso y la conclusión
+> era la misma — pero un número medido contra la referencia equivocada no sostiene nada, aunque
+> acierte. Corregido midiendo contra `origin/main`.)*
 >
 > Esta sección cubre **una** de las líneas de trabajo de la rama: el catálogo de Nivel 3 y la
 > estandarización del árbol del inventario. **Mergear a `main` despliega a producción**, así que
