@@ -232,9 +232,15 @@ test('el recorrido de la grilla de análisis de riesgos', async ({ page }) => {
   // El ámbar sigue siendo la deuda de MADUREZ: brecha de control sin cubrir y ningún residual
   // alarmante suelto. Es lo que el rojo significaba hasta hoy, así que sin este paso el cambio
   // se habría llevado por delante un aviso que la pantalla ya daba.
-  const sinAcento = page.locator('.ag-row').filter({
-    hasNot: page.locator('.fila-alarmante, .fila-brecha-pendiente'),
-  });
+  // `:not()` y NO `filter({ hasNot })`. Es la cuarta forma distinta en que un selector de este
+  // spec ha afirmado algo distinto de lo que parecía: `hasNot` pregunta si el elemento tiene un
+  // DESCENDIENTE que empareje, y estas clases están en la fila MISMA. Con `hasNot`, ninguna fila
+  // tiene ese descendiente, así que `sinAcento` emparejaba las treinta —incluidas las ámbar— y
+  // `.first()` caía en una con barra.
+  //
+  // El guardián de `e2e/__tests__/selectores-ag-grid.test.ts` no puede atrapar esto: vigila
+  // nombres de clase de AG Grid, y esto es semántica de Playwright.
+  const sinAcento = page.locator('.ag-row:not(.fila-alarmante):not(.fila-brecha-pendiente)');
   const cuantasSinAcento = await sinAcento.count();
   if (cuantasSinAcento > 0) {
     const barraNeutra = await sinAcento.first().evaluate((n) => getComputedStyle(n).boxShadow);
