@@ -11,13 +11,6 @@
 // 122 assets and the 57 threats before crossing to the client, so the filters and the
 // drill-down work on the real dataset without one round trip per cell.
 //
-// El catálogo de activos es el INVENTARIO ENTERO y no los activos que aparecen en algún
-// riesgo. La matriz de activos presenta los activos vigentes, no sólo los que superan el
-// umbral de valoración y por eso tienen riesgos generados. Los que no lo superan no tienen
-// frecuencia —nadie les evaluó una amenaza— y no entran a la rejilla, pero sí llevan su
-// VALOR propio, que es lo que los ubica en la columna aparte. Ver `matrizDeActivos` en
-// `lib/sgsi/matriz-clasica.ts`.
-//
 // The axes are read from the parameter tables too. The impact rows are the bands of
 // umbral_impacto and the frequency columns are the points of escala_frecuencia, so a
 // change to the scales moves the matrix without touching this file.
@@ -45,48 +38,8 @@ function indice(catalogo: string[], mapa: Map<string, number>, valor: string | n
   return i;
 }
 
-/// Lo que el catálogo de activos necesita de cada activo, venga del inventario o de un
-/// riesgo. Un solo tipo para que las dos procedencias no puedan diferir en un campo.
-type ActivoDeCatalogo = {
-  id: number;
-  codigo: string | null;
-  nombre: string;
-  area: { nombre: string };
-  tipo: { codigo: string; nombre: string };
-  propietario: { nombre: string } | null;
-  custodio: { nombre: string } | null;
-  valores: { valor: { valor: number } }[];
-};
-
-const SELECCION_ACTIVO = {
-  id: true,
-  codigo: true,
-  nombre: true,
-  area: { select: { nombre: true } },
-  tipo: { select: { codigo: true, nombre: true } },
-  propietario: { select: { nombre: true } },
-  custodio: { select: { nombre: true } },
-  // El valor por dimensión. Es lo que ubica en la matriz a un activo que no tiene riesgo:
-  // sin amenaza evaluada no hay frecuencia, pero el valor propio SÍ está en la misma escala
-  // 0-5 que el impacto — es el impacto que tendría si una amenaza lo degradara por completo.
-  valores: { select: { valor: { select: { valor: true } } } },
-} as const;
-
-/// El valor del activo: el máximo de sus dimensiones.
-///
-/// La misma regla de `valorActivo` en `lib/sgsi/formulas.ts` —una dimensión crítica basta
-/// para que el activo lo sea— y sobre las dimensiones que el activo REALMENTE tenga, no
-/// sobre tres constantes: `Dimension` admite cinco códigos y hoy hay tres sembrados.
-///
-/// Sin ninguna dimensión valorada devuelve null, nunca cero. No valorado y valorado en cero
-/// son cosas distintas, y la matriz las dibuja distinto.
-function valorDelActivo(valores: readonly { valor: { valor: number } }[]): number | null {
-  if (valores.length === 0) return null;
-  return Math.max(...valores.map((v) => v.valor.valor));
-}
-
 export default async function MatricesPage() {
-  const [riesgos, inventario, umbralesImpacto, umbralesRiesgo, frecuencias, umbral] =
+  const [riesgos, umbralesImpacto, umbralesRiesgo, frecuencias, activosVigentes] =
     await Promise.all([
     // One pass over the risks. Everything the matrices, the filters and the drill-down
     // need travels in this projection; nothing is queried again per cell.
@@ -106,29 +59,27 @@ export default async function MatricesPage() {
         amenaza: {
           select: { codigo: true, nombre: true, frecuencia: { select: { vecesAno: true } } },
         },
-        activo: { select: SELECCION_ACTIVO },
+        activo: {
+          select: {
+            id: true,
+            codigo: true,
+            nombre: true,
+            area: { select: { nombre: true } },
+            tipo: { select: { codigo: true, nombre: true } },
+            propietario: { select: { nombre: true } },
+            custodio: { select: { nombre: true } },
+          },
+        },
       },
-    }),
-    // EL INVENTARIO ENTERO, no sólo los activos que alcanzaron a tener un riesgo valorado.
-    //
-    // La matriz de activos contaba su universo desde los riesgos, y hoy eso son 30 de 378:
-    // la tarjeta decía «30 ACTIVOS» en una pantalla cuyo inventario tiene 378. Los 348
-    // restantes no tienen riesgos porque no alcanzan el umbral de valoración, así que no
-    // tienen frecuencia y no entran a la rejilla; van a la columna aparte, por su valor.
-    // La misma condición que el inventario: `activo: true`, para que las dos pantallas no
-    // puedan discrepar sobre cuántos activos hay.
-    prisma.activo.findMany({
-      where: { activo: true },
-      orderBy: { codigo: 'asc' },
-      select: SELECCION_ACTIVO,
     }),
     prisma.umbralImpacto.findMany({ orderBy: { orden: 'asc' } }),
     prisma.umbralRiesgo.findMany({ orderBy: { orden: 'asc' } }),
     prisma.escalaFrecuencia.findMany({ orderBy: { vecesAno: 'asc' } }),
-    // La puerta de `entraAlAnalisis`. Es la razón por la que 348 de los 378 activos no
-    // tienen riesgos, y la pantalla la dice con su número en vez de con un «no alcanzan el
-    // umbral» que obliga a ir a buscar cuál es.
-    prisma.parametro.findUnique({ where: { clave: 'umbral_valoracion' } }),
+    // El denominador de la matriz de activos. Un `count` y no el inventario entero: la
+    // pantalla no necesita esos activos —no tienen riesgos con los que ubicarlos—, sólo
+    // necesita decir de cuántos son los que sí cuenta. La misma condición que usa la
+    // pantalla de inventario, para que las dos no puedan discrepar sobre cuántos hay.
+    prisma.activo.count({ where: { activo: true } }),
   ]);
 
   // --- Axes -----------------------------------------------------------------------
@@ -157,11 +108,6 @@ export default async function MatricesPage() {
     hasta: Number(u.hasta),
   }));
 
-  // El parámetro llega como texto y puede no existir. Un valor que no es un número se
-  // convierte en `null` y la pantalla omite la cifra en vez de escribir «NaN».
-  const leido = Number(umbral?.valor);
-  const umbralValoracion = Number.isFinite(leido) ? leido : null;
-
   // --- Interning ---------------------------------------------------------------------
   const procesos: string[] = [];
   const responsables: string[] = [];
@@ -179,32 +125,6 @@ export default async function MatricesPage() {
   const filas: FilaRiesgo[] = [];
   let sinUbicar = 0;
 
-  // Una sola forma de entrar al catálogo, para el inventario y para el activo de un riesgo.
-  // Tener dos —una por procedencia— es como el mismo activo termina con dos entradas y la
-  // matriz lo cuenta dos veces.
-  const registrar = (a: ActivoDeCatalogo): number => {
-    const previo = mapaActivos.get(a.id);
-    if (previo !== undefined) return previo;
-    // The workbook's "Propietario del activo" column is empty for all 234 assets, so
-    // the custodian stands in as the responsible party. The screen says RESPONSABLE
-    // rather than PROPIETARIO for exactly that reason: a column of dashes under
-    // "Propietario" would be worse than naming who actually answers for the asset.
-    const responsable = a.propietario?.nombre ?? a.custodio?.nombre ?? null;
-    const i =
-      activos.push({
-        codigo: a.codigo ?? '—',
-        nombre: a.nombre,
-        proceso: indice(procesos, mapaProcesos, a.area.nombre),
-        responsable: indice(responsables, mapaResponsables, responsable),
-        categoria: indice(categorias, mapaCategorias, `${a.tipo.codigo} ${a.tipo.nombre}`),
-        valor: valorDelActivo(a.valores),
-      }) - 1;
-    mapaActivos.set(a.id, i);
-    return i;
-  };
-
-  for (const a of inventario) registrar(a);
-
   for (const r of riesgos) {
     // A risk without a calculated impact cannot be placed on the impact axis. It is
     // counted and reported rather than silently dropped into the lowest band.
@@ -213,9 +133,27 @@ export default async function MatricesPage() {
       continue;
     }
 
-    // Un riesgo vigente sobre un activo dado de baja no está en el inventario, y aun así su
-    // riesgo cuenta: entra al catálogo por esta puerta en vez de quedarse sin activo.
-    const iActivo = registrar(r.activo);
+    let iActivo = mapaActivos.get(r.activo.id);
+    if (iActivo === undefined) {
+      // The workbook's "Propietario del activo" column is empty for all 234 assets, so
+      // the custodian stands in as the responsible party. The screen says RESPONSABLE
+      // rather than PROPIETARIO for exactly that reason: a column of dashes under
+      // "Propietario" would be worse than naming who actually answers for the asset.
+      const responsable = r.activo.propietario?.nombre ?? r.activo.custodio?.nombre ?? null;
+      iActivo =
+        activos.push({
+          codigo: r.activo.codigo ?? '—',
+          nombre: r.activo.nombre,
+          proceso: indice(procesos, mapaProcesos, r.activo.area.nombre),
+          responsable: indice(responsables, mapaResponsables, responsable),
+          categoria: indice(
+            categorias,
+            mapaCategorias,
+            `${r.activo.tipo.codigo} ${r.activo.tipo.nombre}`,
+          ),
+        }) - 1;
+      mapaActivos.set(r.activo.id, iActivo);
+    }
 
     let iAmenaza = mapaAmenazas.get(r.amenaza.codigo);
     if (iAmenaza === undefined) {
@@ -283,7 +221,7 @@ export default async function MatricesPage() {
       columnas={columnas}
       bandas={bandas}
       sinUbicar={sinUbicar}
-      umbralValoracion={umbralValoracion}
+      activosVigentes={activosVigentes}
     />
   );
 }

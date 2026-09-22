@@ -1,13 +1,20 @@
 // app/components/sgsi/matrices/__tests__/MatricesRiesgo.test.tsx
 //
-// Lo que se prueba acá es la COSTURA de la pantalla con `lib/sgsi/matriz-clasica.ts`: que la
-// cifra grande de la tarjeta y el aviso del pie cuenten el inventario que la pantalla recibe,
-// y no el subconjunto que alcanzó a tener riesgo valorado.
+// LA MATRIZ DE ACTIVOS CUENTA LOS ACTIVOS DEL ANÁLISIS, Y SÓLO ÉSOS.
 //
-// Es la forma exacta de los tres bugs del 15/09/2026: cada pieza hacía bien su trabajo y lo
-// que fallaba era la composición — una lista que se encogía entre un paso y el siguiente. La
-// cuenta por activo ya está probada, pura, en `matriz-clasica.test.ts`; lo que ninguna prueba
-// de esa suite puede ver es qué universo le entrega la pantalla.
+// Se intentó lo contrario y se retiró, así que conviene dejar escrito por qué, o el próximo
+// que mire la pantalla va a proponer lo mismo:
+//
+// De los 378 activos vigentes, 30 superan el umbral de valoración y por eso tienen riesgos
+// generados. Se probó a presentar los 378 —los 348 restantes en una columna aparte, ubicados
+// por su propio valor— y se retiró: MEZCLA DOS ESCALAS EN UNA SOLA REJILLA. Las filas de la
+// rejilla son bandas del IMPACTO DE UN RIESGO (valor × degradación); las de esa columna eran
+// bandas del VALOR DEL ACTIVO. Poner 330 activos en el renglón «Alto», al lado de riesgos que
+// cayeron en «Alto», invita a leerlos como comparables, y no lo son.
+//
+// Lo que sí se conserva del intento es la única parte que no mezclaba nada: que la pantalla
+// DIGA que 30 son 30 de 378. La cifra sola no está mal calculada, pero se lee como «el
+// inventario son 30», que fue el defecto que abrió todo esto.
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import MatricesRiesgo, {
@@ -46,19 +53,20 @@ const PROCESOS = ['Gestión humana', 'Tecnología'];
 const CATEGORIAS = ['[D] Datos / Información', '[HW] Equipamiento informático'];
 const RESPONSABLES = ['Jefe de tecnología'];
 
-/// Cinco activos, uno solo con riesgo valorado. Es la proporción del registro real —30 de
-/// 378— en miniatura, y también su forma: los que quedan fuera del análisis no son
-/// despreciables, son los que **no alcanzan el umbral de valoración**. Con umbral 4, un
-/// activo de valor 3 se queda fuera y su valor cae en la banda ALTO.
+/// El catálogo trae SÓLO los activos que aparecen en algún riesgo, que es lo que arma
+/// `app/sgsi/matrices/page.tsx`. Dos activos analizados de un inventario de nueve vigentes:
+/// la proporción del registro real —30 de 378— en miniatura.
 const ACTIVOS: ActivoVista[] = [
-  { codigo: 'TEC-HW-0001', nombre: 'Servidor de aplicaciones', proceso: 1, responsable: 0, categoria: 1, valor: 5 },
-  { codigo: 'TEC-HW-0002', nombre: 'Portátil de dirección', proceso: 1, responsable: 0, categoria: 1, valor: 3 },
-  { codigo: 'GH-DAT-0001', nombre: 'Hojas de vida', proceso: 0, responsable: 0, categoria: 0, valor: 3 },
-  { codigo: 'GH-DAT-0002', nombre: 'Contratos laborales', proceso: 0, responsable: 0, categoria: 0, valor: 2 },
-  { codigo: 'GH-DAT-0003', nombre: 'Historias clínicas ocupacionales', proceso: 0, responsable: 0, categoria: 0, valor: null },
+  { codigo: 'TEC-HW-0001', nombre: 'Servidor de aplicaciones', proceso: 1, responsable: 0, categoria: 1 },
+  { codigo: 'GH-DAT-0001', nombre: 'Hojas de vida', proceso: 0, responsable: 0, categoria: 0 },
 ];
 
-const AMENAZAS: AmenazaVista[] = [{ codigo: 'A-01', nombre: 'Caída del servicio' }];
+const VIGENTES = 9;
+
+const AMENAZAS: AmenazaVista[] = [
+  { codigo: 'A-01', nombre: 'Caída del servicio' },
+  { codigo: 'A-02', nombre: 'Divulgación no autorizada' },
+];
 
 const FILAS: FilaRiesgo[] = [
   {
@@ -71,6 +79,30 @@ const FILAS: FilaRiesgo[] = [
     riesgo: 4.7,
     aroResidual: 0.5,
     riesgoResidual: 2.35,
+  },
+  // Un segundo riesgo del MISMO activo: la matriz de activos tiene que seguir contándolo una
+  // sola vez, en la casilla de su peor riesgo.
+  {
+    codigo: 'R-0002',
+    activo: 0,
+    amenaza: 1,
+    responsable: -1,
+    impacto: 3.2,
+    aro: 1,
+    riesgo: 3.2,
+    aroResidual: 0.5,
+    riesgoResidual: 1.6,
+  },
+  {
+    codigo: 'R-0003',
+    activo: 1,
+    amenaza: 1,
+    responsable: -1,
+    impacto: 3.5,
+    aro: 1,
+    riesgo: 3.5,
+    aroResidual: 0.5,
+    riesgoResidual: 1.75,
   },
 ];
 
@@ -87,7 +119,7 @@ function pintar(extra: Partial<React.ComponentProps<typeof MatricesRiesgo>> = {}
       columnas={COLUMNAS}
       bandas={BANDAS}
       sinUbicar={0}
-      umbralValoracion={4}
+      activosVigentes={VIGENTES}
       {...extra}
     />,
   );
@@ -97,123 +129,66 @@ const verActivos = () => fireEvent.click(screen.getByRole('button', { name: 'Act
 
 const tarjeta = (titulo: string) => screen.getByRole('region', { name: titulo });
 
-describe('MatricesRiesgo · la matriz de activos presenta el inventario entero', () => {
-  it('la cifra de la tarjeta es el inventario del filtro, no los activos con riesgo', () => {
+describe('MatricesRiesgo · la matriz de activos cuenta los activos del análisis', () => {
+  it('la cifra de la tarjeta son los activos analizados, uno por activo y no por riesgo', () => {
     pintar();
     verActivos();
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    expect(within(inherente).getByTestId('total-matriz')).toHaveTextContent('5');
-  });
-
-  // El aviso nombra la CAUSA y su número. «No tienen riesgo valorado» describe el síntoma y
-  // manda a adivinar; «no alcanzan el umbral de valoración (4)» dice qué hay que cambiar
-  // para que entren.
-  it('declara cuántos quedan fuera, por qué, y cuántos de ésos pesan', () => {
-    pintar();
-    verActivos();
-    const aviso = within(tarjeta('Matriz de riesgo inherente')).getByText(
-      /4 activos del filtro no alcanzan el umbral de valoración \(4\)/i,
+    // Tres riesgos sobre dos activos: la tarjeta dice 2, no 3.
+    expect(within(tarjeta('Matriz de riesgo inherente')).getByTestId('total-matriz')).toHaveTextContent(
+      /^2$/,
     );
-    expect(aviso).toBeInTheDocument();
-    // Dos de los cuatro valen 3, que en la escala de impacto es Alto. Ésa es la cifra que
-    // el cambio existe para no esconder.
-    expect(aviso).toHaveTextContent(/2 son de impacto muy alto o alto/i);
   });
 
-  it('los activos sin riesgo no se cuelan en ninguna casilla ni en ninguna banda', () => {
+  // La parte que SÍ se conserva del intento de presentar los 378. La cifra sola se lee como
+  // «el inventario son 2»; con el denominador al lado no puede.
+  it('dice de cuántos son, para que la cifra no se lea como el inventario entero', () => {
+    pintar();
+    verActivos();
+    expect(screen.getByTestId('alcance-analisis')).toHaveTextContent(
+      /2 .*de .*9 activos vigentes/i,
+    );
+  });
+
+  it('en amenazas no aparece ese texto: ahí la cifra son riesgos y no hay nada que aclarar', () => {
+    pintar();
+    expect(screen.queryByTestId('alcance-analisis')).toBeNull();
+    expect(within(tarjeta('Matriz de riesgo inherente')).getByTestId('total-matriz')).toHaveTextContent(
+      /^3$/,
+    );
+  });
+
+  // LA REGRESIÓN QUE ESTA SUITE EXISTE PARA IMPEDIR. Se probó a dibujar los activos sin
+  // análisis en una columna aparte, ubicados por su propio valor, y mezclaba la escala del
+  // impacto de un riesgo con la del valor de un activo en la misma rejilla.
+  it('no hay ninguna columna fuera del eje de frecuencia', () => {
     pintar();
     verActivos();
     const inherente = tarjeta('Matriz de riesgo inherente');
-    // El único activo ubicado: impacto 4,7 × 1 vez al año = 4,7 → Medio.
-    expect(within(inherente).getByTestId('banda-Medio')).toHaveTextContent('1');
-    expect(within(inherente).getByTestId('banda-Bajo')).toHaveTextContent('0');
-    // Y los cuatro restantes se cuentan fuera de las bandas, cada causa en su renglón: tres
-    // tienen valor propio y van a la columna aparte, uno no está valorado.
-    expect(within(inherente).getByTestId('banda-sin-analizar')).toHaveTextContent('3');
-    expect(within(inherente).getByTestId('sin-valorar')).toHaveTextContent('1');
+    expect(within(inherente).queryByTestId('cabecera-sin-analizar')).toBeNull();
+    expect(within(inherente).queryByTestId('sinanalizar-1')).toBeNull();
   });
 
-  it('el filtro por proceso recorta el inventario, no sólo los riesgos', () => {
+  it('el pie sólo lleva bandas de riesgo, y suman exactamente lo que dibuja la rejilla', () => {
+    pintar();
+    verActivos();
+    const inherente = tarjeta('Matriz de riesgo inherente');
+    expect(within(inherente).queryByTestId('banda-sin-analizar')).toBeNull();
+    expect(within(inherente).queryByTestId('sin-valorar')).toBeNull();
+    // 4,7 y 3,5 con ARO 1 caen los dos en «Medio» (de 0,5 a menos de 25).
+    expect(within(inherente).getByTestId('banda-Medio')).toHaveTextContent('2');
+    expect(within(inherente).getByTestId('banda-Bajo')).toHaveTextContent('0');
+  });
+
+  it('el filtro por proceso recorta los activos y el denominador no se mueve', () => {
     pintar();
     verActivos();
     fireEvent.change(screen.getByLabelText('Proceso'), {
       target: { value: String(PROCESOS.indexOf('Gestión humana')) },
     });
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    // Los tres activos de Gestión humana, ninguno con riesgo valorado: dos con valor propio
-    // y uno sin valorar.
-    expect(within(inherente).getByTestId('total-matriz')).toHaveTextContent('3');
-    expect(within(inherente).getByTestId('banda-sin-analizar')).toHaveTextContent('2');
-    expect(within(inherente).getByTestId('sin-valorar')).toHaveTextContent('1');
-  });
-
-  it('el encabezado cuenta activos cuando la unidad es activos', () => {
-    pintar();
-    verActivos();
-    expect(screen.getByText(/activos en el filtro, de 5/i)).toBeInTheDocument();
-  });
-
-  it('en amenazas nada cambia: la tarjeta sigue contando riesgos', () => {
-    pintar();
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    expect(within(inherente).getByTestId('total-matriz')).toHaveTextContent('1');
-    expect(within(inherente).queryByTestId('banda-sin-analizar')).toBeNull();
-    expect(within(inherente).queryByTestId('sin-valorar')).toBeNull();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────────────────
-describe('MatricesRiesgo · la columna de los que no entran al análisis', () => {
-  // CONTARLOS NO ES VERLOS. El pie decía «4 sin valorar» y no había forma de saber cuáles
-  // eran graves. En el registro real son 330 activos de valor 3 —banda ALTO— invisibles.
-  //
-  // No tienen frecuencia, así que no pueden entrar a la rejilla. Sí tienen fila: su propio
-  // valor. Van a una columna aparte, en la fila de ese valor.
-
-  it('la columna aparece en activos, con los conteos por banda de valor', () => {
-    pintar();
-    verActivos();
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    // FILAS_IMPACTO: 0 Muy alto · 1 Alto · 2 Medio · 3 Bajo · 4 Despreciable.
-    // Valor 3 -> Alto: el portátil y las hojas de vida. Valor 2 -> Medio: los contratos.
-    expect(within(inherente).getByTestId('sinanalizar-1')).toHaveTextContent(/^2$/);
-    expect(within(inherente).getByTestId('sinanalizar-2')).toHaveTextContent(/^1$/);
-    expect(within(inherente).getByTestId('sinanalizar-0')).toHaveTextContent(/^—$/);
-  });
-
-  it('el encabezado de la columna dice que no es una frecuencia', () => {
-    pintar();
-    verActivos();
-    expect(
-      within(tarjeta('Matriz de riesgo inherente')).getByTestId('cabecera-sin-analizar'),
-    ).toHaveTextContent(/sin analizar/i);
-  });
-
-  it('abrir una casilla de la columna lista los activos que contiene', () => {
-    pintar();
-    verActivos();
-    fireEvent.click(within(tarjeta('Matriz de riesgo inherente')).getByTestId('sinanalizar-1'));
-    const detalle = screen.getByRole('region', { name: /sin analizar/i });
-    expect(within(detalle).getByText('Portátil de dirección')).toBeInTheDocument();
-    expect(within(detalle).getByText('Hojas de vida')).toBeInTheDocument();
-    // El de valor 2 está en otra fila y no puede aparecer acá.
-    expect(within(detalle).queryByText('Contratos laborales')).toBeNull();
-  });
-
-  it('un activo sin valorar no se dibuja en la banda más baja', () => {
-    pintar();
-    verActivos();
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    // Las historias clínicas no tienen valor: no hay fila que les corresponda, así que no
-    // engrosan «Despreciable». Se cuentan aparte, con su propia razón.
-    expect(within(inherente).getByTestId('sinanalizar-4')).toHaveTextContent(/^—$/);
-    expect(within(inherente).getByTestId('sin-valorar')).toHaveTextContent('1');
-  });
-
-  it('en amenazas no hay columna: una amenaza no tiene valor propio que la ubique', () => {
-    pintar();
-    const inherente = tarjeta('Matriz de riesgo inherente');
-    expect(within(inherente).queryByTestId('cabecera-sin-analizar')).toBeNull();
-    expect(within(inherente).queryByTestId('sinanalizar-1')).toBeNull();
+    expect(within(tarjeta('Matriz de riesgo inherente')).getByTestId('total-matriz')).toHaveTextContent(
+      /^1$/,
+    );
+    // El inventario no depende del filtro: sigue siendo de cuántos hay, no de cuántos quedan.
+    expect(screen.getByTestId('alcance-analisis')).toHaveTextContent(/9 activos vigentes/i);
   });
 });

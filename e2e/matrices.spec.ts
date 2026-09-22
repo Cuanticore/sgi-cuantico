@@ -3,16 +3,16 @@
 // **El recorrido de la Regla 3 para «Matrices de riesgo»**, contra la aplicación corriendo y
 // los datos reales del inventario.
 //
-// POR QUÉ EXISTE. La matriz de activos contaba su universo desde los riesgos: la tarjeta
-// decía «30 ACTIVOS» en una pantalla cuyo inventario tiene 378. La cifra no estaba mal
-// calculada —esos 30 son exactamente los activos con riesgo valorado— pero contestaba otra
-// pregunta, y el rótulo que la acompañaba decía «Activos» a secas. Es la misma forma de los
-// tres bugs del 15/09/2026: ninguna pieza fallaba, fallaba la composición.
+// QUÉ AFIRMA, Y POR QUÉ ESO. La matriz de activos cuenta los activos que entran al análisis
+// de riesgos, que son los que superan el umbral de valoración: hoy 30 de 378 vigentes. La
+// cifra no está mal calculada, pero un «30» bajo el rótulo «Activos» se lee como «el
+// inventario son 30», y eso sí era un defecto. Lo que se arregló fue decir de cuántos son.
 //
-// La cuenta está probada pura en `lib/sgsi/__tests__/matriz-clasica.test.ts` y la costura con
-// la pantalla en `app/components/sgsi/matrices/__tests__/MatricesRiesgo.test.tsx`, las dos en
-// milisegundos y con datos armados a mano. Lo que ninguna de las dos puede afirmar es que
-// sobre las 584 filas reales las cifras sigan cuadrando entre sí — eso es lo que se hace acá.
+// SE PROBÓ ADEMÁS A PRESENTAR LOS 378 —los 348 restantes en una columna aparte, ubicados por
+// su propio valor— Y SE RETIRÓ. Mezclaba dos escalas en una rejilla: las filas son bandas del
+// IMPACTO DE UN RIESGO (valor × degradación) y las de esa columna eran bandas del VALOR DEL
+// ACTIVO. Trescientos treinta activos en el renglón «Alto», al lado de riesgos que cayeron en
+// «Alto», se leen como comparables y no lo son. El paso 5 comprueba que no ha vuelto.
 //
 // **Sólo lee.** Navega, cambia un conmutador, elige un filtro y abre el detalle de una
 // casilla. Ninguna acción de este archivo escribe.
@@ -38,43 +38,35 @@ const tarjeta = (page: Page, titulo: string) => page.getByRole('region', { name:
 const totalDe = async (page: Page, titulo: string) =>
   cifraDe(tarjeta(page, titulo).getByTestId('total-matriz'));
 
-/// Un renglón del pie que puede no estar dibujado: si no está, es cero.
-async function opcional(t: Locator, testId: string): Promise<number> {
-  const renglon = t.getByTestId(testId);
-  return (await renglon.count()) === 0 ? 0 : cifraDe(renglon);
-}
-
-/// El pie entero: los cuatro niveles, la columna aparte y los sin valorar.
-async function pieDe(page: Page, titulo: string) {
+/// El reparto por nivel del pie: los cuatro niveles y nada más.
+async function pieDe(page: Page, titulo: string): Promise<number> {
   const t = tarjeta(page, titulo);
-  const niveles = ['Crítico', 'Alto', 'Medio', 'Bajo'];
-  let ubicados = 0;
-  for (const n of niveles) ubicados += await cifraDe(t.getByTestId(`banda-${n}`));
-  return {
-    ubicados,
-    sinAnalizar: await opcional(t, 'banda-sin-analizar'),
-    sinValorar: await opcional(t, 'sin-valorar'),
-  };
-}
-
-/// Lo que dice cada casilla de la columna aparte, fila por fila.
-async function columnaAparte(page: Page, titulo: string): Promise<number[]> {
-  const t = tarjeta(page, titulo);
-  const salida: number[] = [];
-  for (let i = 0; ; i++) {
-    const casilla = t.getByTestId(`sinanalizar-${i}`);
-    if ((await casilla.count()) === 0) break;
-    const texto = ((await casilla.textContent()) ?? '').replace(/\D/g, '');
-    salida.push(texto === '' ? 0 : Number(texto));
+  let suma = 0;
+  for (const n of ['Crítico', 'Alto', 'Medio', 'Bajo']) {
+    suma += await cifraDe(t.getByTestId(`banda-${n}`));
   }
-  return salida;
+  return suma;
+}
+
+/// Lo que suman las casillas de la rejilla.
+async function enLaRejilla(page: Page, titulo: string): Promise<number> {
+  const casillas = tarjeta(page, titulo).locator('[data-testid^="casilla-"]');
+  const cuantas = await casillas.count();
+  let suma = 0;
+  for (let i = 0; i < cuantas; i++) {
+    const texto = ((await casillas.nth(i).textContent()) ?? '').replace(/\D/g, '');
+    if (texto !== '') suma += Number(texto);
+  }
+  return suma;
 }
 
 test.beforeEach(async ({ context, baseURL }) => {
   await iniciarSesion(context, baseURL as string);
 });
 
-test('la matriz de activos presenta el inventario entero', async ({ page }) => {
+test('la matriz de activos cuenta los activos del análisis, y dice de cuántos', async ({
+  page,
+}) => {
   const registro: string[] = [];
   const anotar = (paso: string, visto: string) => registro.push(`${paso.padEnd(40)} -> ${visto}`);
 
@@ -82,124 +74,86 @@ test('la matriz de activos presenta el inventario entero', async ({ page }) => {
   await page.goto(RUTA);
   await expect(page.getByRole('heading', { name: 'Matrices de riesgo' })).toBeVisible();
 
-  const encabezadoRiesgos = page.getByText(/riesgos en el filtro, de/);
-  await expect(encabezadoRiesgos).toBeVisible();
   const riesgos = await totalDe(page, 'Matriz de riesgo inherente');
   expect(riesgos).toBeGreaterThan(0);
-  anotar('1 · abrir, en amenazas', `${riesgos} riesgos en la tarjeta inherente`);
+  // En amenazas la cifra son riesgos y no hay nada que aclarar: el texto no debe estar.
+  await expect(page.getByTestId('alcance-analisis')).toHaveCount(0);
+  anotar('1 · abrir, en amenazas', `${riesgos} riesgos, sin texto de alcance`);
 
-  // En amenazas no hay nada que declarar aparte: un riesgo que entra al filtro trae sus dos
-  // cifras. Ni la columna aparte ni los renglones del pie deben existir.
-  const pieAmenazas = await pieDe(page, 'Matriz de riesgo inherente');
-  expect(pieAmenazas.sinValorar).toBe(0);
-  expect(pieAmenazas.sinAnalizar).toBe(0);
-  expect(await columnaAparte(page, 'Matriz de riesgo inherente')).toEqual([]);
-  expect(pieAmenazas.ubicados).toBe(riesgos);
-  anotar('   · el pie cuadra con la rejilla', `${pieAmenazas.ubicados} = ${riesgos}`);
+  // El pie y la rejilla cuentan lo mismo, que es lo que impide que el pie contradiga a la
+  // matriz. Vale para las dos unidades y por eso se comprueba en las dos.
+  expect(await pieDe(page, 'Matriz de riesgo inherente')).toBe(riesgos);
+  expect(await enLaRejilla(page, 'Matriz de riesgo inherente')).toBe(riesgos);
+  anotar('   · pie y rejilla cuadran', `${riesgos} = ${riesgos}`);
 
   // ── 2 · Cambiar a activos ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Activos' }).click();
 
-  const encabezadoActivos = page.getByText(/activos en el filtro, de/);
-  await expect(encabezadoActivos).toBeVisible();
-  const inventario = Number(
-    /de ([\d.]+)/.exec((await encabezadoActivos.textContent()) ?? '')?.[1].replace(/\./g, '') ?? -1,
+  const activos = await totalDe(page, 'Matriz de riesgo inherente');
+  expect(activos).toBeGreaterThan(0);
+  // Cada activo una sola vez, en la casilla de su peor riesgo: con más de un riesgo por
+  // activo tiene que haber estrictamente menos activos que riesgos.
+  expect(activos).toBeLessThan(riesgos);
+  expect(await pieDe(page, 'Matriz de riesgo inherente')).toBe(activos);
+  expect(await enLaRejilla(page, 'Matriz de riesgo inherente')).toBe(activos);
+  anotar('2 · conmutar a activos', `${activos} activos, y el pie cuadra`);
+
+  // ── 3 · LA CIFRA DICE DE CUÁNTOS ES ─────────────────────────────────────────────────
+  //
+  // El defecto que abrió todo esto: «30 ACTIVOS» en una pantalla cuyo inventario tiene 378.
+  // El denominador sale de otro camino —un `count` sobre el inventario, no de la matriz—,
+  // así que comprobar que los dos números conviven y que el primero es el de la tarjeta es
+  // comprobar dos cálculos independientes que concuerdan.
+  const alcance = page.getByTestId('alcance-analisis');
+  await expect(alcance).toBeVisible();
+  const texto = (await alcance.textContent()) ?? '';
+  const cifras = [...texto.matchAll(/([\d.]+)\s*activos/g)].map((m) =>
+    Number(m[1].replace(/\./g, '')),
   );
-  expect(inventario).toBeGreaterThan(0);
-  anotar('2 · conmutar a activos', `el encabezado cuenta ${inventario} activos`);
+  expect(cifras).toHaveLength(2);
+  expect(cifras[0]).toBe(activos);
+  expect(cifras[1]).toBeGreaterThan(activos);
+  anotar('3 · dice de cuántos es', `${cifras[0]} de ${cifras[1]} vigentes`);
 
-  // ── 3 · LA REGRESIÓN QUE MOTIVÓ ESTE ARCHIVO ────────────────────────────────────────
+  // ── 4 · El texto explica por qué los demás no están ─────────────────────────────────
+  await expect(alcance).toContainText(/umbral de valoración/i);
+  anotar('4 · y por qué', 'nombra el umbral de valoración');
+
+  // ── 5 · NO HAY NADA FUERA DEL EJE DE FRECUENCIA ─────────────────────────────────────
   //
-  // La tarjeta tiene que decir el inventario, no los activos con riesgo. Se compara contra
-  // el encabezado —que sale de otro camino: el catálogo de activos filtrado, no la matriz—
-  // porque dos cifras que se calculan aparte y coinciden son evidencia; una sola cifra
-  // comparada contra sí misma no lo es.
-  const totalActivos = await totalDe(page, 'Matriz de riesgo inherente');
-  expect(totalActivos).toBe(inventario);
-  anotar('3 · la tarjeta dice el inventario', `${totalActivos} activos`);
+  // La regresión que este paso existe para impedir. Se retiró una columna que ubicaba los
+  // 348 restantes por su propio valor: mezclaba la escala del impacto de un riesgo con la
+  // del valor de un activo en la misma rejilla.
+  await expect(tarjeta(page, 'Matriz de riesgo inherente').getByTestId('cabecera-sin-analizar'))
+    .toHaveCount(0);
+  await expect(tarjeta(page, 'Matriz de riesgo inherente').getByTestId('banda-sin-analizar'))
+    .toHaveCount(0);
+  anotar('5 · una sola escala en la rejilla', 'sin columna ni renglones fuera de banda');
 
-  // ── 4 · Los que no caben en la rejilla, DIBUJADOS ───────────────────────────────────
-  //
-  // No basta con contarlos al pie: la pregunta que un comité hace de ellos es cuáles son
-  // graves, y un número suelto no la contesta.
-  const pie = await pieDe(page, 'Matriz de riesgo inherente');
-  const columna = await columnaAparte(page, 'Matriz de riesgo inherente');
-  const enLaColumna = columna.reduce((a, b) => a + b, 0);
-
-  expect(pie.ubicados).toBeGreaterThan(0);
-  expect(enLaColumna).toBeGreaterThan(0);
-  expect(pie.sinAnalizar).toBe(enLaColumna);
-  // La invariante que impide que un activo se pierda entre las cuentas.
-  expect(pie.ubicados + enLaColumna + pie.sinValorar).toBe(totalActivos);
-  anotar(
-    '4 · nadie se pierde',
-    `${pie.ubicados} ubicados + ${enLaColumna} en la columna + ${pie.sinValorar} sin valorar = ${totalActivos}`,
-  );
-
-  // ── 5 · LA REGRESIÓN QUE MOTIVÓ LA SEGUNDA VUELTA ───────────────────────────────────
-  //
-  // Los activos que no entran al análisis no son despreciables: el corte es el UMBRAL DE
-  // VALORACIÓN (4), no la gravedad. Un activo de valor 3 se queda fuera, y 3 en la escala
-  // de impacto es la banda ALTO. Tiene que haber alguien dibujado en una de las dos peores
-  // filas de la columna — si no lo hay, o el dato cambió o la columna está mintiendo.
-  const graves = columna[0] + columna[1];
-  expect(graves).toBeGreaterThan(0);
-  anotar('5 · los de valor alto se ven', `${graves} en las dos filas peores de la columna`);
-
-  // Y se dice con palabras, con la causa y con su número, no sólo con una casilla.
-  await expect(
-    tarjeta(page, 'Matriz de riesgo inherente').getByText(
-      /activos del filtro no alcanzan el umbral de valoración/,
-    ),
-  ).toBeVisible();
-  anotar('   · el aviso da la causa', 'visible en la tarjeta');
-
-  // Y NO se cuelan en la rejilla: la columna es aparte, no una casilla más.
-  expect(pie.ubicados).toBeLessThan(totalActivos);
-  anotar('   · no se cuelan en la rejilla', `${pie.ubicados} ubicados < ${totalActivos}`);
-
-  // ── 5.b · Abrir una casilla de la columna lista los activos ─────────────────────────
-  const filaGrave = columna[0] > 0 ? 0 : 1;
-  await tarjeta(page, 'Matriz de riesgo inherente').getByTestId(`sinanalizar-${filaGrave}`).click();
-  const detalle = page.getByRole('region', { name: /sin analizar/i });
-  await expect(detalle).toBeVisible();
-  await expect(detalle.getByText(/sin riesgos generados/i)).toBeVisible();
-  anotar('5.b · detalle de la columna', `abre con ${columna[filaGrave]} activos`);
-  await detalle.getByRole('button', { name: 'Cerrar detalle' }).click();
-
-  // ── 6 · El filtro recorta el inventario, no sólo los riesgos ────────────────────────
-  //
-  // Antes, filtrar por un proceso sin ningún activo valorado dejaba la pantalla en cero y
-  // parecía que ese proceso no tuviera activos. Ahora el proceso cuenta los suyos.
+  // ── 6 · El filtro recorta los activos y el denominador no se mueve ──────────────────
   const proceso = page.getByLabel('Proceso');
   const opciones = await proceso.locator('option').allTextContents();
-  // La primera es «Todos los procesos»; se toma la siguiente que exista.
   expect(opciones.length).toBeGreaterThan(1);
   await proceso.selectOption({ index: 1 });
 
   const filtrado = await totalDe(page, 'Matriz de riesgo inherente');
-  const pieFiltrado = await pieDe(page, 'Matriz de riesgo inherente');
   expect(filtrado).toBeGreaterThan(0);
-  expect(filtrado).toBeLessThanOrEqual(totalActivos);
-  expect(pieFiltrado.ubicados + pieFiltrado.sinAnalizar + pieFiltrado.sinValorar).toBe(filtrado);
-  anotar(
-    `6 · filtro «${opciones[1]}»`,
-    `${filtrado} activos = ${pieFiltrado.ubicados} + ${pieFiltrado.sinAnalizar} + ${pieFiltrado.sinValorar}`,
+  expect(filtrado).toBeLessThanOrEqual(activos);
+  expect(await pieDe(page, 'Matriz de riesgo inherente')).toBe(filtrado);
+  // El inventario es de cuántos HAY, no de cuántos quedan en el filtro.
+  const conFiltro = [...(((await alcance.textContent()) ?? '').matchAll(/([\d.]+)\s*activos/g))].map(
+    (m) => Number(m[1].replace(/\./g, '')),
   );
+  expect(conFiltro[1]).toBe(cifras[1]);
+  anotar(`6 · filtro «${opciones[1]}»`, `${filtrado} activos, denominador intacto`);
 
   await page.getByRole('button', { name: 'Limpiar' }).click();
   await expect(tarjeta(page, 'Matriz de riesgo inherente').getByTestId('total-matriz')).toHaveText(
-    String(totalActivos).replace(/\B(?=(\d{3})+(?!\d))/g, '.'),
+    String(activos).replace(/\B(?=(\d{3})+(?!\d))/g, '.'),
   );
-  anotar('   · limpiar el filtro', `vuelve a ${totalActivos}`);
+  anotar('   · limpiar el filtro', `vuelve a ${activos}`);
 
   // ── 7 · El detalle de una casilla sigue abriendo activos ────────────────────────────
-  //
-  // Cambiar el universo no puede romper lo que ya funcionaba. Se abre la casilla con más
-  // activos y se comprueba que el detalle liste tantos como dice la casilla.
-  // Sólo casillas de la REJILLA. Buscarlas por `button[title]` también recogería las de la
-  // columna aparte —que hoy tiene 330 en una sola— y el paso terminaría probando el detalle
-  // equivocado creyendo que prueba éste.
   const casillas = tarjeta(page, 'Matriz de riesgo inherente').locator(
     '[data-testid^="casilla-"]',
   );
