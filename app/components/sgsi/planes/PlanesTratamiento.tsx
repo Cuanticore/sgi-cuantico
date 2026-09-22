@@ -18,6 +18,7 @@ import {
 import type { EstadoAccion } from '@prisma/client';
 import type { AlcancePlan } from '@/lib/sgsi/alcance-plan';
 import PopupAccion from './PopupAccion';
+import PopupAccionNueva from './PopupAccionNueva';
 import FranjaSinPlan, { type FilaFranjaSinPlan } from './FranjaSinPlan';
 import GanttPlanes from './GanttPlanes';
 import ImportarPlanes from './ImportarPlanes';
@@ -147,6 +148,7 @@ export default function PlanesTratamiento({
   // propósito, no por sorpresa.
   const [vista, setVista] = useState<'tabla' | 'tablero'>('tabla');
   const [importando, setImportando] = useState(false);
+  const [creando, setCreando] = useState(false);
   const [estados, setEstados] = useState<Record<string, string>>({});
   const [eliminadas, setEliminadas] = useState<string[]>([]);
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -223,16 +225,40 @@ export default function PlanesTratamiento({
     ? vigentes.reduce((s, a) => s + (a.alcance?.riesgos ?? 0), 0)
     : null;
 
+  // SOBRE CUÁNTAS ACCIONES SE CALCULARON LAS DOS CIFRAS DE ARRIBA.
+  //
+  // Las dos sólo miran las acciones que tienen control, y eso es correcto: una póliza de
+  // ciberriesgo no mueve la madurez de nada y no contiene ninguna amenaza, así que aporta 0 a
+  // las dos. Lo que no es correcto es que la cifra se lea como si cubriera el plan entero.
+  //
+  // Es la misma forma de defecto que el acta de riesgo residual tuvo el 21/09: un denominador
+  // que sólo contaba los casos resolubles mostraba «0 / 0», y «0 / 0» se lee como «no queda
+  // nada por hacer». La cifra no miente; miente lo que uno cree que abarca.
+  //
+  // Sólo cuando los dos números difieren: decir «sobre 19 de 19» es ruido, y el ruido termina
+  // en que nadie lee el pie el día que sí dice algo.
+  const conControl = vigentes.filter((a) => a.control !== null).length;
+  const denominador =
+    conControl === vigentes.length ? '' : ` · sobre ${conControl} de ${vigentes.length} acciones`;
+
   const kpis = [
     { titulo: 'Acciones en el plan', valor: vigentes.length },
     { titulo: 'De mitigación', valor: vigentes.filter((a) => a.tipo === 'MITIGAR').length },
     { titulo: 'Cerradas', valor: vigentes.filter((a) => a.estado === 'CERRADA').length },
     { titulo: 'Sin iniciar', valor: vigentes.filter((a) => a.estado === 'NO_INICIADA').length },
-    { titulo: 'Salto pendiente', valor: saltoPendiente, pie: 'Σ máx(0, objetivo − actual)' },
+    {
+      titulo: 'Salto pendiente',
+      valor: saltoPendiente,
+      pie: `Σ máx(0, objetivo − actual)${denominador}`,
+    },
     {
       titulo: 'Riesgos alcanzados',
       valor: riesgosAlcanzados ?? 'sin calcular',
-      pie: alcanceCalculable ? 'sobre el inventario real' : 'falta el cruce control-amenaza',
+      // Sin el cruce no hay cifra, y precisar el alcance de una cifra que no se calculó sería
+      // tapar lo único que hay que leer ahí: que falta el cruce.
+      pie: alcanceCalculable
+        ? `sobre el inventario real${denominador}`
+        : 'falta el cruce control-amenaza',
     },
   ];
 
@@ -254,6 +280,22 @@ export default function PlanesTratamiento({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* La acción PRINCIPAL de la pantalla, y por eso lleva el acento y va primera:
+              registrar una acción es lo que se viene a hacer acá; importar un FOR-SIG-13 es
+              lo excepcional, una vez por libro.
+
+              «Acción nueva» y no «Nuevo plan» ni «Nuevo riesgo»: es el vocabulario de esta
+              pantalla, cuyo subtítulo dice «una fila por acción, no por riesgo». */}
+          <button
+            type="button"
+            onClick={() => setCreando(true)}
+            title="Registrar una acción del plan que no nace de un activo ni de un control con brecha: una póliza, una decisión del comité."
+            className="rounded-campo px-3 py-1.5 text-12 font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--hf-accent-500)' }}
+          >
+            Acción nueva
+          </button>
+
           <button
             type="button"
             onClick={() => setImportando(true)}
@@ -540,6 +582,15 @@ export default function PlanesTratamiento({
       )}
 
       {importando && <ImportarPlanes onCerrar={() => setImportando(false)} />}
+
+      {creando && (
+        <PopupAccionNueva
+          controles={controles}
+          cargos={cargos}
+          madurez={madurez}
+          onCerrar={() => setCreando(false)}
+        />
+      )}
 
       {editando && (
         <PopupAccion

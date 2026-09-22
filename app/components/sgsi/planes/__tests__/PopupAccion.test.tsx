@@ -249,6 +249,19 @@ describe('los trece campos de la edición llegan enteros al guardado', () => {
   });
 });
 
+describe('los campos de seguimiento sí se ofrecen al editar', () => {
+  // El gemelo de la prueba de `PopupAccionNueva`: allá los cuatro NO están, acá SÍ. Se
+  // esconden con una bandera, así que afirmar sólo una de las dos mitades dejaría que una
+  // bandera invertida —las dos pantallas iguales— pasara en verde.
+  it.each(['Estado', 'Avance', 'Verificación de eficacia', 'Madurez alcanzada'])(
+    'renderiza %s',
+    (etiqueta) => {
+      montar();
+      expect(screen.getByLabelText(etiqueta)).toBeInTheDocument();
+    },
+  );
+});
+
 describe('el tamaño que hace que el formulario quepa', () => {
   // Esto no es decoración: 1040 px es lo que permite el renglón de cinco campos, y 80vh
   // es lo que hace que los trece entren sin desplazamiento. Sin estas tres aserciones,
