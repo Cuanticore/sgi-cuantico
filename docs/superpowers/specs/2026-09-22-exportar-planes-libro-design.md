@@ -53,8 +53,12 @@ responde otra pregunta.
 ### 3.1 Hoja 1 · una fila por ACTIVO, no por riesgo
 
 Se descartó una fila por par (activo × amenaza) — el registro de riesgos de 6.1.2, de varios
-cientos de filas. La hoja es **una fila por activo cuyo peor residual es Alto o Crítico**, unas 30
-filas, que es lo que se lee en una reunión.
+cientos de filas. La hoja es **una fila por activo cuyo peor residual es Alto o Crítico** — del
+orden de unas decenas, que es lo que se lee en una reunión.
+
+**Cuántas exactamente, nadie lo ha medido.** Los ~30 que se citan en el repo son los activos que
+alcanzan el umbral de valoración, que es otro conjunto (ver §3.3). El número real de esta hoja
+hay que contarlo contra la base antes de mergear, y decirlo en el PR.
 
 **Lo que se pierde, y hay que decirlo:** la hoja no dice *qué amenaza* pone al activo en rojo. Para
 eso está la pantalla, y la hoja lleva la cuenta —«3 de sus 14 amenazas en Alto o Crítico»— para
@@ -187,8 +191,9 @@ Recorrido a ejecutar:
   1. Abrir /sgsi/planes, filtro «Todas»      -> 19 acciones
   2. Clic en «Exportar»                      -> baja «Planes de tratamiento 2026-09-22.xlsx»
   3. Abrirlo                                 -> dos hojas, en ese orden
-  4. Hoja 1                                  -> ~30 filas; las bandas con los colores
-                                                de la pantalla; los sin plan en rojo
+  4. Hoja 1                                  -> contar las filas y anotarlo en el PR;
+                                                las bandas con los colores de la
+                                                pantalla; los sin plan en rojo
   5. Cotejar una fila contra la pantalla     -> mismo peor residual, mismos planes
   6. Volver, filtrar por «Aceptar»           -> la grilla se reduce
   7. Exportar otra vez                       -> la hoja 2 trae sólo ésas, y su fila 2
