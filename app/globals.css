@@ -396,6 +396,15 @@
   box-shadow: inset 4px 0 0 0 var(--hf-danger-text);
 }
 
+/* La barra ámbar usa `--hf-warn-text` y no `--hf-warn-500`, y la razón está medida: sobre el
+   blanco que le queda a esta fila, `--hf-warn-500` (#ef8020) da un contraste de **2.70**, por
+   debajo del mínimo de 3:1 que la WCAG 2.1 (1.4.11) pide para un elemento gráfico no textual.
+   `--hf-warn-text` (#8a4407) da **7.22**.
+
+   No es una preferencia estética: con 2.70 la barra se pierde contra el fondo y el acento
+   vuelve a no comunicar nada, que es exactamente el defecto que la barra vino a arreglar
+   cuando dos pasteles al 3 % de distancia no se distinguían. Y las dos barras entre sí pasan
+   de 2.76 a un contraste holgado, así que también se separan la una de la otra. */
 .ag-row.fila-brecha-pendiente {
-  box-shadow: inset 4px 0 0 0 var(--hf-warn-500);
+  box-shadow: inset 4px 0 0 0 var(--hf-warn-text);
 }
