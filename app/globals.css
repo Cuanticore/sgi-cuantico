@@ -413,7 +413,18 @@
    EL FALLO SE ESCONDIÓ DETRÁS DEL FONDO. La fila roja tiene además `--hf-danger-bg`, así que
    se distinguía igual y parecía arreglada. La ámbar no tiene fondo a propósito —es el acento
    menor—, y sin barra quedaba IDÉNTICA a una fila normal: el renglón que dice «a este activo
-   le falta madurez de control» no decía nada. */
+   le falta madurez de control» no decía nada.
+
+   LA BARRA Y EL RELLENO NO DICEN LO MISMO, y quien vaya a simplificar esto necesita saberlo.
+   Ampliadas a 4×, `--hf-danger-text` (#a52016) y `--hf-warn-text` (#8a4407) son tan parecidas
+   en oscuridad que **a 4 px de ancho el tono casi no discrimina**. El reparto real es:
+
+     · la BARRA dice «este renglón está marcado»
+     · el RELLENO dice «cuál de las dos cosas es»
+
+   Así que quitarle el fondo al rojo para «dejar las dos iguales y más limpias» no simplifica:
+   borra la única señal que separa un riesgo alto sin tratar de una brecha de control, aunque
+   las dos barras sigan ahí. Medido el 22/09/2026 sobre la pantalla, no razonado. */
 .ag-row.fila-alarmante::before,
 .ag-row.fila-brecha-pendiente::before {
   content: '';
