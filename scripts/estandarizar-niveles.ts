@@ -109,6 +109,16 @@ async function main(): Promise<void> {
   // `scripts/verificar-fusion.ts` corre EXACTAMENTE esta función contra una base efímera con la
   // forma real del árbol. Si se copiara la lógica en vez de importarla, las dos se separarían y
   // la que se queda corta seguiría dando verde.
+  // **El límite por defecto de Prisma son 5 segundos, y no alcanzan por el túnel.**
+  //
+  // Son ~110 escrituras secuenciales y cada una cruza la red hasta producción. En la base local
+  // el mismo trabajo tarda menos de un segundo; contra producción tardó 5.237 ms y la
+  // transacción expiró con P2028 —sin tocar nada, que es lo que la transacción existe para
+  // hacer—. **La latencia es exactamente lo que ningún ensayo local puede reproducir**, así que
+  // este número no se descubre probando de más: se descubre fallando contra la red real.
+  //
+  // Tres minutos es holgura deliberada. Si algún día hicieran falta más, el problema no es el
+  // tiempo: es que el ejecutor hace un viaje por fila y habría que agruparlos.
   await prisma.$transaction(async (tx) => {
     await aplicarPlan(
       tx,
@@ -120,7 +130,7 @@ async function main(): Promise<void> {
     if (apagado?.apagar !== null && apagado?.apagar !== undefined) {
       await tx.nivelActivo.update({ where: { id: apagado.apagar }, data: { activo: false } });
     }
-  });
+  }, { timeout: 180_000, maxWait: 30_000 });
 
   linea();
   linea(

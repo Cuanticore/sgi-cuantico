@@ -65,10 +65,45 @@ RENOMBRES: 105 · FUSIONES: 4 · CONFLICTOS: 0
       - **`Productos` #131 tiene 1 activo en su rama.** La fusión lo muda a `PRODUCTOS` #2. Es un
         activo real cambiando de rama en producción y tiene que nombrarse en el PR, no quedar
         escondido dentro de «4 fusiones».
-- [ ] **1.3** Respaldo de la base, como manda el workflow de despliegue.
-- [ ] **1.4** `--aplicar`. **Guardar la salida completa**: es el único registro de qué se movió a
+- [x] **1.3** Respaldo de la base, como manda el workflow de despliegue.
+- [x] **1.4** `--aplicar`. **Guardar la salida completa**: es el único registro de qué se movió a
       dónde, y sin ella la fusión no se puede deshacer.
-- [ ] **1.5** `auditar-niveles.ts` otra vez. Las colisiones al normalizar tienen que dar **cero**.
+- [x] **1.5** `auditar-niveles.ts` otra vez. Las colisiones al normalizar tienen que dar **cero**.
+- [x] **1.4.b** **APLICADO EN PRODUCCIÓN el 2026-09-22**, y en local antes. Y costó dos intentos
+      más, los dos revertidos por la transacción sin tocar un dato:
+
+```
+intento 1  P2002 · el ejecutor mudaba un hijo que él mismo iba a absorber
+           -> arreglado en lib/sig/aplicar-fusion.ts + scripts/verificar-fusion.ts
+intento 2  P2028 · la transacción expiró a los 5.237 ms (límite por defecto: 5.000)
+           -> ~110 escrituras secuenciales, cada una cruzando el túnel.
+              En local el mismo trabajo tarda menos de un segundo.
+              LA LATENCIA ES LO ÚNICO QUE NINGÚN ENSAYO LOCAL REPRODUCE.
+intento 3  Aplicado: 4 fusión(es), 105 renombre(s), EMPRESA apagada.   EXIT 0
+```
+
+      Auditoría de producción después:
+
+```
+   id  nombre        clase       act  hijos  activos  producto
+    4  CUANTICO      EMPRESA      sí     12      263  —
+  131  Productos     —            NO      1        0  —
+    1  EMPRESA       EMPRESA      NO      0        0  —
+    2  PRODUCTOS     PRODUCTOS    sí      8       66  MinTrace    <- era 65
+    3  PROYECTOS     PROYECTOS    sí      5       45  —
+
+  niveles con padre inexistente:      0
+  niveles activos con padre apagado:  0
+  activos fuera del grado 3:          0
+```
+
+      Los **3 nombres sin normalizar y las 2 colisiones** que la auditoría sigue reportando son
+      las **lápidas**: #131, #127 y #132, inactivas y con 0 activos, que conservan su nombre a
+      propósito para poder deshacer la fusión. Entre nodos **activos** no queda ninguna.
+
+- [ ] **5.4** `auditar-niveles.ts` §2 y §3 no distinguen activos de inactivos, así que después de
+      una fusión exitosa el informe se lee como si quedara trabajo. Quien lo mire mañana sin este
+      contexto va a creer que la fusión quedó a medias.
 - [ ] **1.6** 🔴 Prueba en rojo: un caso en `lib/sig/__tests__/` que exija que dos hermanos que sólo
       difieren en la caja sean rechazados. Falla porque hoy el índice es sobre el nombre literal.
 - [ ] **1.7** Migración que reemplaza `nivel_activo_identidad` por el índice funcional sobre

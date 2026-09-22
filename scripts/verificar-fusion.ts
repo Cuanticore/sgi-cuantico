@@ -60,7 +60,14 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const origen = new PrismaClient({ adapter: new PrismaPg({ connectionString: base }) });
+  // **De dónde se COPIA la forma y dónde se ENSAYA son dos servidores distintos.**
+  //
+  // Producción no deja crear una base —el rol no tiene `CREATEDB`, y es correcto que no lo
+  // tenga—, así que la efímera se levanta donde `DATABASE_URL` apunte y el árbol se lee de
+  // `ARBOL_DESDE`. Ensayar contra la forma de producción sin pedirle permiso de escritura a
+  // producción es justamente lo que hace que este ensayo se pueda correr antes de aplicar.
+  const fuente = process.env.ARBOL_DESDE ?? base;
+  const origen = new PrismaClient({ adapter: new PrismaPg({ connectionString: fuente }) });
   const arbol = (await origen.nivelActivo.findMany({
     select: { id: true, grado: true, nombre: true, padreId: true, clase: true, activo: true, orden: true },
     orderBy: { id: 'asc' },
