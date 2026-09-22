@@ -23,6 +23,10 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { registrar, registrarAlta } from '@/lib/sgsi/bitacora';
+import {
+  puedeEmitirActa,
+  resumenDeFirmantes,
+} from '@/lib/sgsi/firmantes-acta-residual';
 import { actaResidualHtml } from '@/lib/sgsi/acta-residual-documento';
 import { parsearOrigen } from '@/lib/sgsi/origen-plan';
 import {
@@ -71,13 +75,17 @@ export async function emitirActaResidual(
     const persona = await personaDeLaSesion(autor);
 
     const vista = await leerRiesgoResidual(periodo);
-    if (vista.filas.length === 0) {
-      return {
-        ok: false,
-        mensaje:
-          'No hay activos en banda Alta o Crítica en este periodo: no hay riesgo residual que aprobar.',
-      };
-    }
+
+    // Las dos razones para no emitir —sin activos que aprobar, o sin nadie que pueda firmar—
+    // viven en `lib/sgsi/firmantes-acta-residual.ts`, del que también depende la pantalla
+    // para apagar el botón. La segunda no existía: se podía emitir un acta que, por
+    // `estado-acta-residual.ts`, no puede llegar nunca a APROBADA, quemando un consecutivo
+    // y dejando un PDF sellado que sólo se limpia anulándolo.
+    const emision = puedeEmitirActa(
+      vista.filas.length,
+      resumenDeFirmantes(vista.firmantes).resolubles,
+    );
+    if (!emision.puede) return { ok: false, mensaje: emision.motivo };
 
     const consecutivo = (await prisma.actaRiesgoResidual.count({ where: { periodo } })) + 1;
     const codigo = `ARR-${periodo}-${String(consecutivo).padStart(3, '0')}`;

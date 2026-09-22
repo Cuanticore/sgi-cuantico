@@ -13,6 +13,12 @@
 //     persona a la que hay que buscar. Ninguna celda queda vacía.
 //   · **Con el acta desactualizada no se registran firmas.** Recoger firmas sobre cifras que
 //     cambiaron es recoger firmas que no valen.
+//   · **Si NINGÚN proceso tiene firmante, el tablero lo grita y no se emite nada.** Las dos
+//     reglas de arriba preveían ALGUNOS procesos irresolubles; con todos, «0 / 0» y «0» se
+//     leían como «no falta nada» justo cuando nadie puede firmar, y el botón seguía ofrecido.
+//     Las cuentas y la guarda viven en `lib/sgsi/firmantes-acta-residual.ts`, que comparte
+//     con la server action — el botón solo no protege la acción, y la acción sola deja al
+//     botón prometiendo algo que va a fallar.
 //
 // La validación real vive en el servidor: esta pantalla ayuda, no decide.
 
@@ -21,6 +27,13 @@ import type { VistaRiesgoResidual } from '@/app/sgsi/riesgo-residual/acta.query'
 import type { EstadoActa } from '@/lib/sgsi/estado-acta-residual';
 import { emitirActaResidual } from '@/app/sgsi/acciones/acta-residual';
 import PopupFirmaResidual from './PopupFirmaResidual';
+import {
+  notaSinFirmante,
+  puedeEmitirActa,
+  resumenDeFirmantes,
+  textoPendientesDeFirma,
+  textoProcesosFirmados,
+} from '@/lib/sgsi/firmantes-acta-residual';
 
 const TEXTO_ESTADO: Record<EstadoActa, string> = {
   EMITIDA: 'Emitida · faltan firmas',
@@ -47,10 +60,15 @@ export default function PantallaRiesgoResidual({
 
   const acta = datos.acta;
   const criticos = datos.filas.filter((f) => f.banda === 'Crítico').length;
-  const resolubles = datos.firmantes.filter((f) => f.resoluble);
-  const sinResolver = datos.firmantes.length - resolubles.length;
+  // Las cuentas de firmantes y los textos que salen de ellas viven en
+  // `lib/sgsi/firmantes-acta-residual.ts`, del que también depende la server action. Acá
+  // estaban inline y el caso de CERO resolubles no estaba previsto: las tarjetas decían
+  // «0 / 0» y «0», que se leen como «no falta nada» justo cuando nadie puede firmar.
+  const resumen = resumenDeFirmantes(datos.firmantes);
+  const sinResolver = resumen.sinResolver;
   const firmados = acta?.renglones.filter((r) => r.aprobo).length ?? 0;
-  const pendientesDeFirma = resolubles.length - firmados;
+  const nadiePuedeFirmar = resumen.resolubles === 0;
+  const emision = puedeEmitirActa(datos.filas.length, resumen.resolubles);
   const admiteFirmas = acta !== null && !NO_ADMITE_FIRMAS.includes(acta.estado);
 
   function emitir() {
@@ -71,11 +89,17 @@ export default function PantallaRiesgoResidual({
             peor riesgo residual quedó en banda Alta o Crítica.
           </p>
         </div>
+        {/* Apagado cuando el acta no podría aprobarse nunca. Emitir quema un consecutivo
+            `ARR-…` que no se recicla, genera el PDF y guarda su sha256, y un acta sin
+            firmantes resolubles se queda en EMITIDA para siempre —`estado-acta-residual.ts`
+            exige `procesos > 0` para declararla aprobada—. La otra mitad de la guarda está
+            en `emitirActaResidual`. */}
         {puedeEscribir && datos.filas.length > 0 && (
           <button
             type="button"
             onClick={emitir}
-            disabled={pendiente}
+            disabled={pendiente || !emision.puede}
+            title={emision.puede ? undefined : emision.motivo}
             className="rounded-campo bg-brand-nav px-3 py-1.5 text-11_5 font-medium text-white disabled:opacity-60"
           >
             {acta === null ? 'Emitir el acta' : 'Emitir una nueva'}
@@ -98,10 +122,15 @@ export default function PantallaRiesgoResidual({
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <Tarjeta etiqueta="Activos por aprobar" valor={datos.filas.length} />
         <Tarjeta etiqueta="En banda Crítica" valor={criticos} tono={criticos > 0 ? 'alerta' : undefined} />
-        <Tarjeta etiqueta="Procesos firmados" valor={`${firmados} / ${resolubles.length}`} />
+        <Tarjeta
+          etiqueta="Procesos firmados"
+          valor={textoProcesosFirmados(firmados, resumen.resolubles)}
+          tono={nadiePuedeFirmar ? 'alerta' : undefined}
+        />
         <Tarjeta
           etiqueta="Pendientes de firma"
-          valor={acta === null ? '—' : pendientesDeFirma}
+          valor={textoPendientesDeFirma(acta !== null, firmados, resumen.resolubles)}
+          tono={acta !== null && nadiePuedeFirmar ? 'alerta' : undefined}
         />
         <Tarjeta
           etiqueta="Sin calcular (fuera del acta)"
@@ -113,7 +142,7 @@ export default function PantallaRiesgoResidual({
           etiqueta="Sin firmante resoluble"
           valor={sinResolver}
           tono={sinResolver > 0 ? 'aviso' : undefined}
-          nota="El cargo líder del proceso no tiene persona activa"
+          nota={notaSinFirmante(resumen)}
         />
       </section>
 
