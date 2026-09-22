@@ -52,6 +52,7 @@ import {
   type ContactoGuardado,
   type ContactoPropuesto,
 } from '@/lib/sig/contactos';
+import { dia } from '@/lib/sig/fechas';
 import { planificarGeneracion, type AsignacionACrear } from '@/lib/sig/generacion';
 import { planificarGrupos, type PlanDeGrupos } from '@/lib/sig/grupos';
 import {
@@ -210,11 +211,14 @@ function destinoDe(o: {
 /// Una fecha del formulario a día puro UTC, o `null`. Se trata como día y no como instante
 /// por lo mismo que `periodos.ts`: America/Bogotá es UTC−5 sin horario de verano, así que un
 /// día UTC es un día Bogotá y la comparación es por año-mes-día.
-function dia(valor: string | null | undefined): Date | null {
-  if (valor === null || valor === undefined || valor.trim() === '') return null;
-  const d = new Date(`${valor.slice(0, 10)}T00:00:00.000Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
+// `dia` vive en `lib/sig/fechas.ts` desde el 22/09/2026. Era privada de este archivo, y el
+// alta de colaborador hacía la misma conversión SIN su guarda: dos piezas haciendo lo mismo
+// desde orígenes distintos. Se movió al módulo que existe por esa misma clase de defecto —el
+// de `diaDe` copiada en cinco sitios— en vez de copiarla una sexta vez.
+//
+// Al mudarse ganó un rango: un año fuera de [1900, año en curso + 5] se trata como una fecha
+// que no se puede leer. Acá eso significa que un ingreso tecleado como 2062 deja de escribir
+// la columna, igual que ya pasaba con una cadena rota.
 
 interface Calculo {
   /// `NonNullable` porque `calcular` sólo devuelve `ok: true` cuando la persona existe. Sin
