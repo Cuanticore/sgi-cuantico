@@ -123,7 +123,35 @@ function nivelTexto(v: number | null): string {
   return v === null ? '—' : `L${v}`;
 }
 
-type Filtro = 'todas' | 'NO_INICIADA' | 'EN_EJECUCION' | 'CERRADA' | 'MITIGAR' | 'ACEPTAR';
+export type Filtro = 'todas' | 'NO_INICIADA' | 'EN_EJECUCION' | 'CERRADA' | 'MITIGAR' | 'ACEPTAR';
+
+/// Las seis opciones del desplegable, con la palabra EXACTA que se lee en pantalla. La
+/// etiqueta viaja al archivo exportado —su hoja 2 dice qué filtro se aplicó—, así que tiene
+/// que salir de acá y no de una segunda lista: un archivo que dijera «En ejecución» donde la
+/// pantalla dice «En curso» obligaría a adivinar si son el mismo filtro.
+export const OPCIONES_FILTRO: readonly { valor: Filtro; etiqueta: string }[] = [
+  { valor: 'todas', etiqueta: 'Todas' },
+  { valor: 'NO_INICIADA', etiqueta: 'No iniciada' },
+  { valor: 'EN_EJECUCION', etiqueta: 'En curso' },
+  { valor: 'CERRADA', etiqueta: 'Cerrada' },
+  { valor: 'MITIGAR', etiqueta: 'Solo mitigar' },
+  { valor: 'ACEPTAR', etiqueta: 'Solo aceptar' },
+];
+
+/// Qué acciones deja pasar el desplegable. Está extraído del `filter` que la grilla tenía
+/// escrito en línea —y que la grilla sigue llamando— por dos razones: se puede probar de a
+/// una opción en milisegundos, y el enlace de «Exportar» lo llama para armar la lista de
+/// códigos que manda a la ruta, así que la grilla y el archivo no pueden discrepar sobre qué
+/// entró.
+///
+/// Los dos últimos valores miran el TIPO y no el estado. Es la trampa de este desplegable:
+/// `ACEPTAR` se parece a un estado y no lo es, y preguntarle por el estado daría cero filas
+/// siempre, en silencio.
+export function pasaFiltroPlanes(accion: { tipo: string; estado: string }, filtro: Filtro): boolean {
+  if (filtro === 'todas') return true;
+  if (filtro === 'MITIGAR' || filtro === 'ACEPTAR') return accion.tipo === filtro;
+  return accion.estado === filtro;
+}
 
 export default function PlanesTratamiento({
   acciones,
@@ -207,11 +235,31 @@ export default function PlanesTratamiento({
     [acciones, eliminadas, estados],
   );
 
-  const visibles = vigentes.filter((a) => {
-    if (filtro === 'todas') return true;
-    if (filtro === 'MITIGAR' || filtro === 'ACEPTAR') return a.tipo === filtro;
-    return a.estado === filtro;
-  });
+  const visibles = vigentes.filter((a) => pasaFiltroPlanes(a, filtro));
+
+  // ── A DÓNDE LLEVA «EXPORTAR» ──────────────────────────────────────────────────────────
+  //
+  // SIN FILTRO NO SE MANDAN CÓDIGOS, y es deliberado: la ruta baja entonces todas las
+  // acciones activas que encuentre, incluidas las que esta pestaña —abierta desde ayer— no
+  // alcanzó a ver. Con filtro sí viajan, porque «lo que la pantalla está mostrando» no se
+  // puede derivar en el servidor sin volver a escribir allá el `pasaFiltroPlanes` de arriba
+  // —este archivo lleva `'use client'`, y desde una ruta sus exportaciones son referencias de
+  // cliente, no funciones llamables—, y dos copias del mismo predicado es cómo la grilla y el
+  // archivo terminan diciendo cosas distintas. Es el mismo reparto que `exportar-analisis`:
+  // los CÓDIGOS viajan, los datos se vuelven a leer.
+  //
+  // Y con filtro, `codigos` viaja SIEMPRE, aunque quede vacío. Omitirlo se leería como «sin
+  // filtro» y bajaría el plan entero: es exactamente el defecto que `9cd892c` arregló en el
+  // export del inventario, donde exportar con cero filas visibles bajaba los 378 activos.
+  const enlaceExportar = ((): string => {
+    if (filtro === 'todas') return '/api/sgsi/exportar-planes';
+    const etiqueta = OPCIONES_FILTRO.find((o) => o.valor === filtro)?.etiqueta ?? filtro;
+    const p = new URLSearchParams({
+      filtro: etiqueta,
+      codigos: visibles.map((a) => a.codigo).join(','),
+    });
+    return `/api/sgsi/exportar-planes?${p.toString()}`;
+  })();
 
   // Pending maturity jump: the sum of what every action still has to climb.
   const saltoPendiente = vigentes.reduce((suma, a) => {
@@ -305,6 +353,24 @@ export default function PlanesTratamiento({
             Importar FOR-SIG-13
           </button>
 
+          {/* «Exportar» con el estilo secundario de «Importar», no con el acento verde: el
+              acento ya lo tiene «Acción nueva», y dos acentos en una cabecera no jerarquizan
+              nada — el ojo tiene que elegir entre dos cosas que se presentan como la principal.
+
+              UN `<a download>` Y NO UN `fetch`. El navegador gestiona la descarga: no hay
+              estado de «bajando…» que mantener, ni un blob que armar y revocar, ni un error
+              que haya que pintar a mano. Y el destino se ve en la barra de estado antes de
+              hacer clic, que es lo más honesto que puede hacer un botón que baja un archivo
+              con el inventario en riesgo adentro. */}
+          <a
+            href={enlaceExportar}
+            download
+            title="Baja un Excel de dos hojas: los riesgos altos que justifican el plan y las acciones del plan de tratamiento, con el filtro que tengas puesto."
+            className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 font-semibold text-primary transition-colors hover:bg-surface-hover"
+          >
+            Exportar
+          </a>
+
           {/* El conmutador de vista. Dos pestañas y no un icono: «Tablero» dice lo que hay
               del otro lado, y un icono de barras habría que adivinarlo. */}
           <div className="flex overflow-hidden rounded-campo border border-border-field">
@@ -325,17 +391,24 @@ export default function PlanesTratamiento({
             ))}
           </div>
 
+        {/* Las opciones salen de `OPCIONES_FILTRO` y no escritas acá: la etiqueta que se lee
+            en este desplegable es la misma que la ruta escribe en la hoja 2 del archivo, y
+            dos listas que se separan dejarían al archivo nombrando un filtro que la pantalla
+            no ofrece.
+
+            `aria-label` porque no tiene rótulo visible: la fila de cada acción trae su propio
+            desplegable de estado, y sin esto los siete se anuncian igual. */}
         <select
           value={filtro}
+          aria-label="Filtrar las acciones"
           onChange={(e) => setFiltro(e.target.value as Filtro)}
           className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-12 text-secondary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
         >
-          <option value="todas">Todas</option>
-          <option value="NO_INICIADA">No iniciada</option>
-          <option value="EN_EJECUCION">En curso</option>
-          <option value="CERRADA">Cerrada</option>
-          <option value="MITIGAR">Solo mitigar</option>
-          <option value="ACEPTAR">Solo aceptar</option>
+          {OPCIONES_FILTRO.map((o) => (
+            <option key={o.valor} value={o.valor}>
+              {o.etiqueta}
+            </option>
+          ))}
         </select>
         </div>
       </header>
