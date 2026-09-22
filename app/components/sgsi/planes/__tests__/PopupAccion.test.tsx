@@ -144,6 +144,111 @@ describe('el orden de los campos', () => {
   });
 });
 
+describe('los trece campos de la edición llegan enteros al guardado', () => {
+  // ESTA ES LA PRUEBA QUE CIERRA EL HUECO DE LA EXTRACCIÓN. Los campos salieron de este
+  // archivo a `CamposAccion.tsx`, y mover trece `onChange` de un archivo a otro es donde se
+  // pierde uno sin que nada lo note: el campo se sigue renderizando, el `value` inicial se
+  // sigue viendo, la pantalla se ve idéntica — y lo que uno escribe no se guarda.
+  //
+  // Por eso no basta con afirmar que los trece están. Se toca CADA UNO y se comprueba que el
+  // estado lo recogió, que es lo único que un `onChange` perdido no puede fingir.
+  //
+  // Los valores finales dejan el formulario sin impedimentos —EVITAR no pide control,
+  // En ejecución no choca con la verificación— para que el botón esté habilitado y el
+  // guardado llegue a ocurrir.
+
+  const CAMBIOS: [string | RegExp, string, keyof typeof ESPERADO][] = [
+    ['Acción', 'Contratar el servicio de gestión de identidades', 'accion'],
+    ['Tipo de tratamiento', 'EVITAR', 'tipo'],
+    [/^Control asociado/, '', 'controlId'],
+    ['Estado', 'EN_EJECUCION', 'estado'],
+    [/^Origen y justificación/, 'Hallazgo 7 de la auditoría interna de marzo.', 'origen'],
+    ['Responsable de la ejecución', '5', 'responsableId'],
+    [/^Propietario del riesgo que aprueba/, '3', 'apruebaId'],
+    ['Fecha objetivo', '2027-03-31', 'fechaObjetivo'],
+    ['Avance', '40', 'avance'],
+    ['Verificación de eficacia', 'VERIFICADA_EFICAZ', 'verificacion'],
+    ['Madurez alcanzada', '30', 'madurezAlcanzadaId'],
+    ['Recursos o presupuesto', 'Presupuesto 2027 · 18 M', 'recursos'],
+    ['Observaciones', 'Comité de marzo: aprobado el alcance.', 'observacion'],
+  ];
+
+  const ESPERADO = {
+    accion: 'Contratar el servicio de gestión de identidades',
+    tipo: 'EVITAR',
+    controlId: null,
+    estado: 'EN_EJECUCION',
+    origen: 'Hallazgo 7 de la auditoría interna de marzo.',
+    responsableId: 5,
+    apruebaId: 3,
+    fechaObjetivo: '2027-03-31',
+    avance: 40,
+    verificacion: 'VERIFICADA_EFICAZ',
+    madurezAlcanzadaId: 30,
+    recursos: 'Presupuesto 2027 · 18 M',
+    observacion: 'Comité de marzo: aprobado el alcance.',
+  };
+
+  it('los trece están en pantalla', () => {
+    montar();
+    for (const [etiqueta] of CAMBIOS) expect(screen.getByLabelText(etiqueta)).toBeInTheDocument();
+    expect(CAMBIOS).toHaveLength(13);
+  });
+
+  it('cada uno de los trece viaja al guardado con lo que se escribió en él', async () => {
+    montar();
+    for (const [etiqueta, valor] of CAMBIOS) {
+      fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar la acción' }));
+
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalled());
+    expect(mockGuardar).toHaveBeenCalledWith('PT-013', expect.objectContaining(ESPERADO));
+  });
+
+  it('los dos campos de Transferir también recogen lo que se escribe en ellos', async () => {
+    // Van aparte porque sólo existen con TRANSFERIR, y ese tipo exige los dos: sin ellos el
+    // botón queda apagado y el guardado nunca ocurriría.
+    montar({ tipo: 'TRANSFERIR' });
+    fireEvent.change(screen.getByLabelText('Instrumento de transferencia'), {
+      target: { value: 'Póliza de ciberriesgo 2027' },
+    });
+    fireEvent.change(screen.getByLabelText('Riesgo remanente'), {
+      target: { value: 'El deducible y la indisponibilidad durante el siniestro' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar la acción' }));
+
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalled());
+    expect(mockGuardar).toHaveBeenCalledWith(
+      'PT-013',
+      expect.objectContaining({
+        instrumento: 'Póliza de ciberriesgo 2027',
+        riesgoRemanente: 'El deducible y la indisponibilidad durante el siniestro',
+      }),
+    );
+  });
+
+  it('los dos campos de Aceptar también recogen lo que se escribe en ellos', async () => {
+    montar({ tipo: 'ACEPTAR' });
+    fireEvent.change(screen.getByLabelText(/^Justificación de la aceptación/), {
+      target: { value: 'El costo de tratarlo supera el impacto esperado.' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Fecha de revisión/), {
+      target: { value: '2027-06-30' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar la acción' }));
+
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalled());
+    expect(mockGuardar).toHaveBeenCalledWith(
+      'PT-013',
+      expect.objectContaining({
+        justificacionAceptacion: 'El costo de tratarlo supera el impacto esperado.',
+        fechaRevisionAceptacion: '2027-06-30',
+      }),
+    );
+  });
+});
+
 describe('el tamaño que hace que el formulario quepa', () => {
   // Esto no es decoración: 1040 px es lo que permite el renglón de cinco campos, y 80vh
   // es lo que hace que los trece entren sin desplazamiento. Sin estas tres aserciones,
