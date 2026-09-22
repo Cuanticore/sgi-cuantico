@@ -272,6 +272,11 @@ export async function GET(request: Request) {
       peorResidual: f.peorResidual,
       amenazasAltas: alarmantes.length,
       planes,
+      // Tal cual viene de la fila, sin recalcular: el acento rojo del archivo y el de la
+      // grilla salen del MISMO campo. Derivarlo acá de `planes.length === 0` haría que un
+      // activo con un plan y otro riesgo alto suelto saliera blanco en el archivo y rojo en
+      // la pantalla.
+      altoSinPlan: f.altoSinPlan,
     };
   });
 

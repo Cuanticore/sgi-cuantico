@@ -50,6 +50,23 @@ export interface FilaRiesgoAlto {
   amenazasAltas: number;
   /** Los PT que lo cubren. Vacío = ninguno. */
   planes: string[];
+  /**
+   * ES EL MISMO CAMPO DE `FilaAnalisis` (`lib/sgsi/analisis-riesgos.ts`), que la ruta propaga
+   * tal cual: queda al menos un riesgo vigente en banda Alto o Crítico que ningún plan activo
+   * cubre.
+   *
+   * EL ACENTO DEL RENGLÓN SALE DE ACÁ, NO DE `planes.length === 0`. Las dos preguntas se
+   * parecen y no son la misma: «ningún plan cubre NINGUNO de sus riesgos» es más estrecha que
+   * «queda ALGUNO sin cubrir». Un activo con tres riesgos altos y uno cubierto salía blanco en
+   * el archivo y rojo en la grilla — dos piezas contestando lo mismo desde orígenes distintos,
+   * que es el defecto que `HARNESS.md` documenta tres veces, y acá con agravante: el archivo
+   * se archiva y se lleva a comité, así que la discrepancia le sobrevive a la sesión en que
+   * se vea.
+   *
+   * El día que la grilla cambie de criterio, este campo cambia con ella y el libro no se
+   * entera. Es exactamente lo que se quiere.
+   */
+  altoSinPlan: boolean;
 }
 
 export interface FilaPlan {
@@ -216,7 +233,11 @@ function construirHojaRiesgos(
   encabezar(hoja, 'Riesgos altos', nota, COLUMNAS_RIESGOS);
 
   filas.forEach((f) => {
-    const sinPlan = f.planes.length === 0;
+    // QUÉ PLANES HAY (las dos últimas columnas) y QUÉ QUEDA SIN CUBRIR (el acento) son dos
+    // preguntas distintas y se leen de dos campos distintos. Un renglón puede tener PT-0001
+    // registrado y estar rojo igual: el plan cubre una de sus brechas y le queda otro riesgo
+    // alto suelto. Decirle «sin plan» a ese renglón borraría el trabajo que sí se hizo.
+    const sinPlanes = f.planes.length === 0;
     const fila = hoja.addRow([
       f.codigo,
       f.nombre,
@@ -230,8 +251,8 @@ function construirHojaRiesgos(
       textoDeBanda(f.peorInherente),
       textoDeBanda(f.peorResidual),
       f.amenazasAltas,
-      sinPlan ? 'sin plan' : f.planes.join(', '),
-      sinPlan ? 'Pendiente' : 'Con plan',
+      sinPlanes ? 'sin plan' : f.planes.join(', '),
+      sinPlanes ? 'Pendiente' : 'Con plan',
     ]);
 
     fila.font = { size: 10 };
@@ -241,10 +262,11 @@ function construirHojaRiesgos(
       fila.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
     }
 
-    // El renglón entero se tiñe cuando el activo no tiene ni un plan que lo cubra: es lo
-    // primero que tiene que saltar a la vista en una hoja que ya de por sí sólo trae riesgo
-    // alto.
-    if (sinPlan) {
+    // El renglón entero se tiñe cuando al activo le queda un riesgo alto que ningún plan
+    // cubre: es lo primero que tiene que saltar a la vista en una hoja que ya de por sí sólo
+    // trae riesgo alto. Es el MISMO acento y el MISMO campo que pinta la grilla de análisis
+    // —ver `altoSinPlan` arriba—, no una cuenta parecida hecha acá con los planes a la vista.
+    if (f.altoSinPlan) {
       for (let c = 1; c <= COLUMNAS_RIESGOS.length; c++) {
         fila.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILA_SIN_PLAN } };
       }

@@ -28,6 +28,7 @@ const RIESGO_CON_PLAN: FilaRiesgoAlto = {
   peorResidual: ALTO,
   amenazasAltas: 2,
   planes: ['PT-0001', 'PT-0002'],
+  altoSinPlan: false,
 };
 
 // Sin planes y con el residual sin calcular: el caso que no puede pintarse de nada.
@@ -43,6 +44,7 @@ const RIESGO_SIN_PLAN: FilaRiesgoAlto = {
   peorResidual: null,
   amenazasAltas: 3,
   planes: [],
+  altoSinPlan: true,
 };
 
 const PLAN_CON_CONTROL: FilaPlan = {
@@ -103,11 +105,32 @@ const PLAN_SIN_CONTROL: FilaPlan = {
 };
 
 // Mismo residual sin calcular que RIESGO_SIN_PLAN, pero CON plan: aísla la regla «un nivel
-// null no se pinta» del tinte de renglón —que se pinta por falta de plan, no por banda—.
+// null no se pinta» del tinte de renglón —que se pinta por el riesgo alto que queda sin
+// cubrir, no por banda—. `altoSinPlan` en false a propósito y no heredado: si el renglón
+// entero se tiñera, la celda de banda quedaría con relleno y esta prueba ya no podría
+// distinguir «no se pintó por ser null» de «se pintó por el acento».
 const RIESGO_SIN_CALCULAR_CON_PLAN: FilaRiesgoAlto = {
   ...RIESGO_SIN_PLAN,
   codigo: 'COM-APP-0003',
   planes: ['PT-0003'],
+  altoSinPlan: false,
+};
+
+// EL CASO QUE SEPARA LAS DOS REGLAS. Tiene un plan —cubre una de sus brechas— y le queda
+// ADEMÁS otro riesgo en banda alta que ningún plan cubre.
+//
+// La regla que se descarta es `planes.length === 0`: con ella este renglón sale BLANCO,
+// porque «tiene planes», mientras la grilla de análisis lo pinta rojo con `altoSinPlan`. Dos
+// piezas contestando la misma pregunta desde orígenes distintos — y este archivo se archiva y
+// se lleva a comité, así que la discrepancia sobrevive a la sesión en que se vea.
+//
+// Sin este caso la prueba pasaría con cualquiera de las dos reglas: en todas las demás filas
+// «sin ningún plan» y «le queda un alto suelto» coinciden.
+const RIESGO_CON_PLAN_Y_ALTO_SUELTO: FilaRiesgoAlto = {
+  ...RIESGO_CON_PLAN,
+  codigo: 'COM-APP-0004',
+  planes: ['PT-0001'],
+  altoSinPlan: true,
 };
 
 const CTX: ContextoLibroPlanes = { totalVigentes: 393, totalAcciones: 40, filtro: null };
@@ -163,6 +186,30 @@ describe('construirLibroPlanes · hoja «Riesgos altos»', () => {
     const hoja = wb.getWorksheet('Riesgos altos')!;
     expect(fondoDe(hoja.getCell(5, 1))).toBe('FFFDECEB'); // sin plan
     expect(fondoDe(hoja.getCell(4, 1))).not.toBe('FFFDECEB'); // con plan
+  });
+
+  it('el acento sale de altoSinPlan y no de que la lista de planes esté vacía', async () => {
+    const wb = await construirLibroPlanes(
+      [RIESGO_CON_PLAN, RIESGO_CON_PLAN_Y_ALTO_SUELTO, RIESGO_SIN_PLAN],
+      [],
+      CTX,
+    );
+    const hoja = wb.getWorksheet('Riesgos altos')!;
+    expect(fondoDe(hoja.getCell(4, 1))).not.toBe('FFFDECEB'); // con plan y nada suelto
+    // Con planes Y un alto sin cubrir: la regla vieja lo dejaba blanco y la grilla lo pintaba
+    // rojo. Es el renglón que hacía que el archivo y la pantalla dijeran cosas distintas.
+    expect(fondoDe(hoja.getCell(5, 1))).toBe('FFFDECEB');
+    expect(fondoDe(hoja.getCell(6, 1))).toBe('FFFDECEB'); // sin ningún plan
+  });
+
+  it('el acento no toca la columna «Planes» ni «Estado del plan»: siguen diciendo qué hay', async () => {
+    // El color contesta «¿queda algo sin cubrir?» y las dos columnas «¿qué plan hay?». Son
+    // preguntas distintas y un renglón rojo que dijera «sin plan» teniendo PT-0001 registrado
+    // borraría el trabajo que sí se hizo.
+    const wb = await construirLibroPlanes([RIESGO_CON_PLAN_Y_ALTO_SUELTO], [], CTX);
+    const hoja = wb.getWorksheet('Riesgos altos')!;
+    expect(hoja.getCell(4, 13).value).toBe('PT-0001');
+    expect(hoja.getCell(4, 14).value).toBe('Con plan');
   });
 
   // La nota sólo dice lo verificable hoy: NO afirma que la banda Crítico sea inalcanzable
