@@ -58,14 +58,29 @@ máximo residual real       13.0000
 reparto   Alto 191 · Medio 6.957 · Bajo 27.766 · Crítico 0
 ```
 
-**Ningún riesgo puede alcanzar Crítico** con la eficacia declarada: el residual queda en el
-5-10 % del inherente, y llegar a 25 exigiría un inherente de 250 cuando el máximo del modelo es
-50. Dos consecuencias para este spec:
+**Hoy no hay ninguno. Pero es un estado, no una imposibilidad** — y la primera versión de este
+párrafo decía lo contrario.
 
-1. **Decir «Alto o Crítico» es decir «Alto».** El predicado sigue incluyendo Crítico —el día que
-   cambie la escala tiene que funcionar— pero **el spec no puede venderse como si cubriera dos
-   bandas**, y ningún ejemplo, prueba o texto de pantalla debe sugerir que hoy hay riesgos
-   críticos.
+`lib/sgsi/__tests__/eficacia-agregada.test.ts:100-105` prueba, sobre el mismo `calcularRiesgo`
+que alimenta este residual, que con la regla `ponderada-acotada` un control principal flojo sí
+llega:
+
+| Principal | Residual | Banda |
+|---|---|---|
+| 10 % | 25.60 | **Crítico** |
+| 0 % | 28.80 | **Crítico** |
+
+**Lo que hoy lo impide es que los 272 pares de `ControlAmenaza` siguen sin `relevanciaId`**, así
+que ninguna amenaza tiene principal designado y esa regla nunca dispara con datos reales. Es
+trabajo pendiente conocido, no una propiedad del modelo: el día que el líder del SIG asigne la
+primera relevancia Principal, aparecen los críticos.
+
+Dos consecuencias para este spec:
+
+1. **Decir «Alto o Crítico» es hoy decir «Alto».** El predicado sigue incluyendo Crítico —y ahora
+   se sabe que no es por prudencia sino porque llegará— pero **ningún ejemplo, prueba o texto de
+   pantalla debe sugerir que hoy hay riesgos críticos**, y ninguno puede afirmar que no pueda
+   haberlos.
 2. **El residual ya se descartó una vez como compuerta, y por esto mismo.** `estadoPlanDe` se
    cambió de residual a brecha en REQ-SIG-24 §7 —el comentario está en
    `analisis-riesgos.ts:294`— justamente porque una compuerta sobre una banda que nadie alcanza
@@ -77,9 +92,10 @@ reemplaza a la de brecha — sería repetir el movimiento que ya se deshizo. Por
 §3 (dos acentos, conservando el de brecha) no sólo es la más prudente: es la única que no
 contradice REQ-SIG-24 §7.
 
-**Y hay una pregunta abierta que este spec no resuelve:** si el umbral de Crítico está en 25 y el
-modelo no puede pasar de 13, el umbral está mal calibrado o la eficacia declarada es demasiado
-optimista. Eso es una decisión del SGSI, no de esta pantalla.
+**Y hay una consecuencia que este spec no resuelve pero conviene anticipar:** el día que se
+asignen las relevancias, el tablero pasa de cero críticos a tenerlos **de golpe y sin que nadie
+haya tocado esta pantalla**. Conviene que quien haga esa asignación lo sepa, porque el salto se
+va a leer como un deterioro repentino del riesgo y no lo es: es el modelo empezando a funcionar.
 
 ---
 

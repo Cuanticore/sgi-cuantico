@@ -60,16 +60,26 @@ orden de unas decenas, que es lo que se lee en una reunión.
 alcanzan el umbral de valoración, que es otro conjunto (ver §3.3). El número real de esta hoja
 hay que contarlo contra la base antes de mergear, y decirlo en el PR.
 
-**Y el nombre de la hoja promete algo que no existe.** Medido contra las 34.914 filas de
-`riesgo_calculo` el 2026-09-21: la banda Crítico empieza en 25.0 y **el residual máximo real es
-13.0**, así que hay **cero** riesgos en Crítico. El reparto es Alto 191 · Medio 6.957 · Bajo
-27.766 · Crítico 0.
+**Y el nombre de la hoja promete algo que hoy no existe.** Medido contra las 34.914 filas de
+`riesgo_calculo` el 2026-09-21: hay **cero** riesgos en Crítico. El reparto es Alto 191 · Medio
+6.957 · Bajo 27.766 · Crítico 0.
 
 La hoja se llama **«Riesgos altos»**, no «Riesgos altos o críticos». El filtro sigue incluyendo
-Crítico —el día que la escala cambie tiene que funcionar— pero un libro que se archiva y se lleva
-a un comité no puede titular una hoja con una banda que hoy no tiene ni una fila: quien la abra
-concluirá que no hay riesgos críticos *porque se trataron*, y la verdad es que la escala no
-permite llegar ahí. La nota de la fila 2 lo dice con todas sus letras.
+Crítico, pero un libro que se archiva y se lleva a un comité no puede titular una hoja con una
+banda que hoy no tiene ni una fila: quien la abra concluirá que no hay críticos *porque se
+trataron*.
+
+**Y lo que la nota de la fila 2 NO puede decir.** La primera versión de este spec afirmaba que
+la escala «no permite llegar» a Crítico. **Es falso**, y lo prueba el propio repo:
+`lib/sgsi/__tests__/eficacia-agregada.test.ts:100-105` muestra que un control principal al 10 %
+deja el residual en **25.60 — Crítico**, y al 0 % en **28.80**. Lo que hoy lo impide es que los
+272 pares de `ControlAmenaza` siguen sin relevancia asignada, así que ninguna amenaza tiene
+principal designado y esa regla nunca dispara con datos reales.
+
+La nota dice **lo que se puede verificar hoy** —«ninguno de los activos exportados tiene riesgos
+en banda Crítico»— y **nunca** que no pueda haberlos. Un archivo del SGSI que afirme una
+imposibilidad estructural inexistente es peor que uno que calle: se archiva, se cita en el
+comité, y nadie vuelve a comprobarlo.
 
 **Lo que se pierde, y hay que decirlo:** la hoja no dice *qué amenaza* pone al activo en rojo. Para
 eso está la pantalla, y la hoja lleva la cuenta —«3 de sus 14 amenazas en Alto o Crítico»— para
