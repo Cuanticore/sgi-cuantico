@@ -165,13 +165,17 @@ describe('construirLibroPlanes · hoja «Riesgos altos»', () => {
     expect(fondoDe(hoja.getCell(4, 1))).not.toBe('FFFDECEB'); // con plan
   });
 
-  it('la fila 2 dice el alcance con las dos cifras', async () => {
+  // La nota sólo dice lo verificable hoy: NO afirma que la banda Crítico sea inalcanzable
+  // con la escala actual, porque eso es falso —`eficacia-agregada.test.ts:100-105` calcula
+  // un residual de 25.60 y 28.80, ambos en Crítico—. Lo que hoy no hay son PARES con
+  // relevancia asignada para que esa cuenta dispare con datos reales, y eso es deuda
+  // pendiente, no una ley de la escala.
+  it('la fila 2 dice el alcance con las dos cifras, sin afirmar que Crítico sea imposible', async () => {
     const wb = await construirLibroPlanes([RIESGO_CON_PLAN], [], CTX);
     const hoja = wb.getWorksheet('Riesgos altos')!;
     expect(hoja.getCell('A2').value).toBe(
-      '1 activos con riesgo residual en banda Alto, de 393 vigentes. La banda Crítico no ' +
-        'tiene filas: su umbral (25) está por encima del residual máximo que el modelo puede ' +
-        'producir. Este filtro NO depende del filtro de la pantalla.',
+      '1 activos con riesgo residual en banda Alto, de 393 vigentes. Ninguno tiene riesgos en ' +
+        'banda Crítico. Este filtro NO depende del filtro de la pantalla.',
     );
   });
 
@@ -239,6 +243,56 @@ describe('construirLibroPlanes · hoja «Planes de tratamiento»', () => {
     const wb = await construirLibroPlanes([], [PLAN_CON_CONTROL, PLAN_SIN_CONTROL], CTX);
     const hoja = wb.getWorksheet('Planes de tratamiento')!;
     expect(hoja.getCell('A2').value).toBe('2 acciones de 40 activas. Sin filtro.');
+  });
+
+  // COLUMNAS_PLANES (encabezados) y el `addRow` de valores son dos listas paralelas
+  // mantenidas a mano: insertar un campo en una y olvidarlo en la otra desplaza todo lo que
+  // sigue sin que nada falle — nueve columnas de las 24 no tenían ni una prueba posicional
+  // que lo hubiera atrapado. Un fixture completo, recorriendo las 24 posiciones de una vez,
+  // es más barato de mantener que nueve pruebas sueltas y cubre exactamente el defecto que
+  // una lista paralela puede tener: el desplazamiento silencioso.
+  it('saca las 24 columnas en su encabezado y su valor, posición por posición', async () => {
+    const wb = await construirLibroPlanes([], [PLAN_CON_CONTROL], CTX);
+    const hoja = wb.getWorksheet('Planes de tratamiento')!;
+
+    // [encabezado, valor esperado en la fila 4 —PLAN_CON_CONTROL—], en el orden de columna.
+    // Los `null` de PLAN_CON_CONTROL (observacion, fechaCierre, instrumento... no, instrumento
+    // SÍ tiene valor; los que son null: observacion, fechaCierre, riesgoRemanente,
+    // justificacionAceptacion, fechaRevisionAceptacion) quedan como «—», que es la misma regla
+    // que ya prueba «los null de texto salen como —».
+    const ESPERADO: [string, string | number][] = [
+      ['Código', 'PT-0001'],
+      ['Acción', 'Implementar MFA en el acceso remoto'],
+      ['Tipo', 'Preventivo'],
+      ['Control', 'A.9.4.2 · Procedimientos seguros de inicio de sesión'],
+      ['Madurez actual', 1],
+      ['Madurez objetivo', 3],
+      ['Salto', 2],
+      ['Qué mitiga', 'Acceso no autorizado por credenciales robadas'],
+      ['Responsable', 'Líder de Tecnología'],
+      ['Fecha objetivo', '2026-12-31'],
+      ['Estado', 'En curso'],
+      ['Avance', 40],
+      ['Verificación', 'Revisión de logs de acceso mensual'],
+      ['Madurez alcanzada', 2],
+      ['Aprueba', 'Comité SIG'],
+      ['Origen y justificación', 'Hallazgo de auditoría interna 2026-03'],
+      ['Recursos', 'Licencias de MFA'],
+      ['Observaciones', '—'],
+      ['Fecha de aprobación', '2026-04-01'],
+      ['Fecha de cierre', '—'],
+      ['Instrumento', 'Acta de comité 2026-04-01'],
+      ['Riesgo remanente', '—'],
+      ['Justificación de la aceptación', '—'],
+      ['Fecha de revisión', '—'],
+    ];
+
+    expect(ESPERADO).toHaveLength(24);
+    ESPERADO.forEach(([encabezado, valor], i) => {
+      const columna = i + 1;
+      expect(hoja.getCell(3, columna).value).toBe(encabezado);
+      expect(hoja.getCell(4, columna).value).toBe(valor);
+    });
   });
 
   it('la nota dice el filtro cuando lo hay, y «Sin filtro» cuando no', async () => {

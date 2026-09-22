@@ -13,11 +13,15 @@
 // confunda seis meses después.
 //
 // POR QUÉ LA HOJA 1 SE LLAMA «Riesgos altos» Y NO «Riesgos altos o críticos». Medido contra la
-// base: la banda Crítico arranca en 25.0 y el residual máximo que el modelo puede producir es
-// 13.0, así que hoy hay CERO riesgos en Crítico — y no puede haberlos con la escala actual.
-// Titular la hoja con una banda vacía haría pensar que se trataron todos los críticos, cuando
-// lo que pasa es que la escala no llega ahí. La nota de la fila 2 lo explica con el mismo
-// número.
+// base: hoy hay CERO riesgos en banda Crítico. Pero OJO — no es que la escala lo impida.
+// `lib/sgsi/__tests__/eficacia-agregada.test.ts:100-105` calcula un residual de 25.60 y de
+// 28.80 con la MISMA escala, y ambos caen en Crítico: la banda existe y el modelo la puede
+// producir. Lo que hoy no hay son PARES `ControlAmenaza` con `relevanciaId` asignado —los 272
+// del catálogo siguen sin ninguno—, así que ninguna amenaza tiene declarado un control
+// principal y esa cuenta nunca dispara con datos reales. Es trabajo pendiente conocido, no una
+// ley de la escala. El día que el líder del SIG asigne la primera relevancia puede aparecer un
+// Crítico, y esta hoja tiene que poder decirlo sin haber prometido lo contrario — por eso la
+// nota de la fila 2 dice sólo «ninguno tiene» y no «no puede haber».
 
 import ExcelJS from 'exceljs';
 import { colorDeNivel, type NivelRiesgo } from './riesgo-activo';
@@ -86,9 +90,16 @@ const FILA_SIN_PLAN = 'FFFDECEB';
 /// necesita la pantalla, donde el navegador resuelve la cascada de CSS. ExcelJS no tiene
 /// cascada — no hay hoja de estilos que consultar — así que necesita el HEX de verdad detrás
 /// de cada variable. Este diccionario es el mismo mirror literal que ya usan
-/// `informe-documento.ts` y `acta-residual-documento.ts` para el mismo problema: los valores
-/// son una copia de `app/globals.css`, y si algún día cambian allá, el test de color de este
-/// archivo se pone en rojo — no se desincroniza en silencio.
+/// `informe-documento.ts` y `acta-residual-documento.ts` para el mismo problema.
+///
+/// SON DOS COPIAS A MANO, Y ESO ES TODO LO QUE SON. Ni éste ni ningún test del repo lee
+/// `app/globals.css`: si alguien cambia un color ahí y olvida tocar este diccionario, tanto
+/// este archivo como el literal `'FFC25A1E'` de `planes-libro.test.ts` siguen en verde
+/// mientras la aplicación pinta otro color — no hay guardián que lo note. La única protección
+/// real es que las dos copias viven en archivos DISTINTOS (éste y `app/globals.css`), así que
+/// desincronizarlas sin que nadie lo vea exige editar los dos a la vez y no darse cuenta en
+/// ninguno. La solución de fondo no es un comentario: es que `riesgo-activo.ts` exponga estos
+/// mismos HEX como constante exportada, para que este archivo la importe en vez de copiarla.
 const HEX_DE_VARIABLE: Record<string, string> = {
   '--hf-risk-critico-bg': 'A52016',
   '--hf-risk-critico-fg': 'FFFFFF',
@@ -111,6 +122,48 @@ function argb(css: string): string {
   if (hex.length === 6) return `FF${hex.toUpperCase()}`;
   if (hex.length === 8) return hex.toUpperCase();
   return '';
+}
+
+interface DefinicionColumna {
+  encabezado: string;
+  ancho: number;
+}
+
+/// Título (fila 1, fusionada) + nota (fila 2, fusionada) + encabezados azules (fila 3, con
+/// autofiltro). Las dos hojas de este libro repetían este bloque casi textual — el mismo que
+/// `encabezar()` ya resuelve en `lib/sgsi/informe-libro.ts` para su propio libro de varias
+/// hojas—, así que una tercera hoja que se agregue algún día lo hereda gratis y no como una
+/// tercera copia pegada.
+function encabezar(
+  hoja: ExcelJS.Worksheet,
+  titulo: string,
+  nota: string,
+  columnas: readonly DefinicionColumna[],
+): void {
+  hoja.mergeCells(1, 1, 1, columnas.length);
+  const celdaTitulo = hoja.getCell(1, 1);
+  celdaTitulo.value = titulo;
+  celdaTitulo.font = { size: 14, bold: true, color: { argb: AZUL_ENCABEZADO } };
+  hoja.getRow(1).height = 22;
+
+  hoja.mergeCells(2, 1, 2, columnas.length);
+  const celdaNota = hoja.getCell(2, 1);
+  celdaNota.value = nota;
+  celdaNota.font = { size: 9, italic: true, color: { argb: GRIS_NOTA } };
+  hoja.getRow(2).height = 14;
+
+  const filaEncabezado = hoja.getRow(3);
+  columnas.forEach((c, i) => {
+    const celda = filaEncabezado.getCell(i + 1);
+    celda.value = c.encabezado;
+    celda.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
+    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    hoja.getColumn(i + 1).width = c.ancho;
+  });
+  filaEncabezado.height = 20;
+
+  hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: columnas.length } };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════
@@ -144,33 +197,13 @@ function construirHojaRiesgos(
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
 
-  hoja.mergeCells(1, 1, 1, COLUMNAS_RIESGOS.length);
-  const titulo = hoja.getCell(1, 1);
-  titulo.value = 'Riesgos altos';
-  titulo.font = { size: 14, bold: true, color: { argb: AZUL_ENCABEZADO } };
-  hoja.getRow(1).height = 22;
-
-  // La nota dice, con sus propios números, por qué la banda Crítico nunca trae filas — para
-  // que quien la lea seis meses después no lo confunda con «se trataron todos».
-  hoja.mergeCells(2, 1, 2, COLUMNAS_RIESGOS.length);
-  const nota = hoja.getCell(2, 1);
-  nota.value =
+  // La nota dice sólo lo que el libro exportó, no una razón por la que Crítico sea imposible
+  // —no lo es, ver el comentario de cabecera—: «ninguno tiene» es una observación sobre esta
+  // exportación, no una ley del modelo.
+  const nota =
     `${filas.length} activos con riesgo residual en banda Alto, de ${ctx.totalVigentes} vigentes. ` +
-    'La banda Crítico no tiene filas: su umbral (25) está por encima del residual máximo que el ' +
-    'modelo puede producir. Este filtro NO depende del filtro de la pantalla.';
-  nota.font = { size: 9, italic: true, color: { argb: GRIS_NOTA } };
-  hoja.getRow(2).height = 14;
-
-  const encabezado = hoja.getRow(3);
-  COLUMNAS_RIESGOS.forEach((c, i) => {
-    const celda = encabezado.getCell(i + 1);
-    celda.value = c.encabezado;
-    celda.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
-    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-    hoja.getColumn(i + 1).width = c.ancho;
-  });
-  encabezado.height = 20;
+    'Ninguno tiene riesgos en banda Crítico. Este filtro NO depende del filtro de la pantalla.';
+  encabezar(hoja, 'Riesgos altos', nota, COLUMNAS_RIESGOS);
 
   filas.forEach((f) => {
     const sinPlan = f.planes.length === 0;
@@ -212,8 +245,6 @@ function construirHojaRiesgos(
     pintarBanda(fila.getCell(10), f.peorInherente);
     pintarBanda(fila.getCell(11), f.peorResidual);
   });
-
-  hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: COLUMNAS_RIESGOS.length } };
 }
 
 function textoDeBanda(nivel: NivelRiesgo | null): string {
@@ -277,29 +308,9 @@ function construirHojaPlanes(
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
 
-  hoja.mergeCells(1, 1, 1, COLUMNAS_PLANES.length);
-  const titulo = hoja.getCell(1, 1);
-  titulo.value = 'Planes de tratamiento';
-  titulo.font = { size: 14, bold: true, color: { argb: AZUL_ENCABEZADO } };
-  hoja.getRow(1).height = 22;
-
-  hoja.mergeCells(2, 1, 2, COLUMNAS_PLANES.length);
-  const nota = hoja.getCell(2, 1);
   const filtro = ctx.filtro === null ? ' Sin filtro.' : ` Filtro aplicado: ${ctx.filtro}.`;
-  nota.value = `${filas.length} acciones de ${ctx.totalAcciones} activas.${filtro}`;
-  nota.font = { size: 9, italic: true, color: { argb: GRIS_NOTA } };
-  hoja.getRow(2).height = 14;
-
-  const encabezado = hoja.getRow(3);
-  COLUMNAS_PLANES.forEach((c, i) => {
-    const celda = encabezado.getCell(i + 1);
-    celda.value = c.encabezado;
-    celda.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
-    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-    hoja.getColumn(i + 1).width = c.ancho;
-  });
-  encabezado.height = 20;
+  const nota = `${filas.length} acciones de ${ctx.totalAcciones} activas.${filtro}`;
+  encabezar(hoja, 'Planes de tratamiento', nota, COLUMNAS_PLANES);
 
   filas.forEach((p) => {
     const sinControl = p.controlCodigo === null;
@@ -340,8 +351,6 @@ function construirHojaPlanes(
       fila.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
     }
   });
-
-  hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: COLUMNAS_PLANES.length } };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════
