@@ -444,18 +444,78 @@ export function ordenarPorCriticidad(
   filas: readonly FilaAnalisis[],
   rtoPorCodigo: MapaRtoPorCriticidad,
 ): FilaAnalisis[] {
+  return [...filas].sort((x, y) => compararPorCriticidad(x, y, rtoPorCodigo));
+}
+
+/// El criterio de §11 como COMPARADOR de dos filas, que es la forma que pide una grilla:
+/// AG Grid ordena llamando a un `comparator(a, b)` por columna, no reordenando el arreglo.
+///
+/// Está extraído de `ordenarPorCriticidad` —que ahora lo llama— y no escrito al lado: dos
+/// comparadores para el mismo criterio es exactamente como los dos se separan, y el día que
+/// se separaran, la columna y el selector de orden dirían cosas distintas sobre las mismas
+/// filas.
+export function compararPorCriticidad(
+  x: FilaAnalisis,
+  y: FilaAnalisis,
+  rtoPorCodigo: MapaRtoPorCriticidad,
+): number {
   const rtoDe = (f: FilaAnalisis): number | null =>
     f.criticidad === null ? null : (rtoPorCodigo.get(f.criticidad) ?? null);
 
-  return [...filas].sort((x, y) => {
-    const rx = rtoDe(x);
-    const ry = rtoDe(y);
-    if (rx === null && ry === null) return x.codigo.localeCompare(y.codigo, 'es');
-    if (rx === null) return 1;
-    if (ry === null) return -1;
-    if (rx !== ry) return rx - ry;
-    return x.codigo.localeCompare(y.codigo, 'es');
-  });
+  const rx = rtoDe(x);
+  const ry = rtoDe(y);
+  if (rx === null && ry === null) return x.codigo.localeCompare(y.codigo, 'es');
+  if (rx === null) return 1;
+  if (ry === null) return -1;
+  if (rx !== ry) return rx - ry;
+  return x.codigo.localeCompare(y.codigo, 'es');
+}
+
+/// Las cinco tarjetas contadas DESDE LAS FILAS, no desde los filtros.
+///
+/// POR QUÉ EXISTE, ADEMÁS DE `tarjetasAnalisis` (21/09/2026). La pantalla dejó de tener sus
+/// seis filtros propios y pasó a filtrar con la grilla. `tarjetasAnalisis` cuenta a partir de
+/// un `FiltrosAnalisis` y por tanto no sabe nada de lo que la grilla esconda: con ella sola,
+/// la tarjeta diría 30 mientras la grilla muestra 12, y la pantalla tendría **dos verdades
+/// sobre cuántos activos hay** — el defecto que evita desde su primera línea.
+///
+/// Esta función no puede desacordar con la lista **por construcción**: cuenta las mismas
+/// filas que la grilla tiene pintadas. No es una segunda derivación de las mismas reglas: los
+/// estados ya vienen decididos en cada `FilaAnalisis` por `filasAnalisis`, y acá sólo se
+/// agrupan.
+///
+/// Las dos formas conviven a propósito. `tarjetasAnalisis` sigue respondiendo «cuántos hay en
+/// total», que es una pregunta sobre el inventario y no sobre la vista.
+export function tarjetasDeFilas(
+  filas: readonly FilaAnalisis[],
+  deTotalSinFiltrar: number,
+): TarjetasDeFilas {
+  const cuantas = (cumple: (f: FilaAnalisis) => boolean) => filas.filter(cumple).length;
+
+  return {
+    enAnalisis: { n: filas.length, deTotal: deTotalSinFiltrar },
+    deTotalSinFiltrar,
+    muyAltos: cuantas((f) => f.valor === 5),
+    altos: cuantas((f) => f.valor === 4),
+    // CON BRECHA son los que tienen brecha MEDIDA, tengan plan o no: `pendiente` es «falta el
+    // plan» y `con-plan` es «ya lo tiene», y los dos parten de que hay brecha. SIN PLAN es el
+    // subconjunto al que además le falta. Sumarlas sería contar dos veces a los mismos.
+    conBrecha: cuantas((f) => f.estadoPlan === 'pendiente' || f.estadoPlan === 'con-plan'),
+    // Separada de CON BRECHA a propósito: sumarlas diría que hay brechas donde nadie miró.
+    sinDeterminar: cuantas((f) => f.estadoPlan === 'sin-determinar'),
+    sinPlan: cuantas((f) => f.estadoPlan === 'pendiente'),
+  };
+}
+
+export interface TarjetasDeFilas {
+  enAnalisis: { n: number; deTotal: number };
+  /// Los activos vigentes del inventario, que no dependen de lo que la vista muestre.
+  deTotalSinFiltrar: number;
+  muyAltos: number;
+  altos: number;
+  conBrecha: number;
+  sinDeterminar: number;
+  sinPlan: number;
 }
 
 /// Las filas de la lista: un renglón por activo en análisis que cumple los seis filtros,

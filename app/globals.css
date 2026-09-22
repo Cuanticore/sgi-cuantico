@@ -325,4 +325,36 @@
   .tabla-ancha {
     overflow-x: auto;
   }
+
+}
+
+/* Las clases de fila de la grilla de «Análisis de riesgos».
+
+   ESTO ERA `data-banda-residual` Y `data-estado-plan` EN LA `<table>`. AG Grid no expone
+   ninguna API para poner atributos `data-*` en el elemento de fila —sólo clases y estilos—,
+   así que el contrato pasó a clase. Sigue sirviendo para lo mismo: se ve en el inspector, se
+   puede seleccionar, y se prueba (`lib/sgsi/columnas-analisis.ts`).
+
+   **SIN CAPA, Y A PROPÓSITO.** Esta regla vivió dentro de `@layer components` del 21 al 22 de
+   septiembre de 2026 y NUNCA PINTÓ: AG Grid inyecta su tema sin capa, y el CSS sin capa gana a
+   cualquier CSS en capa sin importar la especificidad. `.ag-row.fila-alarmante` es más
+   específico que `.ag-row` y perdía igual, porque la cascada resuelve la capa antes que la
+   especificidad.
+
+   Lo peor no fue el fallo sino que no se notara: la clase se aplicaba, la regla existía, la
+   variable estaba definida, la prueba de clases de fila seguía verde — y las filas
+   renderizaban blancas. Cada pieza hacía su trabajo y el resultado no aparecía; vivía entre la
+   capa de Tailwind y el tema de AG Grid. Y la advertencia que lo explica está veinte líneas
+   más arriba en este mismo archivo, así que la regla se escribió debajo de su propia
+   advertencia.
+
+   La lección quedó en el arnés: `e2e/analisis-riesgos.spec.ts` afirma el COLOR CALCULADO y no
+   la clase. Una prueba sobre la clase seguía verde con la pantalla en blanco.
+
+   Sólo `fila-alarmante` pinta —marca que el activo requiere plan y no lo tiene—. `fila-banda--*`
+   y `fila-plan--*` no llevan estilo: existen para poder señalar una fila desde fuera sin
+   agregar ruido a una grilla que ya usa color en cuatro columnas. */
+.ag-row.fila-alarmante,
+.ag-row.fila-alarmante .ag-cell {
+  background-color: var(--hf-danger-bg);
 }

@@ -12,6 +12,7 @@
 
 import {
   FILTROS_ANALISIS_VACIOS,
+  compararPorCriticidad,
   consultaDeFiltrosAnalisis,
   TODAS_CRITICIDADES,
   SIN_ASIGNAR,
@@ -20,7 +21,9 @@ import {
   ordenarPorCriticidad,
   parametrosDeFiltrosAnalisis,
   tarjetasAnalisis,
+  tarjetasDeFilas,
   type ActivoAnalizable,
+  type FilaAnalisis,
   type CatalogosFiltroAnalisis,
   type DatosAnalisis,
   type FiltrosAnalisis,
@@ -367,6 +370,140 @@ describe('§11 · ordenarPorCriticidad sigue el RTO, no el código', () => {
     const orden = ordenarPorCriticidad(filas, RTO_POR_CODIGO).map((f) => f.codigo);
     expect(orden[0]).toBe('TEC-GEN-0001'); // C1, el más exigente
     expect(orden.slice(1)).toEqual(['TEC-GEN-0000', 'TEC-GEN-0005']); // orden estable por código
+  });
+});
+
+// Los dos criterios de orden, ahora como COMPARADORES de dos filas y no sólo como
+// ordenadores de un arreglo entero.
+//
+// El motivo es AG Grid: una grilla ordena llamando a un `comparator(a, b)` por columna, y no
+// reordenando la lista por su cuenta. Sin esta forma, la única manera de que la columna
+// «Criticidad» ordenara como manda §11 sería escribir un SEGUNDO comparador al lado del que
+// ya existe — y dos comparadores para el mismo criterio es exactamente como se separan.
+//
+// `ordenarPorCriticidad` no cambia de comportamiento: pasa a llamar a esta función. Las dos
+// pruebas de §11 de arriba son la red que lo demuestra, y por eso no se tocan.
+describe('los dos criterios de orden, expuestos como comparadores', () => {
+  const RTO = new Map<string, number | null>([
+    ['C1', 10],
+    ['C2', 240],
+    ['C3', 1440],
+    ['C5', null],
+  ]);
+
+  function fila(codigo: string, criticidad: string | null, residual: string | null) {
+    return filasAnalisis(
+      datos([
+        activo({
+          codigo,
+          criticidad,
+          riesgos: residual === null ? [] : [riesgo({ potencial: residual, residual })],
+        }),
+      ]),
+      FILTROS_ANALISIS_VACIOS,
+    )[0];
+  }
+
+  describe('compararPorCriticidad', () => {
+    it('ordena por RTO ascendente: el más exigente primero', () => {
+      const c1 = fila('TEC-GEN-0009', 'C1', '25');
+      const c3 = fila('TEC-GEN-0001', 'C3', '25');
+      expect(compararPorCriticidad(c1, c3, RTO)).toBeLessThan(0);
+      expect(compararPorCriticidad(c3, c1, RTO)).toBeGreaterThan(0);
+    });
+
+    it('sin SLA y sin criticidad van al final, y entre ellos desempata el código', () => {
+      const c5 = fila('TEC-GEN-0005', 'C5', '25');
+      const sinCriticidad = fila('TEC-GEN-0000', null, '25');
+      const c2 = fila('TEC-GEN-0002', 'C2', '25');
+      expect(compararPorCriticidad(c5, c2, RTO)).toBeGreaterThan(0);
+      expect(compararPorCriticidad(sinCriticidad, c2, RTO)).toBeGreaterThan(0);
+      expect(compararPorCriticidad(sinCriticidad, c5, RTO)).toBeLessThan(0);
+    });
+
+    it('da exactamente el mismo orden que `ordenarPorCriticidad` — es la misma decisión', () => {
+      const filas = [
+        fila('TEC-GEN-0003', 'C3', '25'),
+        fila('TEC-GEN-0001', 'C1', '25'),
+        fila('TEC-GEN-0005', 'C5', '25'),
+        fila('TEC-GEN-0000', null, '25'),
+        fila('TEC-GEN-0002', 'C2', '25'),
+      ];
+      const porElOrdenador = ordenarPorCriticidad(filas, RTO).map((f) => f.codigo);
+      const porElComparador = [...filas]
+        .sort((a, b) => compararPorCriticidad(a, b, RTO))
+        .map((f) => f.codigo);
+      expect(porElComparador).toEqual(porElOrdenador);
+    });
+  });
+
+});
+
+// Las cinco tarjetas contadas DESDE LAS FILAS, y no desde los filtros.
+//
+// POR QUÉ HIZO FALTA ESTA SEGUNDA FORMA (21/09/2026). La pantalla dejó de tener sus seis
+// filtros propios y pasó a filtrar con la grilla. `tarjetasAnalisis` cuenta a partir de un
+// `FiltrosAnalisis`, así que no sabe nada de lo que la grilla esconda: con ella sola, la
+// tarjeta diría 30 mientras la grilla muestra 12, y la pantalla tendría dos verdades sobre
+// cuántos activos hay. Es exactamente el defecto que la pantalla evita desde su primera línea.
+//
+// La salida es contar lo que se está mostrando. `tarjetasDeFilas` no puede desacordar con la
+// lista **por construcción**: recibe las mismas filas que la grilla tiene pintadas.
+//
+// Los dos caminos conviven a propósito. `tarjetasAnalisis` sigue siendo el que responde
+// «cuántos hay en total», que es una pregunta sobre el inventario y no sobre la vista.
+describe('las cinco tarjetas, contadas desde las filas visibles', () => {
+  const conEstado = (codigo: string, valor: 4 | 5, estadoPlan: FilaAnalisis['estadoPlan']) =>
+    ({ ...filasAnalisis(datos([activo({ codigo, valor })]), FILTROS_ANALISIS_VACIOS)[0], estadoPlan });
+
+  const FILAS = [
+    conEstado('TEC-GEN-0001', 5, 'pendiente'),
+    conEstado('TEC-GEN-0002', 5, 'con-plan'),
+    conEstado('TEC-GEN-0003', 4, 'no-requiere'),
+    conEstado('TEC-GEN-0004', 4, 'sin-determinar'),
+  ];
+
+  it('EN ANÁLISIS es cuántas filas hay, contra el total del inventario', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.enAnalisis).toEqual({ n: 4, deTotal: 378 });
+  });
+
+  it('MUY ALTOS y ALTOS separan por valor', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.muyAltos).toBe(2);
+    expect(t.altos).toBe(2);
+  });
+
+  // CON BRECHA cuenta los que tienen brecha MEDIDA, tengan plan o no. SIN PLAN es el
+  // subconjunto al que además le falta el plan. Sumarlas sería contar dos veces.
+  it('CON BRECHA incluye a los que ya tienen plan; SIN PLAN es sólo los que no', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.conBrecha).toBe(2);
+    expect(t.sinPlan).toBe(1);
+  });
+
+  // Va separada de CON BRECHA a propósito: sumarlas diría que hay brechas donde nadie miró.
+  it('SIN DETERMINAR no se mezcla con las brechas medidas', () => {
+    const t = tarjetasDeFilas(FILAS, 378);
+    expect(t.sinDeterminar).toBe(1);
+  });
+
+  // La afirmación que sostiene todo: esconder filas mueve las tarjetas con ellas.
+  it('si la grilla esconde filas, las tarjetas cuentan menos — nunca se contradicen', () => {
+    const visibles = FILAS.slice(0, 2);
+    const t = tarjetasDeFilas(visibles, 378);
+    expect(t.enAnalisis.n).toBe(visibles.length);
+    expect(t.muyAltos + t.altos).toBe(visibles.length);
+    expect(t.deTotalSinFiltrar).toBe(378);
+  });
+
+  it('sin filas, todas las tarjetas son cero y ninguna se cae', () => {
+    const t = tarjetasDeFilas([], 378);
+    expect(t.enAnalisis.n).toBe(0);
+    expect(t.muyAltos).toBe(0);
+    expect(t.conBrecha).toBe(0);
+    expect(t.sinPlan).toBe(0);
+    expect(t.sinDeterminar).toBe(0);
   });
 });
 

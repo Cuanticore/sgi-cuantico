@@ -59,7 +59,14 @@ export interface DatosPaginaAnalisis {
   /// Criterio §14.12 (segunda mitad) · `codigo → rtoMinutos` de `CriticidadNegocio`, plano —
   /// la pantalla arma el `MapaRtoPorCriticidad` que `ordenarPorCriticidad` (`lib/sgsi/
   /// analisis-riesgos.ts`) necesita para el orden alternativo por criticidad.
-  criticidadesRto: { codigo: string; rtoMinutos: number | null }[];
+  criticidadesRto: {
+    codigo: string;
+    rtoMinutos: number | null;
+    /// «Importante», «Crítica continua»… La celda muestra esto y no el código; la fila sigue
+    /// llevando sólo el código, que es el contrato con el negocio.
+    nombre: string;
+    descripcion: string | null;
+  }[];
 }
 
 export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
@@ -125,7 +132,7 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
     leerDeudaPlanes(),
     prisma.criticidadNegocio.findMany({
       where: { activo: true },
-      select: { codigo: true, rtoMinutos: true },
+      select: { codigo: true, rtoMinutos: true, nombre: true, descripcion: true },
     }),
   ]);
 
@@ -222,7 +229,15 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
       diasPendiente: f.diasPendiente,
       escalado: f.escalado,
     })),
-    criticidadesRto: criticidades.map((c) => ({ codigo: c.codigo, rtoMinutos: c.rtoMinutos })),
+    criticidadesRto: criticidades.map((c) => ({
+      codigo: c.codigo,
+      rtoMinutos: c.rtoMinutos,
+      // El nombre y la descripción viajan para la PRESENTACIÓN: la celda muestra «Importante»
+      // en vez de `C3`, con la descripción larga en el título. `ActivoAnalizable.criticidad`
+      // sigue llevando sólo el código — es el contrato con el negocio y no se toca.
+      nombre: c.nombre,
+      descripcion: c.descripcion,
+    })),
   };
 }
 
