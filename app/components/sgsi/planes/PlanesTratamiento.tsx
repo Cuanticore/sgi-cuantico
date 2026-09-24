@@ -499,7 +499,9 @@ export default function PlanesTratamiento({
                 <Th ancho={78}>Código</Th>
                 <Th>Acción</Th>
                 <Th ancho={92}>Tipo</Th>
-                <Th ancho={100}>Control</Th>
+                {/* 190 y no 100: la columna pasó a llevar el nombre del control bajo el código,
+                    y con 100 el nombre se truncaba a dos palabras, que es no decirlo. */}
+                <Th ancho={190}>Control</Th>
                 <Th ancho={220}>Madurez actual → objetivo</Th>
                 <Th ancho={62}>Salto</Th>
                 <Th ancho={150}>Qué mitiga</Th>
@@ -569,14 +571,23 @@ export default function PlanesTratamiento({
                       </span>
                     </Td>
                     <Td>
+                      {/* El código Y el nombre. Un `A.8.2` a secas sólo lo lee quien se sabe el
+                          anexo de memoria, y ésta es justamente la columna que contesta «¿sobre
+                          qué actúa este plan?». El nombre ya viajaba en `control.nombre`: la
+                          pantalla lo tenía y no lo pintaba, así que no cuesta una consulta más. */}
                       {a.control ? (
-                        <Link
-                          href="/sgsi/controles"
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-mono text-11 text-accent-700 underline decoration-accent-border underline-offset-2"
-                        >
-                          {a.control.codigo}
-                        </Link>
+                        <>
+                          <Link
+                            href="/sgsi/controles"
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-mono text-11 text-accent-700 underline decoration-accent-border underline-offset-2"
+                          >
+                            {a.control.codigo}
+                          </Link>
+                          <div className="truncate text-10 text-secondary" title={a.control.nombre}>
+                            {a.control.nombre}
+                          </div>
+                        </>
                       ) : (
                         <span className="text-11 text-faint">—</span>
                       )}

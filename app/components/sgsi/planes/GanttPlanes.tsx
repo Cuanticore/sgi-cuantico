@@ -165,11 +165,20 @@ export default function GanttPlanes({ planes }: { planes: PlanDeLinea[] }) {
                 return (
                   <div key={b.plan.codigo} className="flex items-center gap-2">
                     <div className="flex-none overflow-hidden" style={{ width: 252 }}>
+                      {/* EL CÓDIGO NO SE ENCOGE Y LA ACCIÓN SÍ. Sin `flex-none`, el flex repartía
+                          el ancho entre los dos y `PT-0012` se partía en dos renglones, que en una
+                          lista donde cada plan ocupa una línea desalinea todas las barras de abajo.
+                          `min-w-0` en la acción es la otra mitad: un ítem flex no baja de su ancho
+                          de contenido salvo que se le diga, así que sin eso `truncate` no recorta y
+                          el que cede es el código. */}
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono text-10 font-semibold text-primary">
+                        <span className="flex-none whitespace-nowrap font-mono text-10 font-semibold text-primary">
                           {b.plan.codigo}
                         </span>
-                        <span className="truncate text-10_5 text-secondary-soft" title={b.plan.accion}>
+                        <span
+                          className="min-w-0 truncate text-10_5 text-secondary-soft"
+                          title={b.plan.accion}
+                        >
                           {b.plan.accion}
                         </span>
                       </div>

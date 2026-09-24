@@ -95,6 +95,27 @@ function montar(acciones: AccionVista[], alcanceCalculable = true) {
   );
 }
 
+describe('la celda del control dice QUÉ es, no sólo su número', () => {
+  // POR QUÉ. La celda mostraba únicamente `A.8.2`. Un código de anexo no dice nada a quien no
+  // se lo sabe de memoria, y la columna «Control» es justamente la que responde «¿sobre qué
+  // actúa este plan?». El nombre ya viajaba en `AccionVista.control.nombre` —la pantalla lo
+  // tenía y no lo pintaba—, así que esto no cuesta una consulta más.
+  it('muestra el nombre del control junto al código', () => {
+    montar([BASE]);
+    expect(screen.getByText('Derechos de acceso privilegiado')).toBeInTheDocument();
+  });
+
+  it('sigue mostrando el código, que es lo que se busca en el anexo', () => {
+    montar([BASE]);
+    expect(screen.getByText('A.8.2')).toBeInTheDocument();
+  });
+
+  it('una acción sin control no inventa un nombre', () => {
+    montar([POLIZA]);
+    expect(screen.queryByText('Derechos de acceso privilegiado')).toBeNull();
+  });
+});
+
 describe('el pie de los KPI dice sobre cuántas acciones se calculó', () => {
   it('con una acción sin control, el pie del salto nombra el denominador', () => {
     montar([BASE, { ...BASE, codigo: 'PT-003' }, POLIZA]);
