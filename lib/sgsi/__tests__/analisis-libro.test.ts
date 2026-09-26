@@ -15,6 +15,7 @@ import {
   construirLibroAnalisis,
   type ContextoLibroAnalisis,
   type FilaAnalisisExport,
+  type FilaRiesgoExport,
 } from '../analisis-libro';
 import type { NivelRiesgo } from '../riesgo-activo';
 
@@ -67,8 +68,8 @@ const COL_RESIDUAL = 13;
 
 describe('construirLibroAnalisis · las celdas de banda se pintan', () => {
   it('«Peor inherente» lleva el hex de su banda, no queda sin relleno', async () => {
-    const wb = await construirLibroAnalisis([FILA], CTX);
-    const hoja = wb.getWorksheet('Análisis de riesgos')!;
+    const wb = await construirLibroAnalisis([FILA], [], CTX);
+    const hoja = wb.getWorksheet('Por activo')!;
     const celda = hoja.getCell(PRIMERA_FILA, COL_INHERENTE);
     // --hf-risk-critico-bg es #a52016 y su -fg #ffffff, en app/globals.css.
     expect(fondoDe(celda)).toBe('FFA52016');
@@ -76,8 +77,8 @@ describe('construirLibroAnalisis · las celdas de banda se pintan', () => {
   });
 
   it('«Peor residual» lleva el hex de su banda', async () => {
-    const wb = await construirLibroAnalisis([FILA], CTX);
-    const hoja = wb.getWorksheet('Análisis de riesgos')!;
+    const wb = await construirLibroAnalisis([FILA], [], CTX);
+    const hoja = wb.getWorksheet('Por activo')!;
     const celda = hoja.getCell(PRIMERA_FILA, COL_RESIDUAL);
     // --hf-risk-alto-bg es #c25a1e y su -fg #ffffff.
     expect(fondoDe(celda)).toBe('FFC25A1E');
@@ -90,9 +91,10 @@ describe('construirLibroAnalisis · las celdas de banda se pintan', () => {
         { ...FILA, codigo: 'A', peorInherente: MEDIO, peorResidual: MEDIO, estadoPlan: 'con-plan' },
         { ...FILA, codigo: 'B', peorInherente: BAJO, peorResidual: BAJO, estadoPlan: 'no-requiere' },
       ],
+      [],
       CTX,
     );
-    const hoja = wb.getWorksheet('Análisis de riesgos')!;
+    const hoja = wb.getWorksheet('Por activo')!;
     // --hf-risk-medio-bg #e0b93c / -fg #3a2c05; --hf-risk-bajo-bg #dfe8e2 / -fg #3d5648.
     expect(fondoDe(hoja.getCell(PRIMERA_FILA, COL_RESIDUAL))).toBe('FFE0B93C');
     expect(tintaDe(hoja.getCell(PRIMERA_FILA, COL_RESIDUAL))).toBe('FF3A2C05');
@@ -101,17 +103,112 @@ describe('construirLibroAnalisis · las celdas de banda se pintan', () => {
   });
 
   it('un nivel null no se pinta y dice «sin calcular»', async () => {
-    const wb = await construirLibroAnalisis([FILA_SIN_RESIDUAL], CTX);
-    const hoja = wb.getWorksheet('Análisis de riesgos')!;
+    const wb = await construirLibroAnalisis([FILA_SIN_RESIDUAL], [], CTX);
+    const hoja = wb.getWorksheet('Por activo')!;
     const celda = hoja.getCell(PRIMERA_FILA, COL_RESIDUAL);
     expect(celda.value).toBe('sin calcular');
     expect(fondoDe(celda)).toBeUndefined();
   });
 
   it('la columna «Valor» sigue con el hex de su nivel', async () => {
-    const wb = await construirLibroAnalisis([FILA], CTX);
-    const hoja = wb.getWorksheet('Análisis de riesgos')!;
+    const wb = await construirLibroAnalisis([FILA], [], CTX);
+    const hoja = wb.getWorksheet('Por activo')!;
     // `colorDeNivelValor(4)` es el cuarto paso de la rampa azul: #1b3a8a.
     expect(fondoDe(hoja.getCell(PRIMERA_FILA, 4))).toBe('FF1B3A8A');
+  });
+});
+
+
+// ── LA MATRIZ DE RIESGOS · una fila por par (activo, amenaza) ───────────────────────────
+//
+// POR QUÉ SE AGREGA ESTA HOJA. El libro sacaba una fila por ACTIVO, con el conteo de amenazas
+// y el peor residual. Eso contesta «¿cuál activo está peor?», que no es la pregunta de una
+// matriz de riesgos: ésa es «¿cuáles riesgos hay que tratar, y sobre qué activo?». Medido el
+// 26/09/2026 sobre la base: 584 riesgos vigentes con residual, de los cuales **29 en banda
+// Alto o Crítico, repartidos en 11 activos** — seis con cuatro amenazas cada uno y cinco con
+// una. Esas 29 son las filas de esta hoja.
+//
+// EL Id NO SE INVENTA. Cada par (activo, amenaza) ya es un registro con código propio y
+// estable —`R-0512`, `R-0400`—, el mismo que usan el motor, los planes y las actas. Generar un
+// consecutivo sólo para el Excel le daría al archivo una identidad que ningún otro sitio del
+// sistema reconoce: «el riesgo 17 de la matriz» no se podría encontrar en la aplicación. Es la
+// misma fábrica de divergencia que costó cara con los nombres de nivel.
+
+const RIESGO_ALTO: FilaRiesgoExport = {
+  id: 'R-0512',
+  amenazaCodigo: 'A.5',
+  amenaza: 'Suplantación de la identidad del usuario',
+  activoCodigo: 'COM-APP-0001',
+  activoNombre: 'CRM comercial',
+  valor: 4,
+  valores: { D: 4, I: 3, C: 4 },
+  criticidad: 'Alta',
+  proceso: 'Gestión Comercial',
+  propietario: 'CEO',
+  residual: ALTO,
+};
+
+const RIESGO_CRITICO: FilaRiesgoExport = {
+  ...RIESGO_ALTO,
+  id: 'R-0400',
+  amenazaCodigo: 'E.1',
+  amenaza: 'Errores de los usuarios',
+  residual: CRITICO,
+};
+
+async function libroConRiesgos(riesgos: readonly FilaRiesgoExport[]) {
+  const wb = await construirLibroAnalisis([FILA], riesgos, CTX);
+  return wb;
+}
+
+describe('la hoja de la matriz de riesgos', () => {
+  it('el libro trae DOS hojas: la matriz y la de por activo', async () => {
+    const wb = await libroConRiesgos([RIESGO_ALTO]);
+    expect(wb.worksheets).toHaveLength(2);
+  });
+
+  it('la matriz va primero, porque es lo que se vino a buscar', async () => {
+    const wb = await libroConRiesgos([RIESGO_ALTO]);
+    expect(wb.worksheets[0].name).toBe('Matriz de riesgos');
+    expect(wb.worksheets[1].name).toBe('Por activo');
+  });
+
+  it('una fila por riesgo, con el Id y la amenaza', async () => {
+    const wb = await libroConRiesgos([RIESGO_ALTO, RIESGO_CRITICO]);
+    const hoja = wb.worksheets[0];
+    const ids = [hoja.getCell(4, 1).value, hoja.getCell(5, 1).value];
+    expect(ids).toEqual(['R-0512', 'R-0400']);
+    expect(hoja.getCell(4, 2).value).toBe('Suplantación de la identidad del usuario');
+  });
+
+  it('repite los datos del activo en cada fila, para que el filtro de Excel sirva', async () => {
+    // Con celdas combinadas el autofiltro y el ordenamiento de Excel dejan de funcionar, y
+    // este formato lleva filtro en todos los encabezados.
+    const wb = await libroConRiesgos([RIESGO_ALTO, RIESGO_CRITICO]);
+    const hoja = wb.worksheets[0];
+    expect(hoja.getCell(4, 3).value).toBe('COM-APP-0001');
+    expect(hoja.getCell(5, 3).value).toBe('COM-APP-0001');
+  });
+
+  it('el residual se pinta con el color de su banda, no en texto plano', async () => {
+    const wb = await libroConRiesgos([RIESGO_ALTO]);
+    const hoja = wb.worksheets[0];
+    const relleno = hoja.getCell(4, 12).fill as ExcelJS.FillPattern | undefined;
+    expect(relleno?.fgColor?.argb).toMatch(/^FF[0-9A-F]{6}$/);
+  });
+});
+
+describe('la hoja por activo concentra las amenazas altas del activo', () => {
+  it('lista las amenazas Alto y Crítico del activo en una celda', async () => {
+    const wb = await construirLibroAnalisis([FILA], [RIESGO_ALTO, RIESGO_CRITICO], CTX);
+    const hoja = wb.worksheets[1];
+    const celda = String(hoja.getCell(4, 14).value ?? '');
+    expect(celda).toContain('Suplantación de la identidad del usuario');
+    expect(celda).toContain('Errores de los usuarios');
+  });
+
+  it('un activo sin amenazas altas deja la celda vacía, que es información', async () => {
+    const wb = await construirLibroAnalisis([FILA], [], CTX);
+    expect(String(wb.worksheets[1].getCell(4, 14).value ?? '')).toBe('');
   });
 });

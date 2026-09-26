@@ -98,6 +98,10 @@ export const FILTROS_ANALISIS_VACIOS: FiltrosAnalisis = {
 /// obsoletos; `obsoleto` queda en la forma de todos modos para que una prueba pueda ejercer
 /// el caso límite sin depender de que quien arma la consulta ya haya filtrado.
 export interface RiesgoAnalizable {
+  /// El código del registro `Riesgo` —`R-0512`—. Opcional porque las pruebas que sólo ejercen
+  /// el cálculo no necesitan inventarlo; lo pide la matriz exportada, que usa el MISMO
+  /// identificador que la aplicación en vez de generar uno propio.
+  codigo?: string;
   amenazaCodigo: string;
   amenazaNombre: string;
   /// `Riesgo.riesgoPotencial`, como string decimal — nunca un float, por la misma razón que

@@ -93,6 +93,10 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
         riesgos: {
           where: { obsoleto: false },
           select: {
+            // El código del riesgo —`R-0512`— viaja para que la matriz exportada lleve el MISMO
+            // identificador que la aplicación. Un consecutivo inventado en el Excel daría al
+            // archivo una identidad que ningún otro sitio reconoce.
+            codigo: true,
             amenaza: {
               select: {
                 codigo: true,
@@ -176,6 +180,7 @@ export async function leerAnalisisRiesgos(): Promise<DatosPaginaAnalisis> {
         const principal = r.amenaza.controles[0]?.control;
 
         return {
+          codigo: r.codigo,
           amenazaCodigo: r.amenaza.codigo,
           amenazaNombre: r.amenaza.nombre,
           // Decimal → string: nunca un float antes de clasificar (mismo criterio que
