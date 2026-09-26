@@ -69,6 +69,9 @@ export async function GET(request: Request) {
   // El alcance sigue al de la exportación: si quien exporta recortó la grilla, la matriz sale
   // de esos mismos activos y no del análisis entero.
   const porActivo = new Map(datos.activos.map((a) => [a.codigo, a]));
+  // El nombre de la criticidad ya viaja para el tooltip de la grilla; el archivo lo usa para
+  // decir «C4 · Estándar» en vez del código pelado que la pantalla no muestra.
+  const nombreCriticidad = new Map(datos.criticidadesRto.map((c) => [c.codigo, c.nombre]));
   const riesgosMatriz = filas.flatMap((f) => {
     const activo = porActivo.get(f.codigo);
     if (activo === undefined) return [];
@@ -87,14 +90,22 @@ export async function GET(request: Request) {
         valor: f.valor,
         valores: f.valores,
         criticidad: f.criticidad,
+        criticidadNombre: f.criticidad === null ? null : (nombreCriticidad.get(f.criticidad) ?? null),
         proceso: f.proceso,
         propietario: f.propietario,
         residual: nivel,
       }));
   });
 
+  // La hoja por activo lleva la misma criticidad completa: si una dijera «C4» y la otra
+  // «C4 · Estándar», el mismo activo se leería distinto según la pestaña.
+  const filasConCriticidad = filas.map((f) => ({
+    ...f,
+    criticidadNombre: f.criticidad === null ? null : (nombreCriticidad.get(f.criticidad) ?? null),
+  }));
+
   const { construirLibroAnalisis } = await import('@/lib/sgsi/analisis-libro');
-  const wb = await construirLibroAnalisis(filas, riesgosMatriz, {
+  const wb = await construirLibroAnalisis(filasConCriticidad, riesgosMatriz, {
     enAnalisis: todas.length,
     totalVigentes: datos.activos.length,
     umbral: datos.umbral,

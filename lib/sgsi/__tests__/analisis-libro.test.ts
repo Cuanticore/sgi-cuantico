@@ -212,3 +212,48 @@ describe('la hoja por activo concentra las amenazas altas del activo', () => {
     expect(String(wb.worksheets[1].getCell(4, 14).value ?? '')).toBe('');
   });
 });
+
+
+// ── LA CRITICIDAD, COMPLETA ────────────────────────────────────────────────────────────
+//
+// El archivo sacaba `C4` a secas mientras la PANTALLA muestra «Estándar». Dos vistas del
+// mismo dato diciendo cosas distintas: quien exporta pierde la palabra que entiende y se
+// queda con el código que hay que ir a buscar. El nombre ya viajaba en `criticidadesRto`
+// para el tooltip de la grilla; acá sólo se lo pone en la celda.
+//
+// El CÓDIGO NO SE QUITA. Es el contrato con el negocio —los umbrales de exigencia se
+// escriben en C1..C5— y un archivo que dijera sólo «Estándar» obligaría a traducir de vuelta.
+
+describe('la celda de criticidad dice el código y el nombre', () => {
+  const CON_NOMBRE = { ...FILA, criticidad: 'C4', criticidadNombre: 'Estándar' };
+  const RIESGO_CON_NOMBRE = { ...RIESGO_ALTO, criticidad: 'C4', criticidadNombre: 'Estándar' };
+
+  it('en la matriz', async () => {
+    const wb = await construirLibroAnalisis([CON_NOMBRE], [RIESGO_CON_NOMBRE], CTX);
+    expect(wb.worksheets[0].getCell(4, 9).value).toBe('C4 · Estándar');
+  });
+
+  it('y en la hoja por activo', async () => {
+    const wb = await construirLibroAnalisis([CON_NOMBRE], [RIESGO_CON_NOMBRE], CTX);
+    expect(wb.worksheets[1].getCell(4, 8).value).toBe('C4 · Estándar');
+  });
+
+  it('sin nombre registrado sale sólo el código, no un separador colgando', async () => {
+    const wb = await construirLibroAnalisis(
+      [{ ...FILA, criticidad: 'C4', criticidadNombre: null }],
+      [{ ...RIESGO_ALTO, criticidad: 'C4', criticidadNombre: null }],
+      CTX,
+    );
+    expect(wb.worksheets[0].getCell(4, 9).value).toBe('C4');
+    expect(wb.worksheets[1].getCell(4, 8).value).toBe('C4');
+  });
+
+  it('un activo sin clasificar lo dice con palabras', async () => {
+    const wb = await construirLibroAnalisis(
+      [{ ...FILA, criticidad: null, criticidadNombre: null }],
+      [],
+      CTX,
+    );
+    expect(wb.worksheets[1].getCell(4, 8).value).toBe('sin clasificar');
+  });
+});

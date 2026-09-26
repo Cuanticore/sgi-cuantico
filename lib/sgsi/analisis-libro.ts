@@ -36,6 +36,9 @@ export interface FilaAnalisisExport {
   valor: number;
   valores: { D: number; I: number; C: number };
   criticidad: string | null;
+  /// El nombre de esa criticidad —«Estándar», «Importante»—. La PANTALLA lo muestra y el
+  /// archivo sacaba sólo el código: dos vistas del mismo dato diciendo cosas distintas.
+  criticidadNombre?: string | null;
   proceso: string;
   propietario: string | null;
   cantidadAmenazas: number;
@@ -64,6 +67,7 @@ export interface FilaRiesgoExport {
   valor: number;
   valores: { D: number; I: number; C: number };
   criticidad: string | null;
+  criticidadNombre?: string | null;
   proceso: string;
   propietario: string | null;
   residual: NivelRiesgo | null;
@@ -203,7 +207,7 @@ export async function construirLibroAnalisis(
       f.valores.D,
       f.valores.I,
       f.valores.C,
-      f.criticidad ?? 'sin clasificar',
+      textoDeCriticidad(f.criticidad, f.criticidadNombre),
       f.proceso,
       f.propietario ?? '—',
       f.cantidadAmenazas,
@@ -305,7 +309,7 @@ function hojaMatriz(wb: ExcelJS.Workbook, riesgos: readonly FilaRiesgoExport[]):
       r.valores.D,
       r.valores.I,
       r.valores.C,
-      r.criticidad ?? 'sin clasificar',
+      textoDeCriticidad(r.criticidad, r.criticidadNombre),
       r.proceso,
       r.propietario ?? '—',
       textoDeNivelExport(r.residual),
@@ -330,6 +334,14 @@ function hojaMatriz(wb: ExcelJS.Workbook, riesgos: readonly FilaRiesgoExport[]):
   });
 
   hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: COLUMNAS_MATRIZ.length } };
+}
+
+/// `C4 · Estándar`, o sólo el código si no hay nombre —nunca un separador colgando—, o la
+/// frase completa cuando el activo no está clasificado. UN SOLO DUEÑO para las dos hojas:
+/// escrito dos veces, el día que cambie el formato cambiaría en una sola.
+function textoDeCriticidad(codigo: string | null, nombre?: string | null): string {
+  if (codigo === null) return 'sin clasificar';
+  return nombre === null || nombre === undefined || nombre === '' ? codigo : `${codigo} · ${nombre}`;
 }
 
 function textoDeNivelExport(nivel: NivelRiesgo | null): string {
