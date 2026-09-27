@@ -46,27 +46,36 @@ type Dim = 'D' | 'I' | 'C';
 /// §3.1 · el nivel que cada criticidad exige sobre las amenazas que degradan DISPONIBILIDAD.
 /// `null` en C5 no es «cero»: es que un activo sin compromiso de servicio no exige nada por
 /// esta vía. Su valoración D puede seguir exigiendo por la suya.
+///
+/// LA ESCALERA BAJA DE DIEZ EN DIEZ, y eso es un cambio sobre la tabla original de REQ-SIG-24
+/// §6, donde C1 y C2 pedían los dos 90 y los cuatro escalones eran 90/90/80/70. Cuatro
+/// criticidades que se declaran distintas pedían tres números distintos: C1 y C2 sólo se
+/// distinguían por la verificación, y el escalón de 80 quedaba a dos criticidades de
+/// distancia del de 70. Con 90/80/70/60, cada escalón de criticidad mueve exactamente un
+/// escalón de la rúbrica de madurez —que también va de diez en diez— y la tabla se lee de
+/// corrido: bajar una criticidad es pedir un escalón menos.
 export const EXIGENCIA_POR_CRITICIDAD: Readonly<Record<string, number | null>> = {
   C1: 90,
-  C2: 90,
-  C3: 80,
-  C4: 70,
+  C2: 80,
+  C3: 70,
+  C4: 60,
   C5: null,
 };
 
 /// REQ-SIG-24 §6.1 · las criticidades que exigen, ADEMÁS del número, una verificación
 /// vigente sobre el control principal.
 ///
-/// C1 no pide un número mayor que C2: pide el mismo, verificado. Tres razones, y la
-/// tercera es la que decide. Es auditable sin juicio —una verificación existe con su fecha
-/// o no existe—, mientras que un escalón de 95 % exigiría redactar un descriptor que se
-/// distinga del de 90 %, y si no se distingue en palabras el evaluador elige el de arriba.
-/// Ataca el modo de falla real: el problema de MINTRACE producción nunca fue que A.8.14
-/// estuviera en 90 y no en 95, fue que estaba en 90 SIN PRUEBA DE CONMUTACIÓN. Y deja la
-/// brecha accionable: «falta la prueba formal de conmutación» es una tarea con dueño,
-/// fecha y costo; «faltan cinco puntos» no es nada — con la población actual, exigir 95 %
-/// produciría 55 brechas de las cuales 44 serían de cinco puntos, enterrando las 11 que
-/// importan.
+/// C1 se distingue de C2 por partida doble: diez puntos más Y la prueba. Con la escalera de
+/// diez en diez el número ya no es lo único que los separa —como lo era cuando ambos pedían
+/// 90— pero la verificación SIGUE HACIENDO FALTA, y por la razón de siempre: el 90 % de la
+/// rúbrica es «medido, revisado periódicamente», que un evaluador puede escribir de buena fe
+/// sobre un control que nunca se ejecutó en serio. El problema de MINTRACE producción nunca
+/// fue que A.8.14 estuviera en 90 y no en 95: fue que estaba en 90 SIN PRUEBA DE CONMUTACIÓN,
+/// y eso no lo arregla pedir un número más alto.
+///
+/// Es además la parte auditable sin juicio —una verificación existe con su fecha o no
+/// existe— y la que deja la brecha accionable: «falta la prueba formal de conmutación» es una
+/// tarea con dueño, fecha y costo; «faltan cinco puntos» no es nada.
 export const REQUIERE_VERIFICACION: readonly string[] = ['C1'];
 
 /// §3.1 · el nivel que exige el VALOR de una dimensión. Por debajo de 4 no exige nada: son

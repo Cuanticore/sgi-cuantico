@@ -128,10 +128,17 @@ Dos escaleras sobre la misma escala. La criticidad es un compromiso de **tiempo*
 | | | Exige al control principal |
 |---|---|---|
 | **C1** | Crítica continua · RTO ≤ 10 min | **90 % · con verificación vigente** |
-| **C2** | Crítica · RTO ≤ 4 h | **90 %** |
-| **C3** | Importante · RTO ≤ 24 h | **80 %** |
-| **C4** | Estándar · RTO ≤ 72 h | **70 %** |
+| **C2** | Crítica · RTO ≤ 4 h | **80 %** |
+| **C3** | Importante · RTO ≤ 24 h | **70 %** |
+| **C4** | Estándar · RTO ≤ 72 h | **60 %** |
 | **C5** | Sin compromiso | — |
+
+> **La escalera baja de diez en diez, desde el 2026-09-25.** La tabla original de este
+> requerimiento era 90/90/80/70: cuatro criticidades declaradas distintas pedían tres números
+> distintos, y el salto de C2 a C3 valía diez puntos mientras el de C1 a C2 valía cero. Con
+> 90/80/70/60 cada escalón de criticidad mueve **exactamente un escalón de la rúbrica de
+> madurez**, que también va de diez en diez, y la tabla se lee de corrido: bajar una
+> criticidad es pedir un escalón menos.
 
 **Por valor** — sobre la dimensión que la amenaza degrada:
 
@@ -141,17 +148,17 @@ Dos escaleras sobre la misma escala. La criticidad es un compromiso de **tiempo*
 | 4 | **70 %** |
 | ≤ 3 | — |
 
-**Sobre D manda el mayor de los dos.** Los dos casos que REQ-SIG-23 §6 usa como criterio se sostienen: `D=5 con C4` → máx(90, 70) = **90 por el valor**; `D=3 con C1` → **90 por la criticidad**, que es el caso que el valor D no detecta solo.
+**Sobre D manda el mayor de los dos.** Los dos casos que REQ-SIG-23 §6 usa como criterio se sostienen: `D=5 con C4` → máx(90, 60) = **90 por el valor**; `D=3 con C1` → **90 por la criticidad**, que es el caso que el valor D no detecta solo. Y la escalera de diez en diez abre uno que antes no existía: `D=4 con C2` → máx(70, 80) = **80 por la criticidad**, el escalón intermedio que la tabla vieja no tenía dónde pedir.
 
-### 6.1 El salto de C1 es la verificación, no cinco puntos más
+### 6.1 C1 pide el escalón más alto, y además la prueba
 
-C1 no exige un número mayor que C2: exige **el mismo número, verificado**. El control principal debe tener una `EjecucionVerificacion` con resultado `CONFORME` en los últimos **12 meses**.
+C1 exige **90 % con una verificación vigente**: el control principal debe tener una `EjecucionVerificacion` con resultado `CONFORME` en los últimos **12 meses**.
 
-Tres razones, y la tercera es la que decide:
+Desde que la escalera baja de diez en diez, el número ya no es lo único que separa a C1 de C2 —son diez puntos— pero la verificación sigue haciendo falta, y por la razón de siempre:
 
-1. **Es auditable sin juicio.** Una verificación existe con su fecha o no existe. No hay escalón que redactar ni discusión que tener. Un 95 % en cambio exigiría escribir un descriptor que se distinga del de 90 % — y si no se distingue en palabras, el evaluador elige el de arriba.
-2. **Ataca el modo de falla real.** El problema de MINTRACE producción nunca fue que `A.8.14` estuviera en 90 y no en 95: fue que estaba en 90 **sin prueba de conmutación**.
-3. **La brecha vuelve a ser accionable.** «Falta la prueba formal de conmutación de A.8.14» es una tarea con dueño, fecha y costo. «Faltan cinco puntos» no es nada — y con la población actual, una exigencia de 95 % produciría **55 brechas, de las cuales 44 serían de cinco puntos**, enterrando las 11 que importan. Con 90 %, las brechas son 11 y todas son de 40 puntos.
+1. **Ataca el modo de falla real.** El 90 % de la rúbrica es «medido, revisado periódicamente», que un evaluador puede escribir de buena fe sobre un control que nunca se ejecutó en serio. El problema de MINTRACE producción no fue que `A.8.14` estuviera diez puntos abajo: fue que estaba en 90 **sin prueba de conmutación**, y eso no lo arregla pedir un número más alto.
+2. **Es auditable sin juicio.** Una verificación existe con su fecha o no existe. No hay escalón que redactar ni discusión que tener.
+3. **La brecha queda accionable.** «Falta la prueba formal de conmutación de A.8.14» es una tarea con dueño, fecha y costo. «Faltan cinco puntos» no es nada — y con la población actual, un escalón de 95 % produciría **55 brechas, de las cuales 44 serían de cinco puntos**, enterrando las 11 que importan.
 
 ### 6.2 La brecha
 

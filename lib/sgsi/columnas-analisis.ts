@@ -485,8 +485,8 @@ export function columnasAnalisis(
 // `BANDAS_ALARMANTES` dejó de estar dos veces: dos copias que se separan es cómo dos pantallas
 // terminan diciendo cosas distintas del mismo activo.
 //
-// C1 merece frase propia. No pide un número mayor que C2 —los dos piden 90— sino **el mismo
-// verificado**, y esa es justamente la distinción que un tooltip que sólo dijera «90 %» haría
+// C1 merece frase propia. Pide diez puntos más que C2 y, además, **que esos puntos estén
+// verificados** — y eso segundo es justamente lo que un tooltip que sólo dijera «90 %» haría
 // invisible.
 export function tooltipDeCriticidad(
   codigo: string | null,
@@ -515,8 +515,8 @@ export function tooltipDeCriticidad(
       `los controles principales de las amenazas que degradan Disponibilidad deben estar en ${exige} % de eficacia`,
     );
     if (REQUIERE_VERIFICACION.includes(codigo)) {
-      // C1 no pide un número mayor que C2: pide el mismo VERIFICADO (REQ-SIG-23 §6.1). Un
-      // tooltip que dijera sólo «90 %» haría invisible justamente lo que las distingue.
+      // C1 pide el escalón más alto Y la prueba de que se ejecutó. Un tooltip que dijera
+      // sólo «90 %» haría invisible la mitad de lo que esta criticidad exige.
       partes.push('y además debe tener una verificación de eficacia vigente');
     }
   }
