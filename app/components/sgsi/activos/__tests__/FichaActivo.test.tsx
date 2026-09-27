@@ -20,6 +20,21 @@ import { guardarDatosGenerales, guardarValoracion } from '@/app/sgsi/acciones/ac
 // solo y sus métodos son espías.
 const router = { replace: jest.fn(), refresh: jest.fn(), push: jest.fn() };
 
+// VEINTE SEGUNDOS, Y NO ES PEREZA: ESTA SUITE FALLABA SÓLO BAJO CARGA.
+//
+// El 27/09/2026, en una corrida completa de `npm run verificar`, «al guardar viaja como
+// nivelNuevo» se cayó con «Exceeded timeout of 5000 ms» mientras el archivo entero tardaba 61 s.
+// Corrida sola: 27 de 27 en verde. No es un defecto del código, es que montar la ficha completa
+// —con sus cinco popups simulados— y esperar a `waitFor` no cabe en los 5 s por omisión cuando
+// Jest reparte la máquina entre 174 suites.
+//
+// POR QUÉ SE ARREGLA Y NO SE IGNORA. El gate del despliegue corre `npm run verificar`: un
+// timeout caprichoso ahí **impide un despliegue sin que nada esté roto**, y el mensaje no habla
+// de carga, habla de un `waitFor` que no se cumplió. Alguien perdería la tarde buscando un
+// defecto que no existe — y la vez siguiente, aprendería a reintentar hasta que pase, que es lo
+// peor que le puede pasar a un arnés.
+jest.setTimeout(20_000);
+
 jest.mock('next/navigation', () => ({
   useRouter: () => router,
 }));
