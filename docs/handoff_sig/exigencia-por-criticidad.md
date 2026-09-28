@@ -49,6 +49,14 @@ Los tres términos de la resta tienen que existir y ser verdaderos antes de rest
 
 La criticidad es un compromiso de **tiempo** —RTO y RPO— así que gobierna la **disponibilidad**. La confidencialidad y la integridad las gobierna su propia valoración. Mezclarlas produciría el disparate de exigir cifrado de grado militar porque el servicio no tolera caídas.
 
+> **Esta tabla quedó sustituida dos veces.** REQ-SIG-24 §6 la pasó de la escala CMM al
+> porcentaje, y el 2026-09-25 la escalera de criticidad pasó a bajar de diez en diez. Lo que
+> sigue abajo es el original, y se conserva porque el razonamiento de §3.1 a §3.3 —quién
+> gobierna qué dimensión, y por qué— no cambió. **Los números vigentes están en
+> [escala-de-madurez-y-exigencia.md §6](escala-de-madurez-y-exigencia.md), y su única fuente
+> es `EXIGENCIA_POR_CRITICIDAD` en `lib/sgsi/exigencia.ts`:** C1 90 % con verificación,
+> C2 80 %, C3 70 %, C4 60 %, C5 nada; y por valor, 5 → 90 % y 4 → 70 %.
+
 | Conductor | Exige en el control **principal** de las amenazas que degradan… | Nivel exigido |
 |---|---|---|
 | Criticidad **C1** · RTO ≤ 10 min | **D** | **L4** |

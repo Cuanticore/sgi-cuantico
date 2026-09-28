@@ -529,15 +529,15 @@ describe('tooltipDeCriticidad', () => {
     const t = tooltipDeCriticidad('C3', cat('Importante', 'Respaldo restaurable.'), 1440);
     expect(t).toContain('Importante');
     expect(t).toContain('C3');
-    expect(t).toContain('80');
+    expect(t).toContain('70');
     expect(t).toContain('Disponibilidad');
   });
 
-  it('C1 anade que ademas exige verificacion vigente, que es lo que la distingue de C2', () => {
+  it('C1 pide diez puntos mas que C2, y ademas una verificacion vigente', () => {
     const c1 = tooltipDeCriticidad('C1', cat('Crítica continua', null), 10);
     const c2 = tooltipDeCriticidad('C2', cat('Crítica', null), 240);
     expect(c1).toContain('90');
-    expect(c2).toContain('90');
+    expect(c2).toContain('80');
     expect(c1).toContain('verificación');
     expect(c2).not.toContain('verificación');
   });

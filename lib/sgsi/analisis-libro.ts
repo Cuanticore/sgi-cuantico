@@ -36,12 +36,41 @@ export interface FilaAnalisisExport {
   valor: number;
   valores: { D: number; I: number; C: number };
   criticidad: string | null;
+  /// El nombre de esa criticidad —«Estándar», «Importante»—. La PANTALLA lo muestra y el
+  /// archivo sacaba sólo el código: dos vistas del mismo dato diciendo cosas distintas.
+  criticidadNombre?: string | null;
   proceso: string;
   propietario: string | null;
   cantidadAmenazas: number;
   peorInherente: NivelRiesgo | null;
   peorResidual: NivelRiesgo | null;
   estadoPlan: EstadoPlanActivo;
+}
+
+/// Una fila de la MATRIZ: el par (activo, amenaza), que es la unidad que se trata.
+///
+/// POR QUÉ ES OTRA UNIDAD Y NO UNA COLUMNA MÁS. La hoja por activo contesta «¿cuál activo está
+/// peor?»; una matriz de riesgos contesta «¿cuáles riesgos hay que tratar, y sobre qué activo?».
+/// Son dos preguntas, y meter la segunda en la primera obliga a que una celda lleve una lista —
+/// que es lo que la hoja «Por activo» hace en su última columna, a propósito, para quien quiera
+/// el resumen y no el detalle.
+///
+/// `id` NO SE GENERA ACÁ. Es el código del registro `riesgo` —`R-0512`—, el mismo que usan el
+/// motor, los planes y las actas. Un consecutivo inventado para el Excel le daría al archivo una
+/// identidad que ningún otro sitio del sistema reconoce.
+export interface FilaRiesgoExport {
+  id: string;
+  amenazaCodigo: string;
+  amenaza: string;
+  activoCodigo: string;
+  activoNombre: string;
+  valor: number;
+  valores: { D: number; I: number; C: number };
+  criticidad: string | null;
+  criticidadNombre?: string | null;
+  proceso: string;
+  propietario: string | null;
+  residual: NivelRiesgo | null;
 }
 
 export interface ContextoLibroAnalisis {
@@ -74,6 +103,10 @@ const COLUMNAS: { encabezado: string; ancho: number }[] = [
   { encabezado: 'Amenazas', ancho: 11 },
   { encabezado: 'Peor inherente', ancho: 18 },
   { encabezado: 'Peor residual', ancho: 18 },
+  // La columna 14: el detalle resumido. Quien quiera la fila por riesgo tiene la otra hoja;
+  // ésta es para leer de un vistazo QUÉ amenazas obligan a tratar este activo. Vacía cuando no
+  // hay ninguna en banda alta, que es información y no un hueco.
+  { encabezado: 'Riesgos Alto y Crítico', ancho: 46 },
 ];
 
 /// Sin `#`, y en ARGB: ExcelJS no acepta el `#rrggbb` de CSS.
@@ -90,15 +123,36 @@ function argb(css: string): string {
   return '';
 }
 
+/// Las columnas de la matriz, en el orden del formato que el SIG ya usa en su libro.
+const COLUMNAS_MATRIZ: { encabezado: string; ancho: number }[] = [
+  { encabezado: 'Id', ancho: 12 },
+  { encabezado: 'Riesgo', ancho: 46 },
+  { encabezado: 'Código activo', ancho: 18 },
+  { encabezado: 'Nombre del activo', ancho: 42 },
+  { encabezado: 'Valor', ancho: 8 },
+  { encabezado: 'D', ancho: 5 },
+  { encabezado: 'I', ancho: 5 },
+  { encabezado: 'C', ancho: 5 },
+  { encabezado: 'Criticidad', ancho: 14 },
+  { encabezado: 'Proceso', ancho: 26 },
+  { encabezado: 'Propietario', ancho: 30 },
+  { encabezado: 'Riesgo Residual', ancho: 18 },
+];
+
 export async function construirLibroAnalisis(
   filas: readonly FilaAnalisisExport[],
+  riesgos: readonly FilaRiesgoExport[],
   ctx: ContextoLibroAnalisis,
 ): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'SIG CUANTICO';
   wb.created = new Date();
 
-  const hoja = wb.addWorksheet('Análisis de riesgos', {
+  // LA MATRIZ VA PRIMERO, y no es orden alfabético: es la hoja que se vino a buscar. La de por
+  // activo queda detrás, para quien necesite el panorama completo del análisis.
+  hojaMatriz(wb, riesgos);
+
+  const hoja = wb.addWorksheet('Por activo', {
     views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }],
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
@@ -106,7 +160,7 @@ export async function construirLibroAnalisis(
   // ── Fila 1 · el título ──────────────────────────────────────────────────────────────
   hoja.mergeCells(1, 1, 1, COLUMNAS.length);
   const titulo = hoja.getCell(1, 1);
-  titulo.value = 'Análisis de riesgos';
+  titulo.value = 'Análisis de riesgos · por activo';
   titulo.font = { size: 14, bold: true, color: { argb: AZUL_ENCABEZADO } };
   hoja.getRow(1).height = 22;
 
@@ -132,6 +186,17 @@ export async function construirLibroAnalisis(
   });
   encabezado.height = 20;
 
+  // Las amenazas altas de cada activo, agrupadas una sola vez y no dentro del bucle: con 30
+  // activos y 29 riesgos la diferencia no se nota, pero recorrer la lista entera por fila es
+  // cuadrático y este libro también lo genera quien exporta 378.
+  const altasPorActivo = new Map<string, string[]>();
+  for (const r of riesgos) {
+    const lista = altasPorActivo.get(r.activoCodigo);
+    const texto = `${r.amenazaCodigo} · ${r.amenaza}`;
+    if (lista) lista.push(texto);
+    else altasPorActivo.set(r.activoCodigo, [texto]);
+  }
+
   // ── Las filas ───────────────────────────────────────────────────────────────────────
   filas.forEach((f) => {
     const fila = hoja.addRow([
@@ -142,14 +207,16 @@ export async function construirLibroAnalisis(
       f.valores.D,
       f.valores.I,
       f.valores.C,
-      f.criticidad ?? 'sin clasificar',
+      textoDeCriticidad(f.criticidad, f.criticidadNombre),
       f.proceso,
       f.propietario ?? '—',
       f.cantidadAmenazas,
       textoDeNivelExport(f.peorInherente),
       textoDeNivelExport(f.peorResidual),
+      (altasPorActivo.get(f.codigo) ?? []).join('\n'),
     ]);
 
+    fila.getCell(14).alignment = { vertical: 'top', wrapText: true };
     fila.font = { size: 10 };
     fila.alignment = { vertical: 'middle' };
     fila.getCell(1).font = { size: 10, bold: true, name: 'Consolas' };
@@ -192,6 +259,89 @@ export async function construirLibroAnalisis(
   hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: COLUMNAS.length } };
 
   return wb;
+}
+
+/// La hoja de la matriz: una fila por par (activo, amenaza) en banda Alto o Crítico.
+///
+/// LOS DATOS DEL ACTIVO SE REPITEN EN CADA FILA, y es deliberado. Combinar las celdas del activo
+/// se vería como la matriz en papel, pero **las celdas combinadas rompen el autofiltro y el
+/// ordenamiento de Excel**, y este formato lleva filtro en todos los encabezados. Un archivo más
+/// bonito que no se puede filtrar es peor que uno repetitivo que sí.
+function hojaMatriz(wb: ExcelJS.Workbook, riesgos: readonly FilaRiesgoExport[]): void {
+  const hoja = wb.addWorksheet('Matriz de riesgos', {
+    views: [{ state: 'frozen', xSplit: 2, ySplit: 3 }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  hoja.mergeCells(1, 1, 1, COLUMNAS_MATRIZ.length);
+  const titulo = hoja.getCell(1, 1);
+  titulo.value = 'Matriz de riesgos';
+  titulo.font = { size: 14, bold: true, color: { argb: AZUL_ENCABEZADO } };
+  hoja.getRow(1).height = 22;
+
+  const activos = new Set(riesgos.map((r) => r.activoCodigo)).size;
+  hoja.mergeCells(2, 1, 2, COLUMNAS_MATRIZ.length);
+  const nota = hoja.getCell(2, 1);
+  nota.value =
+    `${riesgos.length} riesgo(s) en banda Alto o Crítico, sobre ${activos} activo(s). ` +
+    'Una fila por par activo–amenaza; el Id es el del riesgo en la aplicación.';
+  nota.font = { size: 9, italic: true, color: { argb: GRIS_NOTA } };
+  hoja.getRow(2).height = 14;
+
+  const encabezado = hoja.getRow(3);
+  COLUMNAS_MATRIZ.forEach((c, i) => {
+    const celda = encabezado.getCell(i + 1);
+    celda.value = c.encabezado;
+    celda.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
+    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    hoja.getColumn(i + 1).width = c.ancho;
+  });
+  encabezado.height = 20;
+
+  riesgos.forEach((r) => {
+    const fila = hoja.addRow([
+      r.id,
+      r.amenaza,
+      r.activoCodigo,
+      r.activoNombre,
+      r.valor,
+      r.valores.D,
+      r.valores.I,
+      r.valores.C,
+      textoDeCriticidad(r.criticidad, r.criticidadNombre),
+      r.proceso,
+      r.propietario ?? '—',
+      textoDeNivelExport(r.residual),
+    ]);
+
+    fila.font = { size: 10 };
+    fila.alignment = { vertical: 'middle' };
+    fila.getCell(1).font = { size: 10, bold: true, name: 'Consolas' };
+    fila.getCell(3).font = { size: 10, bold: true, name: 'Consolas' };
+    for (const col of [5, 6, 7, 8]) {
+      fila.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+
+    // Toda fila de esta hoja es alarmante por construcción —por eso está acá—, así que el
+    // tinte no discrimina nada y se omite: lo que discrimina es la banda, y ésa va con color.
+    const relleno = argb(colorDeNivelValor(r.valor));
+    if (relleno !== '') {
+      fila.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: relleno } };
+      fila.getCell(5).font = { size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    }
+    pintarBanda(fila.getCell(12), r.residual);
+  });
+
+  hoja.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: COLUMNAS_MATRIZ.length } };
+}
+
+/// `C4 · Estándar`, o sólo el código si no hay nombre —nunca un separador colgando—, o la
+/// frase completa cuando el activo no está clasificado. UN SOLO DUEÑO para las dos hojas:
+/// escrito dos veces, el día que cambie el formato cambiaría en una sola.
+function textoDeCriticidad(codigo: string | null, nombre?: string | null): string {
+  if (codigo === null) return 'sin clasificar';
+  return nombre === null || nombre === undefined || nombre === '' ? codigo : `${codigo} · ${nombre}`;
 }
 
 function textoDeNivelExport(nivel: NivelRiesgo | null): string {

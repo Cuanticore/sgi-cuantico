@@ -71,7 +71,12 @@ export default async function PlanesPage() {
             nombre: true,
             riesgos: {
               where: { obsoleto: false },
-              select: { activo: { select: { codigo: true } } },
+              // El nombre y el residual viajan para poder NOMBRAR los activos que el plan
+              // trata, y no sólo contarlos. «6 activos» no se lleva a un comité.
+              select: {
+                riesgoResidual: true,
+                activo: { select: { codigo: true, nombre: true } },
+              },
             },
           },
         },
@@ -84,6 +89,9 @@ export default async function PlanesPage() {
           amenazaCodigo: f.amenaza.codigo,
           amenazaNombre: f.amenaza.nombre,
           activoCodigo: r.activo.codigo ?? '(sin código)',
+          activoNombre: r.activo.nombre,
+          // Decimal → string: nunca un float antes de clasificar, mismo criterio que el resto.
+          residual: r.riesgoResidual?.toString() ?? null,
         });
       }
       riesgosPorControl.set(f.controlId, previo);

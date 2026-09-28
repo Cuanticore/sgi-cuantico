@@ -7,11 +7,15 @@
 // y cuya valoración D no, TENGA brecha. Es el caso que el valor D no detecta solo, y la
 // razón entera por la que existe la columna de criticidad.
 //
-// POR QUÉ LOS CASOS NUMÉRICOS USAN C2 Y NO C1. Desde REQ-SIG-24 §6.1, C1 exige el mismo
-// número que C2 **más** una verificación vigente. Un caso de «cubierto» sobre C1 sin
-// predicado de verificación no puede dar `cubierto`, y debe dar «no se pudo determinar»:
-// afirmar cumplimiento sin haber mirado es precisamente lo que el requerimiento evita. Así
-// que la aritmética se prueba sobre C2 y la verificación sobre C1, separadas.
+// POR QUÉ LOS CASOS NUMÉRICOS USAN C2 Y NO C1. C1 exige, además del número, una
+// verificación vigente. Un caso de «cubierto» sobre C1 sin predicado de verificación no
+// puede dar `cubierto`, y debe dar «no se pudo determinar»: afirmar cumplimiento sin haber
+// mirado es precisamente lo que el requerimiento evita. Así que la aritmética se prueba
+// sobre C2 y la verificación sobre C1, separadas.
+//
+// LA ESCALA DE CRITICIDAD ES DE DIEZ EN DIEZ — C1 90 %, C2 80 %, C3 70 %, C4 60 % — y eso
+// es un cambio sobre REQ-SIG-24 §6, donde C1 y C2 pedían los dos 90. Ahora C1 se distingue
+// de C2 por partida doble: diez puntos más Y la verificación.
 
 import {
   conductorDeLaExigencia,
@@ -41,16 +45,11 @@ describe('§3.1 · la criticidad gobierna la disponibilidad, y sólo ella', () =
     ).toBe(90);
   });
 
-  it('C2 exige lo mismo que C1: el salto de C1 es la verificación, no el número', () => {
-    expect(
-      nivelExigido({ criticidad: 'C2', valores: { D: 1, I: 1, C: 1 }, degradacion: SOLO_D }),
-    ).toBe(90);
-  });
-
-  it('C3 exige 80 % y C4 exige 70 %', () => {
+  it('la escalera baja de diez en diez: C2 80 %, C3 70 %, C4 60 %', () => {
     const base = { valores: { D: 1, I: 1, C: 1 }, degradacion: SOLO_D };
-    expect(nivelExigido({ ...base, criticidad: 'C3' })).toBe(80);
-    expect(nivelExigido({ ...base, criticidad: 'C4' })).toBe(70);
+    expect(nivelExigido({ ...base, criticidad: 'C2' })).toBe(80);
+    expect(nivelExigido({ ...base, criticidad: 'C3' })).toBe(70);
+    expect(nivelExigido({ ...base, criticidad: 'C4' })).toBe(60);
   });
 
   it('C5 no exige nada por criticidad: sin compromiso de servicio', () => {
@@ -70,7 +69,7 @@ describe('§3.1 · la criticidad gobierna la disponibilidad, y sólo ella', () =
 });
 
 describe('§3.1 · sobre D manda el MAYOR entre el valor y la criticidad', () => {
-  it('D=5 con C4 exige 90 % por el VALOR, no 70 % (criterio 8)', () => {
+  it('D=5 con C4 exige 90 % por el VALOR, no 60 % (criterio 8)', () => {
     const entrada = { criticidad: 'C4', valores: { D: 5, I: 1, C: 1 }, degradacion: SOLO_D };
     expect(nivelExigido(entrada)).toBe(90);
     expect(conductorDeLaExigencia(entrada)).toBe('valor');
@@ -85,6 +84,15 @@ describe('§3.1 · sobre D manda el MAYOR entre el valor y la criticidad', () =>
   it('D=3 con C1 exige 90 % por la CRITICIDAD — el caso que el valor D no detecta solo', () => {
     const entrada = { criticidad: 'C1', valores: { D: 3, I: 1, C: 1 }, degradacion: SOLO_D };
     expect(nivelExigido(entrada)).toBe(90);
+    expect(conductorDeLaExigencia(entrada)).toBe('criticidad');
+  });
+
+  it('D=4 con C2 exige 80 % por la CRITICIDAD: la escalera de diez en diez abre este caso', () => {
+    // Con la tabla vieja —C2 en 90— este activo también exigía por criticidad, pero el
+    // escalón intermedio no existía: entre «el valor pide 70» y «la criticidad pide 90» no
+    // había un 80 que pedir. La escalera de diez en diez lo pone.
+    const entrada = { criticidad: 'C2', valores: { D: 4, I: 1, C: 1 }, degradacion: SOLO_D };
+    expect(nivelExigido(entrada)).toBe(80);
     expect(conductorDeLaExigencia(entrada)).toBe('criticidad');
   });
 
@@ -103,29 +111,45 @@ describe('§3.1 · sobre D manda el MAYOR entre el valor y la criticidad', () =>
 describe('§6.2 · la brecha, en puntos', () => {
   const C2_SOBRE_D = { criticidad: 'C2', valores: { D: 3, I: 1, C: 1 }, degradacion: SOLO_D };
 
-  it('exige 90 % y el principal está en 10 %: brecha de 80 puntos', () => {
+  it('exige 80 % y el principal está en 10 %: brecha de 70 puntos', () => {
     expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: 10 })).toEqual({
       tipo: 'brecha',
-      exigido: 90,
+      exigido: 80,
       actual: 10,
-      brecha: 80,
+      brecha: 70,
     });
   });
 
-  it('el caso de MINTRACE: A.8.14 recalificado a 70 % abre 20 puntos (criterio 7)', () => {
-    expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: 70 })).toEqual({
-      tipo: 'brecha',
-      exigido: 90,
-      actual: 70,
-      brecha: 20,
-    });
+  it('el caso de MINTRACE: C1 con D=5 y A.8.14 en 70 % abre 20 puntos (criterio 7)', () => {
+    // Va sobre C1 —que es la criticidad real de MINTRACE producción— y no sobre C2, porque
+    // la brecha de NIVEL se evalúa antes que la de verificación: 70 no llega a 90, así que
+    // reclamar la prueba de conmutación todavía no viene al caso.
+    expect(
+      evaluarBrecha({
+        criticidad: 'C1',
+        valores: { D: 5, I: 5, C: 5 },
+        degradacion: SOLO_D,
+        nivelPrincipal: 70,
+      }),
+    ).toEqual({ tipo: 'brecha', exigido: 90, actual: 70, brecha: 20 });
   });
 
   it('el principal que alcanza lo exigido no reporta nada', () => {
-    expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: 90 })).toEqual({
+    expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: 80 })).toEqual({
       tipo: 'cubierto',
-      exigido: 90,
-      actual: 90,
+      exigido: 80,
+      actual: 80,
+    });
+  });
+
+  it('un C2 en 70 % tiene brecha de diez puntos donde la tabla vieja no veía ninguna', () => {
+    // Con C2 en 90 este activo tenía 20 puntos de brecha; con C2 en 80, tiene 10. El caso
+    // existe para fijar que la escalera se movió y no para celebrar que la brecha bajó.
+    expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: 70 })).toEqual({
+      tipo: 'brecha',
+      exigido: 80,
+      actual: 70,
+      brecha: 10,
     });
   });
 
@@ -143,7 +167,7 @@ describe('§6.2 · la brecha, en puntos', () => {
   it('un principal sin evaluar tampoco es un 0 %: es un juicio pendiente', () => {
     expect(evaluarBrecha({ ...C2_SOBRE_D, nivelPrincipal: null })).toEqual({
       tipo: 'principal-sin-evaluar',
-      exigido: 90,
+      exigido: 80,
     });
   });
 
@@ -159,7 +183,7 @@ describe('§6.2 · la brecha, en puntos', () => {
   });
 });
 
-describe('§6.1 · C1 exige el mismo número, verificado', () => {
+describe('§6.1 · C1 exige diez puntos más que C2, y además verificados', () => {
   const C1 = {
     criticidad: 'C1',
     valores: { D: 3, I: 1, C: 1 },
@@ -189,6 +213,20 @@ describe('§6.1 · C1 exige el mismo número, verificado', () => {
     expect(
       evaluarBrecha({ ...C1, criticidad: 'C2', hayVerificacionVigente: () => false }).tipo,
     ).toBe('cubierto');
+  });
+
+  it('el principal en 80 % cumple para C2 y abre diez puntos de brecha para C1', () => {
+    // La distinción entre C1 y C2 es ahora doble —el número y la prueba— y el orden de las
+    // preguntas hace que primero se vea la de número. La verificación de C1 sólo se reclama
+    // cuando el nivel ya llegó.
+    const en80 = { ...C1, nivelPrincipal: 80, hayVerificacionVigente: () => true };
+    expect(evaluarBrecha({ ...en80, criticidad: 'C2' }).tipo).toBe('cubierto');
+    expect(evaluarBrecha(en80)).toEqual({
+      tipo: 'brecha',
+      exigido: 90,
+      actual: 80,
+      brecha: 10,
+    });
   });
 
   it('un vínculo que no resuelve no afirma que no hay verificación (D-3)', () => {

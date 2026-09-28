@@ -332,7 +332,16 @@ export function columnasAnalisis(
       // Fijada porque es la que identifica el renglón: con trece columnas y desplazamiento
       // horizontal, perder de vista cuál activo se está leyendo es perder la fila entera.
       pinned: 'left',
-      width: 110,
+      // 124, Y EL NÚMERO NO ES ARBITRARIO: ES EL MÁXIMO QUE CABE. El expansor del árbol va
+      // delante del código y con 110 el código se truncaba —«COM-APP-0» en vez de
+      // «COM-APP-0001»—, que es truncar justamente la columna que identifica el renglón y que
+      // está fijada para no perderla de vista.
+      //
+      // Se intentó con 150 y la prueba del piso de ancho lo rechazó: la suma de los mínimos
+      // pasaba de 892 a 918 y a 1280 px aparecería barra horizontal. 124 es donde se cruzan
+      // las dos exigencias. Subir de aquí obliga a quitarle ancho a otra columna, no a mover
+      // el umbral.
+      width: 124,
       filter: 'agTextColumnFilter',
       cellRenderer: r('codigo'),
     },
@@ -485,8 +494,8 @@ export function columnasAnalisis(
 // `BANDAS_ALARMANTES` dejó de estar dos veces: dos copias que se separan es cómo dos pantallas
 // terminan diciendo cosas distintas del mismo activo.
 //
-// C1 merece frase propia. No pide un número mayor que C2 —los dos piden 90— sino **el mismo
-// verificado**, y esa es justamente la distinción que un tooltip que sólo dijera «90 %» haría
+// C1 merece frase propia. Pide diez puntos más que C2 y, además, **que esos puntos estén
+// verificados** — y eso segundo es justamente lo que un tooltip que sólo dijera «90 %» haría
 // invisible.
 export function tooltipDeCriticidad(
   codigo: string | null,
@@ -515,8 +524,8 @@ export function tooltipDeCriticidad(
       `los controles principales de las amenazas que degradan Disponibilidad deben estar en ${exige} % de eficacia`,
     );
     if (REQUIERE_VERIFICACION.includes(codigo)) {
-      // C1 no pide un número mayor que C2: pide el mismo VERIFICADO (REQ-SIG-23 §6.1). Un
-      // tooltip que dijera sólo «90 %» haría invisible justamente lo que las distingue.
+      // C1 pide el escalón más alto Y la prueba de que se ejecutó. Un tooltip que dijera
+      // sólo «90 %» haría invisible la mitad de lo que esta criticidad exige.
       partes.push('y además debe tener una verificación de eficacia vigente');
     }
   }
