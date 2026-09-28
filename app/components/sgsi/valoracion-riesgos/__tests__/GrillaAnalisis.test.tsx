@@ -42,6 +42,9 @@ function celdaPlan(fila: Partial<FilaAnalisis>) {
     hrefDeFila: (c) => `/sgsi/valoracion-riesgos?activo=${c}`,
     onRegistrarPlan,
     nombreDeCriticidad: new Map(),
+    // El árbol no se ejerce acá: este archivo prueba los renderizadores de las COLUMNAS.
+    expandidos: new Set<string>(),
+    alternar: () => undefined,
   });
   const plan = renderers.plan;
   if (plan === undefined) throw new Error('la columna «Plan» no tiene renderizador');
@@ -49,6 +52,9 @@ function celdaPlan(fila: Partial<FilaAnalisis>) {
 }
 
 const FILA_BASE: FilaAnalisis = {
+  // Vacío a propósito: este archivo prueba los renderizadores de las COLUMNAS, y el
+  // detalle por riesgo alimenta el árbol, que se prueba en `lib/sgsi/__tests__/arbol-analisis.test.ts`.
+  riesgos: [],
   codigo: 'FIN-APP-0001',
   nombre: 'Siigo',
   valor: 5,

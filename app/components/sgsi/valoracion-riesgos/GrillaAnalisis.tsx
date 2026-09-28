@@ -33,6 +33,8 @@ import {
   type GridReadyEvent,
 } from 'ag-grid-community';
 import { AgGridProvider, AgGridReact } from 'ag-grid-react';
+import FranjaDeRiesgo from './FranjaDeRiesgo';
+import { armarFilasArbol, esFilaDeRiesgo, type FilaArbol } from '@/lib/sgsi/arbol-analisis';
 import {
   CLAVE_ESTADO_COLUMNAS,
   COL_DEF_POR_DEFECTO,
@@ -131,7 +133,7 @@ export default function GrillaAnalisis({
   criticidades,
   onAcciones,
 }: GrillaAnalisisProps) {
-  const api = useRef<GridApi<FilaAnalisis> | null>(null);
+  const api = useRef<GridApi<FilaArbol> | null>(null);
   const [listo, setListo] = useState(false);
 
   // Los renderizadores se rehacen cuando cambia lo que leen. `onRegistrarPlan` y `hrefDeFila`
@@ -142,15 +144,59 @@ export default function GrillaAnalisis({
     [criticidades],
   );
 
+  // ── El árbol por activo ───────────────────────────────────────────────────────────────
+  //
+  // A MANO, PORQUE NO HAY OTRA. De los 67 módulos de `ag-grid-community` ninguno es de
+  // agrupación ni de árbol: Row Grouping, Tree Data y Master/Detail son de AG Grid Enterprise,
+  // 999 USD por desarrollador. `isFullWidthRow` sí está en Community, y con eso alcanza.
+  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(() => new Set());
+
+  const alternar = useCallback((codigo: string) => {
+    setExpandidos((previos) => {
+      const siguiente = new Set(previos);
+      if (siguiente.has(codigo)) siguiente.delete(codigo);
+      else siguiente.add(codigo);
+      return siguiente;
+    });
+  }, []);
+
+  const filasDelArbol = useMemo(
+    () => armarFilasArbol(filas, new Map(filas.map((f) => [f.codigo, f.riesgos])), expandidos),
+    [filas, expandidos],
+  );
+
+  // EL ÁRBOL SE COLAPSA AL ORDENAR O FILTRAR, Y ES DELIBERADO.
+  //
+  // AG Grid ordena y filtra sobre la lista PLANA: no sabe que estas filas son hijas de nadie.
+  // Lo único que sostiene la relación es que el hijo viene detrás de su padre, así que en el
+  // instante en que alguien ordena por «Peor residual» los hijos se reubican solos y quedan
+  // bajo un activo que no es el suyo — sin que nada falle y sin que nadie se entere.
+  //
+  // Colapsar es visible y predecible. La alternativa —que cada hijo cargara las claves de
+  // orden de su padre para viajar pegado— se descartó en el diseño: cualquier columna nueva
+  // rompería la correspondencia EN SILENCIO, que es la peor propiedad posible.
+  const colapsarArbol = useCallback(() => {
+    setExpandidos((previos) => (previos.size === 0 ? previos : new Set()));
+  }, []);
+
   const renderers = useMemo(
-    () => construirRenderers({ sinPlanCodigos, hrefDeFila, onRegistrarPlan, nombreDeCriticidad }),
-    [sinPlanCodigos, hrefDeFila, onRegistrarPlan, nombreDeCriticidad],
+    () =>
+      construirRenderers({
+        sinPlanCodigos,
+        hrefDeFila,
+        onRegistrarPlan,
+        nombreDeCriticidad,
+        expandidos,
+        alternar,
+      }),
+    [sinPlanCodigos, hrefDeFila, onRegistrarPlan, nombreDeCriticidad, expandidos, alternar],
   );
 
   const columnDefs = useMemo(
     () => columnasAnalisis({ rtoPorCriticidad, renderers }),
     [rtoPorCriticidad, renderers],
   );
+
 
   const guardarDisposicion = useCallback(() => {
     if (api.current === null) return;
@@ -170,7 +216,7 @@ export default function GrillaAnalisis({
     }
   }, [columnDefs]);
 
-  const alEstarLista = useCallback((evento: GridReadyEvent<FilaAnalisis>) => {
+  const alEstarLista = useCallback((evento: GridReadyEvent<FilaArbol>) => {
     api.current = evento.api;
     setListo(true);
     try {
@@ -207,10 +253,16 @@ export default function GrillaAnalisis({
   }, [onOrdenPersonalizado]);
 
   /// Los códigos que la grilla tiene visibles, en el orden en que se ven.
+  ///
+  /// SÓLO ACTIVOS, Y ES LA CICATRIZ DEL `rowCount` OTRA VEZ. Con el árbol expandido, la lista
+  /// de nodos de AG Grid trae también las franjas de riesgo: contarlas haría que el Excel
+  /// pidiera «53 códigos» cuando hay 30 activos, y que la pantalla dijera «53 activos». Es el
+  /// mismo defecto que abre `HARNESS.md` —un número que se infla porque dos piezas cuentan
+  /// cosas distintas— y acá lo atrapó el compilador al retipar la grilla, no una prueba.
   const codigosVisibles = useCallback((): string[] => {
     const codigos: string[] = [];
     api.current?.forEachNodeAfterFilterAndSort((n) => {
-      if (n.data !== undefined) codigos.push(n.data.codigo);
+      if (n.data !== undefined && n.data.tipo === 'activo') codigos.push(n.data.codigo);
     });
     return codigos;
   }, []);
@@ -221,7 +273,9 @@ export default function GrillaAnalisis({
     if (api.current === null) return;
     const visibles: FilaAnalisis[] = [];
     api.current.forEachNodeAfterFilterAndSort((n) => {
-      if (n.data !== undefined) visibles.push(n.data);
+      // Las franjas de riesgo no son filas del análisis: quien cuenta «30 activos» cuenta
+      // activos. Ver la nota de `codigosVisibles`.
+      if (n.data !== undefined && n.data.tipo === 'activo') visibles.push(n.data);
     });
     onFilasVisibles(visibles);
   }, [onFilasVisibles]);
@@ -339,18 +393,37 @@ export default function GrillaAnalisis({
           desplazamiento en vez de dos anidados. Ver la cabecera del archivo. */}
       <div style={{ width: '100%' }}>
         <AgGridProvider modules={MODULOS}>
-          <AgGridReact<FilaAnalisis>
+          <AgGridReact<FilaArbol>
             theme={TEMA_SGSI}
             domLayout="autoHeight"
-            rowData={filas}
-            columnDefs={columnDefs}
-            defaultColDef={COL_DEF_POR_DEFECTO}
-            getRowId={(p) => p.data.codigo}
-            getRowClass={(p) => (p.data === undefined ? undefined : claseDeFila(p.data))}
+            rowData={filasDelArbol}
+            // LAS COLUMNAS NUNCA VEN UNA FILA DE RIESGO, y por eso esta conversión es sana:
+            // `isFullWidthRow` saca esas filas del camino de las celdas —las pinta
+            // `FranjaDeRiesgo` de ancho completo— así que todo `ColDef` sólo recibe activos.
+            // Tipar las columnas contra la unión obligaría a que cada `valueGetter` comprobara
+            // un caso que no puede ocurrir, y ese ruido es peor que esta línea explicada.
+            columnDefs={columnDefs as unknown as ColDef<FilaArbol>[]}
+            defaultColDef={COL_DEF_POR_DEFECTO as unknown as ColDef<FilaArbol>}
+            // La franja de riesgo no tiene código propio: se identifica por su padre y su
+            // amenaza. Un id repetido haría que AG Grid reutilizara el nodo de otra fila.
+            getRowId={(p) =>
+              p.data.tipo === 'activo' ? p.data.codigo : `${p.data.padre}·${p.data.amenazaCodigo}`
+            }
+            getRowClass={(p) =>
+              p.data === undefined || p.data.tipo === 'riesgo'
+                ? 'fila-riesgo-hija'
+                : claseDeFila(p.data)
+            }
+            isFullWidthRow={(p) => esFilaDeRiesgo(p.rowNode.data)}
+            fullWidthCellRenderer={FranjaDeRiesgo}
             onGridReady={alEstarLista}
             onFirstDataRendered={avisarVisibles}
-            onFilterChanged={avisarVisibles}
+            onFilterChanged={() => {
+              colapsarArbol();
+              avisarVisibles();
+            }}
             onSortChanged={() => {
+              colapsarArbol();
               alCambiarOrden();
               avisarVisibles();
             }}
@@ -388,6 +461,11 @@ export function construirRenderers(ctx: {
   hrefDeFila: (codigo: string) => string;
   onRegistrarPlan: (codigo: string) => void;
   nombreDeCriticidad: Map<string, { nombre: string; descripcion: string | null }>;
+  /// Qué activos están expandidos, y cómo alternarlos. Viajan hasta el renderizador porque el
+  /// expansor vive dentro de la celda «Código»: es la columna fijada, la única que no se pierde
+  /// al desplazarse en horizontal, y abrir un activo cuyo código no se ve no significa nada.
+  expandidos: ReadonlySet<string>;
+  alternar: (codigo: string) => void;
 }): Partial<Record<IdColumnaAnalisis, (p: ParametrosCelda) => React.ReactNode>> {
   // Función con nombre y no una flecha anónima: AG Grid la monta como componente, y un
   // componente sin nombre aparece como «Anonymous» en las herramientas de React —además de
@@ -418,8 +496,40 @@ export function construirRenderers(ctx: {
     codigo: (p) => {
       if (p.data === undefined) return null;
       const codigo = p.data.codigo;
+      const hijos = 'hijos' in p.data ? (p.data.hijos as number) : 0;
+      const abierto = ctx.expandidos.has(codigo);
       return (
         <span className="inline-flex items-center gap-1.5">
+          {/* EL CONTADOR DE RIESGOS SE FUE AL TÍTULO, y es una corrección a lo que yo mismo
+              había escrito acá. Primero puse «▸23» visible con el argumento de que abrir es
+              caro si no sabes cuántos hay. Medido en pantalla, no cabe: con el contador
+              delante, la columna trunca el propio código —«COM-APP-000»— y la prueba del piso
+              de ancho no deja ensanchar más sin provocar barra horizontal a 1280 px.
+              Truncar el identificador del renglón es peor que un número que exige apuntar. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.alternar(codigo);
+            }}
+            disabled={hijos === 0}
+            aria-expanded={abierto}
+            title={
+              hijos === 0
+                ? 'Sin riesgos registrados'
+                : `${hijos} ${hijos === 1 ? 'riesgo' : 'riesgos'}`
+            }
+            aria-label={
+              hijos === 0
+                ? `${codigo} no tiene riesgos registrados`
+                : abierto
+                  ? `Ocultar los ${hijos} riesgos de ${codigo}`
+                  : `Ver los ${hijos} riesgos de ${codigo}`
+            }
+            className="flex-none rounded px-1 font-mono text-10 leading-none text-muted transition-colors hover:text-primary disabled:opacity-30"
+          >
+            {abierto ? '▾' : '▸'}
+          </button>
           <Link
             href={ctx.hrefDeFila(codigo)}
             className="font-mono font-semibold text-brand-nav underline decoration-from-font underline-offset-2"

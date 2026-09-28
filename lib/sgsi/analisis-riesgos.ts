@@ -182,6 +182,22 @@ export type ResolverDeudaPlan = (riesgo: {
 /// lista (`compararPorResidual`), que es para lo que sirve.
 export type EstadoPlanActivo = 'no-requiere' | 'con-plan' | 'pendiente' | 'sin-determinar';
 
+/// Un riesgo del activo, como lo necesita el árbol de la grilla.
+///
+/// LLEVA LA BRECHA YA EVALUADA, y ése es el punto. Hoy la brecha no se ve en ninguna pantalla
+/// —la franja de REQ-SIG-23 §4.1 no está construida—, así que al expandir un activo se lee por
+/// fin por qué la columna «Plan» dice lo que dice: `exige 70, el control está en 70, sin
+/// brecha` explica de una vez que esa columna mide la madurez del control y no el riesgo que
+/// queda.
+export interface RiesgoDeFila {
+  amenazaCodigo: string;
+  amenazaNombre: string;
+  residual: string | null;
+  obsoleto: boolean;
+  principal: { codigo: string; nivel: number | null } | null;
+  brecha: EstadoBrecha;
+}
+
 export interface FilaAnalisis {
   codigo: string;
   nombre: string;
@@ -227,6 +243,9 @@ export interface FilaAnalisis {
   /// esto, así que un activo cuyo plan YA CERRÓ la brecha perdía el enlace a ese plan — cuanto
   /// mejor funcionaba el tratamiento, más se escondía su evidencia.
   tienePlanes: boolean;
+  /// Los riesgos vigentes del activo, con su brecha ya evaluada. Lo consume el árbol de la
+  /// grilla (`lib/sgsi/arbol-analisis.ts`).
+  riesgos: readonly RiesgoDeFila[];
 }
 
 export interface DatosAnalisis {
@@ -493,6 +512,19 @@ function filaDe(
     // Las tres preguntas al mismo resolutor, una al lado de la otra: «¿le falta algo?»,
     // «¿queda riesgo alto sin tratar?» y «¿tiene planes?».
     tienePlanes: tienePlanesDe(a, resolver),
+    // EL DETALLE POR RIESGO, para el árbol de la grilla. Se arma acá y no en el componente
+    // porque `brechaDelRiesgo` necesita el ACTIVO entero —criticidad y valores— y pasarlo a
+    // la pantalla para que lo recalculara sería la segunda cuenta de siempre.
+    riesgos: a.riesgos
+      .filter((r) => !r.obsoleto)
+      .map((r) => ({
+        amenazaCodigo: r.amenazaCodigo,
+        amenazaNombre: r.amenazaNombre,
+        residual: r.residual,
+        obsoleto: false,
+        principal: r.principal ?? null,
+        brecha: brechaDelRiesgo(a, r, hayVerificacionVigente),
+      })),
   };
 }
 
