@@ -406,11 +406,15 @@ export default function GrillaAnalisis({
             defaultColDef={COL_DEF_POR_DEFECTO as unknown as ColDef<FilaArbol>}
             // La franja de riesgo no tiene código propio: se identifica por su padre y su
             // amenaza. Un id repetido haría que AG Grid reutilizara el nodo de otra fila.
-            getRowId={(p) =>
-              p.data.tipo === 'activo' ? p.data.codigo : `${p.data.padre}·${p.data.amenazaCodigo}`
-            }
+            getRowId={(p) => {
+              if (p.data.tipo === 'activo') return p.data.codigo;
+              // La cabecera y los riesgos comparten padre: sin el discriminante, la cabecera
+              // de «alarmantes» y la de «continuidad» del mismo activo chocarian de id.
+              if (p.data.tipo === 'grupo') return `${p.data.padre}#${p.data.grupo}`;
+              return `${p.data.padre}·${p.data.amenazaCodigo}`;
+            }}
             getRowClass={(p) =>
-              p.data === undefined || p.data.tipo === 'riesgo'
+              p.data === undefined || p.data.tipo !== 'activo'
                 ? 'fila-riesgo-hija'
                 : claseDeFila(p.data)
             }
@@ -526,9 +530,9 @@ export function construirRenderers(ctx: {
                   ? `Ocultar los ${hijos} riesgos de ${codigo}`
                   : `Ver los ${hijos} riesgos de ${codigo}`
             }
-            className="flex-none rounded px-1 font-mono text-10 leading-none text-muted transition-colors hover:text-primary disabled:opacity-30"
+            className="flex-none rounded border border-border-default px-1 font-mono text-11 leading-[1.1] text-secondary transition-colors hover:border-accent-border hover:text-primary disabled:opacity-25"
           >
-            {abierto ? '▾' : '▸'}
+            {abierto ? '−' : '+'}
           </button>
           <Link
             href={ctx.hrefDeFila(codigo)}

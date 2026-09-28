@@ -57,8 +57,27 @@ const TONO = {
   nose: 'text-warn-text',
 } as const;
 
+/// Los dos títulos, en las palabras del negocio y no en las del modelo. «Brecha» a secas no
+/// dice de quién es la deuda; «por el Plan de continuidad» sí, porque la criticidad es
+/// exactamente eso: el RTO y el RPO que el plan promete.
+const TITULO = {
+  alarmantes: 'Riesgo residual Alto o Crítico',
+  continuidad: 'Con brecha exigida por el Plan de continuidad',
+} as const;
+
 export default function FranjaDeRiesgo({ data }: CustomCellRendererProps<FilaArbol>) {
-  if (data === undefined || data.tipo !== 'riesgo') return null;
+  if (data === undefined) return null;
+
+  if (data.tipo === 'grupo') {
+    return (
+      <div className="flex h-full items-center gap-2 border-b border-hairline-faint bg-subtle pl-[118px] pr-4">
+        <span className="etiqueta-campo">{TITULO[data.grupo]}</span>
+        <span className="font-mono text-10 tabular-nums text-muted">{data.cuantos}</span>
+      </div>
+    );
+  }
+
+  if (data.tipo !== 'riesgo') return null;
 
   const b = textoDeBrecha(data.brecha);
   const residual = data.residual === null ? 'sin calcular' : data.residual;

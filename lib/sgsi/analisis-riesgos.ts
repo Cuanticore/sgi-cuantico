@@ -42,6 +42,8 @@ import { esBandaAlarmante } from './alto-sin-plan';
 import { clasificar } from './clasificar';
 import {
   evaluarBrecha,
+  conductorDeLaExigencia,
+  type ConductorExigencia,
   type EstadoBrecha,
   type HayVerificacionVigente,
 } from './exigencia';
@@ -196,6 +198,14 @@ export interface RiesgoDeFila {
   obsoleto: boolean;
   principal: { codigo: string; nivel: number | null } | null;
   brecha: EstadoBrecha;
+  /// QUIÉN manda la exigencia sobre esta amenaza: la criticidad —que es el plan de
+  /// continuidad, porque `CriticidadNegocio` lleva el RTO y el RPO y sólo gobierna la
+  /// dimensión Disponibilidad—, el valor de las dimensiones, las dos, o ninguna.
+  ///
+  /// Sin esto, «brecha» sería una sola cosa y el árbol no podría separar la que viene del plan
+  /// de continuidad de la que viene de Integridad o Confidencialidad. Son dos conversaciones
+  /// distintas con dos dueños distintos.
+  conductor: ConductorExigencia;
 }
 
 export interface FilaAnalisis {
@@ -524,6 +534,11 @@ function filaDe(
         obsoleto: false,
         principal: r.principal ?? null,
         brecha: brechaDelRiesgo(a, r, hayVerificacionVigente),
+        conductor: conductorDeLaExigencia({
+          criticidad: a.criticidad,
+          valores: a.valores,
+          degradacion: r.degradacion,
+        }),
       })),
   };
 }
