@@ -4422,9 +4422,21 @@ function GrillaControles({
                   )}
                 </div>
                 <div className="pr-3">
+                  {/* EL TITLE NO ES DECORACIÓN: ES LA ÚNICA ADVERTENCIA QUE HAY.
+                      El 28/09/2026 alguien movió esta madurez en producción, vio el residual
+                      bajar de 32 a 11,2 y preguntó si guardaba solo. No guarda de ninguna
+                      forma, y el botón «Guardar N cambios» tampoco lo cuenta — así que no hay
+                      indicador que delate la diferencia. Se hace lo razonable y la pantalla
+                      deja creerlo. */}
                   <select
                     value={c.nivel === null ? '' : String(c.nivel)}
-                    aria-label={`Madurez CMM de ${c.codigo}`}
+                    aria-label={`Madurez CMM de ${c.codigo} · simulación, no se guarda`}
+                    title={
+                      'SIMULACIÓN: no se guarda. Mueve las cifras de esta pantalla para ver el ' +
+                      'efecto, y se pierde al salir. La madurez es del CONTROL, no de este ' +
+                      'activo: cambiarla movería el riesgo de todos los activos que tienen esta ' +
+                      'amenaza. Se cambia en «Madurez de los controles».'
+                    }
                     onChange={(e) => onMadurez(clave, Number(e.target.value))}
                     className="w-full rounded-[5px] border px-[7px] py-[5px] text-11_5 font-semibold focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                     style={{ borderColor: color.bd, background: color.bg, color: color.fg }}
@@ -4440,8 +4452,13 @@ function GrillaControles({
                 <div className="pr-3">
                   <select
                     value={c.efecto}
-                    aria-label={`Efecto de ${c.codigo} sobre el riesgo`}
-                    title="El modelo solo cuantifica el efecto preventivo: la eficacia reduce la frecuencia. Un control que limita el daño se refleja bajando la degradación de la amenaza."
+                    aria-label={`Efecto de ${c.codigo} sobre el riesgo · simulación, no se guarda`}
+                    title={
+                      'SIMULACIÓN: no se guarda, igual que la madurez de al lado. ' +
+                      'El modelo sólo cuantifica el efecto preventivo: la eficacia reduce la ' +
+                      'frecuencia. Un control que limita el daño se refleja bajando la ' +
+                      'degradación de la amenaza.'
+                    }
                     onChange={(e) => onEfecto(clave, e.target.value as EfectoControl)}
                     className="w-full rounded-[5px] border border-accent-border bg-accent-50 px-[7px] py-[5px] text-11_5 font-medium text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                   >
@@ -4505,6 +4522,25 @@ function GrillaControles({
               amenaza. Asociar o quitar un control cambia la eficacia de la amenaza y con ella
               el riesgo residual de <strong>todos</strong> los activos que la tienen: es una
               decisión de parametrización, no de este activo.
+            </span>
+            {/* LA ADVERTENCIA VISIBLE, y no sólo en el `title` de cada selector. Un `title`
+                aparece si alguien pasa el ratón y se queda quieto; quien mueve un selector y
+                ve cambiar el número no pasa el ratón por nada. Esa diferencia costó una
+                edición en producción el 28/09/2026 que nadie supo que se había perdido. */}
+            <span className="w-full rounded-campo border border-warn-border bg-warn-100 px-3 py-2 text-11 leading-relaxed text-warn-text [text-wrap:pretty]">
+              <strong>La madurez y el efecto de cada control son una simulación: no se
+              guardan.</strong>{' '}
+              Mueven las cifras de esta pantalla para que veas qué pasaría, y se pierden al
+              salir — el botón «Guardar» tampoco los cuenta como cambio. La madurez es del
+              control y no de este activo, así que cambiarla de verdad movería el riesgo de
+              todos los activos que tienen esta amenaza. Se cambia en{' '}
+              <Link
+                href="/sgsi/controles"
+                className="font-semibold underline decoration-from-font underline-offset-2"
+              >
+                Madurez de los controles
+              </Link>
+              .
             </span>
           </div>
         </div>
