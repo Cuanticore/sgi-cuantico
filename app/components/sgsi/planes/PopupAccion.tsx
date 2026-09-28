@@ -197,7 +197,73 @@ export default function PopupAccion({ accion, controles, cargos, madurez, onCerr
         </div>
       )}
 
+      <ActivosQueTrata alcance={accion.alcance} />
       <CamposAccion d={d} set={set} controles={controles} cargos={cargos} madurez={madurez} />
     </Popup>
+  );
+}
+
+
+/// LOS ACTIVOS CON RIESGO ALTO O CRÍTICO QUE ESTE PLAN ESTÁ TRATANDO.
+///
+/// El bloque «Qué mitiga» de la grilla dice «6 activos» y no cuáles. Quien aprueba un plan
+/// necesita los nombres: un número no se lleva a un comité y no deja comprobar nada.
+///
+/// SÓLO LOS ALARMANTES, y es el recorte que se pidió. Un plan toca decenas de riesgos
+/// tranquilos; listarlos todos enterraría los que importan.
+///
+/// QUE ESTÉ VACÍA ES UNA RESPUESTA, NO UN HUECO. Medido el 28/09/2026: de los 25 planes
+/// activos, sólo 3 tratan algún riesgo alto por su control principal —A.8.14 con 8 activos,
+/// A.8.6 con 6 y A.6.3 con 3—. Los otros 22 mejoran un control que hoy no contiene ninguna
+/// amenaza en banda alta, y la pantalla lo dice con palabras en vez de mostrar una lista
+/// vacía que se lea como un error de carga.
+function ActivosQueTrata({ alcance }: { alcance: AccionVista['alcance'] }) {
+  const marco = 'mb-5 rounded-tarjeta border border-border-default bg-surface px-4 pt-3.5 pb-4';
+
+  if (alcance === null) {
+    return (
+      <section className={marco}>
+        <p className="etiqueta-campo">Activos con riesgo Alto o Crítico que trata</p>
+        <p className="mt-1.5 text-11_5 text-faint">
+          Sin calcular: todavía no hay ninguna relevancia asignada en el cruce control-amenaza,
+          así que no se sabe qué contiene este control — que no es lo mismo que no contener nada.
+        </p>
+      </section>
+    );
+  }
+
+  const lista = alcance.activosAlarmantes;
+
+  return (
+    <section className={marco}>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="etiqueta-campo">Activos con riesgo Alto o Crítico que trata</p>
+        <p className="font-mono text-11 tabular-nums text-secondary">{lista.length}</p>
+      </div>
+
+      {lista.length === 0 ? (
+        <p className="mt-2 text-11_5 leading-relaxed text-secondary">
+          Ninguno. Este plan eleva la madurez de su control, pero hoy ese control no es el
+          principal de ninguna amenaza que deje riesgo residual en banda Alta o Crítica.
+        </p>
+      ) : (
+        <ul className="mt-2.5 flex flex-col border-t border-hairline-faint">
+          {lista.map((a) => (
+            <li
+              key={a.codigo}
+              className="flex items-baseline gap-2.5 border-b border-hairline-faint py-1.5"
+            >
+              <span className="w-[112px] flex-none font-mono text-11 font-semibold text-secondary-soft">
+                {a.codigo}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-11_5 text-secondary">{a.nombre}</span>
+              <span className="flex-none font-mono text-11 tabular-nums text-muted">
+                {a.riesgos} {a.riesgos === 1 ? 'riesgo alto' : 'riesgos altos'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

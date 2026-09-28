@@ -86,3 +86,68 @@ describe('alcanceDelPlan', () => {
     expect(a.brecha).toBe(0);
   });
 });
+
+
+// ── LOS ACTIVOS QUE ESTE PLAN ESTÁ TRATANDO ────────────────────────────────────────────
+//
+// El bloque «Qué mitiga» decía «6 activos» y no cuáles. Quien aprueba un plan necesita los
+// nombres: «6» no se lleva a un comité, y el número solo no deja comprobar nada.
+//
+// SÓLO LOS DE RESIDUAL ALTO O CRÍTICO, que es lo que se pidió. Un plan toca decenas de
+// riesgos tranquilos; listarlos todos enterraría los que importan. La banda se corta en 5,
+// igual que `umbral_riesgo`.
+//
+// MEDIDO ANTES DE CONSTRUIRLO: de los 25 planes activos, **sólo 3** tratan algún riesgo Alto
+// o Crítico por su control principal —A.8.14 con 8 activos, A.8.6 con 6, A.6.3 con 3—. Los
+// otros 22 mostrarán la sección vacía, y eso es un hallazgo, no un hueco.
+
+
+const CONTROL_ALARMANTES = { codigo: 'A.8.14', nombre: 'Seguridad en el desarrollo', nivel: 70, objetivo: 90 };
+
+const rAlarm = (activoCodigo: string, activoNombre: string, residual: string | null, amenaza = 'I.5') => ({
+  amenazaCodigo: amenaza,
+  amenazaNombre: `Amenaza ${amenaza}`,
+  activoCodigo,
+  activoNombre,
+  residual,
+});
+
+describe('los activos alarmantes que trata el plan', () => {
+  it('lista sólo los de residual Alto o Crítico, con su nombre', () => {
+    const a = alcanceDelPlan(CONTROL_ALARMANTES, [
+      rAlarm('FIN-APP-0001', 'Siigo', '6.48'),
+      rAlarm('PRO-APP-0002', 'Verify', '0.50'),
+    ]);
+    expect(a.activosAlarmantes.map((x) => x.codigo)).toEqual(['FIN-APP-0001']);
+    expect(a.activosAlarmantes[0].nombre).toBe('Siigo');
+  });
+
+  it('un activo con dos amenazas altas aparece UNA vez, con el conteo', () => {
+    const a = alcanceDelPlan(CONTROL_ALARMANTES, [
+      rAlarm('FIN-APP-0001', 'Siigo', '6.48', 'I.5'),
+      rAlarm('FIN-APP-0001', 'Siigo', '5.50', 'E.1'),
+    ]);
+    expect(a.activosAlarmantes).toHaveLength(1);
+    expect(a.activosAlarmantes[0].riesgos).toBe(2);
+  });
+
+  it('el residual sin calcular no se cuenta como alto', () => {
+    // El control: `null` no es cero ni es alto, es «no se sabe». Contarlo como alto inflaria
+    // la lista que alguien va a llevar a un comite.
+    const a = alcanceDelPlan(CONTROL_ALARMANTES, [rAlarm('X-1', 'Equis', null)]);
+    expect(a.activosAlarmantes).toHaveLength(0);
+  });
+
+  it('un plan sin control no trata ningun activo', () => {
+    expect(alcanceDelPlan(null, []).activosAlarmantes).toEqual([]);
+  });
+
+  it('salen ordenados por cuantos riesgos altos traen', () => {
+    const a = alcanceDelPlan(CONTROL_ALARMANTES, [
+      rAlarm('UNO', 'Uno', '6.48', 'I.5'),
+      rAlarm('DOS', 'Dos', '6.48', 'I.5'),
+      rAlarm('DOS', 'Dos', '5.50', 'E.1'),
+    ]);
+    expect(a.activosAlarmantes.map((x) => x.codigo)).toEqual(['DOS', 'UNO']);
+  });
+});

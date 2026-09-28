@@ -38,6 +38,19 @@ export interface RiesgoDelAlcance {
   amenazaCodigo: string;
   amenazaNombre: string;
   activoCodigo: string;
+  /// Para poder NOMBRAR al activo y no sólo contarlo. «6 activos» no se lleva a un comité.
+  activoNombre?: string;
+  /// El residual, como string decimal — nunca un float antes de clasificar. `null` es «sin
+  /// calcular», que no es cero ni es alto: es que nadie lo miró.
+  residual?: string | null;
+}
+
+/// Un activo con riesgo alto que este plan está tratando.
+export interface ActivoAlarmante {
+  codigo: string;
+  nombre: string;
+  /// Cuántas de sus amenazas en banda alta dependen de este control.
+  riesgos: number;
 }
 
 export interface AmenazaContenida {
@@ -70,6 +83,13 @@ export interface AlcancePlan {
   /// calcular —sin control, sin nivel evaluado o sin objetivo declarado—, que NO es cero:
   /// cero diría «ya cumple», y no haber mirado es lo contrario.
   brecha: number | null;
+  /// LOS ACTIVOS QUE ESTE PLAN ESTÁ TRATANDO, y sólo los de residual Alto o Crítico.
+  ///
+  /// Un plan toca decenas de riesgos tranquilos; listarlos todos enterraría los que importan.
+  /// Medido el 28/09/2026: de los 25 planes activos, **sólo 3** tratan algún riesgo alto por su
+  /// control principal. Que 22 muestren la sección vacía es un hallazgo sobre el plan, no un
+  /// hueco de la pantalla.
+  activosAlarmantes: ActivoAlarmante[];
 }
 
 export function alcanceDelPlan(
@@ -77,7 +97,15 @@ export function alcanceDelPlan(
   riesgos: readonly RiesgoDelAlcance[],
 ): AlcancePlan {
   if (control === null) {
-    return { control: null, estado: 'sin-control', amenazas: [], riesgos: 0, activos: 0, brecha: null };
+    return {
+      control: null,
+      estado: 'sin-control',
+      amenazas: [],
+      riesgos: 0,
+      activos: 0,
+      brecha: null,
+      activosAlarmantes: [],
+    };
   }
 
   const porAmenaza = new Map<string, { nombre: string; riesgos: number; activos: Set<string> }>();
@@ -102,6 +130,25 @@ export function alcanceDelPlan(
     .map(([codigo, a]) => ({ codigo, nombre: a.nombre, riesgos: a.riesgos, activos: a.activos.size }))
     .sort((a, b) => b.riesgos - a.riesgos || a.codigo.localeCompare(b.codigo, 'es'));
 
+  // LOS ALARMANTES, agrupados por activo. Se corta en 5, el mismo umbral que `umbral_riesgo`
+  // usa para la banda Alto. `null` no entra: «sin calcular» no es «alto», y meterlo inflaría
+  // justamente la lista que alguien va a llevar a un comité.
+  const alarmantes = new Map<string, { nombre: string; riesgos: number }>();
+  for (const r of riesgos) {
+    if (r.residual === null || r.residual === undefined) continue;
+    const v = Number(r.residual);
+    if (!Number.isFinite(v) || v < 5) continue;
+    const previo = alarmantes.get(r.activoCodigo);
+    if (previo === undefined) {
+      alarmantes.set(r.activoCodigo, { nombre: r.activoNombre ?? r.activoCodigo, riesgos: 1 });
+    } else {
+      previo.riesgos += 1;
+    }
+  }
+  const activosAlarmantes: ActivoAlarmante[] = [...alarmantes.entries()]
+    .map(([codigo, a]) => ({ codigo, nombre: a.nombre, riesgos: a.riesgos }))
+    .sort((a, b) => b.riesgos - a.riesgos || a.codigo.localeCompare(b.codigo, 'es'));
+
   const brecha =
     control.nivel === null || control.objetivo === null
       ? null
@@ -114,5 +161,6 @@ export function alcanceDelPlan(
     riesgos: riesgos.length,
     activos: activosTotales.size,
     brecha,
+    activosAlarmantes,
   };
 }
