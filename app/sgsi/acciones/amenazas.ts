@@ -25,6 +25,10 @@ import { generarRiesgos } from '@/lib/sgsi/riesgos';
 import { autorConPermiso, ejecutar, type Resultado } from './sesion';
 
 const RUTAS = [
+  // La lista de Análisis vive de `riesgo.riesgoResidual`, que `generarRiesgos` acaba de
+  // reescribir. Sin esto Next sirve la versión cacheada y quien guarda ve las cifras de
+  // antes — y concluye, con razón, que no se guardó nada.
+  '/sgsi/valoracion-riesgos',
   '/sgsi/controles',
   '/sgsi/amenazas',
   '/sgsi/matrices',
