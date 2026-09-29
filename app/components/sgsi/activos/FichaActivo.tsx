@@ -93,6 +93,7 @@ import {
 } from '@/app/sgsi/acciones/riesgos';
 // La MISMA acción que usa la pantalla de controles: un solo escritor de `Control.actualId`.
 import { guardarMadurez, type CambioMadurez } from '@/app/sgsi/acciones/controles';
+import { avisoSinGuardar } from '@/lib/sgsi/aviso-sin-guardar';
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
 import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
 import { codigoDebeReemitirse } from '@/lib/sgsi/codigo-activo';
@@ -1710,6 +1711,9 @@ export default function FichaActivo({
 
       {pestana === 'amenazas' && (
         <TabAmenazas
+          // Bajan hasta el panel de la amenaza, que es un modal y tapa el pie donde vive
+          // «Guardar N cambios».
+          pendientes={plan.pendientes}
           codigoActivo={activo?.codigo ?? ''}
           planes={planesPorAmenaza}
           filas={visibles}
@@ -3158,6 +3162,11 @@ function TarjetaDimension({
 
 interface AccionesAmenazas {
   onAbrir: (codigo: string) => void;
+  /// Cuántos cambios lleva la FICHA sin guardar, y si el guardado está en vuelo. Viajan hasta
+  /// acá porque el panel es un modal: tapa el pie donde vive «Guardar N cambios», así que sin
+  /// esto quien cambia una madurez no tiene forma de saber que queda algo pendiente.
+  pendientes: number;
+  guardando: boolean;
   onDegradacion: (codigo: string, dim: Dim, degradacionId: number) => void;
   onJustificacion: (codigo: string, dim: Dim, justificacion: string) => void;
   onQuitarExcepcion: (codigo: string, dim: Dim) => void;
@@ -3172,6 +3181,7 @@ interface AccionesAmenazas {
 }
 
 function TabAmenazas({
+  pendientes,
   codigoActivo,
   planes,
   filas,
@@ -3310,6 +3320,8 @@ function TabAmenazas({
           {filas.map((f) => (
             <RenglonAmenaza
               key={f.amenaza.codigo}
+              pendientes={pendientes}
+              guardando={guardando}
               f={f}
               abierta={abierta === f.amenaza.codigo}
               catalogos={catalogos}
@@ -3455,6 +3467,8 @@ function RenglonAmenaza({
   codigoActivo,
   plan,
   onAbrir,
+  pendientes,
+  guardando,
   onDegradacion,
   onJustificacion,
   onQuitarExcepcion,
@@ -3690,6 +3704,27 @@ function RenglonAmenaza({
                   </>
                 )}
               </span>
+
+              {/* EL AVISO DE LO PENDIENTE, pegado al botón que hay que pulsar. El panel tapa
+                  el pie de la ficha, así que sin esto quien cambia una madurez ve moverse el
+                  residual y no sabe si eso ya quedó. `role="status"` para que un lector de
+                  pantalla lo anuncie al aparecer, sin robar el foco. */}
+              {(() => {
+                const aviso = avisoSinGuardar(pendientes, guardando);
+                if (aviso === null) return null;
+                return (
+                  <span
+                    role="status"
+                    className={`flex-none rounded-campo border px-2.5 py-1 text-11 font-semibold ${
+                      aviso.enVuelo
+                        ? 'border-border-default bg-subtle text-secondary'
+                        : 'border-warn-border bg-warn-100 text-warn-text'
+                    }`}
+                  >
+                    {aviso.texto}
+                  </span>
+                );
+              })()}
 
               <button
                 onClick={() => onAbrir(codigo)}
