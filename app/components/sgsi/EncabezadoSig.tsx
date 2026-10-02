@@ -46,6 +46,12 @@ const TODAS: { pestana: Pestana; permiso: Permiso | null }[] = [
   { pestana: { etiqueta: 'Estratégico', href: '/estrategico/mapa' }, permiso: 'estrategico:ver' },
   { pestana: { etiqueta: 'Tecnología', href: '/tecnologia/mapa' }, permiso: 'tecnologia:ver' },
   { pestana: { etiqueta: 'Personas', href: '/sig/personas' }, permiso: 'operacion:administrar' },
+  // Fase 2 de `hoja-de-vida-api-servicio`, corrección post-entrega: `/tokens` se había
+  // entregado sin ningún enlace hacia ella en toda la aplicación — sólo se llegaba
+  // escribiendo la URL a mano, y una pantalla que nadie encuentra es una pantalla que no
+  // existe. Misma razón que Tecnología en su momento: una pestaña que no lleva a ninguna
+  // parte no informa, frustra; ahora sí tiene su primera ruta.
+  { pestana: { etiqueta: 'Tokens', href: '/tokens' }, permiso: 'tokenServicio:administrar' },
 ];
 
 export default async function EncabezadoSig() {
