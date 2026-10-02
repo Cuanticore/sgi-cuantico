@@ -13,6 +13,7 @@ import {
   itemAplica,
   puedeCerrarHojaDeVida,
   resumirPuertas,
+  validarActualizacionSistema,
   validarExcepcion,
   validarPuerta,
   veredictoDePrueba,
@@ -314,6 +315,45 @@ describe('cumplimientoDeVerificacion — el «no aplica» no regala puntos', () 
   it('cuenta los «no aplica» SIN justificar, que es la casilla que se abusa', () => {
     const r = cumplimientoDeVerificacion([i('NO_APLICA', null), i('NO_APLICA', '  '), i('NO_APLICA', 'el sistema no expone API')]);
     expect(r.noAplicaSinJustificar).toBe(2);
+  });
+});
+
+describe('validarActualizacionSistema — criticidad contra la escala del SGSI, RTO/RPO en minutos', () => {
+  const ESCALA = [0, 1, 2, 3, 4, 5];
+
+  it('una criticidad dentro de la escala pasa', () => {
+    expect(validarActualizacionSistema({ criticidad: 4 }, ESCALA)).toEqual([]);
+  });
+
+  it('una criticidad fuera de la escala falla nombrando el valor recibido', () => {
+    const e = validarActualizacionSistema({ criticidad: 9 }, ESCALA);
+    expect(e.join(' ')).toContain('9');
+    expect(e.join(' ')).toContain('0, 1, 2, 3, 4, 5');
+  });
+
+  it('criticidad null o ausente no se valida: es opcional', () => {
+    expect(validarActualizacionSistema({ criticidad: null }, ESCALA)).toEqual([]);
+    expect(validarActualizacionSistema({}, ESCALA)).toEqual([]);
+  });
+
+  it('un RTO negativo falla: es el insumo del BIA anual y lo corrompe en silencio', () => {
+    const e = validarActualizacionSistema({ rtoObjetivo: -10 }, ESCALA);
+    expect(e.join(' ')).toContain('RTO');
+  });
+
+  it('un RPO negativo falla', () => {
+    const e = validarActualizacionSistema({ rpoObjetivo: -1 }, ESCALA);
+    expect(e.join(' ')).toContain('RPO');
+  });
+
+  it('RTO y RPO en cero son válidos: cero no es negativo', () => {
+    expect(validarActualizacionSistema({ rtoObjetivo: 0, rpoObjetivo: 0 }, ESCALA)).toEqual([]);
+  });
+
+  it('una actualización completa y válida no reporta errores', () => {
+    expect(
+      validarActualizacionSistema({ criticidad: 5, rtoObjetivo: 240, rpoObjetivo: 60 }, ESCALA),
+    ).toEqual([]);
   });
 });
 

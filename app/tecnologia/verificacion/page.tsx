@@ -23,7 +23,7 @@ export default async function VerificacionPage({
 }) {
   const { s, p } = await searchParams;
 
-  const [sistemas, contenidos] = await Promise.all([
+  const [sistemas, contenidos, personas] = await Promise.all([
     prisma.sistema.findMany({
       where: { activo: true },
       select: { id: true, codigo: true, nombre: true, contratado: true },
@@ -51,6 +51,7 @@ export default async function VerificacionPage({
         },
       },
     }),
+    prisma.persona.findMany({ where: { activa: true }, select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
   ]);
 
   const sistema = sistemas.find((x) => x.codigo === s) ?? sistemas[0] ?? null;
@@ -59,7 +60,21 @@ export default async function VerificacionPage({
   // Las respuestas del sistema elegido: la última respuesta por ítem, siguiendo la cadena
   // asignación → registro → respuesta del módulo A. Se toma la MÁS RECIENTE porque un ítem
   // puede haberse verificado varias veces y lo que vale es el estado de hoy.
-  const respuestas = new Map<number, { respuesta: string; nota: string | null }>();
+  //
+  // D8 · se trae también `id`, `evidenciaId`, `verificadoEn` y `verificadoPorId`: la terna
+  // de verificación que PTR-TEC-03 pide por ítem, y el `id` que `verificarItemHojaDeVida`
+  // necesita para citarla.
+  const respuestas = new Map<
+    number,
+    {
+      id: number;
+      respuesta: string;
+      nota: string | null;
+      evidenciaId: number | null;
+      verificadoEn: string | null;
+      verificadoPor: string | null;
+    }
+  >();
   if (sistema !== null && catalogo.length > 0) {
     const filas = await prisma.respuestaItem.findMany({
       where: {
@@ -69,12 +84,21 @@ export default async function VerificacionPage({
         // mostrar, y eso la pantalla lo dice.
         registro: { asignacion: { activo: { sistemas: { some: { id: sistema.id } } } } },
       },
-      include: { registro: { select: { id: true } } },
+      include: { registro: { select: { id: true } }, verificadoPor: { select: { nombre: true } } },
       orderBy: { registroId: 'desc' },
     });
     for (const f of filas) {
       // La primera que aparece por cada ítem es la del registro más alto: la más reciente.
-      if (!respuestas.has(f.itemId)) respuestas.set(f.itemId, { respuesta: f.respuesta, nota: f.nota });
+      if (!respuestas.has(f.itemId)) {
+        respuestas.set(f.itemId, {
+          id: f.id,
+          respuesta: f.respuesta,
+          nota: f.nota,
+          evidenciaId: f.evidenciaId,
+          verificadoEn: f.verificadoEn?.toISOString().slice(0, 10) ?? null,
+          verificadoPor: f.verificadoPor?.nombre ?? null,
+        });
+      }
     }
   }
 
@@ -84,12 +108,16 @@ export default async function VerificacionPage({
     const r = respuestas.get(i.id);
     return {
       id: i.id,
+      respuestaId: r?.id ?? null,
       orden: i.orden,
       texto: i.texto,
       puerta: i.puerta,
       controlAnexoA: i.controlAnexoA,
       evidenciaEsperada: i.evidenciaEsperada,
       aplicaA: i.aplicaA,
+      evidenciaId: r?.evidenciaId ?? null,
+      verificadoEn: r?.verificadoEn ?? null,
+      verificadoPor: r?.verificadoPor ?? null,
       respuesta: (r?.respuesta ?? null) as ItemVerificado['respuesta'],
       nota: r?.nota ?? null,
     };
@@ -113,6 +141,7 @@ export default async function VerificacionPage({
       )}
       totalCatalogo={catalogo.length}
       hayCatalogo={catalogo.length > 0}
+      personas={personas}
     />
   );
 }

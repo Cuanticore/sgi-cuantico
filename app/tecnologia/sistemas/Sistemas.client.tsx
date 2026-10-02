@@ -12,7 +12,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { cerrarHojaDeVida, crearSistema, registrarPuerta } from '@/app/sig/acciones/desarrollo';
+import {
+  actualizarSistema,
+  cerrarHojaDeVida,
+  crearComponente,
+  crearLiberacion,
+  crearPrueba,
+  crearRequisito,
+  crearSistema,
+  darDeBajaRequisito,
+  editarRequisito,
+  registrarPuerta,
+} from '@/app/sig/acciones/desarrollo';
 import {
   ETIQUETA_PUERTA,
   ETIQUETA_RESULTADO_PUERTA,
@@ -21,6 +32,7 @@ import {
   type EstadoPuertas,
   type Puerta,
   type ResultadoPuerta,
+  type RolTratamiento,
   type Severidad,
   type Veredicto,
 } from '@/lib/sig/desarrollo';
@@ -52,6 +64,7 @@ export interface FichaSistema {
   tipo: string;
   fase: string;
   criticidad: number | null;
+  clasificacionId: number | null;
   contratado: boolean;
   trataDatosPersonales: boolean;
   rolTratamiento: string | null;
@@ -75,7 +88,15 @@ export interface FichaSistema {
     excepcion: string | null;
     observacion: string | null;
   }[];
-  requisitos: { codigo: string; categoria: string; texto: string; estado: string; prioridad: string | null }[];
+  requisitos: {
+    codigo: string;
+    categoria: string;
+    texto: string;
+    estado: string;
+    prioridad: string | null;
+    origen: string | null;
+    observacion: string | null;
+  }[];
   pruebas: {
     codigo: string;
     tipo: string;
@@ -88,6 +109,7 @@ export interface FichaSistema {
     veredicto: Veredicto;
   }[];
   componentes: {
+    codigo: string;
     nombre: string;
     tipo: string | null;
     version: string | null;
@@ -113,6 +135,7 @@ export default function SistemasClient({
   personas,
   productos,
   activos,
+  escalaCriticidad,
 }: {
   lista: {
     id: number;
@@ -131,6 +154,7 @@ export default function SistemasClient({
   personas: { id: number; nombre: string }[];
   productos: { id: number; nombre: string }[];
   activos: { id: number; etiqueta: string }[];
+  escalaCriticidad: { valor: number; etiqueta: string }[];
 }) {
   const router = useRouter();
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
@@ -329,31 +353,20 @@ export default function SistemasClient({
                   </p>
                 )}
 
-                {pestana === 'identidad' && <Identidad f={ficha} setAviso={setAviso} />}
+                {pestana === 'identidad' && (
+                  <Identidad f={ficha} escalaCriticidad={escalaCriticidad} setAviso={setAviso} />
+                )}
                 {pestana === 'puertas' && (
                   <Puertas f={ficha} personas={personas} setAviso={setAviso} />
                 )}
-                {pestana === 'requisitos' && <ListaSimple filas={ficha.requisitos.map((r) => ({
-                  clave: r.codigo,
-                  titulo: r.texto,
-                  meta: `${r.categoria}${r.prioridad === null ? '' : ` · ${r.prioridad}`}`,
-                  estado: r.estado,
-                }))} vacio="Sin requisitos de seguridad cargados." />}
-                {pestana === 'pruebas' && <Pruebas f={ficha} severidad={severidadBloquea} />}
-                {pestana === 'componentes' && <ListaSimple filas={ficha.componentes.map((c) => ({
-                  clave: c.nombre,
-                  titulo: `${c.nombre}${c.version === null ? '' : ` ${c.version}`}`,
-                  meta: [c.tipo, c.licencia === null ? 'sin licencia declarada' : `licencia ${c.licencia}`, c.vulnerabilidades]
-                    .filter((x) => x !== null && x !== '')
-                    .join(' · '),
-                  estado: c.estado,
-                }))} vacio="Sin componentes de terceros declarados. El SBOM es lo que permite responder qué se rompe cuando sale una vulnerabilidad conocida." />}
-                {pestana === 'liberaciones' && <ListaSimple filas={ficha.liberaciones.map((l) => ({
-                  clave: l.version,
-                  titulo: `${l.version} · ${l.tipo}`,
-                  meta: `${l.fecha}${l.planReversion ? ' · con plan de reversión' : ' · SIN plan de reversión'}`,
-                  estado: l.resultado ?? '—',
-                }))} vacio="Sin liberaciones registradas. «Liberación» es qué se liberó; dónde corre lo registran los ambientes." />}
+                {pestana === 'requisitos' && <Requisitos f={ficha} setAviso={setAviso} />}
+                {pestana === 'pruebas' && (
+                  <Pruebas f={ficha} severidad={severidadBloquea} personas={personas} setAviso={setAviso} />
+                )}
+                {pestana === 'componentes' && <Componentes f={ficha} setAviso={setAviso} />}
+                {pestana === 'liberaciones' && (
+                  <Liberaciones f={ficha} personas={personas} setAviso={setAviso} />
+                )}
               </div>
             </section>
           )}
@@ -363,13 +376,40 @@ export default function SistemasClient({
   );
 }
 
-function Identidad({ f, setAviso }: { f: FichaSistema; setAviso: (a: { ok: boolean; texto: string }) => void }) {
+function Identidad({
+  f,
+  escalaCriticidad,
+  setAviso,
+}: {
+  f: FichaSistema;
+  escalaCriticidad: { valor: number; etiqueta: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
   const [cerrando, setCerrando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [editando, setEditando] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
+      {!f.cerrada && (
+        <div className="self-start">
+          <button
+            onClick={() => setEditando((v) => !v)}
+            className="rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary"
+          >
+            {editando ? 'Cerrar edición' : 'Editar hoja de vida'}
+          </button>
+        </div>
+      )}
+      {editando && (
+        <FormularioEditarSistema
+          f={f}
+          escalaCriticidad={escalaCriticidad}
+          setAviso={setAviso}
+          onGuardado={() => setEditando(false)}
+        />
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { etiqueta: 'Tipo', valor: f.tipo },
@@ -472,6 +512,115 @@ function Identidad({ f, setAviso }: { f: FichaSistema; setAviso: (a: { ok: boole
   );
 }
 
+/// Cierra el hueco que da nombre a la propuesta: `faltantesDeHojaDeVida` ya sabía decir
+/// «sin criticidad» y «sin RTO/RPO», pero hasta esta pantalla no existía dónde cerrarlos.
+function FormularioEditarSistema({
+  f,
+  escalaCriticidad,
+  setAviso,
+  onGuardado,
+}: {
+  f: FichaSistema;
+  escalaCriticidad: { valor: number; etiqueta: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onGuardado: () => void;
+}) {
+  const [criticidad, setCriticidad] = useState(f.criticidad === null ? '' : String(f.criticidad));
+  const [clasificacionId, setClasificacionId] = useState(f.clasificacionId === null ? '' : String(f.clasificacionId));
+  const [rto, setRto] = useState(f.rtoObjetivo === null ? '' : String(f.rtoObjetivo));
+  const [rpo, setRpo] = useState(f.rpoObjetivo === null ? '' : String(f.rpoObjetivo));
+  const [rol, setRol] = useState(f.rolTratamiento ?? '');
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+      <Rotulo texto="Editar hoja de vida" />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Criticidad · escala del SGSI</span>
+          <select value={criticidad} onChange={(e) => setCriticidad(e.target.value)} className="entrada-campo">
+            <option value="">Sin definir</option>
+            {escalaCriticidad.map((n) => (
+              <option key={n.valor} value={n.valor}>
+                {n.etiqueta}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Clasificación de la información</span>
+          <input
+            value={clasificacionId}
+            onChange={(e) => setClasificacionId(e.target.value)}
+            className="entrada-campo"
+            placeholder="id de la clasificación"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Rol en el tratamiento de datos</span>
+          <select
+            value={rol}
+            onChange={(e) => setRol(e.target.value)}
+            className="entrada-campo"
+          >
+            <option value="">Sin definir</option>
+            <option value="RESPONSABLE">Responsable</option>
+            <option value="ENCARGADO">Encargado</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">RTO objetivo · minutos</span>
+          <input
+            value={rto}
+            onChange={(e) => setRto(e.target.value)}
+            className="entrada-campo"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">RPO objetivo · minutos</span>
+          <input
+            value={rpo}
+            onChange={(e) => setRpo(e.target.value)}
+            className="entrada-campo"
+            inputMode="numeric"
+          />
+        </label>
+      </div>
+      <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+        RTO y RPO son el insumo del BIA anual: un valor negativo lo corrompe en silencio, así
+        que el servidor lo rechaza.
+      </span>
+      <div className="flex gap-2">
+        <button
+          disabled={enviando}
+          onClick={async () => {
+            setEnviando(true);
+            const r = await actualizarSistema(f.id, {
+              criticidad: criticidad === '' ? null : Number(criticidad),
+              clasificacionId: clasificacionId === '' ? null : Number(clasificacionId),
+              rtoObjetivo: rto === '' ? null : Number(rto),
+              rpoObjetivo: rpo === '' ? null : Number(rpo),
+              rolTratamiento: rol === '' ? null : (rol as RolTratamiento),
+            });
+            setEnviando(false);
+            setAviso({ ok: r.ok, texto: r.mensaje });
+            if (r.ok) {
+              onGuardado();
+              setTimeout(() => window.location.reload(), 900);
+            }
+          }}
+          className="self-start rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+          style={{ background: 'var(--hf-brand-nav)' }}
+        >
+          {enviando ? 'Guardando…' : 'Guardar'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function Puertas({
   f,
   personas,
@@ -571,6 +720,7 @@ function FormularioPuerta({
   const [verifica, setVerifica] = useState('');
   const [autoriza, setAutoriza] = useState('');
   const [observacion, setObservacion] = useState('');
+  const [evidenciaId, setEvidenciaId] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   // G5 en pantalla: se avisa antes de enviar, y el servidor lo impone igual.
@@ -634,6 +784,20 @@ function FormularioPuerta({
         <span className="etiqueta-campo">Observación · opcional</span>
         <input value={observacion} onChange={(e) => setObservacion(e.target.value)} className="entrada-campo" />
       </label>
+      <label className="flex flex-col gap-1">
+        <span className="etiqueta-campo">Evidencia · opcional, id de una ya cargada</span>
+        <input
+          value={evidenciaId}
+          onChange={(e) => setEvidenciaId(e.target.value)}
+          className="entrada-campo"
+          inputMode="numeric"
+          placeholder="id de la evidencia"
+        />
+      </label>
+      <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+        Quien verifica trabaja sobre la evidencia, no sobre la afirmación de quien
+        diligenció (PTR-TEC-03 §3). Una evidencia ya citada por otro sistema se rechaza.
+      </span>
       {resultado === 'SUPERADA_CON_EXCEPCION' && (
         <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
           «Superada con excepción» necesita la excepción registrada antes, en{' '}
@@ -653,6 +817,7 @@ function FormularioPuerta({
               verificadoPorId: Number(verifica),
               autorizaId: Number(autoriza),
               observacion: observacion || undefined,
+              evidenciaId: evidenciaId === '' ? undefined : Number(evidenciaId),
             });
             setEnviando(false);
             setAviso({ ok: r.ok, texto: r.mensaje });
@@ -671,39 +836,306 @@ function FormularioPuerta({
   );
 }
 
-function Pruebas({ f, severidad }: { f: FichaSistema; severidad: Severidad }) {
-  if (f.pruebas.length === 0) {
-    return (
-      <p className="text-12 text-muted [text-wrap:pretty]">
-        Sin pruebas de seguridad registradas.
-      </p>
-    );
-  }
+function Requisitos({
+  f,
+  setAviso,
+}: {
+  f: FichaSistema;
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
+  const [creando, setCreando] = useState(false);
+  const [editando, setEditando] = useState<string | null>(null);
+
   return (
-    <div className="flex flex-col gap-2">
-      {f.pruebas.map((p) => {
-        const c = COLOR_VEREDICTO[p.veredicto];
-        return (
-          <div key={p.codigo} className="flex flex-wrap items-center gap-3 rounded-tarjeta border border-border-field bg-surface px-3.5 py-3">
-            <span className="font-mono text-10 font-semibold text-accent">{p.codigo}</span>
-            <span className="text-12 text-primary">{p.tipo}</span>
-            <span className="font-mono text-9_5 text-muted">{p.fecha}</span>
-            <span className="font-mono text-9_5 text-faint">{p.ejecutor ?? 'sin ejecutor'}</span>
-            <span className="ml-auto flex items-center gap-2">
-              {/* Los cuatro conteos se capturan; el veredicto se calcula. */}
-              <span className="font-mono text-10_5 tabular-nums text-secondary">
-                {p.criticos}c · {p.altos}a · {p.medios}m · {p.bajos}b
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={() => setCreando((v) => !v)}
+        className="self-start rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary"
+      >
+        {creando ? 'Cerrar' : 'Nuevo requisito'}
+      </button>
+      {creando && (
+        <FormularioRequisito sistemaId={f.id} setAviso={setAviso} onGuardado={() => setCreando(false)} />
+      )}
+      {f.requisitos.length === 0 ? (
+        <p className="text-12 leading-relaxed text-muted [text-wrap:pretty]">
+          Sin requisitos de seguridad cargados.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {f.requisitos.map((r) => (
+            <div key={r.codigo} className="flex flex-col gap-1.5 rounded-campo border border-border-field bg-surface px-3.5 py-2.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-mono text-9_5 font-semibold text-accent">{r.codigo}</span>
+                <span className="min-w-0 flex-1 text-12 text-primary">{r.texto}</span>
+                <span className="flex-none rounded-[4px] bg-subtle px-2 py-0.5 font-mono text-8_5 uppercase text-muted">
+                  {r.estado}
+                </span>
+                <button
+                  onClick={() => setEditando(editando === r.codigo ? null : r.codigo)}
+                  className="flex-none rounded-campo border border-border-field bg-surface px-2.5 py-1 text-10_5 text-secondary"
+                >
+                  {editando === r.codigo ? 'Cerrar' : 'Editar'}
+                </button>
+              </div>
+              <span className="block font-mono text-8_5 text-muted">
+                {r.categoria}
+                {r.prioridad !== null && ` · ${r.prioridad}`}
               </span>
-              <span
-                className="rounded-[4px] px-2 py-0.5 font-mono text-8_5 font-semibold uppercase"
-                style={{ background: c.fondo, color: c.texto }}
+              {editando === r.codigo && (
+                <FormularioEditarRequisito
+                  sistemaId={f.id}
+                  r={r}
+                  setAviso={setAviso}
+                  onCerrar={() => setEditando(null)}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FormularioRequisito({
+  sistemaId,
+  setAviso,
+  onGuardado,
+}: {
+  sistemaId: number;
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onGuardado: () => void;
+}) {
+  const [codigo, setCodigo] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [texto, setTexto] = useState('');
+  const [prioridad, setPrioridad] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const listo = codigo.trim() !== '' && categoria.trim() !== '' && texto.trim() !== '';
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+      <Rotulo texto="Nuevo requisito de seguridad" />
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Código</span>
+          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="entrada-campo" placeholder="REQ-001" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Categoría</span>
+          <input value={categoria} onChange={(e) => setCategoria(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Prioridad · opcional</span>
+          <input value={prioridad} onChange={(e) => setPrioridad(e.target.value)} className="entrada-campo" />
+        </label>
+      </div>
+      <label className="flex flex-col gap-1">
+        <span className="etiqueta-campo">Texto del requisito</span>
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={2}
+          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5"
+        />
+      </label>
+      <button
+        disabled={!listo || enviando}
+        onClick={async () => {
+          setEnviando(true);
+          const r = await crearRequisito({
+            sistemaId,
+            codigo,
+            categoria,
+            texto,
+            prioridad: prioridad || undefined,
+          });
+          setEnviando(false);
+          setAviso({ ok: r.ok, texto: r.mensaje });
+          if (r.ok) {
+            onGuardado();
+            setTimeout(() => window.location.reload(), 900);
+          }
+        }}
+        className="self-start rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+        style={{ background: 'var(--hf-brand-nav)' }}
+      >
+        {enviando ? 'Guardando…' : 'Registrar'}
+      </button>
+    </section>
+  );
+}
+
+function FormularioEditarRequisito({
+  sistemaId,
+  r,
+  setAviso,
+  onCerrar,
+}: {
+  sistemaId: number;
+  r: FichaSistema['requisitos'][number];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onCerrar: () => void;
+}) {
+  const [texto, setTexto] = useState(r.texto);
+  const [prioridad, setPrioridad] = useState(r.prioridad ?? '');
+  const [estado, setEstado] = useState(r.estado);
+  const [motivoBaja, setMotivoBaja] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [dandoBaja, setDandoBaja] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-hairline pt-2">
+      <label className="flex flex-col gap-1">
+        <span className="etiqueta-campo">Texto</span>
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={2}
+          className="rounded-campo border border-border-field bg-surface px-3 py-2 text-12_5"
+        />
+      </label>
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Prioridad</span>
+          <input value={prioridad} onChange={(e) => setPrioridad(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Estado</span>
+          <input value={estado} onChange={(e) => setEstado(e.target.value)} className="entrada-campo" />
+        </label>
+      </div>
+      <div className="flex gap-2">
+        <button
+          disabled={enviando}
+          onClick={async () => {
+            setEnviando(true);
+            const r2 = await editarRequisito(sistemaId, r.codigo, {
+              texto,
+              prioridad: prioridad || undefined,
+              estado,
+            });
+            setEnviando(false);
+            setAviso({ ok: r2.ok, texto: r2.mensaje });
+            if (r2.ok) {
+              onCerrar();
+              setTimeout(() => window.location.reload(), 900);
+            }
+          }}
+          className="rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+          style={{ background: 'var(--hf-brand-nav)' }}
+        >
+          {enviando ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+        <button onClick={onCerrar} className="px-2 py-2 text-12 text-muted">
+          Cancelar
+        </button>
+      </div>
+      <div className="flex flex-col gap-1.5 border-t border-hairline pt-2">
+        {dandoBaja ? (
+          <>
+            <label className="flex flex-col gap-1">
+              <span className="etiqueta-campo">Motivo de la baja</span>
+              <input value={motivoBaja} onChange={(e) => setMotivoBaja(e.target.value)} className="entrada-campo" />
+            </label>
+            <div className="flex gap-2">
+              <button
+                disabled={enviando || motivoBaja.trim().length < 10}
+                onClick={async () => {
+                  setEnviando(true);
+                  const r3 = await darDeBajaRequisito(sistemaId, r.codigo, motivoBaja);
+                  setEnviando(false);
+                  setAviso({ ok: r3.ok, texto: r3.mensaje });
+                  if (r3.ok) {
+                    onCerrar();
+                    setTimeout(() => window.location.reload(), 900);
+                  }
+                }}
+                className="rounded-campo px-3 py-1.5 text-11_5 font-semibold text-white disabled:opacity-50"
+                style={{ background: '#a52016' }}
               >
-                {ETIQUETA_VEREDICTO[p.veredicto]}
-              </span>
-            </span>
-          </div>
-        );
-      })}
+                Confirmar baja
+              </button>
+              <button onClick={() => setDandoBaja(false)} className="px-2 py-1.5 text-11_5 text-muted">
+                Cancelar
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            onClick={() => setDandoBaja(true)}
+            className="self-start text-11_5 text-muted underline"
+          >
+            Dar de baja
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Pruebas({
+  f,
+  severidad,
+  personas,
+  setAviso,
+}: {
+  f: FichaSistema;
+  severidad: Severidad;
+  personas: { id: number; nombre: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
+  const [creando, setCreando] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={() => setCreando((v) => !v)}
+        className="self-start rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary"
+      >
+        {creando ? 'Cerrar' : 'Nueva prueba'}
+      </button>
+      {creando && (
+        <FormularioPrueba
+          sistemaId={f.id}
+          personas={personas}
+          setAviso={setAviso}
+          onGuardado={() => setCreando(false)}
+        />
+      )}
+      {f.pruebas.length === 0 ? (
+        <p className="text-12 text-muted [text-wrap:pretty]">
+          Sin pruebas de seguridad registradas.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {f.pruebas.map((p) => {
+            const c = COLOR_VEREDICTO[p.veredicto];
+            return (
+              <div key={p.codigo} className="flex flex-wrap items-center gap-3 rounded-tarjeta border border-border-field bg-surface px-3.5 py-3">
+                <span className="font-mono text-10 font-semibold text-accent">{p.codigo}</span>
+                <span className="text-12 text-primary">{p.tipo}</span>
+                <span className="font-mono text-9_5 text-muted">{p.fecha}</span>
+                <span className="font-mono text-9_5 text-faint">{p.ejecutor ?? 'sin ejecutor'}</span>
+                <span className="ml-auto flex items-center gap-2">
+                  {/* Los cuatro conteos se capturan; el veredicto se calcula. */}
+                  <span className="font-mono text-10_5 tabular-nums text-secondary">
+                    {p.criticos}c · {p.altos}a · {p.medios}m · {p.bajos}b
+                  </span>
+                  <span
+                    className="rounded-[4px] px-2 py-0.5 font-mono text-8_5 font-semibold uppercase"
+                    style={{ background: c.fondo, color: c.texto }}
+                  >
+                    {ETIQUETA_VEREDICTO[p.veredicto]}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <p className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
         Los cuatro conteos se capturan; <strong className="font-semibold">si bloquea o no se calcula</strong>{' '}
         contra el umbral vigente —hoy «{severidad.toLowerCase()} o peor»— y la excepción abierta si
@@ -713,30 +1145,393 @@ function Pruebas({ f, severidad }: { f: FichaSistema; severidad: Severidad }) {
   );
 }
 
-function ListaSimple({
-  filas,
-  vacio,
+function FormularioPrueba({
+  sistemaId,
+  personas,
+  setAviso,
+  onGuardado,
 }: {
-  filas: { clave: string; titulo: string; meta: string; estado: string }[];
-  vacio: string;
+  sistemaId: number;
+  personas: { id: number; nombre: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onGuardado: () => void;
 }) {
-  if (filas.length === 0) {
-    return <p className="text-12 leading-relaxed text-muted [text-wrap:pretty]">{vacio}</p>;
-  }
+  const [codigo, setCodigo] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [ejecutorId, setEjecutorId] = useState('');
+  const [ejecutorExterno, setEjecutorExterno] = useState('');
+  const [criticos, setCriticos] = useState('0');
+  const [altos, setAltos] = useState('0');
+  const [medios, setMedios] = useState('0');
+  const [bajos, setBajos] = useState('0');
+  const [evidenciaId, setEvidenciaId] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const listo = codigo.trim() !== '' && tipo.trim() !== '' && fecha !== '';
+
   return (
-    <div className="flex flex-col gap-1.5">
-      {filas.map((r) => (
-        <div key={r.clave} className="flex flex-wrap items-center gap-3 rounded-campo border border-border-field bg-surface px-3.5 py-2.5">
-          <span className="min-w-0 flex-1">
-            <span className="block text-12 text-primary">{r.titulo}</span>
-            <span className="block font-mono text-9_5 text-muted">{r.meta}</span>
-          </span>
-          <span className="flex-none rounded-[4px] bg-subtle px-2 py-0.5 font-mono text-8_5 uppercase text-muted">
-            {r.estado}
-          </span>
+    <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+      <Rotulo texto="Nueva prueba de seguridad" />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Código</span>
+          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="entrada-campo" placeholder="PEN-001" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Tipo</span>
+          <input value={tipo} onChange={(e) => setTipo(e.target.value)} className="entrada-campo" placeholder="Pentest externo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Fecha</span>
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Ejecutor interno · opcional</span>
+          <select value={ejecutorId} onChange={(e) => setEjecutorId(e.target.value)} className="entrada-campo">
+            <option value="">Sin elegir</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Ejecutor externo · opcional</span>
+          <input value={ejecutorExterno} onChange={(e) => setEjecutorExterno(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Evidencia · opcional</span>
+          <input value={evidenciaId} onChange={(e) => setEvidenciaId(e.target.value)} className="entrada-campo" inputMode="numeric" placeholder="id de la evidencia" />
+        </label>
+      </div>
+      <div className="grid grid-cols-4 gap-2.5">
+        {[
+          { etiqueta: 'Críticos', valor: criticos, set: setCriticos },
+          { etiqueta: 'Altos', valor: altos, set: setAltos },
+          { etiqueta: 'Medios', valor: medios, set: setMedios },
+          { etiqueta: 'Bajos', valor: bajos, set: setBajos },
+        ].map((c) => (
+          <label key={c.etiqueta} className="flex flex-col gap-1">
+            <span className="etiqueta-campo">{c.etiqueta}</span>
+            <input value={c.valor} onChange={(e) => c.set(e.target.value)} className="entrada-campo" inputMode="numeric" />
+          </label>
+        ))}
+      </div>
+      <span className="text-10_5 leading-relaxed text-muted [text-wrap:pretty]">
+        Los cuatro conteos se capturan acá; si bloquea o no se calcula al leer, contra el
+        umbral vigente y la excepción abierta.
+      </span>
+      <button
+        disabled={!listo || enviando}
+        onClick={async () => {
+          setEnviando(true);
+          const r = await crearPrueba({
+            sistemaId,
+            codigo,
+            tipo,
+            fecha: new Date(`${fecha}T00:00:00.000Z`),
+            ejecutorId: ejecutorId === '' ? undefined : Number(ejecutorId),
+            ejecutorExterno: ejecutorExterno || undefined,
+            criticos: Number(criticos),
+            altos: Number(altos),
+            medios: Number(medios),
+            bajos: Number(bajos),
+            evidenciaId: evidenciaId === '' ? undefined : Number(evidenciaId),
+          });
+          setEnviando(false);
+          setAviso({ ok: r.ok, texto: r.mensaje });
+          if (r.ok) {
+            onGuardado();
+            setTimeout(() => window.location.reload(), 900);
+          }
+        }}
+        className="self-start rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+        style={{ background: 'var(--hf-brand-nav)' }}
+      >
+        {enviando ? 'Guardando…' : 'Registrar'}
+      </button>
+    </section>
+  );
+}
+
+function Componentes({
+  f,
+  setAviso,
+}: {
+  f: FichaSistema;
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
+  const [creando, setCreando] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={() => setCreando((v) => !v)}
+        className="self-start rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary"
+      >
+        {creando ? 'Cerrar' : 'Nuevo componente'}
+      </button>
+      {creando && (
+        <FormularioComponente sistemaId={f.id} setAviso={setAviso} onGuardado={() => setCreando(false)} />
+      )}
+      {f.componentes.length === 0 ? (
+        <p className="text-12 leading-relaxed text-muted [text-wrap:pretty]">
+          Sin componentes de terceros declarados. El SBOM es lo que permite responder qué se
+          rompe cuando sale una vulnerabilidad conocida.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {f.componentes.map((c) => (
+            <div key={c.codigo} className="flex flex-wrap items-center gap-3 rounded-campo border border-border-field bg-surface px-3.5 py-2.5">
+              <span className="font-mono text-9_5 font-semibold text-accent">{c.codigo}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-12 text-primary">
+                  {c.nombre}
+                  {c.version !== null && ` ${c.version}`}
+                </span>
+                <span className="block font-mono text-9_5 text-muted">
+                  {[c.tipo, c.licencia === null ? 'sin licencia declarada' : `licencia ${c.licencia}`, c.vulnerabilidades]
+                    .filter((x) => x !== null && x !== '')
+                    .join(' · ')}
+                </span>
+              </span>
+              <span className="flex-none rounded-[4px] bg-subtle px-2 py-0.5 font-mono text-8_5 uppercase text-muted">
+                {c.estado}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
+  );
+}
+
+function FormularioComponente({
+  sistemaId,
+  setAviso,
+  onGuardado,
+}: {
+  sistemaId: number;
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onGuardado: () => void;
+}) {
+  const [codigo, setCodigo] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [version, setVersion] = useState('');
+  const [licencia, setLicencia] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [vulnerabilidades, setVulnerabilidades] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const listo = codigo.trim() !== '' && nombre.trim() !== '';
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+      <Rotulo texto="Nuevo componente de terceros (SBOM)" />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Código</span>
+          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="entrada-campo" placeholder="CMP-001" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Nombre</span>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="entrada-campo" placeholder="next.js" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Versión</span>
+          <input value={version} onChange={(e) => setVersion(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Licencia</span>
+          <input value={licencia} onChange={(e) => setLicencia(e.target.value)} className="entrada-campo" placeholder="MIT" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Tipo</span>
+          <input value={tipo} onChange={(e) => setTipo(e.target.value)} className="entrada-campo" placeholder="framework" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Vulnerabilidades conocidas</span>
+          <input value={vulnerabilidades} onChange={(e) => setVulnerabilidades(e.target.value)} className="entrada-campo" />
+        </label>
+      </div>
+      <button
+        disabled={!listo || enviando}
+        onClick={async () => {
+          setEnviando(true);
+          const r = await crearComponente({
+            sistemaId,
+            codigo,
+            nombre,
+            version: version || undefined,
+            licencia: licencia || undefined,
+            tipo: tipo || undefined,
+            vulnerabilidadesConocidas: vulnerabilidades || undefined,
+          });
+          setEnviando(false);
+          setAviso({ ok: r.ok, texto: r.mensaje });
+          if (r.ok) {
+            onGuardado();
+            setTimeout(() => window.location.reload(), 900);
+          }
+        }}
+        className="self-start rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+        style={{ background: 'var(--hf-brand-nav)' }}
+      >
+        {enviando ? 'Guardando…' : 'Registrar'}
+      </button>
+    </section>
+  );
+}
+
+function Liberaciones({
+  f,
+  personas,
+  setAviso,
+}: {
+  f: FichaSistema;
+  personas: { id: number; nombre: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+}) {
+  const [creando, setCreando] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={() => setCreando((v) => !v)}
+        className="self-start rounded-campo border border-border-field bg-surface px-3 py-1.5 text-11_5 text-secondary"
+      >
+        {creando ? 'Cerrar' : 'Nueva liberación'}
+      </button>
+      {creando && (
+        <FormularioLiberacion sistemaId={f.id} personas={personas} setAviso={setAviso} onGuardado={() => setCreando(false)} />
+      )}
+      {f.liberaciones.length === 0 ? (
+        <p className="text-12 leading-relaxed text-muted [text-wrap:pretty]">
+          Sin liberaciones registradas. «Liberación» es qué se liberó; dónde corre lo
+          registran los ambientes.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {f.liberaciones.map((l) => (
+            <div key={l.version} className="flex flex-wrap items-center gap-3 rounded-campo border border-border-field bg-surface px-3.5 py-2.5">
+              <span className="min-w-0 flex-1">
+                <span className="block text-12 text-primary">
+                  {l.version} · {l.tipo}
+                </span>
+                <span className="block font-mono text-9_5 text-muted">
+                  {l.fecha}
+                  {l.planReversion ? ' · con plan de reversión' : ' · SIN plan de reversión'}
+                </span>
+              </span>
+              <span className="flex-none rounded-[4px] bg-subtle px-2 py-0.5 font-mono text-8_5 uppercase text-muted">
+                {l.resultado ?? '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FormularioLiberacion({
+  sistemaId,
+  personas,
+  setAviso,
+  onGuardado,
+}: {
+  sistemaId: number;
+  personas: { id: number; nombre: string }[];
+  setAviso: (a: { ok: boolean; texto: string }) => void;
+  onGuardado: () => void;
+}) {
+  const [version, setVersion] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [autorizaId, setAutorizaId] = useState('');
+  const [ejecutaId, setEjecutaId] = useState('');
+  const [planReversion, setPlanReversion] = useState(false);
+  const [resultado, setResultado] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const listo = version.trim() !== '' && fecha !== '' && tipo.trim() !== '';
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-tarjeta border border-border-field bg-surface px-4 py-3.5">
+      <Rotulo texto="Nueva liberación" />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Versión</span>
+          <input value={version} onChange={(e) => setVersion(e.target.value)} className="entrada-campo" placeholder="v1.4.0" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Fecha</span>
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="entrada-campo" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Tipo</span>
+          <input value={tipo} onChange={(e) => setTipo(e.target.value)} className="entrada-campo" placeholder="Menor" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Autoriza · opcional</span>
+          <select value={autorizaId} onChange={(e) => setAutorizaId(e.target.value)} className="entrada-campo">
+            <option value="">Sin elegir</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Ejecuta · opcional</span>
+          <select value={ejecutaId} onChange={(e) => setEjecutaId(e.target.value)} className="entrada-campo">
+            <option value="">Sin elegir</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Resultado · opcional</span>
+          <input value={resultado} onChange={(e) => setResultado(e.target.value)} className="entrada-campo" />
+        </label>
+      </div>
+      <label className="flex cursor-pointer items-center gap-2 text-12_5 text-secondary">
+        <input type="checkbox" checked={planReversion} onChange={(e) => setPlanReversion(e.target.checked)} />
+        Tiene plan de reversión
+      </label>
+      <button
+        disabled={!listo || enviando}
+        onClick={async () => {
+          setEnviando(true);
+          const r = await crearLiberacion({
+            sistemaId,
+            version,
+            fecha: new Date(`${fecha}T00:00:00.000Z`),
+            tipo,
+            autorizaId: autorizaId === '' ? undefined : Number(autorizaId),
+            ejecutaId: ejecutaId === '' ? undefined : Number(ejecutaId),
+            planReversion,
+            resultado: resultado || undefined,
+          });
+          setEnviando(false);
+          setAviso({ ok: r.ok, texto: r.mensaje });
+          if (r.ok) {
+            onGuardado();
+            setTimeout(() => window.location.reload(), 900);
+          }
+        }}
+        className="self-start rounded-campo px-3.5 py-2 text-12 font-semibold text-white disabled:opacity-50"
+        style={{ background: 'var(--hf-brand-nav)' }}
+      >
+        {enviando ? 'Guardando…' : 'Registrar'}
+      </button>
+    </section>
   );
 }
 

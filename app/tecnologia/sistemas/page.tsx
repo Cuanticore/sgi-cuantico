@@ -28,7 +28,7 @@ export default async function SistemasPage({
 }) {
   const { s, t } = await searchParams;
 
-  const [sistemas, personas, productos, activos, parametro] = await Promise.all([
+  const [sistemas, personas, productos, activos, parametro, escalaCriticidad] = await Promise.all([
     prisma.sistema.findMany({
       where: { activo: true },
       include: {
@@ -50,6 +50,9 @@ export default async function SistemasPage({
     prisma.producto.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
     prisma.activo.findMany({ where: { activo: true }, select: { id: true, codigo: true, nombre: true }, orderBy: { codigo: 'asc' } }),
     prisma.parametro.findUnique({ where: { clave: 'desarrollo_severidad_bloquea' } }),
+    // G · la criticidad de Sistema se valida contra la MISMA escala con la que se valora
+    // todo lo demás (comentario en el schema): no es un catálogo propio del módulo.
+    prisma.escalaValor.findMany({ orderBy: { valor: 'desc' }, select: { valor: true, etiqueta: true } }),
   ]);
 
   // G6 · el umbral sale del parámetro. Si alguien lo borró de la tabla se usa ALTOS, que es
@@ -85,6 +88,7 @@ export default async function SistemasPage({
               tipo: elegido.tipo,
               fase: elegido.faseActual,
               criticidad: elegido.criticidad,
+              clasificacionId: elegido.clasificacionId,
               contratado: elegido.contratado,
               trataDatosPersonales: elegido.trataDatosPersonales,
               rolTratamiento: elegido.rolTratamiento,
@@ -117,6 +121,8 @@ export default async function SistemasPage({
                 texto: r.texto,
                 estado: r.estado,
                 prioridad: r.prioridad,
+                origen: r.origen,
+                observacion: r.observacion,
               })),
               pruebas: elegido.pruebas.map((p) => ({
                 codigo: p.codigo,
@@ -133,6 +139,7 @@ export default async function SistemasPage({
                 veredicto: veredictoDePrueba(p, severidadBloquea, elegido.excepciones.length > 0),
               })),
               componentes: elegido.componentes.map((c) => ({
+                codigo: c.codigo,
                 nombre: c.nombre,
                 tipo: c.tipo,
                 version: c.version,
@@ -169,6 +176,7 @@ export default async function SistemasPage({
       personas={personas}
       productos={productos}
       activos={activos.map((a) => ({ id: a.id, etiqueta: `${a.codigo ?? `#${a.id}`} · ${a.nombre}` }))}
+      escalaCriticidad={escalaCriticidad}
     />
   );
 }

@@ -375,6 +375,7 @@ function Formulario({
   setAviso: (a: { ok: boolean; texto: string }) => void;
 }) {
   const [sistemaId, setSistemaId] = useState('');
+  const [codigo, setCodigo] = useState('');
   const [categoria, setCategoria] = useState('');
   const [sensibles, setSensibles] = useState(false);
   const [finalidad, setFinalidad] = useState('');
@@ -407,6 +408,7 @@ function Formulario({
 
   const listo =
     sistemaId !== '' &&
+    codigo.trim() !== '' &&
     categoria.trim() !== '' &&
     finalidad.trim().length >= 10 &&
     base.trim() !== '' &&
@@ -434,6 +436,15 @@ function Formulario({
             onChange={(e) => setCategoria(e.target.value)}
             className="entrada-campo"
             placeholder="Identificación y datos de contacto"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta-campo">Código · clave natural del tratamiento</span>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            className="entrada-campo"
+            placeholder="TDP-001"
           />
         </label>
       </div>
@@ -527,6 +538,7 @@ function Formulario({
           setEnviando(true);
           const r = await registrarTratamiento({
             sistemaId: Number(sistemaId),
+            codigo,
             categoria,
             sensibles,
             finalidad,
