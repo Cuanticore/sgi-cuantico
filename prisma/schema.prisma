@@ -1193,6 +1193,7 @@ model Persona {
   excepcionesCerradas       ExcepcionSeguridad[]           @relation("ExcepcionCierra")
   pruebasEjecutadas         PruebaSeguridad[]              @relation("PruebaEjecutor")
   tratamientosResponsable   TratamientoDatosPersonales[]   @relation("TratamientoResponsable")
+  respuestasItemVerificadas RespuestaItem[]                @relation("RespuestaItemVerificadoPor")
   liberacionesAutoriza      Liberacion[]                   @relation("LiberacionAutoriza")
   liberacionesEjecuta       Liberacion[]                   @relation("LiberacionEjecuta")
   metricasResponsable       Metrica[]                      @relation("MetricaResponsable")
@@ -1778,15 +1779,24 @@ model RegistroRealizado {
   @@map("registro_realizado")
 }
 
+/// D8 · la evidencia de verificación de PTR-TEC-03 baja a nivel de ítem. `evidenciaId`,
+/// `verificadoEn` y `verificadoPorId` son los TRES opcionales a propósito: el mismo motor
+/// sirve a las listas de verificación del módulo A, donde esas columnas no aplican, y
+/// REQ-SIG-08 decidió a propósito no duplicar el motor. La exigencia de que estén llenos
+/// vive en la regla de cierre de la hoja de vida, no acá.
 model RespuestaItem {
-  id         Int            @id @default(autoincrement())
-  registroId Int            @map("registro_id")
-  itemId     Int            @map("item_id")
-  respuesta  ValorRespuesta
-  nota       String?
+  id              Int            @id @default(autoincrement())
+  registroId      Int            @map("registro_id")
+  itemId          Int            @map("item_id")
+  respuesta       ValorRespuesta
+  nota            String?
+  evidenciaId     Int?           @map("evidencia_id")
+  verificadoEn    DateTime?      @map("verificado_en")
+  verificadoPorId Int?           @map("verificado_por_id")
 
-  registro RegistroRealizado @relation(fields: [registroId], references: [id])
-  item     ItemVerificacion  @relation(fields: [itemId], references: [id])
+  registro      RegistroRealizado @relation(fields: [registroId], references: [id])
+  item          ItemVerificacion  @relation(fields: [itemId], references: [id])
+  verificadoPor Persona?          @relation("RespuestaItemVerificadoPor", fields: [verificadoPorId], references: [id])
 
   @@unique([registroId, itemId])
   @@map("respuesta_item")
@@ -4115,6 +4125,9 @@ model PruebaSeguridad {
 model TratamientoDatosPersonales {
   id                         Int     @id @default(autoincrement())
   sistemaId                  Int     @map("sistema_id")
+  /// D6 · clave natural para el `PUT` idempotente de la API de servicio. Igual razón que en
+  /// `ComponenteTercero`: sin ella no hay forma de reintentar la carga sin duplicar la fila.
+  codigo                     String
   categoria                  String
   sensibles                  Boolean @default(false)
   finalidad                  String
@@ -4131,6 +4144,7 @@ model TratamientoDatosPersonales {
   sistema     Sistema  @relation(fields: [sistemaId], references: [id])
   responsable Persona? @relation("TratamientoResponsable", fields: [responsableId], references: [id])
 
+  @@unique([sistemaId, codigo])
   @@map("tratamiento_datos_personales")
 }
 
@@ -4165,6 +4179,10 @@ model Liberacion {
 model ComponenteTercero {
   id                        Int       @id @default(autoincrement())
   sistemaId                 Int       @map("sistema_id")
+  /// D6 · clave natural para el `PUT` idempotente de la API de servicio. No existía hasta
+  /// esta migración: sin ella, reintentar la carga del SBOM dejaba un componente duplicado
+  /// por cada reintento.
+  codigo                    String
   organizacionId            Int?      @map("organizacion_id")
   nombre                    String
   tipo                      String?
@@ -4178,6 +4196,7 @@ model ComponenteTercero {
 
   sistema Sistema @relation(fields: [sistemaId], references: [id])
 
+  @@unique([sistemaId, codigo])
   @@map("componente_tercero")
 }
 

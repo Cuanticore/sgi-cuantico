@@ -311,6 +311,51 @@ export function faltantesDeHojaDeVida(h: HojaDeVida): string[] {
   return faltantes;
 }
 
+/// El rol de `Sistema` en el tratamiento de datos personales — quién decide el fin y los
+/// medios (RESPONSABLE) y quién trata por cuenta de otro (ENCARGADO), Ley 1581.
+export type RolTratamiento = 'RESPONSABLE' | 'ENCARGADO';
+
+export interface DatosActualizacionSistema {
+  criticidad?: number | null;
+  clasificacionId?: number | null;
+  rtoObjetivo?: number | null;
+  rpoObjetivo?: number | null;
+  rolTratamiento?: RolTratamiento | null;
+}
+
+/// Lo que `actualizarSistema` valida antes de guardar. **`clasificacionId` no se valida
+/// acá**: el schema la trae como un `Int?` sin tabla de catálogo detrás todavía (no hay
+/// `model Clasificacion`), así que inventar una lista de valores admitidos sería inventar
+/// un catálogo que nadie decidió. Cuando exista la tabla, se valida contra ella igual que
+/// la criticidad.
+///
+/// `escalaCriticidad` es la escala vigente de `EscalaValor` (0 a 5 hoy), pasada como
+/// parámetro y no como constante: es la misma «contra la escala del SGSI, la misma con la
+/// que se valora todo lo demás» que documenta `Sistema.criticidad` en el schema, y esa
+/// escala es un catálogo, no un número fijo en el código.
+export function validarActualizacionSistema(
+  d: DatosActualizacionSistema,
+  escalaCriticidad: readonly number[],
+): string[] {
+  const errores: string[] = [];
+  if (d.criticidad !== undefined && d.criticidad !== null && !escalaCriticidad.includes(d.criticidad)) {
+    const admitidos = [...escalaCriticidad].sort((a, b) => a - b).join(', ');
+    errores.push(
+      `La criticidad ${d.criticidad} no está en la escala del SGSI (valores admitidos: ${admitidos}).`,
+    );
+  }
+  // G · RTO y RPO son el insumo del BIA anual: un valor negativo lo corrompe en silencio,
+  // porque «recuperar en -10 minutos» no es un dato, es un error de captura disfrazado de
+  // número.
+  if (d.rtoObjetivo !== undefined && d.rtoObjetivo !== null && d.rtoObjetivo < 0) {
+    errores.push('El RTO objetivo no puede ser negativo: es el insumo del BIA anual y un valor negativo lo corrompe en silencio.');
+  }
+  if (d.rpoObjetivo !== undefined && d.rpoObjetivo !== null && d.rpoObjetivo < 0) {
+    errores.push('El RPO objetivo no puede ser negativo: es el insumo del BIA anual y un valor negativo lo corrompe en silencio.');
+  }
+  return errores;
+}
+
 export const ETIQUETA_PUERTA: Record<Puerta, string> = {
   P1: 'P1 · Requisitos',
   P2: 'P2 · Diseño',
