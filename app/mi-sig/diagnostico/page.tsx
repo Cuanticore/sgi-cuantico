@@ -61,6 +61,7 @@ const QUE_ABRE: Record<Permiso, string> = {
   'evidencia:escribir': 'Aportar evidencias y anexos',
   'personas:administrar': 'Administrar personas y sincronizar el Directorio',
   'personas:bloquear': 'Deshabilitar una cuenta del Directorio y revocarle las sesiones',
+  'tokenServicio:administrar': 'Emitir, listar y revocar tokens de servicio para /api/v1',
 };
 
 const ORDEN = Object.keys(QUE_ABRE) as Permiso[];

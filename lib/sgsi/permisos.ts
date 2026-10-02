@@ -92,7 +92,51 @@ export type Permiso =
   /// Y deja legible en el código que **bloquear una cuenta no es lo mismo que editar un
   /// teléfono**, aunque hoy los autorice la misma gente. Es la acción más destructiva que la
   /// aplicación tiene: deja a una persona sin poder trabajar.
-  | 'personas:bloquear';
+  | 'personas:bloquear'
+  /// Fase 2 de `hoja-de-vida-api-servicio` · administrar identidades de máquina: emitir,
+  /// listar y revocar un `TokenServicio`.
+  ///
+  /// **Declarado aparte, por la misma razón que `personas:bloquear`.** Hoy lo tiene el mismo
+  /// grupo que todo lo demás, pero emitir un token no es lo mismo que escribir en tecnología:
+  /// un token lleva su propio alcance, independiente de este permiso, que sólo decide quién
+  /// puede abrir la PANTALLA de administración — no qué puede hacer el token una vez emitido.
+  | 'tokenServicio:administrar';
+
+/// **Todos los valores de `Permiso`, en un arreglo.** El tipo no se puede recorrer en tiempo de
+/// ejecución —es sólo de TypeScript—, y la pantalla de emisión de `TokenServicio` (Fase 2 de
+/// `hoja-de-vida-api-servicio`) necesita listarlos para que quien emite un token elija su
+/// alcance. Se declara una sola vez acá para que esa lista no se reescriba a mano en la
+/// pantalla y quede desincronizada el día que el vocabulario gane un valor más.
+export const TODOS_LOS_PERMISOS: readonly Permiso[] = [
+  'misig:ver',
+  'operacion:ver',
+  'operacion:escribir',
+  'operacion:administrar',
+  'mejora:reportar',
+  'mejora:ver',
+  'mejora:escribir',
+  'mejora:cerrar',
+  'estrategico:ver',
+  'estrategico:escribir',
+  'estrategico:parametrizar',
+  'auditoria:ver',
+  'auditoria:ejecutar',
+  'auditoria:administrar',
+  'sgsi:ver',
+  'sgsi:escribir',
+  'tecnologia:ver',
+  'tecnologia:escribir',
+  'tecnologia:administrar',
+  'activo:valorar',
+  'riesgo:tratar',
+  'parametrizacion:escribir',
+  'bitacora:ver',
+  'evidencia:ver',
+  'evidencia:escribir',
+  'personas:administrar',
+  'personas:bloquear',
+  'tokenServicio:administrar',
+];
 
 const POR_GRUPO: Record<Grupo, Permiso[]> = {
   [GRUPOS.seguridad]: [
@@ -128,6 +172,7 @@ const POR_GRUPO: Record<Grupo, Permiso[]> = {
     // problema», confirmado por el líder del SIG el 08/09/2026. No se crea ningún grupo
     // nuevo en el Directorio ni se pide separación de funciones adicional.
     'personas:bloquear',
+    'tokenServicio:administrar',
   ],
 };
 

@@ -14,7 +14,21 @@ import {
   puede,
   rolDeLaPersona,
   rolDesdeGrupos,
+  TODOS_LOS_PERMISOS,
 } from '../permisos';
+
+// Fase 2 de hoja-de-vida-api-servicio: la pantalla de emisión de TokenServicio lista este
+// arreglo para armar el alcance. Lo único que una prueba sin tipos puede comprobar es que no
+// haya un valor repetido — una copia pegada dos veces es el error de transcripción real.
+describe('TODOS_LOS_PERMISOS', () => {
+  it('no tiene valores repetidos', () => {
+    expect(new Set(TODOS_LOS_PERMISOS).size).toBe(TODOS_LOS_PERMISOS.length);
+  });
+
+  it('incluye el permiso de administrar tokens de servicio', () => {
+    expect(TODOS_LOS_PERMISOS).toContain('tokenServicio:administrar');
+  });
+});
 
 
 // Dos casos de acceso y nada más: Mi SIG para toda la organización, el resto para
@@ -48,6 +62,11 @@ describe('sólo hay dos casos de acceso', () => {
       'parametrizacion:escribir',
       'bitacora:ver',
       'personas:administrar',
+      // Fase 2 de hoja-de-vida-api-servicio: administrar identidades de máquina (emitir,
+      // listar, revocar un TokenServicio) es restringido al mismo grupo, igual que
+      // `personas:bloquear` — declarado aparte aunque hoy lo tenga la misma gente, porque
+      // emitir un token no es lo mismo que escribir en tecnología.
+      'tokenServicio:administrar',
     ] as const) {
       expect(puede(rol, permiso)).toBe(true);
     }
