@@ -4502,3 +4502,43 @@ model SoporteActaResidual {
   @@index([actaId])
   @@map("soporte_acta_residual")
 }
+
+/// **Fase 2 de `hoja-de-vida-api-servicio` · D3 · `TokenServicio` es `EnlaceFirma` con
+/// alcance.** Identidad de máquina para que un agente escriba en la hoja de vida sin
+/// suplantar a una persona. No se diseña de cero: copia lo que `EnlaceFirma` (arriba, en este
+/// mismo archivo) ya resolvió bien para el secreto portador.
+model TokenServicio {
+  id     Int    @id @default(autoincrement())
+  /// Legible, no único: reemplazar un token conserva el nombre con el que se lo conoce.
+  nombre String
+  /// SHA-256 del secreto. El secreto en claro no se guarda nunca — ni acá, ni en ninguna
+  /// columna, ni en la bitácora.
+  tokenHash String @unique @map("token_hash")
+  /// `PREFIJO_LITERAL` más ocho caracteres de la parte aleatoria. Identifica al token en una
+  /// pantalla o en un registro de servidor sin permitir reconstruir el secreto.
+  prefijo   String
+  /// El vocabulario de `lib/sgsi/permisos.ts#Permiso`, no un segundo sistema de autorización.
+  /// Se declara `String[]` y no un enum de Postgres porque `Permiso` es un tipo de TypeScript,
+  /// no un tipo de Prisma: el vocabulario vive en un solo lugar.
+  alcance String[]
+  /// **D4 · obligatorio, nunca nulo.** Un token sin vencimiento es un acceso permanente que
+  /// nadie va a revisar nunca, la misma razón por la que `ExcepcionSeguridad.fechaCierre`
+  /// tampoco es opcional.
+  expiraEn DateTime @map("expira_en")
+  creadoEn DateTime @default(now()) @map("creado_en")
+  /// El correo de la persona que lo emitió. Emitir un token es una acción de gestión, y tiene
+  /// autor igual que cualquier otra.
+  creadoPor String @map("creado_por")
+  /// Cuándo se validó por última vez. Permite encontrar lo que duerme sin tener que adivinar.
+  ultimoUsoEn DateTime? @map("ultimo_uso_en")
+  /// Reservados para el límite de tasa de la Fase 7 (`HARNESS.md` ya narra el incidente que lo
+  /// motiva). `validar()` los respeta si están puestos — un token bloqueado falla igual que uno
+  /// inexistente — pero nada en la Fase 2 los incrementa todavía.
+  intentosFallidos Int       @default(0) @map("intentos_fallidos")
+  bloqueadoEn      DateTime? @map("bloqueado_en")
+  revocadoEn       DateTime? @map("revocado_en")
+  motivoRevocacion String?   @map("motivo_revocacion")
+
+  @@index([expiraEn])
+  @@map("token_servicio")
+}

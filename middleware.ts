@@ -36,6 +36,25 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
 // `/firmar`.** Va bajo `/sig`, que sí está acá abajo. Agregar `/firmar/:path*` a esta lista
 // tampoco es la salida: rompería la única ruta pública del requerimiento, que es precisamente la
 // que tiene que funcionar sin sesión.
+//
+// **Fase 2 de `hoja-de-vida-api-servicio` · D5 · `/api/v1` TAMPOCO está acá, y por el mismo
+// tipo de razón que `/firmar`, aunque al revés: no es pública, es que su autorización NO es
+// `withAuth`.**
+//
+// `/api/v1` sirve a agentes automatizados con un `TokenServicio` —32 bytes de `node:crypto`,
+// con alcance, caducidad y revocación (ver `lib/api/token-servicio.ts`)—, nunca a una sesión de
+// Azure AD. Agregarla acá tiene un único efecto: `withAuth` comprueba que exista una sesión y,
+// si no la hay, RESPONDE CON UNA REDIRECCIÓN 302 a la pantalla de ingreso. Un cliente máquina
+// que manda `Authorization: Bearer sgi_live_...` no sabe qué hacer con un 302 hacia HTML —no es
+// un error que pueda interpretar, ni siquiera es JSON—, así que meter `/api/v1` en este matcher
+// no protegería la ruta: la dejaría respondiendo mal a quien sí trae credencial válida.
+//
+// La autorización de `/api/v1` es `lib/api/con-token.ts#conToken`, que cada `route.ts` aplica
+// explícitamente y que responde 401/403 con cuerpo JSON — nunca una redirección. Que esto no
+// dependa de la memoria de quien agregue la próxima ruta es, precisamente, lo que sostiene
+// `app/api/v1/__tests__/toda-ruta-usa-con-token.test.ts`: recorre el árbol completo y falla si
+// algún manejador exportado no está envuelto en `conToken`. La red es esa prueba, no este
+// comentario.
 export const config = {
   matcher: [
     '/',
@@ -51,5 +70,11 @@ export const config = {
     // `tecnologia:ver`— pero apoyarse sólo en ella deja el módulo desalineado con el resto
     // y a merced de que la próxima ruta se olvide de su gate.
     '/tecnologia/:path*',
+    // Fase 2 de `hoja-de-vida-api-servicio` · 2.9 · la pantalla de administración de
+    // `TokenServicio`. No cuelga de `/tecnologia` ni de `/sig` — ver el comentario de
+    // `app/tokens/layout.tsx` para el porqué — así que necesita su propia entrada acá, por la
+    // misma razón que `/tecnologia` la necesitó: sin ella, una cuenta sin sesión llegaría
+    // hasta el layout en vez de frenar en el borde.
+    '/tokens/:path*',
   ],
 };
