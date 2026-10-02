@@ -6,6 +6,26 @@ encadenados con `&&` antes de cada PR: `npm run verificar && npm run verificar:b
 Las Fases 1 y 2 son independientes y se pueden trabajar en paralelo. De la Fase 3 en adelante la
 cadena es estricta.
 
+## Estado al 2026-10-02
+
+| Fase | Estado | Dónde |
+|---|---|---|
+| 0 · Decisiones | **abierta** — ninguna resuelta | #27, #28, #29, #30, #31 |
+| 1 · Diligenciamiento por pantalla | **implementada** (1.14 abierta, ver abajo) | PR #40 · #32 |
+| 2 · Identidad de máquina | **implementada** | PR #40 · #33 |
+| 3 · API de lectura | sin empezar | #34 |
+| 4 · API de escritura | **bloqueada por #30** | #35 |
+| 5 · Evidencias por API | sin empezar | #36 |
+| 6 · Generar el FOR-TEC-04 | **bloqueada por #31** | #37 |
+| 7 · Endurecimiento | sin empezar — 7.1 bloquea el despliegue de la Fase 4 | #38 |
+
+Medición de las fases 1 y 2, con los tres controles en verde: la batería pasó de **174 suites /
+2971 pruebas** a **182 / 3060**. Todo el código nuevo se escribió con prueba primero, en rojo.
+
+Hallazgo que salió de este trabajo y que es anterior a él: **#39**, deriva entre `schema.prisma` y
+el historial de migraciones en `accion_plan` y `plantilla_nivel`. Se ve verde en todos los
+controles, porque ninguno compara las dos cosas.
+
 ## Fase 0 · Decisiones que bloquean
 
 - [ ] 0.1 Llevar al Comité del SGI la hoja «Riesgos» (D15): probabilidad × impacto 1-5 no es MAGERIT, y `Riesgo` está claveado por `[activoId, amenazaId]` sin relación a `Sistema`. Las salidas posibles son entidad propia, mapeo a MAGERIT, o retirar la hoja del formato — **dueño: Comité**
@@ -16,32 +36,33 @@ cadena es estricta.
 
 ## Fase 1 · Cerrar el diligenciamiento por pantalla
 
-- [ ] 1.1 `desarrollo.test.ts`: `actualizarSistema` acepta criticidad, `clasificacionId`, `rtoObjetivo`, `rpoObjetivo` y `rolTratamiento`; criticidad fuera de la escala del SGSI falla nombrando el valor; RTO/RPO negativos fallan
-- [ ] 1.2 `app/sig/acciones/desarrollo.ts`: `actualizarSistema`; `faltantesDeHojaDeVida` deja de reportar faltantes que ninguna pantalla podía cerrar
-- [ ] 1.3 `app/tecnologia/sistemas/Sistemas.client.tsx`: formulario de edición con los cinco campos
-- [ ] 1.4 `desarrollo.test.ts`: `registrarPuerta` persiste `evidenciaId`; una evidencia de otro sistema es rechazada
-- [ ] 1.5 `registrarPuerta`: `evidenciaId` deja de ser columna muerta — el campo existe en el schema desde la migración de septiembre y ningún código lo escribía
-- [ ] 1.6 `desarrollo.test.ts` + acción + pantalla: `RequisitoSeguridad` (alta, edición, baja lógica); `codigo` único por sistema
-- [ ] 1.7 `desarrollo.test.ts` + acción + pantalla: `PruebaSeguridad`; los cuatro conteos por severidad se capturan y **el veredicto de si bloquea se calcula** contra los criterios de aceptación y la excepción vigente, si la hay
-- [ ] 1.8 `desarrollo.test.ts` + acción + pantalla: `Liberacion` — no confundir con `Despliegue`, que es dónde corre y ya tiene su propia acción
-- [ ] 1.9 `desarrollo.test.ts` + acción + pantalla: `ComponenteTercero` (SBOM) con licencia, versión y vulnerabilidades conocidas
-- [ ] 1.10 Migración: `codigo` + `@@unique([sistemaId, codigo])` en `ComponenteTercero` y `TratamientoDatosPersonales` — hoy no tienen clave natural y sin ella no hay `PUT` idempotente (D6)
-- [ ] 1.11 Migración: `RespuestaItem` gana `evidenciaId`, `verificadoEn`, `verificadoPorId`, los tres opcionales (D8)
-- [ ] 1.12 `app/tecnologia/verificacion`: la pantalla pasa de sólo lectura a permitir responder un ítem con su evidencia, fecha y verificador
-- [ ] 1.13 Prueba de punta a punta narrada en el PR: crear un sistema y diligenciar su hoja de vida completa sin tocar la base de datos. Hoy esto no se puede hacer
+- [x] 1.1 `desarrollo.test.ts`: `actualizarSistema` acepta criticidad, `clasificacionId`, `rtoObjetivo`, `rpoObjetivo` y `rolTratamiento`; criticidad fuera de la escala del SGSI falla nombrando el valor; RTO/RPO negativos fallan
+- [x] 1.2 `app/sig/acciones/desarrollo.ts`: `actualizarSistema`; `faltantesDeHojaDeVida` deja de reportar faltantes que ninguna pantalla podía cerrar
+- [x] 1.3 `app/tecnologia/sistemas/Sistemas.client.tsx`: formulario de edición con los cinco campos
+- [x] 1.4 `desarrollo.test.ts`: `registrarPuerta` persiste `evidenciaId`; una evidencia de otro sistema es rechazada
+- [x] 1.5 `registrarPuerta`: `evidenciaId` deja de ser columna muerta — el campo existe en el schema desde la migración de septiembre y ningún código lo escribía
+- [x] 1.6 `desarrollo.test.ts` + acción + pantalla: `RequisitoSeguridad` (alta, edición, baja lógica); `codigo` único por sistema
+- [x] 1.7 `desarrollo.test.ts` + acción + pantalla: `PruebaSeguridad`; los cuatro conteos por severidad se capturan y **el veredicto de si bloquea se calcula** contra los criterios de aceptación y la excepción vigente, si la hay
+- [x] 1.8 `desarrollo.test.ts` + acción + pantalla: `Liberacion` — no confundir con `Despliegue`, que es dónde corre y ya tiene su propia acción
+- [x] 1.9 `desarrollo.test.ts` + acción + pantalla: `ComponenteTercero` (SBOM) con licencia, versión y vulnerabilidades conocidas
+- [x] 1.10 Migración: `codigo` + `@@unique([sistemaId, codigo])` en `ComponenteTercero` y `TratamientoDatosPersonales` — hoy no tienen clave natural y sin ella no hay `PUT` idempotente (D6)
+- [x] 1.11 Migración: `RespuestaItem` gana `evidenciaId`, `verificadoEn`, `verificadoPorId`, los tres opcionales (D8)
+- [x] 1.12 `app/tecnologia/verificacion`: la pantalla pasa de sólo lectura a permitir responder un ítem con su evidencia, fecha y verificador
+- [x] 1.13 Prueba de punta a punta narrada en el PR: crear un sistema y diligenciar su hoja de vida completa sin tocar la base de datos. Hoy esto no se puede hacer
+- [ ] 1.14 **Vacío detectado durante la implementación.** El escenario *«Cerrar la hoja de vida sí exige evidencia en los ítems»* del spec `verification-item-evidence` no tenía tarea en esta lista: `cerrarHojaDeVida` debe rechazar el cierre nombrando los ítems que quedaron en cumple sin evidencia citada. La columna es opcional a propósito (D8) porque el motor se comparte con el módulo A; **la exigencia vive en la regla de cierre, y esa regla no se escribió**
 
 ## Fase 2 · Identidad de máquina
 
-- [ ] 2.1 `token-servicio.test.ts`: el secreto generado tiene prefijo `sgi_live_`, 32 bytes de entropía en base64url, y **dos emisiones nunca coinciden**
-- [ ] 2.2 `prisma/schema.prisma` + migración: `TokenServicio` con `tokenHash` (SHA-256, `@unique`), `prefijo`, `alcance`, `expiraEn` **no nulo**, `revocadoEn`, `motivoRevocacion`, `intentosFallidos`, `bloqueadoEn`, `ultimoUsoEn`
-- [ ] 2.3 `token-servicio.test.ts`: la validación **busca por hash** y no compara secretos; un token inexistente, uno expirado, uno revocado y uno bloqueado devuelven **la misma respuesta**
-- [ ] 2.4 `lib/api/token-servicio.ts`: `emitir`, `validar`, `revocar`, `registrarUso`. El secreto se devuelve **sólo** en `emitir` y nunca se persiste
-- [ ] 2.5 `con-token.test.ts`: sin cabecera `Authorization` → 401; token válido sin el permiso pedido → 403; token válido con permiso → el manejador corre y recibe el autor
-- [ ] 2.6 `lib/api/con-token.ts`: la envoltura resuelve el token, arma el `Autor` de clase `servicio` y aplica `puede(alcance, permiso)`
-- [ ] 2.7 **`app/api/v1/__tests__/toda-ruta-usa-con-token.test.ts`**: recorre el árbol de `app/api/v1/` y falla si algún manejador exportado de algún `route.ts` no está envuelto en `conToken`. Es la red que sostiene D5, porque el matcher de `middleware.ts` deja pública toda ruta que no figure
-- [ ] 2.8 `middleware.ts`: comentario que explica por qué `/api/v1` queda **fuera** del matcher a propósito — `withAuth` redirige a la pantalla de ingreso, que para un cliente máquina es un 302 hacia HTML en lugar de un 401 con cuerpo
-- [ ] 2.9 Pantalla de administración de tokens bajo permiso de Líderes SIG: crear, listar con prefijo y último uso, revocar con motivo. El secreto se muestra **una sola vez**
-- [ ] 2.10 `bitacora.test.ts`: una escritura con autor de clase servicio registra `usuario = "api:<nombre>"` y **el token no aparece en ningún campo**
+- [x] 2.1 `token-servicio.test.ts`: el secreto generado tiene prefijo `sgi_live_`, 32 bytes de entropía en base64url, y **dos emisiones nunca coinciden**
+- [x] 2.2 `prisma/schema.prisma` + migración: `TokenServicio` con `tokenHash` (SHA-256, `@unique`), `prefijo`, `alcance`, `expiraEn` **no nulo**, `revocadoEn`, `motivoRevocacion`, `intentosFallidos`, `bloqueadoEn`, `ultimoUsoEn`
+- [x] 2.3 `token-servicio.test.ts`: la validación **busca por hash** y no compara secretos; un token inexistente, uno expirado, uno revocado y uno bloqueado devuelven **la misma respuesta**
+- [x] 2.4 `lib/api/token-servicio.ts`: `emitir`, `validar`, `revocar`, `registrarUso`. El secreto se devuelve **sólo** en `emitir` y nunca se persiste
+- [x] 2.5 `con-token.test.ts`: sin cabecera `Authorization` → 401; token válido sin el permiso pedido → 403; token válido con permiso → el manejador corre y recibe el autor
+- [x] 2.6 `lib/api/con-token.ts`: la envoltura resuelve el token, arma el `Autor` de clase `servicio` y aplica `puede(alcance, permiso)`
+- [x] 2.7 **`app/api/v1/__tests__/toda-ruta-usa-con-token.test.ts`**: recorre el árbol de `app/api/v1/` y falla si algún manejador exportado de algún `route.ts` no está envuelto en `conToken`. Es la red que sostiene D5, porque el matcher de `middleware.ts` deja pública toda ruta que no figure
+- [x] 2.8 `middleware.ts`: comentario que explica por qué `/api/v1` queda **fuera** del matcher a propósito — `withAuth` redirige a la pantalla de ingreso, que para un cliente máquina es un 302 hacia HTML en lugar de un 401 con cuerpo
+- [x] 2.9 Pantalla de administración de tokens bajo permiso de Líderes SIG: crear, listar con prefijo y último uso, revocar con motivo. El secreto se muestra **una sola vez**
+- [x] 2.10 `bitacora.test.ts`: una escritura con autor de clase servicio registra `usuario = "api:<nombre>"` y **el token no aparece en ningún campo**
 
 ## Fase 3 · Lectura por API
 
