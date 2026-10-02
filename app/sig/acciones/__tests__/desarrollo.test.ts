@@ -40,6 +40,8 @@ const componenteFindUnique = jest.fn();
 const componenteCreate = jest.fn();
 const tratamientoFindUnique = jest.fn();
 const tratamientoCreate = jest.fn();
+const respuestaItemFindUnique = jest.fn();
+const respuestaItemUpdate = jest.fn();
 
 const tx = {
   sistema: { update: (...a: unknown[]) => sistemaUpdate(...a) },
@@ -52,6 +54,7 @@ const tx = {
   liberacion: { create: (...a: unknown[]) => liberacionCreate(...a) },
   componenteTercero: { create: (...a: unknown[]) => componenteCreate(...a) },
   tratamientoDatosPersonales: { create: (...a: unknown[]) => tratamientoCreate(...a) },
+  respuestaItem: { update: (...a: unknown[]) => respuestaItemUpdate(...a) },
   bitacora: { create: jest.fn(), createMany: jest.fn() },
 };
 
@@ -89,6 +92,10 @@ jest.mock('@/lib/db', () => ({
       findUnique: (...a: unknown[]) => tratamientoFindUnique(...a),
       create: (...a: unknown[]) => tratamientoCreate(...a),
     },
+    respuestaItem: {
+      findUnique: (...a: unknown[]) => respuestaItemFindUnique(...a),
+      update: (...a: unknown[]) => respuestaItemUpdate(...a),
+    },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
   },
 }));
@@ -111,6 +118,7 @@ import {
   editarRequisito,
   registrarPuerta,
   registrarTratamiento,
+  verificarItemHojaDeVida,
 } from '../desarrollo';
 
 const ESCALA = [0, 1, 2, 3, 4, 5].map((valor) => ({ valor }));
@@ -141,6 +149,8 @@ beforeEach(() => {
   componenteCreate.mockResolvedValue({ id: 1 });
   tratamientoFindUnique.mockResolvedValue(null);
   tratamientoCreate.mockResolvedValue({ id: 1 });
+  respuestaItemFindUnique.mockResolvedValue({ id: 30, respuesta: 'CUMPLE', verificadoEn: null });
+  respuestaItemUpdate.mockResolvedValue({ id: 30 });
 });
 
 describe('actualizarSistema', () => {
@@ -484,5 +494,39 @@ describe('registrarTratamiento — ahora exige código (D6, clave natural)', () 
     const r = await registrarTratamiento({ ...datos, codigo: '' });
     expect(r.ok).toBe(false);
     expect(tratamientoCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('verificarItemHojaDeVida — D8, la evidencia de verificación baja a nivel de ítem', () => {
+  it('cita evidencia y verificador sobre una respuesta ya existente', async () => {
+    const r = await verificarItemHojaDeVida(30, { evidenciaId: 50, verificadoPorId: 9 });
+
+    expect(r.ok).toBe(true);
+    expect(respuestaItemUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 30 },
+        data: expect.objectContaining({ evidenciaId: 50, verificadoPorId: 9 }),
+      }),
+    );
+  });
+
+  it('rechaza una respuesta que no existe', async () => {
+    respuestaItemFindUnique.mockResolvedValue(null);
+    const r = await verificarItemHojaDeVida(999, { evidenciaId: 50 });
+    expect(r.ok).toBe(false);
+    expect(respuestaItemUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una evidencia que no existe', async () => {
+    evidenciaFindUnique.mockResolvedValue(null);
+    const r = await verificarItemHojaDeVida(30, { evidenciaId: 999 });
+    expect(r.ok).toBe(false);
+    expect(respuestaItemUpdate).not.toHaveBeenCalled();
+  });
+
+  it('funciona sólo con verificador, sin evidencia', async () => {
+    const r = await verificarItemHojaDeVida(30, { verificadoPorId: 9 });
+    expect(r.ok).toBe(true);
+    expect(evidenciaFindUnique).not.toHaveBeenCalled();
   });
 });

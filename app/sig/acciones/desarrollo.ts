@@ -956,3 +956,60 @@ export async function crearComponente(datos: {
     return { ok: true, mensaje: `Componente ${codigo} registrado.` };
   });
 }
+
+// ─── Evidencia de verificación por ítem (D8) ────────────────────────────────────────────
+//
+// `PTR-TEC-03` §3: el Oficial de Seguridad verifica SOBRE LA EVIDENCIA, no sobre la
+// afirmación de quien diligenció. `RespuestaItem` ya trae su respuesta (CUMPLE/NO_CUMPLE/
+// NO_APLICA) desde el cierre de la tarea del módulo A — esta acción NO la toca, sólo
+// agrega el soporte: evidencia, fecha de verificación y quién verificó. Construir un
+// segundo camino para responder el ítem sería el segundo motor que REQ-SIG-08 decidió no
+// duplicar.
+
+/// Cita evidencia y/o deja constancia de quién verificó un ítem ya respondido. Los dos
+/// parámetros son opcionales — igual que las columnas del modelo — porque un verificador
+/// puede dejar sólo su nombre hoy y la evidencia después.
+export async function verificarItemHojaDeVida(
+  respuestaId: number,
+  datos: { evidenciaId?: number; verificadoPorId?: number },
+): Promise<Resultado> {
+  return ejecutar<Resultado>(async () => {
+    const autor = await autorConPermiso('tecnologia:escribir');
+    exigirId(respuestaId, 'la respuesta del ítem');
+    const evidenciaId = idOpcional(datos.evidenciaId, 'la evidencia');
+    const verificadoPorId = idOpcional(datos.verificadoPorId, 'quien verifica');
+
+    const respuesta = await prisma.respuestaItem.findUnique({ where: { id: respuestaId } });
+    if (!respuesta) return { ok: false, mensaje: 'La respuesta del ítem no existe.' };
+
+    if (evidenciaId !== undefined) {
+      const evidencia = await prisma.evidencia.findUnique({ where: { id: evidenciaId } });
+      if (!evidencia) return { ok: false, mensaje: 'La evidencia citada no existe.' };
+    }
+
+    const ahora = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.respuestaItem.update({
+        where: { id: respuestaId },
+        data: {
+          evidenciaId: evidenciaId ?? null,
+          verificadoPorId: verificadoPorId ?? null,
+          verificadoEn: ahora,
+        },
+      });
+      await registrar(tx, autor, [
+        {
+          tabla: 'respuesta_item',
+          registroId: String(respuestaId),
+          campo: 'verificación',
+          anterior: respuesta.verificadoEn,
+          nuevo: ahora.toISOString(),
+          motivo: 'verificación del ítem sobre su evidencia (PTR-TEC-03 §3)',
+        },
+      ]);
+    });
+
+    revalidatePath('/tecnologia/verificacion');
+    return { ok: true, mensaje: 'Ítem verificado.' };
+  });
+}

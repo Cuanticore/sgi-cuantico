@@ -6,12 +6,19 @@
 // casilla que más se usa para esquivar un control, y la pantalla cuenta aparte las que
 // están sin justificar.
 //
-// Esta pantalla es de LECTURA. Responder los ítems se hace donde se responde cualquier lista
-// de verificación del módulo A —en la tarea, desde Mi SIG— y duplicar el editor acá sería
-// el segundo motor que todo este módulo existe para no construir.
+// **Responder** (CUMPLE/NO_CUMPLE/NO_APLICA) se sigue haciendo donde se responde cualquier
+// lista de verificación del módulo A —en la tarea, desde Mi SIG— y duplicar ese editor acá
+// sería el segundo motor que todo este módulo existe para no construir.
+//
+// Lo que esta pantalla SÍ permite ahora (D8): **verificar** un ítem ya respondido, citando
+// su evidencia y dejando constancia de quién lo verificó. PTR-TEC-03 §3 pide eso — que el
+// Oficial de Seguridad trabaje sobre la evidencia, no sobre la afirmación de quien
+// diligenció — y es un acto distinto de responder.
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { verificarItemHojaDeVida } from '@/app/sig/acciones/desarrollo';
 import {
   ETIQUETA_PUERTA,
   ETIQUETA_RESPUESTA,
@@ -29,6 +36,10 @@ const COLOR: Record<ValorRespuesta | 'PENDIENTE', { punto: string; texto: string
 
 export interface ItemFila {
   id: number;
+  /// El `id` de la `RespuestaItem` que ya existe, o `null` cuando nadie respondió todavía.
+  /// Es lo que `verificarItemHojaDeVida` necesita para citar evidencia y verificador sobre
+  /// esta fila — sin respuesta no hay qué verificar.
+  respuestaId: number | null;
   orden: number;
   texto: string;
   puerta: string | null;
@@ -37,6 +48,9 @@ export interface ItemFila {
   aplicaA: string;
   respuesta: ValorRespuesta | null;
   nota: string | null;
+  evidenciaId: number | null;
+  verificadoEn: string | null;
+  verificadoPor: string | null;
 }
 
 const MAPEO = [
@@ -56,6 +70,7 @@ export default function VerificacionClient({
   conteoPorPuerta,
   totalCatalogo,
   hayCatalogo,
+  personas,
 }: {
   sistemas: { codigo: string; nombre: string; contratado: boolean }[];
   sistemaCodigo: string | null;
@@ -66,6 +81,7 @@ export default function VerificacionClient({
   conteoPorPuerta: Record<string, number>;
   totalCatalogo: number;
   hayCatalogo: boolean;
+  personas: { id: number; nombre: string }[];
 }) {
   const router = useRouter();
   const irA = (codigo: string, p: string) =>
@@ -180,9 +196,10 @@ export default function VerificacionClient({
                   return (
                     <div
                       key={i.id}
-                      className="mb-1 flex items-start gap-3 rounded-campo px-3 py-2.5"
+                      className="mb-1 flex flex-col gap-2 rounded-campo px-3 py-2.5"
                       style={{ background: c.fondo, border: `1px solid ${c.borde}` }}
                     >
+                      <div className="flex items-start gap-3">
                       <span className="w-[22px] flex-none pt-0.5 text-right font-mono text-9_5 text-faint">
                         {i.orden}
                       </span>
@@ -231,6 +248,10 @@ export default function VerificacionClient({
                           )}
                         </span>
                       </span>
+                      </div>
+                      {i.respuestaId !== null && (
+                        <VerificacionItem item={i} personas={personas} />
+                      )}
                     </div>
                   );
                 })}
@@ -320,6 +341,99 @@ export default function VerificacionClient({
         </>
       )}
     </main>
+  );
+}
+
+/// D8 · el bloque de verificación de UN ítem ya respondido: evidencia, fecha y verificador.
+/// No es responder el ítem — eso sigue siendo del módulo A—, es dejar constancia de que
+/// alguien lo verificó SOBRE SU EVIDENCIA, que es lo que PTR-TEC-03 §3 exige y que hasta
+/// ahora sólo existía a nivel de lote completo (`EjecucionVerificacion`), nunca por ítem.
+function VerificacionItem({
+  item,
+  personas,
+}: {
+  item: ItemFila;
+  personas: { id: number; nombre: string }[];
+}) {
+  const [editando, setEditando] = useState(false);
+  const [evidenciaId, setEvidenciaId] = useState(item.evidenciaId === null ? '' : String(item.evidenciaId));
+  const [verificadoPorId, setVerificadoPorId] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  const yaVerificado = item.verificadoEn !== null;
+
+  return (
+    <div className="flex flex-col gap-1.5 border-t pt-1.5" style={{ borderColor: 'var(--hf-border-field)' }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-8_5 font-semibold uppercase tracking-[0.05em] text-muted">
+          Verificación del ítem
+        </span>
+        {yaVerificado ? (
+          <span className="font-mono text-8_5" style={{ color: '#0b5c44' }}>
+            verificado {item.verificadoEn} · {item.verificadoPor ?? 'sin verificador registrado'}
+            {item.evidenciaId !== null && ` · evidencia #${item.evidenciaId}`}
+          </span>
+        ) : (
+          <span className="font-mono text-8_5" style={{ color: '#8a4407' }}>
+            sin verificar sobre evidencia todavía
+          </span>
+        )}
+        <button
+          onClick={() => setEditando((v) => !v)}
+          className="ml-auto flex-none rounded-campo border border-border-field bg-surface px-2 py-0.5 text-9_5 text-secondary"
+        >
+          {editando ? 'Cerrar' : yaVerificado ? 'Actualizar' : 'Verificar'}
+        </button>
+      </div>
+      {editando && (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-0.5">
+            <span className="etiqueta-campo">Evidencia · id</span>
+            <input
+              value={evidenciaId}
+              onChange={(e) => setEvidenciaId(e.target.value)}
+              className="entrada-campo w-[120px]"
+              inputMode="numeric"
+              placeholder="id"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="etiqueta-campo">Quién verifica</span>
+            <select
+              value={verificadoPorId}
+              onChange={(e) => setVerificadoPorId(e.target.value)}
+              className="entrada-campo min-w-[180px]"
+            >
+              <option value="">Elegir</option>
+              {personas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            disabled={enviando || (evidenciaId === '' && verificadoPorId === '')}
+            onClick={async () => {
+              setEnviando(true);
+              const r = await verificarItemHojaDeVida(item.respuestaId as number, {
+                evidenciaId: evidenciaId === '' ? undefined : Number(evidenciaId),
+                verificadoPorId: verificadoPorId === '' ? undefined : Number(verificadoPorId),
+              });
+              setEnviando(false);
+              setAviso(r.mensaje);
+              if (r.ok) setTimeout(() => window.location.reload(), 900);
+            }}
+            className="flex-none rounded-campo px-3 py-1.5 text-11 font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--hf-brand-nav)' }}
+          >
+            {enviando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      )}
+      {aviso !== null && <span className="text-9_5 text-muted">{aviso}</span>}
+    </div>
   );
 }
 
