@@ -110,6 +110,13 @@ describe('Verificación · un PR rojo recibe el error como comentario', () => {
     expect(textoAlFallar).toMatch(/log|salida|tail/i);
   });
 
+  it('descarta el ruido de `npm ci`, que si no desplaza al error de verdad', () => {
+    // Medido en el PR #41: la primera versión del comentario traía 23 líneas de
+    // `npm warn deprecated` y UNA sola del error de tipos. La cola tiene tamaño fijo, así
+    // que es un presupuesto: lo que gasta el ruido se lo quita al diagnóstico.
+    expect(textoAlFallar).toContain('npm warn deprecated');
+  });
+
   it('el paso de comentar NO puede tumbar el trabajo ni tapar el error que vino a explicar', () => {
     for (const p of alFallar) {
       expect({ paso: p.name, continuaAlFallar: p['continue-on-error'] }).toEqual({

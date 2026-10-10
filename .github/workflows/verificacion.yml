@@ -155,7 +155,17 @@ jobs:
 
             // Los códigos de color de npm y Jest se ven como basura dentro de un bloque de
             // código de Markdown.
-            salida = salida.replace(/\u001b\[[0-9;]*m/g, '');
+            //
+            // Y los avisos de dependencias obsoletas de `npm ci` se descartan: nunca son la
+            // causa de una verificación roja, y son DECENAS. Medido en este mismo PR, la
+            // primera versión del comentario traía 23 líneas de `npm warn deprecated` y una
+            // sola del error de tipos que había que leer. Una cola de tamaño fijo es un
+            // presupuesto: lo que gasta el ruido se lo quita al diagnóstico.
+            salida = salida
+              .replace(/\u001b\[[0-9;]*m/g, '')
+              .split('\n')
+              .filter((linea) => !/^npm warn deprecated /.test(linea))
+              .join('\n');
 
             let cola = salida.split('\n').slice(-LINEAS).join('\n');
             if (cola.length > TOPE) cola = cola.slice(-TOPE);
