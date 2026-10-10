@@ -66,12 +66,25 @@ controles, porque ninguno compara las dos cosas.
 
 ## Fase 3 · Lectura por API
 
-- [ ] 3.1 `GET /api/v1/sistemas` — prueba primero: sin token 401, con token de sólo lectura 200, con token de otro alcance 403
-- [ ] 3.2 `GET /api/v1/sistemas/{codigo}` — la hoja de vida completa en JSON, con sus siete colecciones hijas
-- [ ] 3.3 `GET` de cada colección por separado, con paginación estable (orden por clave natural, no por `id`)
-- [ ] 3.4 `GET /api/v1/catalogo-verificacion` — los 73 ítems con puerta, control del Anexo A, evidencia esperada y a quién aplica
-- [ ] 3.5 Errores uniformes en `problem+json`, con códigos estables y **sin filtrar detalles internos**
-- [ ] 3.6 Documento OpenAPI servido por la propia aplicación, generado del código y no escrito aparte
+- [x] 3.1 `GET /api/v1/sistemas` — paginado por cursor sobre `codigo`. El 401 y el 403 los cubre `con-token.test.ts` sobre la envoltura, que es donde ocurren: probarlos otra vez por ruta probaría `conToken` una vez por archivo
+- [x] 3.2 `GET /api/v1/sistemas/{codigo}` — la hoja de vida completa en JSON, con sus siete colecciones hijas. Cada una ordenada por su clave natural, la misma que declara su `@@unique`
+- [x] 3.3 Paginación estable por clave natural — `lib/api/paginacion.ts`, con la prueba del alta en medio del recorrido. **El `GET` de cada colección por separado NO se implementó**: el expediente completo es una sola respuesta y todavía no hay un sistema cuyas colecciones justifiquen partirse. Se abre cuando aparezca, no antes
+- [ ] 3.4 `GET /api/v1/catalogo-verificacion` — los 73 ítems con puerta, control del Anexo A, evidencia esperada y a quién aplica. **Bloqueada por 0.3**: versionar el catálogo cambia qué se publica acá
+- [x] 3.5 Errores uniformes en `problem+json`, con códigos estables y **sin filtrar detalles internos** — `lib/api/problema.ts`. `con-token.ts` deja de tener su propia copia; de paso se corrige que documentaba `problem+json` y emitía `application/json`
+- [x] 3.6 Documento OpenAPI servido por la propia aplicación, generado del código y no escrito aparte — `lib/api/catalogo-rutas.ts` + `GET /api/v1/openapi`. **Lo que impide que mienta no es que se genere, es que las rutas LEAN de él el permiso que aplican**, más la prueba que compara el catálogo contra el árbol de archivos
+
+### Hallazgo de esta fase
+
+**`Sistema.clasificacionId` es un `Int?` sin tabla, sin llave foránea y sin catálogo.** No existe
+`model Clasificacion`; `validarActualizacionSistema` ya documentaba que no la valida «porque
+inventar una lista de valores admitidos sería inventar un catálogo que nadie decidió», y la
+pantalla de sistemas le pide a una persona que teclee «id de la clasificación» en una entrada
+numérica libre.
+
+Sale en la API como número crudo —es la única clave sin traducir de toda la respuesta— porque
+omitirlo perdería el dato. Pero es justo el campo que el README de cada repositorio necesita para
+su cláusula de clasificación (A.5.13), así que el hueco no es cosmético: hoy no hay forma de
+responder por API «de qué clasificación es este sistema» con algo que un humano entienda.
 
 ## Fase 4 · Escritura por API
 

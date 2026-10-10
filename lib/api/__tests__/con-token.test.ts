@@ -36,7 +36,11 @@ describe('sin cabecera Authorization', () => {
     const r = await ruta(peticion(), {});
 
     expect(r.status).toBe(401);
-    expect(r.headers.get('Content-Type')).toContain('application/json');
+    // `application/problem+json` desde la Fase 3: el cuerpo ya tenía la forma de RFC 7807,
+    // pero `Response.json()` lo anunciaba como `application/json` y el comentario del módulo
+    // decía otra cosa. Lo que esta línea sostiene no cambió —un cuerpo que el cliente máquina
+    // puede leer, nunca el HTML de la pantalla de ingreso—, sólo se volvió exacto.
+    expect(r.headers.get('Content-Type')).toContain('application/problem+json');
     const cuerpo = await r.json();
     expect(cuerpo).toBeTruthy();
     expect(manejador).not.toHaveBeenCalled();

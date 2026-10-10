@@ -24,6 +24,7 @@ import 'server-only';
 import { autorizado, type Autor } from '@/lib/sig/autor';
 import type { Permiso } from '@/lib/sgsi/permisos';
 import { validar } from '@/lib/api/token-servicio';
+import { problema } from '@/lib/api/problema';
 
 const ESQUEMA = 'bearer';
 
@@ -40,20 +41,9 @@ function secretoDesdeEncabezado(valor: string | null): string | null {
   return secreto;
 }
 
-function problema(status: number, titulo: string, detalle: string): Response {
-  // `application/problem+json`, el mismo formato que la Fase 3 generaliza para el resto de
-  // `/api/v1` (spec `service-token-auth`, «errores uniformes en problem+json»). Acá sólo hacen
-  // falta estos dos códigos; el resto de causas vive en las rutas de lectura y escritura.
-  return Response.json(
-    { title: titulo, status, detail: detalle },
-    { status, headers: { 'Cache-Control': 'no-store' } },
-  );
-}
-
 function sinAutenticar(): Response {
   return problema(
-    401,
-    'No autenticado',
+    'no-autenticado',
     'Falta la cabecera Authorization con un token de servicio vigente: ' +
       '"Authorization: Bearer <secreto>".',
   );
@@ -61,8 +51,7 @@ function sinAutenticar(): Response {
 
 function sinPermiso(permiso: Permiso): Response {
   return problema(
-    403,
-    'Sin permiso',
+    'sin-permiso',
     `El token no tiene el permiso requerido para esta operación: ${permiso}.`,
   );
 }
