@@ -1,0 +1,15 @@
+# A qué sistema del SGI pertenece este repositorio.
+#
+# Un producto puede tener varios repositorios y UNA sola hoja de vida: `sistema` dice a cuál,
+# y `componente` distingue a este repo de los demás del mismo sistema. La hoja de vida vive en
+# el SGI; esto es el vínculo, versionado acá para que la pertenencia esté escrita y no en la
+# memoria de alguien.
+#
+# Lo lee `.github/actions/puerta-de-despliegue`, que antes de cada paso a producción le
+# pregunta al SIG si este sistema puede desplegar esta versión.
+#
+# EL CÓDIGO ES PROVISIONAL hasta que el SIG confirme el consecutivo. Queda como decisión
+# abierta: no se da por bueno.
+
+sistema: SIS-002
+componente: aplicacion

@@ -133,6 +133,27 @@ export const OPERACIONES: readonly OperacionApi[] = [
     parametros: [CODIGO_DE_SISTEMA],
     problemas: ['no-encontrado'],
   },
+  {
+    id: 'consultarPuertaDeDespliegue',
+    metodo: 'get',
+    ruta: '/sistemas/{codigo}/puerta-de-despliegue',
+    resumen: '¿Puede este sistema desplegar esta versión a producción?',
+    descripcion:
+      'Responde `puedeDesplegar`, los `faltantes` que lo impiden y los `avisos` que no. Es la ruta que consulta la automatización de cada repositorio antes de publicar una versión.\n\nLa regla vive acá y no en el repositorio a propósito: un producto puede tener varios repositorios, y cuatro copias de la norma son cuatro respuestas distintas el día que el procedimiento cambie. El repositorio pregunta; el SGI responde.\n\nNo exige P1 a P4: esas puertas se registran y se cuentan, no detienen (D17). Exige la hoja de vida abierta (PRO-TEC-04 §5.3), P5 superada (PRO-PRO-03 §5.2) y una liberación de esa versión exacta con autorizador y plan de reversión — las tres últimas, por los 23 despliegues sin autorización que documentó el expediente SIS-001.',
+    permiso: 'tecnologia:ver',
+    parametros: [
+      CODIGO_DE_SISTEMA,
+      {
+        nombre: 'version',
+        en: 'query',
+        obligatorio: true,
+        tipo: 'string',
+        descripcion:
+          'La versión que se quiere desplegar, por ejemplo «v2.4.0». Se compara exacta contra las liberaciones registradas: un prefijo dejaría que la autorización de «v2.4» cubriera un «v2.4.0» que nadie miró.',
+      },
+    ],
+    problemas: ['no-encontrado', 'peticion-invalida'],
+  },
 ];
 
 /// La entrada del catálogo, o un error al cargar el módulo.

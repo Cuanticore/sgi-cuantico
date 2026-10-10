@@ -1,0 +1,57 @@
+name: Puerta de despliegue del SGI
+description: >-
+  Verifica contra el SIG que este sistema puede desplegar esta versión a producción, y detiene
+  el trabajo si no. Lee el vínculo de .sgi/sistema.yml.
+
+# CÓMO SE USA, desde cualquier repositorio del grupo:
+#
+#   - uses: Cuanticore/sgi-cuantico/.github/actions/puerta-de-despliegue@main
+#     with:
+#       version: ${{ github.ref_name }}
+#       sgi-base: https://sig.cuantico.com
+#       token: ${{ secrets.SGI_TOKEN_SERVICIO }}
+#
+# Y en el repositorio, dos líneas en `.sgi/sistema.yml`:
+#
+#   sistema: SIS-001
+#   componente: backend-api
+#
+# POR QUÉ EL VÍNCULO ES UN ARCHIVO Y NO UNA ENTRADA DE LA ACTION. Un producto puede tener
+# varios repositorios y UNA sola hoja de vida; el archivo deja esa pertenencia escrita,
+# versionada y visible para quien abra el repo, en vez de enterrada en un parámetro de un
+# workflow que alguien reescribe. Y sobrevive a que el workflow se reescriba entero.
+#
+# POR QUÉ LA REGLA NO ESTÁ ACÁ. Si cada repositorio trajera su copia de qué hace falta para
+# desplegar, serían cuatro copias y cuatro respuestas distintas el día que el procedimiento
+# cambie. Esta action pregunta; el SGI responde. No conoce la norma, y por eso no puede
+# desviarse de ella.
+
+inputs:
+  version:
+    description: >-
+      La versión que se va a desplegar, por ejemplo «v2.4.0». Se compara exacta contra las
+      liberaciones registradas en la hoja de vida.
+    required: true
+  sgi-base:
+    description: URL del SIG, sin barra final.
+    required: false
+    default: https://sig.cuantico.com
+  token:
+    description: >-
+      Token de servicio del SIG con alcance «tecnologia:ver». Se emite en Tecnología › Tokens y
+      se guarda como secreto del repositorio. Sólo se muestra una vez al emitirlo.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Puerta de despliegue
+      shell: bash
+      env:
+        SGI_BASE: ${{ inputs.sgi-base }}
+        # Va por el entorno y nunca por la línea de comandos: los argumentos de un proceso son
+        # legibles por cualquier otro proceso de la máquina, y en un runner compartido eso
+        # alcanza para filtrar la credencial.
+        SGI_TOKEN: ${{ inputs.token }}
+        VERSION: ${{ inputs.version }}
+      run: node "$GITHUB_ACTION_PATH/puerta.js"
