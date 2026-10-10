@@ -37,14 +37,22 @@ jobs:
       # comentario no salió. Es el permiso mínimo que hace falta — no incluye escribir código.
       pull-requests: write
 
-    # Dónde se acumula la salida de todos los pasos de verificación. `$RUNNER_TEMP` se limpia
-    # solo entre ejecuciones, que importa en un runner cuyo workspace persiste.
-    env:
-      RUTA_LOG: ${{ runner.temp }}/verificacion.log
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Dónde se acumula la salida de los pasos de verificación. `$RUNNER_TEMP` se limpia solo
+      # entre ejecuciones, lo que importa en un runner cuyo workspace persiste.
+      #
+      # Va por `$GITHUB_ENV` y no por un `env:` del trabajo **porque GitHub rechaza el archivo
+      # entero si lo hace así**: `runner` no está entre los contextos admitidos en
+      # `jobs.<id>.env` —sólo `github`, `needs`, `vars`, `secrets` e `inputs`—, y existe
+      # únicamente a nivel de paso. Un workflow inválido no corre ningún trabajo: el PR muestra
+      # un rojo sin log y sin check, que se parece a una verificación caída pero no lo es.
+      # Pasó en este mismo PR, en el commit 0e4428a. El `CONTENEDOR_PG` de más abajo ya usaba
+      # este camino.
+      - name: Ruta del log de verificación
+        run: echo "RUTA_LOG=$RUNNER_TEMP/verificacion.log" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@v4

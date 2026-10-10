@@ -51,6 +51,7 @@ interface Paso {
 interface Trabajo {
   steps?: Paso[];
   permissions?: Record<string, string>;
+  env?: Record<string, string>;
 }
 
 interface Workflow {
@@ -115,6 +116,46 @@ describe('Verificación · un PR rojo recibe el error como comentario', () => {
         paso: p.name,
         continuaAlFallar: true,
       });
+    }
+  });
+});
+
+// UN WORKFLOW INVÁLIDO NO SE VE COMO UN WORKFLOW INVÁLIDO.
+//
+// El 09/10/2026, en el commit 0e4428a de este mismo cambio, el trabajo se declaró así:
+//
+//     jobs:
+//       verificar:
+//         env:
+//           RUTA_LOG: ${{ runner.temp }}/verificacion.log
+//
+// GitHub rechazó el archivo ENTERO. No corrió ningún trabajo, no quedó log, no quedó check:
+// el PR mostró un rojo pelado que se parece a una verificación caída y no lo es. `runner` no
+// está entre los contextos admitidos en `jobs.<id>.env` —sólo `github`, `needs`, `vars`,
+// `secrets` e `inputs`— y existe únicamente a nivel de paso.
+//
+// Lo que hace esto peligroso es que **ningún control local lo ve**: es YAML perfectamente
+// válido, así que `js-yaml` lo carga, las pruebas de arriba lo recorren y todo pasa en verde.
+// Sólo el servidor de GitHub conoce la tabla de contextos.
+//
+// Esta prueba es la tabla, escrita acá, para los dos contextos que se escapan en la práctica.
+const CONTEXTOS_PROHIBIDOS_EN_ENV_DE_TRABAJO = ['runner', 'steps', 'job', 'env'];
+
+describe('ningún workflow usa un contexto inválido en el `env` de un trabajo', () => {
+  const archivos = ['verificacion.yml', 'deploy.yml', 'deploy-git.yml'];
+
+  const casos = archivos.flatMap((archivo) =>
+    Object.entries(workflow(archivo).jobs ?? {}).map(
+      ([nombre, trabajo]) => [archivo, nombre, trabajo] as const,
+    ),
+  );
+
+  it.each(casos)('%s · trabajo «%s»', (_archivo, _nombre, trabajo) => {
+    const declarado = JSON.stringify(trabajo.env ?? {});
+
+    for (const contexto of CONTEXTOS_PROHIBIDOS_EN_ENV_DE_TRABAJO) {
+      // `${{ runner.temp }}`, con los espacios que GitHub permite alrededor.
+      expect(declarado).not.toMatch(new RegExp(`\\$\\{\\{\\s*${contexto}\\.`));
     }
   });
 });
