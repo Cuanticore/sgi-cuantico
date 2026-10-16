@@ -117,7 +117,11 @@ export function parseProcesses(ws: AnyWorksheet): Process[] {
     const estadoText = String(cellValue(ws, row, 6) ?? '');
 
     processes.push({
-      nombre: String(nombre),
+      // Trimmed because this name is the join key against "Indicadores Gestión", and
+      // IndicatorsTable matches the two with ===. Normalising here, where the data
+      // enters, keeps the comparison from depending on the workbook being typed
+      // perfectly: a trailing space on either sheet emptied a whole process in silence.
+      nombre: String(nombre).trim(),
       numIndicadores: Number(cellValue(ws, row, 3)) || 0,
       cumplimiento,
       meta,
@@ -167,7 +171,8 @@ export function parseIndicators(ws: AnyWorksheet): Indicator[] {
 
     indicators.push({
       numero: Number(numero),
-      proceso: String(cellValue(ws, row, 2) ?? ''),
+      // The other side of the same join key — see parseProcesses.
+      proceso: String(cellValue(ws, row, 2) ?? '').trim(),
       nombre: String(cellValue(ws, row, 3) ?? ''),
       lider: String(cellValue(ws, row, 4) ?? ''),
       objetivo: String(cellValue(ws, row, 8) ?? ''),

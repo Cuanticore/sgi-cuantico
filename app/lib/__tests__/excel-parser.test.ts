@@ -65,6 +65,21 @@ describe('parseProcesses', () => {
     expect(result[0].status).toBe('critico');
     expect(result.find(p => p.nombre === 'Gestión de Calidad')?.status).toBe('en_meta');
   });
+
+  // The process name is the join key between two sheets: this one and "Indicadores
+  // Gestión". The table matches them with ===, so stray whitespace on either side
+  // silently empties the process. It happened in the live workbook: every SIG row
+  // carried a trailing U+0020, the card said "4 indicadores" and the table showed none.
+  it('trims surrounding whitespace off the process name', () => {
+    const ws = mockWs({
+      19: { 2: 'Sistema Integrado de Gestión ', 3: 7, 4: 0.691, 5: 0.9, 6: '🔴 Crítico' },
+      20: { 2: '  Gestión Tecnológica  ', 3: 2, 4: 0.994, 5: 0.9, 6: '🟢 En meta' },
+      21: { 2: null },
+    });
+    const result = parseProcesses(ws as any);
+    expect(result[0].nombre).toBe('Sistema Integrado de Gestión');
+    expect(result[1].nombre).toBe('Gestión Tecnológica');
+  });
 });
 
 describe('parseMonthly', () => {
@@ -110,5 +125,19 @@ describe('parseIndicators', () => {
     expect(result[0].numero).toBe(1);
     expect(result[0].resultado).toBeCloseTo(34, 0);
     expect(result[0].status).toBe('critico');
+  });
+
+  // Same join key, other side of it. The workbook that exposed this had the trailing
+  // space here and not in "Cuadro de Mando 2026", so the card and the rows disagreed.
+  // Normalising at the parser keeps the comparison in IndicatorsTable honest.
+  it('trims surrounding whitespace off the process name', () => {
+    const ws = mockWs({
+      18: { 1: 25, 2: 'Sistema Integrado de Gestión ', 3: 'Costos de No Calidad', 4: 'Katherine Quiroga', 9: 'OB2', 13: 'Mensual', 14: '90%', 20: 0.5 },
+      19: { 1: 26, 2: '  Gestión Tecnológica  ', 3: 'Gestión de incidentes', 4: 'Lina Medina', 9: 'OB5', 13: 'Mensual', 14: '90%', 20: 0.95 },
+      20: { 1: null },
+    });
+    const result = parseIndicators(ws as any);
+    expect(result[0].proceso).toBe('Sistema Integrado de Gestión');
+    expect(result[1].proceso).toBe('Gestión Tecnológica');
   });
 });
