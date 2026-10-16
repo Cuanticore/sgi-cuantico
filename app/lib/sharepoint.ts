@@ -57,16 +57,28 @@ export async function getDriveId(token: string, siteId: string): Promise<string>
   return drive.id;
 }
 
-const FILE_CONFIG: Record<IndicatorYear, { path: string; file: string }> = {
-  '2026': {
-    path: process.env.SHAREPOINT_INDICATORS_PATH!,
-    file: process.env.SHAREPOINT_INDICATORS_FILE!,
-  },
-  '2025': {
-    path: process.env.SHAREPOINT_INDICATORS_PATH_2025!,
-    file: process.env.SHAREPOINT_INDICATORS_FILE_2025!,
-  },
-};
+/// A SharePoint sharing URL, turned into the token Graph accepts on `/shares/`.
+/// The rules are Microsoft's: base64, drop the `=` padding, `/`→`_`, `+`→`-`, prefix `u!`.
+export function tokenDeCompartir(url: string): string {
+  const base64 = Buffer.from(url, 'utf8').toString('base64');
+  return 'u!' + base64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+}
+
+/// Read at call time and not at module load. As a module constant these were resolved once,
+/// when the process booted, and a missing variable became the literal string `undefined`
+/// inside the path — Graph then answered 404 for `undefined/undefined`, which reads like a
+/// missing file rather than a missing setting.
+function rutaPorCarpeta(year: IndicatorYear): { path?: string; file?: string } {
+  return year === '2026'
+    ? {
+        path: process.env.SHAREPOINT_INDICATORS_PATH,
+        file: process.env.SHAREPOINT_INDICATORS_FILE,
+      }
+    : {
+        path: process.env.SHAREPOINT_INDICATORS_PATH_2025,
+        file: process.env.SHAREPOINT_INDICATORS_FILE_2025,
+      };
+}
 
 export async function fetchIndicatorsBuffer(year: IndicatorYear = '2026'): Promise<Buffer> {
   // Dev: read from local filesystem if path is configured
@@ -78,14 +90,46 @@ export async function fetchIndicatorsBuffer(year: IndicatorYear = '2026'): Promi
   }
 
   const token = await getToken();
+  const cabeceras = {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'arraybuffer' as const,
+  };
+
+  // The sharing URL is also what the «Abrir la matriz» button opens, so the screen and its
+  // data cannot point at different workbooks any more. They could before, and did: the
+  // library holds two files called «1. Indicadores Gestión 2026.xlsx» in different folders,
+  // so a correct-looking folder setting silently served the one nobody was editing.
+  //
+  // It also skips resolving the site and the library — two round trips per read.
+  const urlCompartida =
+    year === '2026'
+      ? process.env.SHAREPOINT_MATRIX_URL_2026
+      : process.env.SHAREPOINT_MATRIX_URL_2025;
+
+  if (urlCompartida) {
+    const res = await http.get(
+      `${GRAPH}/shares/${tokenDeCompartir(urlCompartida)}/driveItem/content`,
+      cabeceras,
+    );
+    return Buffer.from(res.data);
+  }
+
+  // Compatibility: a deployment still configured by folder and file name keeps working.
+  const { path, file } = rutaPorCarpeta(year);
+  if (!path || !file) {
+    throw new Error(
+      `No hay de dónde leer la matriz ${year}: configura SHAREPOINT_MATRIX_URL_${year} ` +
+        `(el mismo enlace que abre el botón «Abrir la matriz»).`,
+    );
+  }
+
   const siteId = await getSiteId(token);
   const driveId = await getDriveId(token, siteId);
-  const { path, file } = FILE_CONFIG[year];
   const filePath = `${path}/${file}`;
 
   const res = await http.get(
     `${GRAPH}/sites/${siteId}/drives/${driveId}/root:/${encodeURIComponent(filePath).replace(/%2F/g, '/')}:/content`,
-    { headers: { Authorization: `Bearer ${token}` }, responseType: 'arraybuffer' }
+    cabeceras,
   );
   return Buffer.from(res.data);
 }

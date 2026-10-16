@@ -238,3 +238,90 @@ describe('asegurarCarpetaDePersona', () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+// ── De dónde sale el libro de indicadores ───────────────────────────────────────────────
+//
+// El 16/10/2026 la pantalla pasó horas sirviendo un libro que nadie estaba editando. La
+// causa no fue el código: el enlace del botón «Abrir la matriz» y la fuente de datos eran
+// DOS variables distintas —`SHAREPOINT_MATRIX_URL_*` por un lado, `..._INDICATORS_PATH` y
+// `..._INDICATORS_FILE` por el otro— y nada obligaba a que apuntaran al mismo archivo. En
+// la biblioteca había dos libros con el mismo nombre en carpetas distintas, así que
+// apuntaban a archivos diferentes y las dos configuraciones se veían igual de correctas.
+//
+// Leer por la URL compartida colapsa las dos en una. Ya no pueden divergir porque son la
+// misma variable.
+
+describe('tokenDeCompartir', () => {
+  // Las reglas son de Microsoft, no nuestras: base64, quitar el relleno `=`, `/`->`_`,
+  // `+`->`-`, y anteponer `u!`. Se prueban con un valor cuyo base64 contiene los dos
+  // caracteres que hay que sustituir; si no, la prueba pasa sin mirar la sustitución.
+  it('codifica segun las reglas de Graph', async () => {
+    const { tokenDeCompartir } = await modulo();
+    expect(tokenDeCompartir('https://ejemplo/a?b=c')).toBe('u!aHR0cHM6Ly9lamVtcGxvL2E_Yj1j');
+  });
+
+  it('sustituye + y / y quita el relleno', async () => {
+    const { tokenDeCompartir } = await modulo();
+    const t = tokenDeCompartir('ÿï¾');
+    expect(t.startsWith('u!')).toBe(true);
+    expect(t).not.toContain('=');
+    expect(t).not.toContain('+');
+    expect(t).not.toContain('/');
+  });
+});
+
+describe('fetchIndicatorsBuffer', () => {
+  beforeEach(() => {
+    delete process.env.LOCAL_INDICATORS_FILE_2026;
+    delete process.env.LOCAL_INDICATORS_FILE_2025;
+    delete process.env.SHAREPOINT_MATRIX_URL_2026;
+    delete process.env.SHAREPOINT_MATRIX_URL_2025;
+    delete process.env.SHAREPOINT_INDICATORS_PATH;
+    delete process.env.SHAREPOINT_INDICATORS_FILE;
+  });
+
+  it('baja el libro por la URL compartida del año, sin resolver sitio ni biblioteca', async () => {
+    process.env.SHAREPOINT_MATRIX_URL_2026 = 'https://ejemplo/a?b=c';
+    get.mockResolvedValueOnce({ data: Buffer.from('libro-2026') });
+
+    const { fetchIndicatorsBuffer } = await modulo();
+    const buf = await fetchIndicatorsBuffer('2026');
+
+    expect(buf.toString()).toBe('libro-2026');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith(
+      'https://graph.microsoft.com/v1.0/shares/u!aHR0cHM6Ly9lamVtcGxvL2E_Yj1j/driveItem/content',
+      expect.objectContaining({ responseType: 'arraybuffer' }),
+    );
+  });
+
+  it('cada año usa su propia URL', async () => {
+    process.env.SHAREPOINT_MATRIX_URL_2025 = 'https://ejemplo/a?b=c';
+    get.mockResolvedValueOnce({ data: Buffer.from('libro-2025') });
+
+    const { fetchIndicatorsBuffer } = await modulo();
+    await fetchIndicatorsBuffer('2025');
+
+    expect(get).toHaveBeenCalledWith(
+      expect.stringContaining('/shares/u!aHR0cHM6Ly9lamVtcGxvL2E_Yj1j/driveItem/content'),
+      expect.anything(),
+    );
+  });
+
+  // Compatibilidad: quien todavía tenga la carpeta y el nombre configurados sigue andando.
+  it('sin URL compartida cae a la carpeta y el nombre de archivo', async () => {
+    process.env.SHAREPOINT_INDICATORS_PATH = 'Carpeta';
+    process.env.SHAREPOINT_INDICATORS_FILE = 'libro.xlsx';
+    primeroElSitioYLaBiblioteca();
+    get.mockResolvedValueOnce({ data: Buffer.from('por-ruta') });
+
+    const { fetchIndicatorsBuffer } = await modulo();
+    const buf = await fetchIndicatorsBuffer('2026');
+
+    expect(buf.toString()).toBe('por-ruta');
+    expect(get).toHaveBeenLastCalledWith(
+      expect.stringContaining('Carpeta/libro.xlsx'),
+      expect.anything(),
+    );
+  });
+});

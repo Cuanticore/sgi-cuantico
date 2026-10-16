@@ -18,7 +18,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { prisma } from '@/lib/db';
-import { getIndicatorsData } from '@/app/lib/data';
+import { contarIndicadores } from '@/app/lib/data';
 import { puede, rolDesdeGrupos } from '@/lib/sgsi/permisos';
 import EncabezadoSig from './EncabezadoSig';
 import SidebarSgsi, { type Contadores } from './SidebarSgsi';
@@ -35,9 +35,12 @@ export default async function ShellSig({ children }: { children: React.ReactNode
       prisma.lineaBase.findFirst({ orderBy: { fecha: 'desc' } }),
       // The Indicadores entry carries its own count, and it comes from SharePoint. A
       // failure there must not take the whole shell down: the menu just shows no number.
-      getIndicatorsData()
-        .then((d) => d.indicadores.length)
-        .catch(() => 0),
+      //
+      // `contarIndicadores` and not `getIndicatorsData`: this shell wraps the SGSI and
+      // Tecnología layouts, so reading live here would download the workbook on every one
+      // of those screens to render a two-digit number. The screens that SHOW the data read
+      // live; this counter keeps a window.
+      contarIndicadores(),
     ]);
 
   const rol = rolDesdeGrupos(session?.user?.grupos);
