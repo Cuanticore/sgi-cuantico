@@ -32,10 +32,27 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
+      # Para dejar el error como comentario en el PR. Sin esto la API responde 403 y el paso
+      # falla en silencio: el trabajo YA estaba rojo, así que nadie nota que además el
+      # comentario no salió. Es el permiso mínimo que hace falta — no incluye escribir código.
+      pull-requests: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Dónde se acumula la salida de los pasos de verificación. `$RUNNER_TEMP` se limpia solo
+      # entre ejecuciones, lo que importa en un runner cuyo workspace persiste.
+      #
+      # Va por `$GITHUB_ENV` y no por un `env:` del trabajo **porque GitHub rechaza el archivo
+      # entero si lo hace así**: `runner` no está entre los contextos admitidos en
+      # `jobs.<id>.env` —sólo `github`, `needs`, `vars`, `secrets` e `inputs`—, y existe
+      # únicamente a nivel de paso. Un workflow inválido no corre ningún trabajo: el PR muestra
+      # un rojo sin log y sin check, que se parece a una verificación caída pero no lo es.
+      # Pasó en este mismo PR, en el commit 0e4428a. El `CONTENEDOR_PG` de más abajo ya usaba
+      # este camino.
+      - name: Ruta del log de verificación
+        run: echo "RUTA_LOG=$RUNNER_TEMP/verificacion.log" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -51,11 +68,22 @@ jobs:
       # exactamente lo que pasó el 16/09/2026.
       #
       # Cuesta más de un minuto. Es el minuto más barato de todo el recorrido.
+      #
+      # La salida se duplica a `$RUTA_LOG` con `tee` porque **un paso no puede leer el log del
+      # paso anterior**: GitHub no se lo expone al runner. Si se quiere comentar el error en el
+      # PR, hay que guardarlo al pasar.
+      #
+      # `set -euo pipefail` ya estaba, y acá pasa a ser crítico: sin `pipefail`, el código de
+      # salida de `npm … | tee` es el de `tee`, que sale 0 SIEMPRE. El gate quedaría verde con
+      # los tipos rotos y la suite caída, y no habría nada en el diff que lo delate: una tubería
+      # de más. `verificacion-comenta-en-el-pr.test.ts` falla si alguien quita el `pipefail`.
       - name: Verificación — tipos, lint, pruebas y build
         run: |
           set -euo pipefail
-          npm ci
-          npm run verificar:build
+          { echo; echo "===== npm ci ====="; } | tee -a "$RUTA_LOG"
+          npm ci 2>&1 | tee -a "$RUTA_LOG"
+          { echo; echo "===== npm run verificar:build ====="; } | tee -a "$RUTA_LOG"
+          npm run verificar:build 2>&1 | tee -a "$RUTA_LOG"
 
       # LAS MIGRACIONES SON LO UNICO QUE NINGUN OTRO PASO EJECUTA.
       #
@@ -86,8 +114,100 @@ jobs:
             if [ "$i" = 30 ]; then echo "El Postgres de verificación no levantó."; exit 1; fi
             sleep 1
           done
+          { echo; echo "===== npm run verificar:migraciones ====="; } | tee -a "$RUTA_LOG"
           DATABASE_URL="postgresql://verificacion:verificacion@127.0.0.1:$PUERTO/verificacion" \
-            npm run verificar:migraciones
+            npm run verificar:migraciones 2>&1 | tee -a "$RUTA_LOG"
+
+      # EL ERROR, EN LA PÁGINA QUE LA PERSONA YA ESTÁ MIRANDO.
+      #
+      # Hasta acá el PR rojo decía «algo falló» y un enlace. Para saber SI fue un tipo, una
+      # regla de ESLint, una prueba o una migración había que abrir el run, elegir el trabajo,
+      # desplegar el paso y buscar el error real en miles de líneas. Esa fricción es la que
+      # termina en «lo miro después» y en un merge que despliega a producción.
+      #
+      # Se comenta sólo en PR: `workflow_dispatch` corre sobre una rama suelta, sin PR donde
+      # comentar, y la API respondería 404.
+      #
+      # `continue-on-error` no es opcional. Si este paso se pusiera rojo —la API caída, un
+      # permiso retirado— pasaría a ser el último error del trabajo y taparía justo lo que vino
+      # a explicar. Es la misma lección que ya dejó escrita el diagnóstico del despliegue.
+      - name: Comentar el error en el PR
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // La marca va en un comentario HTML: no se ve al leer, y es lo que permite
+            // ACTUALIZAR el comentario en vez de apilar uno nuevo por cada push al PR. Un hilo
+            // con ocho informes de error idénticos es ruido, y el último queda enterrado.
+            const MARCA = '<!-- verificacion:error -->';
+            const LINEAS = 120;
+            const TOPE = 20000; // el cuerpo de un comentario admite 65536; se deja margen
+
+            let salida = '';
+            try {
+              salida = fs.readFileSync(process.env.RUTA_LOG, 'utf8');
+            } catch {
+              salida = '(no quedó log: la verificación se cayó antes de empezar a escribirlo)';
+            }
+
+            // Los códigos de color de npm y Jest se ven como basura dentro de un bloque de
+            // código de Markdown.
+            //
+            // Y los avisos de dependencias obsoletas de `npm ci` se descartan: nunca son la
+            // causa de una verificación roja, y son DECENAS. Medido en este mismo PR, la
+            // primera versión del comentario traía 23 líneas de `npm warn deprecated` y una
+            // sola del error de tipos que había que leer. Una cola de tamaño fijo es un
+            // presupuesto: lo que gasta el ruido se lo quita al diagnóstico.
+            salida = salida
+              .replace(/\u001b\[[0-9;]*m/g, '')
+              .split('\n')
+              .filter((linea) => !/^npm warn deprecated /.test(linea))
+              .join('\n');
+
+            let cola = salida.split('\n').slice(-LINEAS).join('\n');
+            if (cola.length > TOPE) cola = cola.slice(-TOPE);
+
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            const cuerpo = [
+              MARCA,
+              '### La verificación falló',
+              '',
+              'Este PR **no debería mergearse** así: en este repo mergear a `main` despliega a',
+              'producción, sin staging ni revisión posterior.',
+              '',
+              `Últimas ${LINEAS} líneas de la salida — el log completo está en [el run](${run}):`,
+              '',
+              '```',
+              cola,
+              '```',
+              '',
+              '<sub>Reproducible en local con `npm run verificar:build`.</sub>',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            // Los comentarios de un PR viven en la API de issues; no es un atajo, es dónde
+            // están.
+            const previos = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const mio = previos.find((c) => (c.body || '').includes(MARCA));
+
+            if (mio) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: mio.id, body: cuerpo,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number, body: cuerpo,
+              });
+            }
 
       # Se para SIEMPRE, incluso con la verificación en rojo — que es justo cuando uno se
       # olvidaría. `--rm` en el `docker run` hace el resto.
