@@ -257,6 +257,140 @@ jobs:
           dc exec -T sgi-cuantico-prod node -e \
             "fetch('http://127.0.0.1:3004/auth/signin').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);console.log('humo ok '+r.status)})"
 
+      # Saber QUÉ quedó desplegado no debería exigir cruzar el log con el historial de
+      # commits. Y el día que algo salga raro, el resumen del último despliegue bueno es la
+      # referencia contra la que se compara.
+      #
+      # Va antes del respaldo a propósito: si el respaldo falla, el despliegue ya ocurrió y
+      # conviene que quede dicho — leer «falló» cuando los contenedores ya están sirviendo la
+      # versión nueva es cómo alguien termina redesplegando lo que no hacía falta.
+      - name: Resumen del despliegue
+        continue-on-error: true
+        run: |
+          set +e
+          cd "$DESTINO" 2>/dev/null || true
+          R="$GITHUB_STEP_SUMMARY"
+
+          CREADO="$(docker inspect sgi-cuantico-prod --format '{{.Created}}' 2>/dev/null)"
+          SALUD="$(docker inspect sgi-cuantico-prod --format '{{.State.Health.Status}}' 2>/dev/null)"
+          IMG="$(docker inspect sgi-cuantico-prod --format '{{.Image}}' 2>/dev/null | cut -c1-19)"
+          APLICADAS="$(docker exec sgi-postgres-prod psql -U sgi -d sgi_sgsi -tAc \
+            "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL;" 2>/dev/null)"
+          PENDIENTES="$(docker exec sgi-postgres-prod psql -U sgi -d sgi_sgsi -tAc \
+            "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL;" 2>/dev/null)"
+
+          {
+            echo "## Desplegado"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Imagen | \`${IMG:-?}\` |"
+            echo "| Contenedor creado | ${CREADO:-?} |"
+            echo "| Salud | ${SALUD:-?} |"
+            echo "| Migraciones aplicadas | ${APLICADAS:-?} |"
+            echo "| Migraciones en mal estado | ${PENDIENTES:-?} |"
+          } >> "$R"
+
+          # Que quede dicho aunque el despliegue haya salido bien: una migración rota que
+          # nadie resolvió no falla hoy —no había ninguna pendiente que aplicar— y falla el
+          # día que alguien agregue la siguiente, sin relación aparente con su cambio.
+          if [ "${PENDIENTES:-0}" != "0" ]; then
+            {
+              echo
+              echo "> **Ojo:** quedan ${PENDIENTES} migraciones en mal estado. Este despliegue pasó"
+              echo "> porque no había ninguna nueva que aplicar. La próxima que se agregue va a fallar."
+            } >> "$R"
+          fi
+
+      # ─── CUANDO ALGO SALE MAL ────────────────────────────────────────────────────────
+      #
+      # El 18/09/2026 `migrate deploy` abortó con `42703: column "nombre" does not exist`, y
+      # el log decía eso y nada más. Lo que de verdad hacía falta saber —que el índice SÍ se
+      # había creado antes de abortar, y que había DOS migraciones en mal estado y no una—
+      # hubo que ir a buscarlo por SSH, consultando `_prisma_migrations` a mano.
+      #
+      # Ese diagnóstico ya estaba acá: la conexión abierta, el contenedor corriendo, el
+      # estado a una consulta de distancia. Se tiraba a la basura.
+      #
+      # Y entrar a producción a diagnosticar es justo lo que uno NO quiere estar haciendo con
+      # el despliegue caído y prisa encima: el momento de menos calma y más permisos.
+      #
+      # `continue-on-error` es obligatorio. Si una consulta falla —la base caída, por
+      # ejemplo— este paso se pondría rojo y pasaría a ser el último error del job,
+      # sepultando el fallo real debajo de uno que no le importa a nadie.
+      - name: Diagnóstico — por qué se cayó y cómo quedó todo
+        if: failure()
+        continue-on-error: true
+        run: |
+          set +e
+          cd "$DESTINO" 2>/dev/null || true
+          R="$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "## El despliegue se cayó"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Rama | \`${GITHUB_REF_NAME:-?}\` |"
+          } >> "$R"
+
+          # QUÉ SIGUE SIRVIENDO. Un despliegue caído no deja producción vacía: el contenedor
+          # anterior sigue en pie. Decirlo evita el susto de suponer que el sitio está abajo.
+          VIVO="$(docker inspect sgi-cuantico-prod --format '{{.State.Status}} · {{.State.Health.Status}} · desde {{.Created}}' 2>/dev/null)"
+          IMG="$(docker inspect sgi-cuantico-prod --format '{{.Image}}' 2>/dev/null | cut -c1-19)"
+          {
+            echo "| Contenedor que sigue sirviendo | ${VIVO:-no se pudo leer} |"
+            echo "| Su imagen | \`${IMG:-?}\` |"
+            echo
+          } >> "$R"
+
+          # EL ESTADO DE LAS MIGRACIONES. Es lo que hubo que ir a buscar a mano el 18/09.
+          ROTAS="$(docker exec sgi-postgres-prod psql -U sgi -d sgi_sgsi -tAc \
+            "SELECT string_agg(migration_name || ' (' || CASE WHEN finished_at IS NULL THEN 'sin terminar' ELSE 'revertida' END || ')', ', ') FROM _prisma_migrations WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL;" 2>&1)"
+
+          if [ -n "$ROTAS" ] && [ "$ROTAS" != "" ]; then
+            {
+              echo "### Migraciones en mal estado"
+              echo
+              echo "\`\`\`"
+              echo "$ROTAS"
+              echo "\`\`\`"
+              echo
+              echo "Mientras alguna siga así, **ninguna migración nueva se aplica** (Prisma P3018),"
+              echo "aunque el SQL ya esté corregido. Se resuelve una por una, contra la base real:"
+              echo
+              echo "\`\`\`bash"
+              echo "npx prisma migrate resolve --rolled-back <nombre_de_la_migracion>"
+              echo "\`\`\`"
+              echo
+              echo "Antes de reaplicar, confirma qué alcanzó a hacer la que abortó: una migración"
+              echo "puede dejar objetos creados y volver a fallar por duplicado, con un error"
+              echo "distinto y más confuso que el original."
+              echo
+            } >> "$R"
+          else
+            echo "_Ninguna migración quedó en mal estado; el fallo fue en otro paso._" >> "$R"
+            echo >> "$R"
+          fi
+
+          # Las últimas, para ubicar hasta dónde llegó.
+          {
+            echo "### Últimas migraciones registradas"
+            echo
+            echo "\`\`\`"
+            docker exec sgi-postgres-prod psql -U sgi -d sgi_sgsi -tAc \
+              "SELECT rpad(migration_name, 48) || COALESCE(finished_at::text, 'SIN TERMINAR') FROM _prisma_migrations ORDER BY started_at DESC LIMIT 6;" 2>&1
+            echo "\`\`\`"
+            echo
+            echo "### Últimas líneas del contenedor"
+            echo
+            echo "\`\`\`"
+            docker logs --tail 40 sgi-cuantico-prod 2>&1 | tail -40
+            echo "\`\`\`"
+          } >> "$R"
+
       - name: Backup after a successful deploy
         # A dump taken right after a deploy is the one you want when the deploy turns out
         # to have been a mistake. Retention is 30 days; the cron in
