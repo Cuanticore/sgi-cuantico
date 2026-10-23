@@ -91,6 +91,9 @@ import {
   type BorradorSesionRiesgo,
   type DecisionTratamiento,
 } from '@/app/sgsi/acciones/riesgos';
+// La MISMA acción que usa la pantalla de controles: un solo escritor de `Control.actualId`.
+import { guardarMadurez, type CambioMadurez } from '@/app/sgsi/acciones/controles';
+import { avisoSinGuardar } from '@/lib/sgsi/aviso-sin-guardar';
 import { clasificar, clasificarZona, tratamientoSugerido, type Zona } from '@/lib/sgsi/clasificar';
 import { Decimal, entraAlAnalisis, valorActivo, type ValoresDimension } from '@/lib/sgsi/formulas';
 import { codigoDebeReemitirse } from '@/lib/sgsi/codigo-activo';
@@ -1127,12 +1130,21 @@ export default function FichaActivo({
     // What has no action at all. These move the figures on screen and stay out of the
     // count, so "guardado" is never claimed over them.
     const simulaciones: string[] = [];
-    const nMadurez = Object.keys(madOv).length;
-    if (nMadurez > 0) {
-      simulaciones.push(
-        `${nMadurez} ${nMadurez === 1 ? 'nivel' : 'niveles'} de madurez — la madurez es del CONTROL, no de este activo: se registra en la pantalla de controles`,
-      );
-    }
+    // LA MADUREZ YA SE GUARDA, y por eso salió de las simulaciones.
+    //
+    // Se escribe con `guardarMadurez`, que es la MISMA acción que usa la pantalla de
+    // controles: un solo escritor de `Control.actualId`, que registra en bitácora, corre
+    // `generarRiesgos` y revalida. Duplicar el escritor era la forma segura de que las dos
+    // pantallas se separaran.
+    //
+    // ALCANCE, DICHO EN EL MENSAJE Y NO ESCONDIDO: la madurez es del CONTROL. Guardarla acá
+    // mueve el riesgo residual de todos los activos que tienen esa amenaza, no sólo de éste.
+    // La pantalla lo advierte antes de guardar; el aviso no reemplaza a la advertencia, la
+    // acompaña.
+    const madurez: CambioMadurez[] = Object.entries(madOv).map(([clave, nivel]) => ({
+      codigoControl: clave.split('·')[1] ?? clave,
+      nivel,
+    }));
     if (Object.keys(efectos).length > 0) {
       simulaciones.push(
         'el efecto Previene / Limita — MET-SIG-01 §7.4 no lo usa en el cálculo y no tiene columna todavía',
@@ -1151,6 +1163,7 @@ export default function FichaActivo({
 
     const pendientes =
       nDatos +
+      madurez.length +
       valoracion.length +
       nCambiosSesion +
       tratamientos.length +
@@ -1161,6 +1174,7 @@ export default function FichaActivo({
       datos,
       nDatos,
       clasificacion,
+      madurez,
       valoracion,
       sesionRiesgos,
       nCambiosSesion,
@@ -1304,6 +1318,12 @@ export default function FichaActivo({
         (r.ok ? logros : fallos).push(r.mensaje);
         if (r.codigoNuevo !== undefined) codigoReemitido = r.codigoNuevo;
       }
+
+      // LA MADUREZ, ANTES QUE TODO LO DEMÁS. Cambia la eficacia de la amenaza, y de ahí
+      // sale el residual que las acciones siguientes leen para decidir si un tratamiento es
+      // una sobrescritura. Guardarla después dejaría a esas decisiones mirando el número
+      // viejo.
+      if (plan.madurez.length > 0) await aplicar(guardarMadurez(plan.madurez, notaSesion ?? undefined));
 
       // The valuation before every per-risk change. A dimension crossing the threshold is
       // what brings the risks into existence, so an exception whose risk does not exist
@@ -1691,6 +1711,9 @@ export default function FichaActivo({
 
       {pestana === 'amenazas' && (
         <TabAmenazas
+          // Bajan hasta el panel de la amenaza, que es un modal y tapa el pie donde vive
+          // «Guardar N cambios».
+          pendientes={plan.pendientes}
           codigoActivo={activo?.codigo ?? ''}
           planes={planesPorAmenaza}
           filas={visibles}
@@ -3139,6 +3162,11 @@ function TarjetaDimension({
 
 interface AccionesAmenazas {
   onAbrir: (codigo: string) => void;
+  /// Cuántos cambios lleva la FICHA sin guardar, y si el guardado está en vuelo. Viajan hasta
+  /// acá porque el panel es un modal: tapa el pie donde vive «Guardar N cambios», así que sin
+  /// esto quien cambia una madurez no tiene forma de saber que queda algo pendiente.
+  pendientes: number;
+  guardando: boolean;
   onDegradacion: (codigo: string, dim: Dim, degradacionId: number) => void;
   onJustificacion: (codigo: string, dim: Dim, justificacion: string) => void;
   onQuitarExcepcion: (codigo: string, dim: Dim) => void;
@@ -3153,6 +3181,7 @@ interface AccionesAmenazas {
 }
 
 function TabAmenazas({
+  pendientes,
   codigoActivo,
   planes,
   filas,
@@ -3291,6 +3320,8 @@ function TabAmenazas({
           {filas.map((f) => (
             <RenglonAmenaza
               key={f.amenaza.codigo}
+              pendientes={pendientes}
+              guardando={guardando}
               f={f}
               abierta={abierta === f.amenaza.codigo}
               catalogos={catalogos}
@@ -3436,6 +3467,8 @@ function RenglonAmenaza({
   codigoActivo,
   plan,
   onAbrir,
+  pendientes,
+  guardando,
   onDegradacion,
   onJustificacion,
   onQuitarExcepcion,
@@ -3671,6 +3704,27 @@ function RenglonAmenaza({
                   </>
                 )}
               </span>
+
+              {/* EL AVISO DE LO PENDIENTE, pegado al botón que hay que pulsar. El panel tapa
+                  el pie de la ficha, así que sin esto quien cambia una madurez ve moverse el
+                  residual y no sabe si eso ya quedó. `role="status"` para que un lector de
+                  pantalla lo anuncie al aparecer, sin robar el foco. */}
+              {(() => {
+                const aviso = avisoSinGuardar(pendientes, guardando);
+                if (aviso === null) return null;
+                return (
+                  <span
+                    role="status"
+                    className={`flex-none rounded-campo border px-2.5 py-1 text-11 font-semibold ${
+                      aviso.enVuelo
+                        ? 'border-border-default bg-subtle text-secondary'
+                        : 'border-warn-border bg-warn-100 text-warn-text'
+                    }`}
+                  >
+                    {aviso.texto}
+                  </span>
+                );
+              })()}
 
               <button
                 onClick={() => onAbrir(codigo)}
@@ -4422,9 +4476,20 @@ function GrillaControles({
                   )}
                 </div>
                 <div className="pr-3">
+                  {/* EL TITLE NO ES DECORACIÓN: ES LA ÚNICA ADVERTENCIA QUE HAY.
+                      El 28/09/2026 alguien movió esta madurez en producción, vio el residual
+                      bajar de 32 a 11,2 y preguntó si guardaba solo. No guarda de ninguna
+                      forma, y el botón «Guardar N cambios» tampoco lo cuenta — así que no hay
+                      indicador que delate la diferencia. Se hace lo razonable y la pantalla
+                      deja creerlo. */}
                   <select
                     value={c.nivel === null ? '' : String(c.nivel)}
-                    aria-label={`Madurez CMM de ${c.codigo}`}
+                    aria-label={`Madurez CMM de ${c.codigo} · se guarda y afecta a todos los activos`}
+                    title={
+                      'SE GUARDA al pulsar «Guardar», y la madurez es del CONTROL: al hacerlo se ' +
+                      'recalcula el riesgo residual de todos los activos que tienen esta ' +
+                      'amenaza, no sólo de éste. Queda registrado en la bitácora.'
+                    }
                     onChange={(e) => onMadurez(clave, Number(e.target.value))}
                     className="w-full rounded-[5px] border px-[7px] py-[5px] text-11_5 font-semibold focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                     style={{ borderColor: color.bd, background: color.bg, color: color.fg }}
@@ -4440,8 +4505,13 @@ function GrillaControles({
                 <div className="pr-3">
                   <select
                     value={c.efecto}
-                    aria-label={`Efecto de ${c.codigo} sobre el riesgo`}
-                    title="El modelo solo cuantifica el efecto preventivo: la eficacia reduce la frecuencia. Un control que limita el daño se refleja bajando la degradación de la amenaza."
+                    aria-label={`Efecto de ${c.codigo} sobre el riesgo · simulación, no se guarda`}
+                    title={
+                      'SIMULACIÓN: no se guarda, igual que la madurez de al lado. ' +
+                      'El modelo sólo cuantifica el efecto preventivo: la eficacia reduce la ' +
+                      'frecuencia. Un control que limita el daño se refleja bajando la ' +
+                      'degradación de la amenaza.'
+                    }
                     onChange={(e) => onEfecto(clave, e.target.value as EfectoControl)}
                     className="w-full rounded-[5px] border border-accent-border bg-accent-50 px-[7px] py-[5px] text-11_5 font-medium text-primary focus:outline-hidden focus:ring-2 focus:ring-accent-300"
                   >
@@ -4505,6 +4575,26 @@ function GrillaControles({
               amenaza. Asociar o quitar un control cambia la eficacia de la amenaza y con ella
               el riesgo residual de <strong>todos</strong> los activos que la tienen: es una
               decisión de parametrización, no de este activo.
+            </span>
+            {/* LA ADVERTENCIA CAMBIÓ DE CONTENIDO CUANDO EL SELECTOR EMPEZÓ A GUARDAR.
+                Ayer decía «no se guarda», que era cierto y era el defecto. Hoy guarda, así que
+                repetir aquella frase sería mentir al revés. Lo que queda por advertir es el
+                ALCANCE: la madurez es del control y mueve el riesgo de todos los activos que
+                tienen esa amenaza, no sólo de éste. Eso hay que saberlo ANTES de guardar. */}
+            <span className="w-full rounded-campo border border-warn-border bg-warn-100 px-3 py-2 text-11 leading-relaxed text-warn-text [text-wrap:pretty]">
+              <strong>La madurez que cambies aquí se guarda, y es del control — no de este
+              activo.</strong>{' '}
+              Al guardar se recalcula el riesgo residual de <strong>todos</strong> los activos
+              que tienen esta amenaza, y queda registrado en la bitácora. Es la misma escritura
+              que hace{' '}
+              <Link
+                href="/sgsi/controles"
+                className="font-semibold underline decoration-from-font underline-offset-2"
+              >
+                Madurez de los controles
+              </Link>
+              . El <em>efecto</em> Previene / Limita, en cambio, sigue siendo una simulación: el
+              cálculo todavía no lo usa.
             </span>
           </div>
         </div>

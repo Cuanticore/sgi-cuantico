@@ -864,6 +864,11 @@ function revalidarSgsi(): void {
     '/',
     '/sgsi',
     '/sgsi/inventario',
+    // La lista de Análisis de riesgos vive de `riesgo.riesgoResidual`, que
+    // `generarRiesgos` acaba de reescribir. Sin esta línea Next sirve la versión
+    // cacheada y quien guarda ve las cifras de antes — y concluye, con razón, que no
+    // se guardó nada.
+    '/sgsi/valoracion-riesgos',
     '/sgsi/matrices',
     '/sgsi/controles',
     '/sgsi/planes',

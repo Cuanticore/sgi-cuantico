@@ -39,6 +39,12 @@ jest.mock('next/navigation', () => ({
   useRouter: () => router,
 }));
 
+// `guardarMadurez` vive junto a Prisma y `next/cache`: importarlo sin simular arrastra los
+// internals del servidor a jsdom y la suite no arranca. Mismo trato que las otras acciones.
+jest.mock('@/app/sgsi/acciones/controles', () => ({
+  guardarMadurez: jest.fn().mockResolvedValue({ ok: true, mensaje: 'Madurez guardada.' }),
+}));
+
 jest.mock('@/app/sgsi/acciones/activos', () => ({
   darDeBajaActivo: jest.fn(),
   guardarDatosGenerales: jest.fn(),

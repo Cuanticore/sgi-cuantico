@@ -759,6 +759,7 @@ async function cargarConsolidadoV19(plan: PlanDeCarga, autor: string): Promise<R
       '/',
       '/sgsi',
       '/sgsi/inventario',
+      '/sgsi/valoracion-riesgos',
       '/sgsi/matrices',
       '/sgsi/planes',
       '/tecnologia/grafo',

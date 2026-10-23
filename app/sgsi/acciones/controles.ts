@@ -171,6 +171,8 @@ export async function agregarEvidencias(
     });
 
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     revalidatePath('/sgsi');
 
     // Notificación por correo de cada mención. Fuera de la transacción: la nota ya
@@ -252,6 +254,8 @@ export async function quitarEvidencia(id: number, motivo: string): Promise<Resul
     });
 
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     return { ok: true, mensaje: 'Se retiró la evidencia.', cambios: 1 };
   });
 }
@@ -336,6 +340,8 @@ export async function restaurarEvidencia(id: number): Promise<Resultado> {
     });
 
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     return { ok: true, mensaje: 'Se restauró la evidencia.', cambios: 1 };
   });
 }
@@ -397,6 +403,8 @@ export async function guardarMadurezObjetivo(
     });
 
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     revalidatePath('/sgsi/planes');
     revalidatePath('/sgsi');
 
@@ -467,6 +475,8 @@ export async function guardarMadurez(
 
     revalidatePath('/sgsi');
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     revalidatePath('/sgsi/matrices');
     revalidatePath('/sgsi/planes');
     revalidatePath('/sgsi/inventario');
@@ -699,6 +709,8 @@ export async function cambiarEstadoSoa(
 
     revalidatePath('/sgsi');
     revalidatePath('/sgsi/controles');
+    // `generarRiesgos` reescribió el residual: la lista de Análisis lo muestra.
+    revalidatePath('/sgsi/valoracion-riesgos');
     revalidatePath('/sgsi/planes');
     revalidatePath('/sgsi/matrices');
     revalidatePath('/sgsi/inventario');
